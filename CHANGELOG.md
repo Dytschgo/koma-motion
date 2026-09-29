@@ -46,6 +46,9 @@ early-stage prototype.
 - Saving no longer replaces an existing file that is too large or otherwise
   impossible to inspect. A missing file can still be created. A failed save
   leaves the previous file in place and removes its temporary file.
+- The sandboxed window can no longer send WebRTC traffic, including STUN and
+  TURN over UDP or TCP. Files outside the renderer bundle can no longer be
+  loaded through a junction, a symlink or a Windows alternate data stream.
 
 ### Not included
 

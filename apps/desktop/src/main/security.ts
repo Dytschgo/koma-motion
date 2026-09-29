@@ -14,9 +14,11 @@ import {
 } from 'electron';
 import {
   APP_SCHEME,
+  CONNECTION_ALLOWLIST,
+  CONNECTION_ALLOWLIST_FEATURE,
   CONTENT_SECURITY_POLICY,
   CONTENT_TYPES,
-  isAllowedExternalLink,
+  externalBrowserDestination,
   isAppUrl,
   resolveAppFile,
 } from './securityPolicy';
@@ -25,6 +27,18 @@ export { APP_URL } from './securityPolicy';
 
 /** Must run before the application is ready. */
 export function registerAppScheme(): void {
+  const enabled = app.commandLine.getSwitchValue('enable-features');
+  const features = enabled
+    .split(',')
+    .map((feature) => feature.trim())
+    .filter((feature) => feature.length > 0);
+  if (!features.includes(CONNECTION_ALLOWLIST_FEATURE)) {
+    features.push(CONNECTION_ALLOWLIST_FEATURE);
+    if (enabled.length > 0) {
+      app.commandLine.removeSwitch('enable-features');
+    }
+    app.commandLine.appendSwitch('enable-features', features.join(','));
+  }
   protocol.registerSchemesAsPrivileged([
     {
       scheme: APP_SCHEME,
@@ -47,6 +61,7 @@ export function serveApp(rendererDirectory: string): void {
         headers: {
           'Content-Type': CONTENT_TYPES[extname(file).toLowerCase()] ?? 'application/octet-stream',
           'Content-Security-Policy': CONTENT_SECURITY_POLICY,
+          'Connection-Allowlist': CONNECTION_ALLOWLIST,
           'X-Content-Type-Options': 'nosniff',
           'Cache-Control': 'no-store',
         },
@@ -77,6 +92,29 @@ export function hardenSession(session: Session): void {
   });
 }
 
+/**
+ * Best-effort replacement of WebRTC constructors in a child frame.
+ * A parent script can still call the constructor on the initial about:blank
+ * document before this runs. Chromium then terminates the renderer. That
+ * failure does not send packets.
+ */
+const DISABLE_CHILD_FRAME_WEBRTC = `(() => {
+  const blocked = function RTCPeerConnection() {
+    throw new DOMException('WebRTC is disabled.', 'NotSupportedError');
+  };
+  for (const name of ['RTCPeerConnection', 'webkitRTCPeerConnection']) {
+    try {
+      Object.defineProperty(window, name, {
+        configurable: false,
+        writable: false,
+        value: blocked,
+      });
+    } catch {
+      // The constructor was already replaced.
+    }
+  }
+})()`;
+
 /** Keeps web contents on the application page and out of new windows. */
 export function hardenWebContents(contents: WebContents): void {
   contents.on('will-navigate', (event, url) => {
@@ -89,12 +127,29 @@ export function hardenWebContents(contents: WebContents): void {
       event.preventDefault();
     }
   });
+  contents.on('will-frame-navigate', (event) => {
+    if (!event.isMainFrame && isAppUrl(contents.getURL())) {
+      event.preventDefault();
+    }
+  });
+  contents.on('frame-created', (_event, { frame }) => {
+    if (
+      frame === null ||
+      frame.frameToken === contents.mainFrame.frameToken ||
+      !isAppUrl(contents.getURL())
+    ) {
+      return;
+    }
+    void frame.executeJavaScript(DISABLE_CHILD_FRAME_WEBRTC).catch(() => undefined);
+  });
   contents.on('will-attach-webview', (event) => {
     event.preventDefault();
   });
   contents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedExternalLink(url)) {
-      void shell.openExternal(url);
+    const destination = externalBrowserDestination(url);
+    if (destination !== null) {
+      // The system browser makes this request. It is not a renderer connection.
+      void shell.openExternal(destination).catch(() => undefined);
     }
     return { action: 'deny' };
   });

@@ -204,7 +204,8 @@ available, and the application shows it that way. See
 | drawing and preview       |  IPC   | reading images                   |
 |                           |        | agent providers and processes    |
 | no Node.js, no files,     |        | validation of every request      |
-| no processes, no network  |        |                                  |
+| no processes, no own      |        |                                  |
+| network connections       |        |                                  |
 +---------------------------+        +----------------------------------+
               ^
               | contextBridge: invoke, subscribe
@@ -286,19 +287,21 @@ therefore clears the indicator.
 
 ## Security decisions
 
-| Decision                                                                       | Reason                                                                            |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Context isolation on, Node.js integration off, sandbox on                      | code in the window cannot reach Node.js or Electron                               |
-| Own protocol `koma://app` instead of `file://`                                 | the window has a real origin, and only files of the renderer bundle can be loaded |
-| Content Security Policy without `unsafe-inline` for scripts and without `eval` | injected markup cannot run code                                                   |
-| `connect-src 'none'` and a request filter in the session                       | the window cannot make network requests                                           |
-| Navigation and new windows blocked                                             | the window always shows the application                                           |
-| All permission requests denied                                                 | the application needs no camera, microphone or location                           |
-| No development server                                                          | development builds use the same protocol and policy as production builds          |
-| Paths come from native dialogs only                                            | the renderer cannot read or write files of its choice                             |
-| Images are verified by content and copied into the project                     | project files cannot make the application read other files                        |
-| Agent processes start without a shell                                          | there is no shell that could interpret input                                      |
-| Agent output is validated data                                                 | output of a model cannot execute anything or name files                           |
+| Decision                                                                                      | Reason                                                                                                       |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Context isolation on, Node.js integration off, sandbox on                                     | code in the window cannot reach Node.js or Electron                                                          |
+| Own protocol `koma://app` instead of `file://`                                                | the window has a real origin, and only files of the renderer bundle can be loaded                            |
+| Content Security Policy without `unsafe-inline` for scripts and without `eval`                | injected markup cannot run code                                                                              |
+| `connect-src 'none'`, a session request filter, and a connection allowlist that blocks WebRTC | the window cannot open its own network connections, including WebRTC over UDP or TCP                         |
+| Repository links open in the system browser                                                   | the renderer can ask the operating system to open only this repository; the browser then reaches the network |
+| Navigation and other new windows blocked                                                      | the window always shows the application                                                                      |
+| Protocol files are resolved through canonical paths                                           | a junction, symlink or alternate stream inside the bundle cannot expose another file                         |
+| All permission requests denied                                                                | the application needs no camera, microphone or location                                                      |
+| No development server                                                                         | development builds use the same protocol and policy as production builds                                     |
+| Paths come from native dialogs only                                                           | the renderer cannot read or write files of its choice                                                        |
+| Images are verified by content and copied into the project                                    | project files cannot make the application read other files                                                   |
+| Agent processes start without a shell                                                         | there is no shell that could interpret input                                                                 |
+| Agent output is validated data                                                                | output of a model cannot execute anything or name files                                                      |
 
 `SECURITY.md` describes the policy and how to report a vulnerability.
 

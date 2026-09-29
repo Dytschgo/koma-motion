@@ -125,9 +125,10 @@ Planned, not set up:
 Not available. To be decided:
 
 - whether the application checks for updates, and whether that is on or off
-  by default. Koma Motion works offline and blocks network requests of the
-  window today, so a check for updates would be the first network access of
-  the application itself,
+  by default. Koma Motion works offline and blocks the window's own network
+  connections today, so a check for updates would be the first network access
+  of the application itself. A repository link can already open in the system
+  browser.
 - where updates are downloaded from,
 - how updates are verified. An update must be signed by the same identity as
   the installed application,
