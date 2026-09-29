@@ -1,9 +1,12 @@
 import {
   assessBrandKitContrast,
+  editBrandKitField,
   FONT_SUGGESTIONS,
-  toBrandKitDraft,
+  pruneBrandKitRawDraft,
   validateBrandKitDraft,
+  withBrandKitRawDraft,
   type BrandKitDraft,
+  type BrandKitDraftField,
 } from '@koma-motion/brand-kit';
 import {
   BRAND_COLOUR_ROLES,
@@ -13,11 +16,11 @@ import {
   type KomaProject,
 } from '@koma-motion/core';
 import { createAssetResolver } from '@koma-motion/renderer';
-import { useId, useMemo, useState, type ReactElement } from 'react';
+import { useId, useLayoutEffect, useMemo, useState, type ReactElement } from 'react';
 import { invoke } from '../lib/api';
 import { changeBrandKit, changeLogo } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
-import { useUiStore } from '../state/uiStore';
+import { selectBrandKitRawDraft, useUiStore } from '../state/uiStore';
 import { CheckIcon, WarningIcon } from './icons';
 import { Button, Field, TextArea, TextInput } from './ui';
 
@@ -82,20 +85,66 @@ function BrandPreview({
   );
 }
 
+function coalesceKey(field: BrandKitDraftField): string {
+  switch (field) {
+    case 'name':
+      return 'brand-kit:name';
+    case 'headingFont':
+      return 'brand-kit:heading-font';
+    case 'bodyFont':
+      return 'brand-kit:body-font';
+    case 'tone':
+      return 'brand-kit:tone';
+    case 'visualStyle':
+      return 'brand-kit:visualStyle';
+    case 'iconStyle':
+      return 'brand-kit:iconStyle';
+    case 'preferredImagery':
+      return 'brand-kit:preferredImagery';
+    case 'preferredTopics':
+      return 'brand-kit:topics';
+    case 'referenceNotes':
+      return 'brand-kit:notes';
+    case 'colours.primary':
+      return 'brand-kit:colour-primary';
+    case 'colours.secondary':
+      return 'brand-kit:colour-secondary';
+    case 'colours.accent':
+      return 'brand-kit:colour-accent';
+    case 'colours.background':
+      return 'brand-kit:colour-background';
+    case 'colours.text':
+      return 'brand-kit:colour-text';
+  }
+}
+
 export function BrandKitEditor({ project }: { readonly project: KomaProject }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
   const setView = useUiStore((state) => state.setView);
   const notify = useUiStore((state) => state.notify);
+  const setBrandKitDraft = useUiStore((state) => state.setBrandKitDraft);
+  const raw = useUiStore((state) => selectBrandKitRawDraft(state, project.id));
   const fontListId = useId();
 
-  /** Text that does not validate yet. Fields without a draft show the project. */
-  const [pending, setPending] = useState<Partial<BrandKitDraft>>({});
+  /**
+   * The field being typed. Its raw text stays put through undo/redo. A valid
+   * field that is not focused is dropped so the control shows the stored value.
+   */
+  const [focused, setFocused] = useState<BrandKitDraftField | null>(null);
   const [selectingLogo, setSelectingLogo] = useState(false);
 
-  const draft: BrandKitDraft = { ...toBrandKitDraft(project.brandKit), ...pending };
+  const draft: BrandKitDraft = withBrandKitRawDraft(project.brandKit, raw);
   const validation = validateBrandKitDraft(draft);
   const errors = validation.ok ? {} : validation.errors;
   const contrast = useMemo(() => assessBrandKitContrast(project.brandKit), [project.brandKit]);
+
+  useLayoutEffect(() => {
+    const current = selectBrandKitRawDraft(useUiStore.getState(), project.id);
+    const pruned = pruneBrandKitRawDraft(project.brandKit, current, focused);
+    if (pruned !== current) {
+      setBrandKitDraft(project.id, pruned);
+    }
+  }, [focused, project.brandKit, project.id, setBrandKitDraft]);
 
   const logo = useMemo(() => {
     const { logoAssetId } = project.brandKit;
@@ -106,20 +155,30 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
     return resolved.status === 'available' ? resolved : null;
   }, [project.assets, project.brandKit]);
 
-  const update = (patch: Partial<BrandKitDraft>, field: string): void => {
-    const nextPending = { ...pending, ...patch };
-    const next = validateBrandKitDraft({ ...toBrandKitDraft(project.brandKit), ...nextPending });
-    if (next.ok) {
-      // Only valid Brand Kits reach the project.
-      apply(changeBrandKit(next.brandKit), { coalesceKey: `brand-kit:${field}` });
-      setPending(
-        // Colours keep their typed form until the field is left.
-        nextPending.colours === undefined ? {} : { colours: nextPending.colours },
-      );
-    } else {
-      setPending(nextPending);
+  const edit = (field: BrandKitDraftField, value: string): void => {
+    const existing = selectBrandKitRawDraft(useUiStore.getState(), project.id);
+    const edited = editBrandKitField(project.brandKit, existing, field, value);
+    // Keep the raw text even when this field cannot be stored.
+    setBrandKitDraft(project.id, edited.raw);
+    if (edited.brandKit !== project.brandKit) {
+      apply(changeBrandKit(edited.brandKit), { coalesceKey: coalesceKey(field) });
     }
   };
+
+  const focusField = (field: BrandKitDraftField) => ({
+    onFocus: () => {
+      setFocused(field);
+    },
+    onBlur: () => {
+      setFocused((current) => (current === field ? null : current));
+      // Show the normalised value as soon as a valid field is left. Invalid text stays.
+      const current = selectBrandKitRawDraft(useUiStore.getState(), project.id);
+      const pruned = pruneBrandKitRawDraft(project.brandKit, current, null);
+      if (pruned !== current) {
+        setBrandKitDraft(project.id, pruned);
+      }
+    },
+  });
 
   const chooseLogo = async (): Promise<void> => {
     setSelectingLogo(true);
@@ -150,8 +209,9 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
           value={draft[key]}
           maxLength={1000}
           placeholder={placeholder}
+          {...focusField(key)}
           onChange={(event) => {
-            update({ [key]: event.target.value }, key);
+            edit(key, event.target.value);
           }}
         />
       )}
@@ -192,8 +252,9 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
                 {...ids}
                 value={draft.name}
                 maxLength={120}
+                {...focusField('name')}
                 onChange={(event) => {
-                  update({ name: event.target.value }, 'name');
+                  edit('name', event.target.value);
                 }}
               />
             )}
@@ -218,17 +279,9 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
                           value={draft.colours[role]}
                           spellCheck={false}
                           placeholder="#RRGGBB"
+                          {...focusField(`colours.${role}`)}
                           onChange={(event) => {
-                            update(
-                              { colours: { ...draft.colours, [role]: event.target.value } },
-                              `colour-${role}`,
-                            );
-                          }}
-                          onBlur={() => {
-                            // Show the stored format once the field is valid and left.
-                            if (validation.ok) {
-                              setPending({});
-                            }
+                            edit(`colours.${role}`, event.target.value);
                           }}
                         />
                       </div>
@@ -258,8 +311,9 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
                     list={fontListId}
                     value={draft.headingFont}
                     maxLength={120}
+                    {...focusField('headingFont')}
                     onChange={(event) => {
-                      update({ headingFont: event.target.value }, 'heading-font');
+                      edit('headingFont', event.target.value);
                     }}
                   />
                 )}
@@ -271,8 +325,9 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
                     list={fontListId}
                     value={draft.bodyFont}
                     maxLength={120}
+                    {...focusField('bodyFont')}
                     onChange={(event) => {
-                      update({ bodyFont: event.target.value }, 'body-font');
+                      edit('bodyFont', event.target.value);
                     }}
                   />
                 )}
@@ -328,12 +383,9 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
                 <TextInput
                   {...ids}
                   value={draft.preferredTopics}
+                  {...focusField('preferredTopics')}
                   onChange={(event) => {
-                    setPending({ ...pending, preferredTopics: event.target.value });
-                  }}
-                  onBlur={() => {
-                    update({ preferredTopics: draft.preferredTopics }, 'topics');
-                    setPending(({ preferredTopics: _topics, ...rest }) => rest);
+                    edit('preferredTopics', event.target.value);
                   }}
                 />
               )}
@@ -346,8 +398,9 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
                   value={draft.referenceNotes}
                   maxLength={5000}
                   placeholder="Anything else a designer should know about the brand"
+                  {...focusField('referenceNotes')}
                   onChange={(event) => {
-                    update({ referenceNotes: event.target.value }, 'notes');
+                    edit('referenceNotes', event.target.value);
                   }}
                 />
               )}
