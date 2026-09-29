@@ -121,6 +121,19 @@ export const RedoIcon = (props: IconProps): ReactElement => (
   </Icon>
 );
 
+export const RefreshIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M13 8a5 5 0 1 1-1.6-3.7" />
+    <path d="M13 2.5v3h-3" />
+  </Icon>
+);
+
+export const DownloadIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M8 2.5v8M4.5 7.5 8 11l3.5-3.5M3 13.5h10" />
+  </Icon>
+);
+
 export const ChevronIcon = ({
   size,
   direction,

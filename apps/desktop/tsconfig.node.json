@@ -3,5 +3,13 @@
   "compilerOptions": {
     "types": ["node"]
   },
-  "include": ["src/main", "src/preload", "src/shared", "e2e", "playwright.config.ts"]
+  "include": [
+    "src/main",
+    "src/preload",
+    "src/shared",
+    "e2e",
+    "playwright.config.ts",
+    "e2e-packaged",
+    "playwright.packaged.config.ts"
+  ]
 }

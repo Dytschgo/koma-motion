@@ -10,6 +10,7 @@ import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
 import { detectProviders } from './lib/agentActions';
 import { invoke, subscribe } from './lib/api';
+import { followUpdates } from './lib/updateActions';
 import {
   createNewProject,
   openProject,
@@ -45,9 +46,11 @@ function useApplicationEvents(): void {
     const unsubscribeClose = subscribe('koma:app:save-and-close', () => {
       void saveAndClose();
     });
+    const unfollowUpdates = followUpdates();
     return () => {
       unsubscribeStatus();
       unsubscribeClose();
+      unfollowUpdates();
     };
   }, []);
 
