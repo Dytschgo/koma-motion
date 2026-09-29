@@ -5,8 +5,8 @@ import {
 } from '../contract/request';
 import { getResponseJsonSchema, type AgentPresentationResponse } from '../contract/response';
 import {
-  presentationGenerationPromptV1,
-  presentationRepairPromptV1,
+  presentationGenerationPromptV2,
+  presentationRepairPromptV2,
   type AgentPrompt,
 } from '../prompts/presentationGeneration';
 import type { ProviderRegistry } from '../providers/registry';
@@ -250,7 +250,7 @@ export class GenerationRunner {
     }
 
     const responseJsonSchema = getResponseJsonSchema();
-    let prompt: AgentPrompt = presentationGenerationPromptV1.render({
+    let prompt: AgentPrompt = presentationGenerationPromptV2.render({
       request,
       responseJsonSchema,
     });
@@ -333,7 +333,7 @@ export class GenerationRunner {
       if (validated.error.code === 'outputTooLarge') {
         break;
       }
-      prompt = presentationRepairPromptV1.render({
+      prompt = presentationRepairPromptV2.render({
         request,
         responseJsonSchema,
         previousOutput: rawText,

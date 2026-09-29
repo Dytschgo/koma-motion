@@ -26,15 +26,38 @@ const SCHEMA_FILE_NAME = 'response-schema.json';
 const ANSWER_FILE_NAME = 'answer.json';
 
 /**
- * Arguments of the non-interactive invocation, taken from the help output of
- * Codex CLI 0.157.1. Detection has been run; generation has NOT been run
- * against a real Codex installation yet. See docs/AGENT_PROVIDERS.md.
+ * Features that `codex features list` showed as stable and enabled on Codex
+ * CLI 0.157.1 and that grant extra capability. `--disable` is an invocation
+ * override; it does not write config.toml. Generation with these flags was
+ * not run.
+ */
+const DISABLED_CODEX_FEATURES = [
+  'hooks',
+  'plugins',
+  'plugin_sharing',
+  'remote_plugin',
+  'browser_use',
+  'browser_use_external',
+  'browser_use_full_cdp_access',
+  'computer_use',
+  'shell_tool',
+] as const;
+
+/**
+ * Arguments of the non-interactive invocation, taken from `codex exec --help`
+ * and `codex features list` of Codex CLI 0.157.1 on Windows on 29 September
+ * 2026. Detection has been run; generation has NOT been run. See
+ * docs/AGENT_PROVIDERS.md.
  *
  * - `exec` runs non-interactively. The final `-` reads the prompt from
  *   standard input.
- * - `--sandbox read-only` forbids commands of the agent to write or use the network.
+ * - `--sandbox read-only` still allows filesystem reads. No verified flag
+ *   means no filesystem access.
  * - `--skip-git-repo-check` allows the empty temporary working directory.
  * - `--ephemeral` keeps the session out of the history.
+ * - `--ignore-user-config` skips `$CODEX_HOME/config.toml`. Auth still uses
+ *   `CODEX_HOME`, which is not repointed.
+ * - `--ignore-rules` skips user and project execpolicy rules.
  * - `--output-schema` and `--output-last-message` name files in the temporary
  *   working directory. Koma Motion creates both paths itself.
  */
@@ -51,6 +74,9 @@ export function buildCodexArguments(options: {
     '--ephemeral',
     '--color',
     'never',
+    '--ignore-user-config',
+    '--ignore-rules',
+    ...DISABLED_CODEX_FEATURES.flatMap((feature) => ['--disable', feature]),
     ...model,
     '--cd',
     options.workingDirectory,
@@ -139,6 +165,7 @@ export class CodexCliProvider implements AgentProvider {
         workingDirectory,
         signal: context.signal,
         maxOutputBytes: MAX_CLI_OUTPUT_BYTES,
+        env: this.#environment.childEnvironment(),
       });
       const details = {
         exitCode: outcome.exitCode,
