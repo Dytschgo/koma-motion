@@ -6,10 +6,72 @@ import { redactDiagnostics } from './redact';
 import { resolveExecutable, type ResolvedExecutable } from './resolveExecutable';
 import { runProcess, type ProcessResult, type ProcessSpecification } from './runProcess';
 
+/**
+ * Names copied into a CLI child, and only when the parent has a string value.
+ * Anything else in the application environment stays there. On Windows, Node
+ * passes the first case-insensitive spelling, and the platform still adds
+ * `LOGONSERVER`, which this list cannot remove.
+ */
+export const CLI_CHILD_ENVIRONMENT_ALLOWLIST = [
+  'SystemRoot',
+  'SYSTEMROOT',
+  'windir',
+  'SystemDrive',
+  'PATH',
+  'Path',
+  'PATHEXT',
+  'COMSPEC',
+  'TEMP',
+  'TMP',
+  'USERPROFILE',
+  'HOMEDRIVE',
+  'HOMEPATH',
+  'HOME',
+  'APPDATA',
+  'LOCALAPPDATA',
+  'PROGRAMDATA',
+  'USERNAME',
+  'USERDOMAIN',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'SSL_CERT_FILE',
+  'SSL_CERT_DIR',
+  'NODE_EXTRA_CA_CERTS',
+  'HTTP_PROXY',
+  'HTTPS_PROXY',
+  'NO_PROXY',
+  'ssl_cert_file',
+  'ssl_cert_dir',
+  'node_extra_ca_certs',
+  'http_proxy',
+  'https_proxy',
+  'no_proxy',
+  'ANTHROPIC_API_KEY',
+  'OPENAI_API_KEY',
+  'CODEX_HOME',
+] as const;
+
+/** Builds the environment passed to a CLI. The result is not merged with the parent. */
+export function buildCliChildEnvironment(
+  parent: Readonly<NodeJS.ProcessEnv>,
+): Record<string, string> {
+  const child: Record<string, string> = {};
+  for (const name of CLI_CHILD_ENVIRONMENT_ALLOWLIST) {
+    const value = parent[name];
+    if (typeof value === 'string') {
+      child[name] = value;
+    }
+  }
+  return child;
+}
+
 /** Everything a CLI provider needs from the operating system. Replaceable in tests. */
 export interface CliEnvironment {
   resolveExecutable(name: string): Promise<ResolvedExecutable | null>;
   runProcess(specification: ProcessSpecification): Promise<ProcessResult>;
+  /** Allowlisted environment for a CLI child. */
+  childEnvironment(): Readonly<Record<string, string>>;
   /** Creates an empty folder that only this execution uses. */
   createWorkingDirectory(): Promise<string>;
   removeWorkingDirectory(path: string): Promise<void>;
@@ -20,6 +82,7 @@ export function createCliEnvironment(): CliEnvironment {
   return {
     resolveExecutable: (name) => resolveExecutable(name),
     runProcess,
+    childEnvironment: () => buildCliChildEnvironment(process.env),
     createWorkingDirectory: () => mkdtemp(join(tmpdir(), 'koma-motion-agent-')),
     removeWorkingDirectory: async (path) => {
       await rm(path, { recursive: true, force: true, maxRetries: 3 });
@@ -72,6 +135,7 @@ export async function detectCli(options: {
       workingDirectory,
       signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
       maxOutputBytes: MAX_VERSION_OUTPUT_BYTES,
+      env: environment.childEnvironment(),
     });
     if (outcome.startError !== null) {
       return result('error', null, `${displayName} was found but could not be started.`);

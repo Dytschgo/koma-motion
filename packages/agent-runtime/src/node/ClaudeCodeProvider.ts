@@ -21,17 +21,27 @@ export const CLAUDE_CODE_PROVIDER_ID = 'claude-code';
 const EXECUTABLE_NAME = 'claude';
 
 /**
- * Arguments of the non-interactive invocation. Verified against the help
- * output and a real run of Claude Code 2.1.283; see docs/AGENT_PROVIDERS.md.
+ * Arguments of the non-interactive invocation. The base flags were checked
+ * against the help output and a real run of Claude Code 2.1.283.
+ * `--safe-mode`, `--restricted` and `--no-chrome` were taken from
+ * `claude --help` on Windows on 29 September 2026 and were not part of that
+ * run. See docs/AGENT_PROVIDERS.md.
+ *
+ * `--bare` is not passed. Its help text says auth is strictly
+ * `ANTHROPIC_API_KEY` or `apiKeyHelper` via `--settings`, and OAuth and the
+ * keychain are never read. That would drop the existing sign-in.
  *
  * - `--print` answers once and exits.
  * - `--output-format json` wraps the answer in one JSON envelope.
- * - `--tools ""` removes every tool: the agent cannot read files, run
- *   commands or use the network on behalf of the request.
+ * - `--tools ""` names no tools.
  * - `--strict-mcp-config` without `--mcp-config` loads no MCP servers.
  * - `--disable-slash-commands` disables skills.
  * - `--permission-prompts none` denies anything that would ask for permission.
  * - `--no-session-persistence` keeps the conversation out of the session history.
+ * - `--safe-mode` disables customizations. Admin-managed settings still apply.
+ * - `--restricted` removes built-in tools that run commands or code, and
+ *   WebFetch, unless `--tools` names them.
+ * - `--no-chrome` disables Claude in Chrome.
  */
 const FIXED_ARGUMENTS = [
   '--print',
@@ -46,6 +56,9 @@ const FIXED_ARGUMENTS = [
   '--permission-prompts',
   'none',
   '--no-session-persistence',
+  '--safe-mode',
+  '--restricted',
+  '--no-chrome',
 ] as const;
 
 export function buildClaudeCodeArguments(options: {
@@ -154,6 +167,7 @@ export class ClaudeCodeProvider implements AgentProvider {
         workingDirectory,
         signal: context.signal,
         maxOutputBytes: MAX_CLI_OUTPUT_BYTES,
+        env: this.#environment.childEnvironment(),
       });
       const details = {
         exitCode: outcome.exitCode,

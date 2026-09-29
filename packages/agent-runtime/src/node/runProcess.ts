@@ -17,6 +17,11 @@ export interface ProcessSpecification {
   readonly signal: AbortSignal;
   /** Combined limit for standard output and standard error, in bytes. */
   readonly maxOutputBytes: number;
+  /**
+   * When set, the child receives this object and nothing else. When omitted,
+   * the child inherits the environment of this process.
+   */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 export interface ProcessResult {
@@ -196,6 +201,9 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
         windowsHide: true,
         detached: process.platform !== 'win32',
         stdio: ['pipe', 'pipe', 'pipe'],
+        // An omitted env inherits. An explicit object replaces the environment;
+        // Node does not merge it with the parent.
+        ...(specification.env === undefined ? {} : { env: { ...specification.env } }),
       });
     } catch (error) {
       resolve(didNotStart(systemErrorCode(error)));

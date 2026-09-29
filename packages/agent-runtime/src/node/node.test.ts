@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getResponseJsonSchema } from '../contract/response';
-import { presentationGenerationPromptV1 } from '../prompts/presentationGeneration';
+import { presentationGenerationPromptV2 } from '../prompts/presentationGeneration';
 import type { AgentExecutionContext } from '../providers/types';
 import { buildRequest, buildResponse } from '../testing/fixtures';
 import {
@@ -12,7 +12,12 @@ import {
   ClaudeCodeProvider,
   parseClaudeEnvelope,
 } from './ClaudeCodeProvider';
-import { detectCli, type CliEnvironment } from './cliEnvironment';
+import {
+  buildCliChildEnvironment,
+  CLI_CHILD_ENVIRONMENT_ALLOWLIST,
+  detectCli,
+  type CliEnvironment,
+} from './cliEnvironment';
 import { buildCodexArguments, CodexCliProvider } from './CodexCliProvider';
 import { MAX_DIAGNOSTIC_LENGTH, redactDiagnostics } from './redact';
 import { resolveExecutable, type ResolutionEnvironment } from './resolveExecutable';
@@ -178,6 +183,29 @@ function run(script: string, options: Partial<ProcessSpecification> = {}): Promi
   });
 }
 
+function readJsonObject(text: string): Readonly<Record<string, unknown>> {
+  const parsed: unknown = JSON.parse(text);
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    throw new Error('Expected a JSON object');
+  }
+  const record: Readonly<Record<string, unknown>> = { ...parsed };
+  return record;
+}
+
+function readStringArray(value: unknown): readonly string[] {
+  if (!Array.isArray(value)) {
+    throw new Error('Expected a string array');
+  }
+  const names: string[] = [];
+  for (const entry of value as readonly unknown[]) {
+    if (typeof entry !== 'string') {
+      throw new Error('Expected a string array');
+    }
+    names.push(entry);
+  }
+  return names;
+}
+
 function completed(overrides: Partial<ProcessResult> = {}): ProcessResult {
   return {
     exitCode: 0,
@@ -189,6 +217,8 @@ function completed(overrides: Partial<ProcessResult> = {}): ProcessResult {
     ...overrides,
   };
 }
+
+const CHILD_ENVIRONMENT = { PATH: 'C:\\synthetic\\bin' };
 
 function fakeEnvironment(
   outcome: ProcessResult | ((specification: ProcessSpecification) => Promise<ProcessResult>),
@@ -203,6 +233,7 @@ function fakeEnvironment(
       calls.push(specification);
       return typeof outcome === 'function' ? outcome(specification) : Promise.resolve(outcome);
     },
+    childEnvironment: () => CHILD_ENVIRONMENT,
     createWorkingDirectory: () => mkdtemp(join(directory, 'work-')),
     removeWorkingDirectory: (path) => rm(path, { recursive: true, force: true }),
     now: () => new Date('2026-01-15T10:30:00.000Z'),
@@ -213,7 +244,7 @@ function context(overrides: Partial<AgentExecutionContext> = {}): AgentExecution
   return {
     executionId: 'execution-1',
     attempt: 1,
-    prompt: presentationGenerationPromptV1.render({
+    prompt: presentationGenerationPromptV2.render({
       request: buildRequest(),
       responseJsonSchema: getResponseJsonSchema(),
     }),
@@ -270,6 +301,35 @@ describe('runProcess', () => {
     });
     expect(result.outputLimitExceeded).toBe(true);
     expect(result.standardOutput.length).toBeLessThanOrEqual(200_000);
+  });
+
+  it('inherits the parent environment only when env is omitted', async () => {
+    const key = 'KOMA_INHERIT_SENTINEL';
+    const previous = process.env[key];
+    process.env[key] = 'synthetic-inherit';
+    const script =
+      'process.stdout.write(JSON.stringify({ value: process.env.KOMA_INHERIT_SENTINEL ?? null }))';
+    try {
+      const inherited = await run(script);
+      expect(readJsonObject(inherited.standardOutput)['value']).toBe('synthetic-inherit');
+
+      const replaced = await run(script, {
+        env: {
+          PATH: 'C:\\synthetic\\koma-path',
+          ...(process.env['SystemRoot'] === undefined
+            ? {}
+            : { SystemRoot: process.env['SystemRoot'] }),
+        },
+      });
+      expect(readJsonObject(replaced.standardOutput)['value']).toBeNull();
+      expect(replaced.exitCode).toBe(0);
+    } finally {
+      if (previous === undefined) {
+        delete process.env[key];
+      } else {
+        process.env[key] = previous;
+      }
+    }
   });
 
   it('reports a program that cannot be started', async () => {
@@ -391,6 +451,136 @@ describe('assertSafeArguments', () => {
     expect(() => {
       assertSafeArguments(['x'.repeat(30_000)]);
     }).toThrow(RangeError);
+  });
+});
+
+describe('buildCliChildEnvironment', () => {
+  const expectedAllowlist = [
+    'SystemRoot',
+    'SYSTEMROOT',
+    'windir',
+    'SystemDrive',
+    'PATH',
+    'Path',
+    'PATHEXT',
+    'COMSPEC',
+    'TEMP',
+    'TMP',
+    'USERPROFILE',
+    'HOMEDRIVE',
+    'HOMEPATH',
+    'HOME',
+    'APPDATA',
+    'LOCALAPPDATA',
+    'PROGRAMDATA',
+    'USERNAME',
+    'USERDOMAIN',
+    'LANG',
+    'LC_ALL',
+    'LC_CTYPE',
+    'SSL_CERT_FILE',
+    'SSL_CERT_DIR',
+    'NODE_EXTRA_CA_CERTS',
+    'HTTP_PROXY',
+    'HTTPS_PROXY',
+    'NO_PROXY',
+    'ssl_cert_file',
+    'ssl_cert_dir',
+    'node_extra_ca_certs',
+    'http_proxy',
+    'https_proxy',
+    'no_proxy',
+    'ANTHROPIC_API_KEY',
+    'OPENAI_API_KEY',
+    'CODEX_HOME',
+  ];
+
+  it('copies only allowlisted string values', () => {
+    expect([...CLI_CHILD_ENVIRONMENT_ALLOWLIST]).toEqual(expectedAllowlist);
+    expect(
+      buildCliChildEnvironment({
+        PATH: 'C:\\synthetic\\koma-path',
+        KOMA_UNTRUSTED_SENTINEL: 'synthetic-sentinel',
+        ANTHROPIC_API_KEY: 'synthetic-anthropic',
+        OPENAI_API_KEY: 'synthetic-openai',
+        CODEX_HOME: 'C:\\synthetic\\codex-home',
+        AWS_SECRET_ACCESS_KEY: 'synthetic-aws',
+        GITHUB_TOKEN: 'synthetic-github-token',
+        http_proxy: 'http://synthetic-proxy.example',
+        PATH_EXTRA: undefined,
+      }),
+    ).toEqual({
+      PATH: 'C:\\synthetic\\koma-path',
+      ANTHROPIC_API_KEY: 'synthetic-anthropic',
+      OPENAI_API_KEY: 'synthetic-openai',
+      CODEX_HOME: 'C:\\synthetic\\codex-home',
+      http_proxy: 'http://synthetic-proxy.example',
+    });
+  });
+
+  it('passes PATH through to a child and drops a sentinel', async () => {
+    const parent: NodeJS.ProcessEnv = {
+      PATH: 'C:\\synthetic\\koma-path',
+      Path: 'C:\\synthetic\\koma-path',
+      KOMA_UNTRUSTED_SENTINEL: 'synthetic-sentinel',
+      ANTHROPIC_API_KEY: 'synthetic-anthropic',
+      OPENAI_API_KEY: 'synthetic-openai',
+      CODEX_HOME: 'C:\\synthetic\\codex-home',
+      AWS_SECRET_ACCESS_KEY: 'synthetic-aws',
+      GITHUB_TOKEN: 'synthetic-github-token',
+      http_proxy: 'http://synthetic-proxy.example',
+      META_API_KEY: 'synthetic-meta',
+    };
+    for (const name of [
+      'SystemRoot',
+      'SYSTEMROOT',
+      'windir',
+      'SystemDrive',
+      'PATHEXT',
+      'COMSPEC',
+      'TEMP',
+      'TMP',
+    ] as const) {
+      const value = process.env[name];
+      if (typeof value === 'string') {
+        parent[name] = value;
+      }
+    }
+    const script = [
+      'const keys = ["PATH","Path","KOMA_UNTRUSTED_SENTINEL","ANTHROPIC_API_KEY","OPENAI_API_KEY","CODEX_HOME","AWS_SECRET_ACCESS_KEY","GITHUB_TOKEN","http_proxy","META_API_KEY"];',
+      'const selected = {};',
+      'for (const key of keys) selected[key] = Object.prototype.hasOwnProperty.call(process.env, key) ? process.env[key] : null;',
+      'process.stdout.write(JSON.stringify({ selected, names: Object.keys(process.env).sort() }));',
+    ].join('');
+    const result = await run(script, { env: buildCliChildEnvironment(parent) });
+    expect(result.exitCode).toBe(0);
+    const printed = readJsonObject(result.standardOutput);
+    const selected = printed['selected'];
+    if (typeof selected !== 'object' || selected === null || Array.isArray(selected)) {
+      throw new Error('Fixture output is missing selected keys');
+    }
+    const values: Readonly<Record<string, unknown>> = { ...selected };
+    const keyNames = readStringArray(printed['names']);
+    expect(values['PATH']).toBe('C:\\synthetic\\koma-path');
+    expect(values['KOMA_UNTRUSTED_SENTINEL']).toBeNull();
+    expect(values['ANTHROPIC_API_KEY']).toBe('synthetic-anthropic');
+    expect(values['OPENAI_API_KEY']).toBe('synthetic-openai');
+    expect(values['CODEX_HOME']).toBe('C:\\synthetic\\codex-home');
+    expect(values['AWS_SECRET_ACCESS_KEY']).toBeNull();
+    expect(values['GITHUB_TOKEN']).toBeNull();
+    expect(values['http_proxy']).toBe('http://synthetic-proxy.example');
+    expect(values['META_API_KEY']).toBeNull();
+    expect(result.standardOutput).not.toContain('synthetic-sentinel');
+    expect(result.standardOutput).not.toContain('synthetic-aws');
+    expect(result.standardOutput).not.toContain('synthetic-github-token');
+    expect(result.standardOutput).not.toContain('synthetic-meta');
+    const allowlist: readonly string[] = CLI_CHILD_ENVIRONMENT_ALLOWLIST;
+    const unexpected = keyNames.filter(
+      (name) => !allowlist.includes(name) && name !== 'LOGONSERVER',
+    );
+    expect(unexpected).toEqual([]);
+    expect(keyNames).toContain('PATH');
+    expect(keyNames).not.toContain('KOMA_UNTRUSTED_SENTINEL');
   });
 });
 
@@ -548,6 +738,7 @@ describe('detectCli', () => {
       checkedAt: '2026-01-15T10:30:00.000Z',
     });
     expect(environment.calls[0]?.arguments).toEqual(['--version']);
+    expect(environment.calls[0]?.env).toEqual(CHILD_ENVIRONMENT);
   });
 
   it('reports a CLI that is not installed', async () => {
@@ -575,16 +766,44 @@ describe('ClaudeCodeProvider', () => {
     JSON.stringify({ type: 'result', subtype: 'success', is_error: false, result: '', ...fields });
 
   it('builds arguments that disable tools and never contain the prompt', () => {
-    const args = buildClaudeCodeArguments({
+    expect(
+      buildClaudeCodeArguments({
+        systemPrompt: 'system',
+        responseJsonSchema: '{}',
+        model: 'claude-opus-5-5',
+      }),
+    ).toEqual([
+      '--print',
+      '--output-format',
+      'json',
+      '--input-format',
+      'text',
+      '--tools',
+      '',
+      '--strict-mcp-config',
+      '--disable-slash-commands',
+      '--permission-prompts',
+      'none',
+      '--no-session-persistence',
+      '--safe-mode',
+      '--restricted',
+      '--no-chrome',
+      '--model',
+      'claude-opus-5-5',
+      '--system-prompt',
+      'system',
+      '--json-schema',
+      '{}',
+    ]);
+    const withoutModel = buildClaudeCodeArguments({
       systemPrompt: 'system',
       responseJsonSchema: '{}',
-      model: 'claude-opus-5-5',
+      model: null,
     });
-    expect(args.slice(0, 2)).toEqual(['--print', '--output-format']);
-    expect(args[args.indexOf('--tools') + 1]).toBe('');
-    expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5-5');
-    expect(args[args.indexOf('--permission-prompts') + 1]).toBe('none');
-    expect(args).not.toContain('--dangerously-skip-permissions');
+    expect(withoutModel).not.toContain('--model');
+    expect(withoutModel).not.toContain('--bare');
+    expect(withoutModel).not.toContain('--dangerously-skip-permissions');
+    expect(withoutModel).not.toContain('system prompt text that must stay on stdin');
   });
 
   it.each(['opus; rm -rf /', '--dangerously-skip-permissions', 'a b', ''])(
@@ -612,6 +831,11 @@ describe('ClaudeCodeProvider', () => {
     const call = environment.calls[0];
     expect(call?.input).toContain('# Request');
     expect(call?.arguments.join(' ')).not.toContain('# Request');
+    expect(call?.env).toEqual(CHILD_ENVIRONMENT);
+    expect(call?.arguments).toEqual(
+      expect.arrayContaining(['--safe-mode', '--restricted', '--no-chrome', '--strict-mcp-config']),
+    );
+    expect(call?.arguments).not.toContain('--bare');
   });
 
   it('falls back to the text result', async () => {
@@ -677,13 +901,46 @@ describe('ClaudeCodeProvider', () => {
 
 describe('CodexCliProvider', () => {
   it('builds arguments for a read-only non-interactive run', () => {
-    const args = buildCodexArguments({ workingDirectory: directory, model: null });
-    expect(args[0]).toBe('exec');
-    expect(args[args.indexOf('--sandbox') + 1]).toBe('read-only');
-    expect(args.at(-1)).toBe('-');
-    expect(args).not.toContain('--model');
-    expect(args).not.toContain('--dangerously-bypass-approvals-and-sandbox');
-    expect(args[args.indexOf('--output-last-message') + 1]).toBe(join(directory, 'answer.json'));
+    expect(buildCodexArguments({ workingDirectory: directory, model: null })).toEqual([
+      'exec',
+      '--sandbox',
+      'read-only',
+      '--skip-git-repo-check',
+      '--ephemeral',
+      '--color',
+      'never',
+      '--ignore-user-config',
+      '--ignore-rules',
+      '--disable',
+      'hooks',
+      '--disable',
+      'plugins',
+      '--disable',
+      'plugin_sharing',
+      '--disable',
+      'remote_plugin',
+      '--disable',
+      'browser_use',
+      '--disable',
+      'browser_use_external',
+      '--disable',
+      'browser_use_full_cdp_access',
+      '--disable',
+      'computer_use',
+      '--disable',
+      'shell_tool',
+      '--cd',
+      directory,
+      '--output-schema',
+      join(directory, 'response-schema.json'),
+      '--output-last-message',
+      join(directory, 'answer.json'),
+      '-',
+    ]);
+    const withModel = buildCodexArguments({ workingDirectory: directory, model: 'gpt-5.4' });
+    expect(withModel[withModel.indexOf('--model') + 1]).toBe('gpt-5.4');
+    expect(withModel.indexOf('--cd')).toBeGreaterThan(withModel.lastIndexOf('--disable'));
+    expect(withModel).not.toContain('--dangerously-bypass-approvals-and-sandbox');
   });
 
   it('reads the answer file that the CLI writes', async () => {
@@ -701,6 +958,23 @@ describe('CodexCliProvider', () => {
     expect(result.ok && result.output.rawText).toBe(answer);
     expect(environment.calls[0]?.input).toContain('You are the presentation designer');
     expect(environment.calls[0]?.input).toContain('# Request');
+    expect(environment.calls[0]?.env).toEqual(CHILD_ENVIRONMENT);
+    expect(environment.calls[0]?.arguments).toEqual(
+      expect.arrayContaining([
+        '--ignore-user-config',
+        '--ignore-rules',
+        '--disable',
+        'hooks',
+        'plugins',
+        'plugin_sharing',
+        'remote_plugin',
+        'browser_use',
+        'browser_use_external',
+        'browser_use_full_cdp_access',
+        'computer_use',
+        'shell_tool',
+      ]),
+    );
   });
 
   it('reports a run without an answer', async () => {

@@ -17,17 +17,24 @@ is in `packages/agent-runtime/src/node` and runs in the Electron main process.
 
 What "verified" means here:
 
-- **Claude Code** was tested on 29 September 2026 with Claude Code 2.1.283 on
-  Windows 11, with the model `claude-opus-5-5`. A request for three Komas was
-  run once through the runtime and once through the application. Both runs
-  produced a valid presentation. Neither detection nor generation has been
-  tested on macOS.
+- **Help inspection** on Windows, 29 September 2026, for Claude Code 2.1.283
+  (`claude --help`) and Codex CLI 0.157.1 (`codex exec --help` and
+  `codex features list`). The argument lists below come from that inspection.
+  Flags that were not in the help output are not used.
+- **Claude Code** detection and generation were tested on 29 September 2026
+  with Claude Code 2.1.283 on Windows 11, with the model `claude-opus-5-5`.
+  A request for three Komas was run once through the runtime and once through
+  the application. Both runs produced a valid presentation. Those runs did
+  not include `--safe-mode`, `--restricted` or `--no-chrome`. Neither
+  detection nor generation has been tested on macOS.
 - **Codex CLI** detection was tested with Codex CLI 0.157.1 on Windows 11,
   including the resolution of the npm command shim. The arguments for
-  generation were taken from the help output of that version. Generation has
-  never been run against a real Codex installation. Treat it as experimental.
-  Two points are known to be open: whether the response schema is accepted by
-  the structured output feature of Codex, and the behaviour on macOS.
+  generation, including every `--disable`, were taken from that help output
+  and from `codex features list`. Generation has never been run against a
+  real Codex installation, with or without those flags. Treat it as
+  experimental. Two points are known to be open: whether the response schema
+  is accepted by the structured output feature of Codex, and the behaviour
+  on macOS.
 
 ## The AgentProvider interface
 
@@ -69,7 +76,8 @@ rendered prompt, the model, an `AbortSignal` and a function to report progress.
 | `error`       | the program was found but did not answer correctly |
 
 CLI providers are detected by resolving the executable and running it with
-`--version`, with a time limit of 15 seconds.
+`--version`, with a time limit of 15 seconds. Detection uses the same
+allowlisted environment as generation.
 
 Executables are resolved without a shell:
 
@@ -303,10 +311,12 @@ Prompts are versioned data in
 `packages/agent-runtime/src/prompts/presentationGeneration.ts`. They are not
 part of the user interface and not part of a provider.
 
-| Template                  | Version | Purpose                               |
-| ------------------------- | ------- | ------------------------------------- |
-| `presentation-generation` | 1       | the first request                     |
-| `presentation-repair`     | 1       | the correction of a rejected response |
+| Template                  | Version | Purpose                                               |
+| ------------------------- | ------- | ----------------------------------------------------- |
+| `presentation-generation` | 2       | the first request                                     |
+| `presentation-repair`     | 2       | the correction of a rejected response                 |
+| `presentation-generation` | 1       | retained previous wording; the runner does not use it |
+| `presentation-repair`     | 1       | retained previous wording; the runner does not use it |
 
 Every template renders three parts:
 
@@ -315,6 +325,15 @@ Every template renders three parts:
   the available assets, the limits and the response schema,
 - `responseJsonSchema`: the response contract as JSON Schema, generated from
   the same schema that validates the response.
+
+From version 2, the Brand Kit JSON and the existing-presentation summary are
+wrapped between `<<<UNTRUSTED_DATA>>>` and `<<<END_UNTRUSTED_DATA>>>`, with
+one sentence that the text inside is data, not instructions. Those values
+are imported project data. The person's own request stays outside the
+delimiters and remains the instruction. The delimiters are prompt wording.
+They are not a boundary, and they do not stop a model from following text
+inside the data. Response validation is unchanged. Version 1 is still in
+`presentationGeneration.ts` with the previous wording.
 
 The template and version that were used are part of the diagnostics of every
 execution. A change to the wording that can change results gets a new
@@ -341,27 +360,55 @@ can contain anything.
 
 ## Security boundaries
 
-| Rule                                 | Implementation                                                                        |
-| ------------------------------------ | ------------------------------------------------------------------------------------- |
-| The renderer cannot start processes  | providers run in the main process; the renderer sends a provider id and the request   |
-| No shell                             | `spawn` with `shell: false`, an executable path and an argument array                 |
-| The prompt is not an argument        | the prompt is written to standard input                                               |
-| Arguments are controlled             | all arguments are fixed, except the model name, which must match a restricted pattern |
-| The agent cannot act on the computer | Claude Code runs without tools; Codex runs in its read-only sandbox                   |
-| No project context for the agent     | the working directory is an empty temporary folder that is removed afterwards         |
-| Output is data                       | output is parsed as JSON and validated; it is never executed                          |
-| Output cannot name files             | the response has no paths; asset ids are checked against the project                  |
-| Executions end                       | time limit, cancellation and output limit                                             |
-| No credentials in Koma Motion        | agent CLIs use their own sign-in; Koma Motion stores and asks for no keys             |
+| Rule                                        | Implementation                                                                                                                                                        |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The renderer cannot start processes         | providers run in the main process; the renderer sends a provider id and the request                                                                                   |
+| No shell                                    | `spawn` with `shell: false`, an executable path and an argument array                                                                                                 |
+| The prompt is not an argument               | the prompt is written to standard input                                                                                                                               |
+| Arguments are controlled                    | all arguments are fixed, except the model name, which must match a restricted pattern                                                                                 |
+| The invocation limits what the agent can do | Claude: no tools, safe mode, restricted mode, Chrome disabled; managed settings still apply. Codex: read-only, which still allows reads; generation has not been run. |
+| No project context for the agent            | the working directory is an empty temporary folder that is removed afterwards                                                                                         |
+| Output is data                              | output is parsed as JSON and validated; it is never executed                                                                                                          |
+| Output cannot name files                    | the response has no paths; asset ids are checked against the project                                                                                                  |
+| Executions end                              | time limit, cancellation and output limit                                                                                                                             |
+| No credentials in Koma Motion               | Koma Motion stores and asks for no keys. Claude keeps its existing sign-in. Codex auth still uses `CODEX_HOME`.                                                       |
+
+### Child environment
+
+CLI children do not inherit the application environment. Detection and
+generation both pass an explicit environment, and `spawn` uses that object
+alone. When a caller of `runProcess` omits `env`, the child still inherits,
+so unrelated process calls do not change.
+
+A name is copied only when the parent already has a string value:
+
+- Windows and the process: `SystemRoot`, `SYSTEMROOT`, `windir`,
+  `SystemDrive`, `PATH`, `Path`, `PATHEXT`, `COMSPEC`, `TEMP`, `TMP`,
+  `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `HOME`, `APPDATA`, `LOCALAPPDATA`,
+  `PROGRAMDATA`, `USERNAME`, `USERDOMAIN`, `LANG`, `LC_ALL`, `LC_CTYPE`.
+- TLS and proxies, because corporate installs need them: `SSL_CERT_FILE`,
+  `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`, `HTTP_PROXY`, `HTTPS_PROXY`,
+  `NO_PROXY`, and the same names in lowercase.
+- Auth named by the installed help or by this document: `ANTHROPIC_API_KEY`,
+  `OPENAI_API_KEY` and `CODEX_HOME`.
+
+No other `*_TOKEN` or `*_KEY` variables are copied. `CODEX_HOME` is not
+repointed. On Windows, Node keeps one spelling of a case-insensitive name,
+and the platform also adds `LOGONSERVER`. That name is not on the allowlist
+and cannot be removed by it.
 
 ### Verified arguments
 
-**Claude Code** (from the help output and two real runs of version 2.1.283):
+Help was inspected on Windows on 29 September 2026: Claude Code 2.1.283 and
+Codex CLI 0.157.1.
+
+**Claude Code:**
 
 ```text
 claude --print --output-format json --input-format text
        --tools "" --strict-mcp-config --disable-slash-commands
        --permission-prompts none --no-session-persistence
+       --safe-mode --restricted --no-chrome
        [--model <model>] --system-prompt <text> --json-schema <schema>
 ```
 
@@ -369,10 +416,33 @@ The prompt is read from standard input. The output is one JSON object. Koma
 Motion uses `structured_output` when it is an object and `result` otherwise,
 and reports an error when `is_error` is true.
 
-**Codex CLI** (from the help output of version 0.157.1, not run):
+`--bare` is not used. Its help text says Anthropic auth is strictly
+`ANTHROPIC_API_KEY` or `apiKeyHelper` via `--settings`, and that OAuth and
+the keychain are never read. Passing it would drop the existing sign-in.
+`--setting-sources` is not passed either: the help text does not offer an
+empty value, and `--safe-mode` and `--restricted` already cover user,
+project and local settings.
+
+`--safe-mode` starts with customizations disabled. Admin-managed policy
+settings still apply. `--restricted` removes built-in tools that run
+commands or code, and WebFetch, unless `--tools` names them. `--tools ""`
+names none. It also ignores user, project and local settings files.
+`--no-chrome` disables Claude in Chrome. Managed policy settings cannot be
+turned off by these flags.
+
+Claude keeps its existing sign-in. `ANTHROPIC_API_KEY` is passed through
+only when the parent process already has it, because the `--bare` help text
+names that variable. Koma Motion does not store keys.
+
+**Codex CLI** (from help and `codex features list`, not run as a generation):
 
 ```text
-codex exec --sandbox read-only --skip-git-repo-check --ephemeral --color never
+codex exec --sandbox read-only --skip-git-repo-check --ephemeral
+           --color never --ignore-user-config --ignore-rules
+           --disable hooks --disable plugins --disable plugin_sharing
+           --disable remote_plugin --disable browser_use
+           --disable browser_use_external --disable browser_use_full_cdp_access
+           --disable computer_use --disable shell_tool
            [--model <model>] --cd <temporary folder>
            --output-schema <temporary folder>/response-schema.json
            --output-last-message <temporary folder>/answer.json -
@@ -380,6 +450,42 @@ codex exec --sandbox read-only --skip-git-repo-check --ephemeral --color never
 
 The final `-` reads the prompt from standard input. Koma Motion creates both
 file paths itself and reads the answer from `answer.json`.
+
+`--ignore-user-config` does not load `$CODEX_HOME/config.toml`. Auth still
+uses `CODEX_HOME`. `--ignore-rules` does not load user or project execpolicy
+`.rules` files. `--disable` is an invocation override (`-c features.<name>=false`).
+It is not `codex features disable`, which would write `config.toml` and is
+never called. The disabled features are the stable, enabled features from
+`codex features list` that grant extra capability: `hooks`, `plugins`,
+`plugin_sharing`, `remote_plugin`, `browser_use`, `browser_use_external`,
+`browser_use_full_cdp_access`, `computer_use` and `shell_tool`. Disabling
+`shell_tool` is the supported control that turns off the shell tool. There
+is no verified flag that means no filesystem access. `--sandbox read-only`
+still allows reads.
+
+MCP servers normally come from `config.toml`, which `--ignore-user-config`
+skips. MCP servers or plugins configured outside that file are not covered
+by a stronger verified switch. `CODEX_HOME` is not pointed at a sandbox.
+
+`OPENAI_API_KEY` and `CODEX_HOME` are passed through only when the parent
+already has them, so API-key auth and the existing auth files still work.
+Koma Motion does not store keys. Generation with this combination was not
+executed. The arguments come from help plus `features list`, not from a live
+run.
+
+### Remaining trust
+
+- Admin-managed Claude settings still apply. Managed policy settings cannot
+  be disabled by the flags above.
+- Codex read-only is not "no filesystem access".
+- Codex generation was not run. The Codex argument list is unverified against
+  a real generation.
+- Prompt wording, including the untrusted-data delimiters, is not a boundary.
+- `PATH` discovery still trusts the local install locations on `PATH` and the
+  extra installation folders searched beside it. The child receives that
+  `PATH` when the parent has it.
+- On Windows, a custom environment still receives `LOGONSERVER` from the
+  platform.
 
 ## MockAgentProvider
 
@@ -411,7 +517,8 @@ in the colours of the Brand Kit, and a rationale for both transitions.
 
 1. Create a class that implements `AgentProvider`. For a CLI, use
    `CliEnvironment` from `src/node/cliEnvironment.ts` for detection and for
-   starting the process, so that the rules above apply.
+   starting the process, and pass `childEnvironment()` as `env`, so that the
+   rules above apply.
 2. Read the help output of the CLI and run it before you write the
    invocation. Do not assume flags. Document the verified arguments here.
 3. Start the agent with the fewest capabilities it can work with.
