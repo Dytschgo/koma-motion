@@ -1,3 +1,4 @@
+import { join, sep } from 'node:path';
 import type { KomaProject } from '@koma-motion/core';
 import { err, ok } from '@koma-motion/core';
 import { buildProject } from '@koma-motion/core/testing';
@@ -134,11 +135,14 @@ describe('project file session', () => {
   });
 
   it('keeps a completed save when a later save fails', async () => {
+    // Paths of this platform: the file name is derived from the path.
+    const firstPath = join(sep, 'projects', 'first.koma');
+    const secondPath = join(sep, 'projects', 'second.koma');
     session.filePath = null;
     const held = holdWrites();
     showSaveDialog
-      .mockResolvedValueOnce({ canceled: false, filePath: 'C:\\first.koma' })
-      .mockResolvedValueOnce({ canceled: false, filePath: 'C:\\second.koma' });
+      .mockResolvedValueOnce({ canceled: false, filePath: firstPath })
+      .mockResolvedValueOnce({ canceled: false, filePath: secondPath });
     const first = saveProject(window, session, buildProject({ name: 'First' }), now);
     const second = saveProjectAs(window, session, buildProject({ name: 'Second' }), now);
     await flush();
@@ -150,13 +154,13 @@ describe('project file session', () => {
 
     expect(firstResult).toMatchObject({
       status: 'saved',
-      file: { fileName: 'first.koma', displayPath: 'C:\\first.koma' },
+      file: { fileName: 'first.koma', displayPath: firstPath },
     });
     expect(secondResult).toEqual({
       status: 'failed',
       message: 'The project could not be saved.',
     });
-    expect(session.filePath).toBe('C:\\first.koma');
+    expect(session.filePath).toBe(firstPath);
   });
 
   it('leaves the path unchanged when the save dialog is cancelled', async () => {

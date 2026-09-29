@@ -253,6 +253,7 @@ describe('uninspectable save targets', () => {
       }
       expect(await readFile(filePath, 'utf8')).toBe('original-content');
     },
+    LOCK_TEST_TIMEOUT_MS,
   );
 
   it.skipIf(process.platform !== 'win32')(
@@ -274,6 +275,7 @@ describe('uninspectable save targets', () => {
       }
       expect(await readFile(filePath, 'utf8')).toBe(header);
     },
+    LOCK_TEST_TIMEOUT_MS,
   );
 });
 
@@ -349,6 +351,10 @@ async function denyRead(filePath: string): Promise<() => Promise<void>> {
   };
 }
 
+/** Starting PowerShell takes several seconds on a busy computer. */
+const LOCK_START_TIMEOUT_MS = 20_000;
+const LOCK_TEST_TIMEOUT_MS = 30_000;
+
 function lockFile(filePath: string, share: 'none' | 'read'): Promise<() => Promise<void>> {
   const script = [
     '$path = $env:KOMA_LOCK_TARGET',
@@ -369,7 +375,7 @@ function lockFile(filePath: string, share: 'none' | 'read'): Promise<() => Promi
     const timer = setTimeout(() => {
       child.kill();
       reject(new Error('Timed out waiting for the file lock'));
-    }, 5_000);
+    }, LOCK_START_TIMEOUT_MS);
     const outputStream = child.stdout;
     if (outputStream === null) {
       child.kill();
