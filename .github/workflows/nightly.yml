@@ -106,12 +106,14 @@ jobs:
       - run: pnpm build
       - name: Package with the version of the nightly
         working-directory: apps/desktop
+        # PowerShell splits options at a dot, so this runs in bash on every platform.
+        shell: bash
         # The version is set for this build only. Nothing is committed.
         run: >-
           pnpm exec electron-builder ${{ matrix.builder }} --publish never
-          -c.extraMetadata.version=${{ needs.guard.outputs.version }}
-          -c.publish.channel=nightly
-          -c.publish.releaseType=prerelease
+          --config.extraMetadata.version="$KOMA_EXPECT_VERSION"
+          --config.publish.channel=nightly
+          --config.publish.releaseType=prerelease
       - name: Test the packaged application
         working-directory: apps/desktop
         run: node scripts/verify-packaged.mjs ${{ matrix.platform }}
