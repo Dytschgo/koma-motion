@@ -3,13 +3,15 @@
 All notable changes to Koma Motion are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
-Koma Motion has not had a release yet. Until version 1.0.0, any release may
-contain breaking changes, including changes to the project format.
+Until version 1.0.0, any release may contain breaking changes, including
+changes to the project format.
 
 ## [Unreleased]
 
-First vertical slice of the desktop application. Everything listed here is an
-early-stage prototype.
+## [0.1.0] - 2026-09-29
+
+The first release: a vertical slice of the desktop application from the chat
+to a saved file. Everything listed here is an early-stage prototype.
 
 ### Added
 
@@ -37,9 +39,21 @@ early-stage prototype.
   own protocol with a Content Security Policy and a validated IPC contract.
 - Undo and redo for all document changes.
 - Unit tests, application tests and CI on Windows and macOS.
+- Installers for Windows and macOS, an application icon, and a stable and a
+  nightly update channel. On Windows the application downloads and installs
+  an update when the user chooses to. On macOS it opens the download page.
+  The installers are not signed.
 
 ### Fixed
 
+- Agent output with more than one possible answer is rejected even when a
+  provider supplies structured output, and a result text of Claude Code that
+  disagrees with its structured output is rejected.
+- Diagnostics redact everything after an Authorization name, including
+  values of letters only and quoted values with escaped quotes, and are
+  processed in a time that is proportional to a bounded input.
+- A transition is validated once for the same Komas and operations instead
+  of once per frame of the preview.
 - Saving and opening a project use one 64 MiB UTF-8 limit, including unknown
   extension data and the combined size of embedded assets. A project that
   saves can be opened again.
@@ -53,4 +67,5 @@ early-stage prototype.
 ### Not included
 
 - PowerPoint export.
-- Installers, code signing and automatic updates.
+- Code signing and notarisation of the installers.
+- Installing updates on macOS.

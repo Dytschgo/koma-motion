@@ -9,7 +9,19 @@ An experimental open-source AI-native presentation motion studio.
 
 > **Koma Motion is an early-stage prototype.** It proves one idea: motion
 > that is derived from the identity of objects. It cannot export to
-> PowerPoint, it has no installer, and its file format can still change.
+> PowerPoint, its installers are not signed, and its file format can still
+> change.
+
+## Download
+
+| Platform | Download                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------- |
+| Windows  | [Koma-Motion-Setup.exe](https://github.com/Dytschgo/koma-motion/releases/latest/download/Koma-Motion-Setup.exe) |
+| macOS    | [Koma-Motion.dmg](https://github.com/Dytschgo/koma-motion/releases/latest/download/Koma-Motion.dmg)             |
+
+The installers are not signed, so Windows and macOS warn when you open them.
+[docs/RELEASES.md](docs/RELEASES.md#installing) explains how to install and
+how to switch to nightly previews.
 
 ![Koma Motion showing the middle of a transition between two Komas](docs/screenshots/transition-preview.png)
 
@@ -112,7 +124,8 @@ The screenshots are created from the running application with
 | Playing a whole presentation | not available, one transition at a time        |
 | PowerPoint export            | **not available**                              |
 | Stop Motion Mode             | not available, concept only                    |
-| Installers                   | not available                                  |
+| Installers                   | available for Windows and macOS, not signed    |
+| Stable and nightly updates   | available; installed by the app on Windows     |
 | `koma` command line tool     | not available, the name is reserved            |
 
 ## Architecture overview
@@ -261,8 +274,15 @@ pnpm start
 `pnpm build` creates three bundles in `apps/desktop/out`: the main process,
 the preload script and the window. `pnpm start` runs them with Electron.
 
-This is a build for running from the source code. There are no installers
-and no signed builds yet. See [docs/RELEASES.md](docs/RELEASES.md).
+To create an installer from the source code:
+
+```sh
+pnpm package:win   # on Windows
+pnpm package:mac   # on macOS
+```
+
+The installers are written to `apps/desktop/release`. They are not signed.
+[docs/RELEASES.md](docs/RELEASES.md) describes how releases are published.
 
 ## Supported platforms
 
@@ -278,6 +298,10 @@ support difficult, but nothing is tested there.
 - **The window is untrusted.** It runs sandboxed, without Node.js, without
   files, without processes, and it cannot open its own network connections.
   A link to this repository can still open in the system browser.
+- **The application uses the network for one purpose:** installed versions
+  ask GitHub which versions of Koma Motion exist. Nothing about you or your
+  projects is sent. Agent CLIs are separate programs with their own network
+  use.
 - **Privileged work happens in the main process**, behind a fixed set of
   validated channels.
 - **Security is not weakened for development.**
@@ -297,8 +321,12 @@ privately, as described there.
   size, are cross-fades.
 - Fonts must be installed on the computer.
 - Images can only be added as the logo of the Brand Kit, up to 2 MB.
-- There are no installers, no signed builds, no automatic updates and no
-  application icon.
+- The installers are not signed and not notarised. Windows and macOS warn
+  when they are opened.
+- On macOS the application cannot install updates. It opens the download
+  page.
+- Installing an update from one published version to the next has not been
+  tested yet.
 - The project format can change before version 1.0.
 
 The complete list is in
