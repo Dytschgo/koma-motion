@@ -10,8 +10,15 @@ import {
 import { toValidationIssues } from '../validation';
 import { projectPathSchema } from './asset';
 import { komaSchema } from './koma';
+import { exceedsUtf8ByteLength } from './limits';
 import { findTransitionStructureIssues } from './presentation';
-import { komaProjectSchema } from './project';
+import {
+  MAX_EXTENSION_DEPTH,
+  MAX_EXTENSION_KEY_LENGTH,
+  MAX_EXTENSION_NODES,
+  MAX_EXTENSION_OBJECT_KEYS,
+  komaProjectSchema,
+} from './project';
 
 describe('komaProjectSchema', () => {
   it('accepts a valid project', () => {
@@ -42,6 +49,70 @@ describe('komaProjectSchema', () => {
   it('keeps unknown top-level properties', () => {
     const result = komaProjectSchema.parse({ ...buildProject(), futureFeature: { enabled: true } });
     expect(result.futureFeature).toEqual({ enabled: true });
+  });
+
+  it('keeps nested JSON extension data, including multibyte text', () => {
+    const extension = { label: 'café', values: [1, null, true], nested: { ok: false } };
+    const result = komaProjectSchema.parse({ ...buildProject(), futureFeature: extension });
+    expect(result.futureFeature).toEqual(extension);
+  });
+
+  it('rejects extension data past the depth, width and JSON limits', () => {
+    const nest = (depth: number): unknown => {
+      let value: unknown = 'end';
+      for (let level = 1; level < depth; level += 1) {
+        value = { child: value };
+      }
+      return value;
+    };
+    expect(
+      komaProjectSchema.safeParse({ ...buildProject(), futureFeature: nest(MAX_EXTENSION_DEPTH) })
+        .success,
+    ).toBe(true);
+    expect(
+      komaProjectSchema.safeParse({
+        ...buildProject(),
+        futureFeature: nest(MAX_EXTENSION_DEPTH + 1),
+      }).success,
+    ).toBe(false);
+
+    const wide: Record<string, number> = {};
+    for (let index = 0; index < MAX_EXTENSION_OBJECT_KEYS + 1; index += 1) {
+      wide[`k${String(index)}`] = index;
+    }
+    expect(komaProjectSchema.safeParse({ ...buildProject(), futureFeature: wide }).success).toBe(
+      false,
+    );
+    expect(
+      komaProjectSchema.safeParse({
+        ...buildProject(),
+        futureFeature: Array<null>(MAX_EXTENSION_NODES).fill(null),
+      }).success,
+    ).toBe(false);
+
+    const longName = 'k'.repeat(MAX_EXTENSION_KEY_LENGTH + 1);
+    expect(komaProjectSchema.safeParse({ ...buildProject(), [longName]: true }).success).toBe(
+      false,
+    );
+
+    const loop: Record<string, unknown> = {};
+    loop['self'] = loop;
+    const rejected: unknown[] = [
+      undefined,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      1n,
+      () => undefined,
+      new Date(0),
+      new Map(),
+      loop,
+    ];
+    for (const value of rejected) {
+      expect(
+        komaProjectSchema.safeParse({ ...buildProject(), futureFeature: value }).success,
+        typeof value,
+      ).toBe(false);
+    }
   });
 
   it('rejects unsupported element types', () => {
@@ -92,6 +163,19 @@ describe('komaProjectSchema', () => {
       presentation: { ...project.presentation, komas: [buildKoma(), buildKoma()] },
     });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('exceedsUtf8ByteLength', () => {
+  it('counts UTF-8 bytes rather than UTF-16 code units', () => {
+    expect(exceedsUtf8ByteLength('é', 1)).toBe(true);
+    expect(exceedsUtf8ByteLength('é', 2)).toBe(false);
+    expect(exceedsUtf8ByteLength('あ', 2)).toBe(true);
+    expect(exceedsUtf8ByteLength('あ', 3)).toBe(false);
+    expect(exceedsUtf8ByteLength('😀', 3)).toBe(true);
+    expect(exceedsUtf8ByteLength('😀', 4)).toBe(false);
+    expect(exceedsUtf8ByteLength('a'.repeat(5), 5)).toBe(false);
+    expect(exceedsUtf8ByteLength('a'.repeat(5), 4)).toBe(true);
   });
 });
 

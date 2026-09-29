@@ -1,9 +1,31 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { execFile, spawn } from 'node:child_process';
+import {
+  chmod,
+  mkdir,
+  mkdtemp,
+  open,
+  readdir,
+  readFile,
+  rm,
+  stat,
+  writeFile,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { promisify } from 'node:util';
+import {
+  komaProjectSchema,
+  MAX_EMBEDDED_ASSET_BYTES,
+  MAX_EMBEDDED_ASSET_CHARACTERS,
+  MAX_PROJECT_FILE_BYTES,
+  type KomaProject,
+} from '@koma-motion/core';
 import { buildProject } from '@koma-motion/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { readProjectFile, writeFileAtomic, writeProjectFile } from './files';
+import { withProjectFileOperation } from './operationGate';
+
+const execFileAsync = promisify(execFile);
 
 let directory: string;
 
@@ -85,6 +107,206 @@ describe('project files', () => {
   });
 });
 
+describe('project size limits', () => {
+  it('saves and reopens one maximum-size asset', async () => {
+    const filePath = join(directory, 'asset.koma');
+    const project = buildProject({ assets: [maximumAsset('asset-1', maximumAssetData())] });
+    const saved = await writeProjectFile(filePath, project);
+    expect(saved.ok).toBe(true);
+    const opened = await readProjectFile(filePath);
+    expect(opened.ok).toBe(true);
+    if (opened.ok) {
+      expect(opened.value.project.assets).toHaveLength(1);
+      expect(opened.value.project.assets[0]?.embeddedData?.data.length).toBe(
+        MAX_EMBEDDED_ASSET_CHARACTERS,
+      );
+    }
+  }, 30_000);
+
+  it('does not save assets that are allowed individually but too large together', async () => {
+    const data = maximumAssetData();
+    const project = buildProject({
+      assets: Array.from({ length: 25 }, (_, index) =>
+        maximumAsset(`asset-${String(index)}`, data),
+      ),
+    });
+    expect(komaProjectSchema.safeParse(project).success).toBe(false);
+
+    const filePath = join(directory, 'assets.koma');
+    const saved = await writeProjectFile(filePath, project);
+    expect(saved.ok).toBe(false);
+    if (!saved.ok) {
+      expect(saved.error.code).toBe('tooLarge');
+    }
+    expect(await readdir(directory)).toEqual([]);
+  }, 30_000);
+
+  it('does not save multibyte text whose UTF-8 form exceeds the byte limit', async () => {
+    const note = 'あ'.repeat(Math.floor(MAX_PROJECT_FILE_BYTES / 3) + 1);
+    expect(note.length).toBeLessThanOrEqual(MAX_PROJECT_FILE_BYTES);
+    const project = { ...buildProject(), note };
+    expect(komaProjectSchema.safeParse(project).success).toBe(false);
+
+    const filePath = join(directory, 'multibyte.koma');
+    const saved = await writeProjectFile(filePath, project);
+    expect(saved.ok).toBe(false);
+    if (!saved.ok) {
+      expect(saved.error.code).toBe('tooLarge');
+    }
+    expect(await readdir(directory)).toEqual([]);
+  }, 30_000);
+
+  it('saves and reopens extension data within the limits', async () => {
+    const filePath = join(directory, 'extension.koma');
+    const project = {
+      ...buildProject(),
+      futureFeature: { label: 'café', values: [1, null, true] },
+    };
+    const saved = await writeProjectFile(filePath, project);
+    expect(saved.ok).toBe(true);
+    const opened = await readProjectFile(filePath);
+    expect(opened.ok).toBe(true);
+    if (opened.ok) {
+      expect(opened.value.project['futureFeature']).toEqual({
+        label: 'café',
+        values: [1, null, true],
+      });
+    }
+  });
+});
+
+describe('uninspectable save targets', () => {
+  it('does not open or replace an oversized newer-format file', async () => {
+    const filePath = join(directory, 'future.koma');
+    const header = JSON.stringify({ ...buildProject(), schemaVersion: 99 });
+    const handle = await open(filePath, 'w');
+    await handle.writeFile(header, 'utf8');
+    await handle.truncate(MAX_PROJECT_FILE_BYTES + 1);
+    await handle.close();
+
+    const opened = await readProjectFile(filePath);
+    expect(opened.ok).toBe(false);
+    if (!opened.ok) {
+      expect(opened.error.code).toBe('tooLarge');
+    }
+
+    const saved = await writeProjectFile(filePath, buildProject());
+    expect(saved.ok).toBe(false);
+    if (!saved.ok) {
+      expect(saved.error.code).toBe('uninspectableTarget');
+    }
+
+    const check = await open(filePath, 'r');
+    const prefix = Buffer.alloc(Buffer.byteLength(header));
+    await check.read(prefix, 0, prefix.length, 0);
+    await check.close();
+    expect(prefix.toString('utf8')).toBe(header);
+    expect((await stat(filePath)).size).toBe(MAX_PROJECT_FILE_BYTES + 1);
+    expect(await readdir(directory)).toEqual(['future.koma']);
+  }, 30_000);
+
+  it('does not replace a newer-format file that cannot be read', async () => {
+    const filePath = join(directory, 'future.koma');
+    const header = JSON.stringify({ ...buildProject(), schemaVersion: 99 });
+    await writeFile(filePath, header, 'utf8');
+    const restore = await denyRead(filePath);
+    try {
+      await expect(readFile(filePath, 'utf8')).rejects.toThrow();
+      const saved = await writeProjectFile(filePath, buildProject());
+      expect(saved.ok).toBe(false);
+      if (!saved.ok) {
+        expect(saved.error.code).toBe('uninspectableTarget');
+      }
+      expect(await readdir(directory)).toEqual(['future.koma']);
+    } finally {
+      await restore();
+    }
+    expect(await readFile(filePath, 'utf8')).toBe(header);
+  });
+
+  it('does not replace a folder', async () => {
+    const folder = join(directory, 'project.koma');
+    await mkdir(folder);
+    const saved = await writeProjectFile(folder, buildProject());
+    expect(saved.ok).toBe(false);
+    if (!saved.ok) {
+      expect(saved.error.code).toBe('uninspectableTarget');
+    }
+    expect((await stat(folder)).isDirectory()).toBe(true);
+  });
+
+  it.skipIf(process.platform !== 'win32')(
+    'keeps the original file when a lock prevents replacement',
+    async () => {
+      const filePath = join(directory, 'locked.koma');
+      await writeFile(filePath, 'original-content', 'utf8');
+      const release = await lockFile(filePath, 'read');
+      try {
+        const saved = await writeProjectFile(filePath, buildProject());
+        expect(saved.ok).toBe(false);
+        if (!saved.ok) {
+          expect(saved.error.code).toBe('fileNotWritable');
+        }
+        expect(await readdir(directory)).toEqual(['locked.koma']);
+      } finally {
+        await release();
+      }
+      expect(await readFile(filePath, 'utf8')).toBe('original-content');
+    },
+  );
+
+  it.skipIf(process.platform !== 'win32')(
+    'does not replace a newer-format file an exclusive lock hides',
+    async () => {
+      const filePath = join(directory, 'hidden.koma');
+      const header = JSON.stringify({ ...buildProject(), schemaVersion: 99 });
+      await writeFile(filePath, header, 'utf8');
+      const release = await lockFile(filePath, 'none');
+      try {
+        const saved = await writeProjectFile(filePath, buildProject());
+        expect(saved.ok).toBe(false);
+        if (!saved.ok) {
+          expect(saved.error.code).toBe('uninspectableTarget');
+        }
+        expect(await readdir(directory)).toEqual(['hidden.koma']);
+      } finally {
+        await release();
+      }
+      expect(await readFile(filePath, 'utf8')).toBe(header);
+    },
+  );
+});
+
+describe('project file operation limit', () => {
+  it('does not start a second write while a project file operation is running', async () => {
+    let releaseHold: () => void = () => undefined;
+    const hold = new Promise<void>((resolve) => {
+      releaseHold = resolve;
+    });
+    const holder = withProjectFileOperation(() => hold);
+    const filePath = join(directory, 'queued.koma');
+    let settled = false;
+    const write = writeProjectFile(filePath, buildProject()).then((result) => {
+      settled = true;
+      return result;
+    });
+
+    try {
+      const started = Date.now();
+      while (!settled && Date.now() - started < 300) {
+        await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(settled).toBe(false);
+      expect(await readdir(directory)).toEqual([]);
+    } finally {
+      releaseHold();
+      await holder;
+    }
+    await expect(write).resolves.toMatchObject({ ok: true });
+    expect(await readdir(directory)).toEqual(['queued.koma']);
+  });
+});
+
 describe('writeFileAtomic', () => {
   it('replaces the content of an existing file', async () => {
     const filePath = join(directory, 'file.txt');
@@ -93,3 +315,91 @@ describe('writeFileAtomic', () => {
     expect(await readFile(filePath, 'utf8')).toBe('second');
   });
 });
+
+function maximumAssetData(): string {
+  return 'A'.repeat(MAX_EMBEDDED_ASSET_CHARACTERS);
+}
+
+function maximumAsset(id: string, data: string): KomaProject['assets'][number] {
+  return {
+    id,
+    type: 'image',
+    name: `${id}.png`,
+    mediaType: 'image/png',
+    projectPath: `assets/${id}.png`,
+    metadata: { byteLength: MAX_EMBEDDED_ASSET_BYTES },
+    embeddedData: { encoding: 'base64', data },
+  };
+}
+
+async function denyRead(filePath: string): Promise<() => Promise<void>> {
+  if (process.platform === 'win32') {
+    const user = process.env['USERNAME'];
+    if (user === undefined || user === '') {
+      throw new Error('USERNAME is required to deny read permission');
+    }
+    await execFileAsync('icacls', [filePath, '/deny', `${user}:(R)`]);
+    return async () => {
+      await execFileAsync('icacls', [filePath, '/remove:d', user]);
+    };
+  }
+  await chmod(filePath, 0o000);
+  return async () => {
+    await chmod(filePath, 0o644);
+  };
+}
+
+function lockFile(filePath: string, share: 'none' | 'read'): Promise<() => Promise<void>> {
+  const script = [
+    '$path = $env:KOMA_LOCK_TARGET',
+    "$share = if ($env:KOMA_LOCK_SHARE -eq 'read') { [System.IO.FileShare]::Read } else { [System.IO.FileShare]::None }",
+    '$fs = [System.IO.File]::Open($path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, $share)',
+    "Write-Output 'LOCKED'",
+    '[Console]::Out.Flush()',
+    'while ($true) { Start-Sleep -Seconds 1 }',
+  ].join('; ');
+  const child = spawn('powershell.exe', ['-NoProfile', '-Command', script], {
+    env: { ...process.env, KOMA_LOCK_TARGET: filePath, KOMA_LOCK_SHARE: share },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  });
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      child.kill();
+      reject(new Error('Timed out waiting for the file lock'));
+    }, 5_000);
+    const outputStream = child.stdout;
+    if (outputStream === null) {
+      child.kill();
+      reject(new Error('The lock process has no output'));
+      return;
+    }
+    let output = '';
+    outputStream.setEncoding('utf8');
+    outputStream.on('data', (chunk: string) => {
+      output += chunk;
+      if (!settled && output.includes('LOCKED')) {
+        settled = true;
+        clearTimeout(timer);
+        resolve(async () => {
+          child.kill();
+          await new Promise<void>((done) => {
+            if (child.exitCode !== null) {
+              done();
+              return;
+            }
+            child.once('exit', () => done());
+          });
+        });
+      }
+    });
+    child.once('exit', (code) => {
+      if (!settled) {
+        clearTimeout(timer);
+        reject(new Error(`Lock process exited early (${String(code)})`));
+      }
+    });
+  });
+}

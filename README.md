@@ -182,8 +182,10 @@ Read more in [docs/AGENT_PROVIDERS.md](docs/AGENT_PROVIDERS.md).
 ## Native `.koma` project format
 
 A project is one human-readable JSON file with the extension `.koma`. It is
-schema-versioned, validated when it is opened and when it is saved, written
-deterministically and saved atomically. Images are stored inside the file.
+schema-versioned, validated when it is opened and when it is saved, and
+written deterministically. Saving replaces the previous file as a whole. That
+replacement is not a guarantee against power loss. Images are stored inside
+the file.
 
 Koma Motion refuses to open projects of a newer format version and never
 overwrites them.

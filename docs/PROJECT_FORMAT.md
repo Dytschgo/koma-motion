@@ -14,7 +14,7 @@ The code lives in `packages/core` (schemas) and `packages/project-format`
 | Syntax          | JSON, indented with two spaces    |
 | Format marker   | `"format": "koma-motion-project"` |
 | Current version | `"schemaVersion": 1`              |
-| Size limit      | 64 MB                             |
+| Size limit      | 64 MiB (67,108,864 UTF-8 bytes)   |
 
 The format is an early-stage format. It can change before version 1.0 of Koma
 Motion. Changes are handled through schema versions and migrations.
@@ -149,7 +149,8 @@ system.
 
 - Supported media types: `image/png`, `image/jpeg`, `image/webp`, `image/gif`.
 - In schema version 1 the bytes of an asset are stored in the project file,
-  up to 2 MB per asset.
+  up to 2 MB per asset. The assets together, with the rest of the project,
+  must still fit in the 64 MiB limit.
 - `projectPath` is the location the asset will have in a future packaged
   project. It is always relative, uses `/` and contains no `.` or `..`
   segments. It is never a path on the computer of the user.
@@ -193,7 +194,7 @@ validated again before it is written.
 
 Opening a file runs these steps:
 
-1. Reject files above the size limit.
+1. Reject files above the byte limit, before the text is parsed.
 2. Parse the JSON.
 3. Check the format marker and read the schema version.
 4. Migrate older versions to the current version.
@@ -220,9 +221,10 @@ brandKit.colours.primary: Colour must be a six-digit hex value such as #FF5A36
 | `newerSchemaVersion`         | written by a newer version of Koma Motion               |
 | `unsupportedSchemaVersion`   | an older version without a migration                    |
 | `invalidProject`             | the document does not match the schema                  |
-| `tooLarge`                   | above the size limit                                    |
+| `tooLarge`                   | above the shared 64 MiB byte limit                      |
 | `fileNotReadable`            | the file could not be read                              |
 | `fileNotWritable`            | the file could not be written                           |
+| `uninspectableTarget`        | an existing file could not be inspected, so it was kept |
 | `wouldOverwriteNewerProject` | saving would overwrite a project of a newer version     |
 
 ### Warnings
@@ -264,11 +266,20 @@ the schema:
 
 ## Unknown data
 
-- **Unknown top-level properties are kept.** They survive opening and saving,
-  so a project that was touched by a newer minor revision does not lose them.
+- **Unknown top-level properties are kept** when they are JSON and fit in the
+  limits below, so a project that was touched by a newer minor revision does
+  not lose them.
 - **Unknown nested properties are removed and reported.** Opening the project
   shows a warning that names each property and states that it is not kept
   when the project is saved.
+
+Extension data is the unknown top-level properties. It may contain only JSON
+values: strings, finite numbers, booleans, null, arrays and objects. It may
+be nested at most 32 levels. One property may contain at most 10,000 JSON
+values, counting the property itself, and one object may have at most 1,000
+properties. Property names are at most 256 characters. Anything else is
+rejected. The extension data also counts toward the 64 MiB limit of the whole
+project.
 
 ## Deterministic serialisation
 
@@ -285,17 +296,47 @@ in version control.
 
 ## Saving
 
-Saving is atomic where the file system allows it:
+Saving replaces the destination as a whole. That replacement is separate from
+surviving a crash or a power loss. The same 64 MiB UTF-8 limit is used when
+the window asks the main process to save, when the project is serialised, and
+when a file is read. A project that is saved can be opened again.
 
-1. The project is validated. An invalid project is never written.
-2. The text is written to a temporary file in the same folder.
-3. The temporary file is flushed to disk.
-4. The temporary file is renamed over the target.
+The application reads or writes one project file at a time.
 
-If a step fails, the temporary file is removed and the previous project file
-is unchanged.
+### Replacement
+
+1. If the destination does not exist, it can be created. If it exists, its
+   format version is read. A file that exists but cannot be inspected is left
+   unchanged: it is larger than the limit, it is not a regular file, or the
+   operating system refuses the read. Koma Motion does not treat that file as
+   missing. It may be a project written by a newer version.
+2. The project is validated, including the byte limit. An invalid project is
+   never written. When the contents are already over the limit, the project
+   is rejected before its text is built.
+3. The text is written to a temporary file in the same folder.
+4. The temporary file's contents are flushed.
+5. The temporary file is renamed over the destination.
+
+On the file systems used by Windows and macOS, that rename replaces the
+directory entry. A reader sees either the previous file or the completed new
+file, never a mixture of the two.
+
+If a step fails before the rename completes, the temporary file is removed
+and the previous file is unchanged. A lock that stops the rename has the same
+result: the previous file stays, and the temporary file is removed.
 
 `updatedAt` is set on every save. `createdAt` never changes.
+
+### Power loss
+
+Flushing the temporary file asks the operating system to write that file's
+bytes. It does not flush the directory that records the new name, and Koma
+Motion does not sync the parent directory. A power loss after the rename has
+returned to the program, but before the operating system has stored the
+directory, can leave the folder without the new file. The previous file is
+still there when the rename itself had not been stored. This is not a
+guarantee against crashes or power loss. It is a guarantee that a failed save
+does not destroy the previous project.
 
 ## Future: packaged projects
 

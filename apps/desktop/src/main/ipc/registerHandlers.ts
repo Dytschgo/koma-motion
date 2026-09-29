@@ -22,6 +22,7 @@ import {
   saveProjectAs,
   type ProjectSession,
 } from '../services/projectFiles';
+import { limitProjectPersistence, rejectedRequestMessage } from './persistence';
 
 export interface WindowContext {
   readonly window: BrowserWindow;
@@ -73,9 +74,11 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
       if (!isTrustedSender(event, window.webContents)) {
         throw new Error('Request rejected');
       }
-      const request = ipcContract[channel].request.safeParse(payload);
+      const request = await limitProjectPersistence(channel, () =>
+        Promise.resolve(ipcContract[channel].request.safeParse(payload)),
+      );
       if (!request.success) {
-        throw new Error(`Invalid request for ${channel}`);
+        throw new Error(rejectedRequestMessage(channel, request.error.issues));
       }
       const response = await handler(request.data as Parameters<Handler<C>>[0]);
       return ipcContract[channel].response.parse(response);

@@ -1,13 +1,16 @@
 import {
   describeIssues,
   err,
+  exceedsUtf8ByteLength,
   komaProjectSchema,
+  MAX_PROJECT_FILE_BYTES,
   ok,
+  PROJECT_TOO_LARGE_MESSAGE,
   toValidationIssues,
   type KomaProject,
   type Result,
 } from '@koma-motion/core';
-import { projectFormatError, type ProjectFormatError } from './errors';
+import { isProjectTooLarge, projectFormatError, type ProjectFormatError } from './errors';
 
 export const PROJECT_FILE_EXTENSION = 'koma';
 
@@ -66,6 +69,9 @@ export function serialiseProject(project: KomaProject): Result<string, ProjectFo
   const validated = komaProjectSchema.safeParse(project);
   if (!validated.success) {
     const issues = toValidationIssues(validated.error);
+    if (isProjectTooLarge(issues)) {
+      return err(projectFormatError('tooLarge', PROJECT_TOO_LARGE_MESSAGE, issues));
+    }
     return err(
       projectFormatError(
         'invalidProject',
@@ -74,7 +80,11 @@ export function serialiseProject(project: KomaProject): Result<string, ProjectFo
       ),
     );
   }
-  return ok(`${JSON.stringify(canonicalise(validated.data), null, 2)}\n`);
+  const text = `${JSON.stringify(canonicalise(validated.data), null, 2)}\n`;
+  if (exceedsUtf8ByteLength(text, MAX_PROJECT_FILE_BYTES)) {
+    return err(projectFormatError('tooLarge', PROJECT_TOO_LARGE_MESSAGE));
+  }
+  return ok(text);
 }
 
 /** Returns a copy of the project with `updatedAt` set to `now` (ISO 8601). */

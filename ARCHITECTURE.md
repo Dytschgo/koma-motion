@@ -38,7 +38,7 @@ makes every change visible immediately.
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | `core`           | schemas and types of projects, Komas, elements and transitions; colours; identifiers; document operations                    | everywhere                     |
 | `brand-kit`      | default Brand Kit, validation of editor input, contrast checks, the Brand Kit as agents see it                               | everywhere                     |
-| `project-format` | deterministic serialisation, parsing, migrations, warnings; atomic file access under `/node`                                 | everywhere, `/node` in Node.js |
+| `project-format` | deterministic serialisation, parsing, migrations, warnings; whole-file replacement under `/node`                             | everywhere, `/node` in Node.js |
 | `motion-engine`  | comparing Komas, building and validating transitions, computing frames                                                       | everywhere                     |
 | `agent-runtime`  | request and response contract, prompts, validation, conversion, registry, runner, mock provider; CLI providers under `/node` | everywhere, `/node` in Node.js |
 | `renderer`       | React components that draw frames, asset loading, playback                                                                   | browser                        |

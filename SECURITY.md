@@ -65,6 +65,13 @@ dialog. The file type is verified from the file content, the size is limited,
 and the bytes are stored inside the project. Elements refer to images by asset
 id. Project files cannot make the application read other files.
 
+A project file is limited to 64 MiB of UTF-8. The window's save request is
+held to the same limit, including unknown extension data and the combined
+size of embedded images. Before a save replaces an existing file, that file
+is inspected. A missing file can be created. A file that cannot be read, or
+that is larger than the limit, is left unchanged: it might be a project from
+a newer version of Koma Motion. One project file is read or written at a time.
+
 ### Agent providers
 
 - CLIs are started without a shell, with an executable path and an explicit

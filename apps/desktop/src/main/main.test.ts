@@ -11,6 +11,8 @@ import {
   assetReferenceSchema,
   createSeededIdGenerator,
   MAX_EMBEDDED_ASSET_BYTES,
+  MAX_PROJECT_FILE_BYTES,
+  PROJECT_TOO_LARGE_MESSAGE,
   presentationSchema,
 } from '@koma-motion/core';
 import { buildProject } from '@koma-motion/core/testing';
@@ -115,6 +117,19 @@ describe('IPC contract', () => {
       ipcContract['koma:project:save'].request.safeParse({ project: buildProject() }).success,
     ).toBe(true);
   });
+
+  it('rejects a save of a project past the shared byte limit', () => {
+    const project = { ...buildProject(), note: 'x'.repeat(MAX_PROJECT_FILE_BYTES + 1) };
+    for (const channel of ['koma:project:save', 'koma:project:save-as'] as const) {
+      const parsed = ipcContract[channel].request.safeParse({ project });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success) {
+        expect(
+          parsed.error.issues.some((issue) => issue.message === PROJECT_TOO_LARGE_MESSAGE),
+        ).toBe(true);
+      }
+    }
+  }, 30_000);
 
   it('rejects malformed execution requests', () => {
     const valid = {

@@ -16,8 +16,8 @@ early-stage prototype.
 - Monorepo with a platform-independent document model (`@koma-motion/core`)
   with persistent object identity and a documented coordinate system.
 - Runtime-validated, schema-versioned `.koma` project format (version 1) with
-  deterministic serialisation, migrations for future versions and atomic
-  saving.
+  deterministic serialisation, migrations for future versions and whole-file
+  replacement.
 - Brand Kit model, validation, readability checks and editor with a live
   preview.
 - Deterministic motion engine that compares adjacent Komas by persistent
@@ -37,6 +37,15 @@ early-stage prototype.
   own protocol with a Content Security Policy and a validated IPC contract.
 - Undo and redo for all document changes.
 - Unit tests, application tests and CI on Windows and macOS.
+
+### Fixed
+
+- Saving and opening a project use one 64 MiB UTF-8 limit, including unknown
+  extension data and the combined size of embedded assets. A project that
+  saves can be opened again.
+- Saving no longer replaces an existing file that is too large or otherwise
+  impossible to inspect. A missing file can still be created. A failed save
+  leaves the previous file in place and removes its temporary file.
 
 ### Not included
 

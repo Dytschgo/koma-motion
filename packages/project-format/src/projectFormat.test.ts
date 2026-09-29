@@ -75,6 +75,16 @@ describe('serialiseProject', () => {
       expect(serialise(parsed.value.project)).toBe(text);
     }
   });
+
+  it('keeps multibyte extension text across a round trip', () => {
+    const text = serialise({ ...buildProject(), futureFeature: { label: 'café' } });
+    const parsed = parseProject(text);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.project['futureFeature']).toEqual({ label: 'café' });
+      expect(serialise(parsed.value.project)).toBe(text);
+    }
+  });
 });
 
 describe('parseProject', () => {
