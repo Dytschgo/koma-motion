@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@koma-motion/core": "workspace:*"
+    "@koma-motion/core": "workspace:*",
+    "zod": "^4.6.5"
   }
 }

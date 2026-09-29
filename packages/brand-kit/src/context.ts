@@ -1,24 +1,38 @@
-import type { AssetReference, BrandColours, BrandKit } from '@koma-motion/core';
+import {
+  brandColoursSchema,
+  fontFamilySchema,
+  idSchema,
+  type AssetReference,
+  type BrandKit,
+} from '@koma-motion/core';
+import { z } from 'zod';
 
 /**
  * The Brand Kit as agents see it. It carries no image data and no filesystem
  * paths: a logo is only described by its asset id and display name.
  */
-export interface BrandKitContext {
-  readonly name: string;
-  readonly colours: BrandColours;
-  readonly typography: {
-    readonly headingFont: string;
-    readonly bodyFont: string;
-  };
-  readonly logo: { readonly assetId: string; readonly name: string } | null;
-  readonly tone: string;
-  readonly visualStyle: string;
-  readonly iconStyle: string;
-  readonly preferredImagery: string;
-  readonly preferredTopics: readonly string[];
-  readonly referenceNotes: string;
-}
+export const brandKitContextSchema = z.object({
+  name: z.string().max(120),
+  colours: brandColoursSchema,
+  typography: z.object({
+    headingFont: fontFamilySchema,
+    bodyFont: fontFamilySchema,
+  }),
+  logo: z
+    .object({
+      assetId: idSchema,
+      name: z.string().max(260),
+    })
+    .nullable(),
+  tone: z.string().max(1000),
+  visualStyle: z.string().max(1000),
+  iconStyle: z.string().max(1000),
+  preferredImagery: z.string().max(1000),
+  preferredTopics: z.array(z.string().max(120)).max(30),
+  referenceNotes: z.string().max(5000),
+});
+
+export type BrandKitContext = z.infer<typeof brandKitContextSchema>;
 
 export function toBrandKitContext(
   brandKit: BrandKit,
