@@ -1,0 +1,41 @@
+{
+  "name": "@koma-motion/desktop",
+  "productName": "Koma Motion",
+  "version": "0.1.0",
+  "private": true,
+  "description": "The Koma Motion desktop application.",
+  "license": "MIT",
+  "type": "module",
+  "main": "out/main/index.cjs",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "start": "node scripts/start.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fontsource-variable/instrument-sans": "^5.3.0",
+    "@koma-motion/agent-runtime": "workspace:*",
+    "@koma-motion/brand-kit": "workspace:*",
+    "@koma-motion/core": "workspace:*",
+    "@koma-motion/exporters": "workspace:*",
+    "@koma-motion/motion-engine": "workspace:*",
+    "@koma-motion/project-format": "workspace:*",
+    "@koma-motion/renderer": "workspace:*",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.5",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "electron": "^44.4.5",
+    "tailwindcss": "^4.3.3",
+    "vite": "^8.3.1"
+  }
+}
