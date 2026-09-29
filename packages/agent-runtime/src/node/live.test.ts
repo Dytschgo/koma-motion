@@ -73,16 +73,16 @@ describe.runIf(generationProvider === 'claude-code')('live generation with Claud
     if (converted.ok) {
       const { presentation } = converted.value;
       const retained = presentation.transitions.flatMap((transition) =>
-        transition.elementTransitions.filter(
-          (item) => item.from !== null && item.to !== null,
-        ),
+        transition.elementTransitions.filter((item) => item.from !== null && item.to !== null),
       );
       console.info(
         presentation.komas
           .map((koma) => `${koma.title}: ${String(koma.elements.length)} elements`)
           .join('\n'),
       );
-      console.info(`repaired: ${String(result.repaired)}, retained operations: ${String(retained.length)}`);
+      console.info(
+        `repaired: ${String(result.repaired)}, retained operations: ${String(retained.length)}`,
+      );
       expect(presentation.transitions).toHaveLength(2);
       expect(retained.length).toBeGreaterThan(0);
     }

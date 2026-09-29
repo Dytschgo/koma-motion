@@ -176,7 +176,7 @@ export function buildMockResponse(
       opacity: 0.25,
       zIndex: 1,
     }),
-    text('wordmark', 'Wordmark', 'KOMA MOTION', box(96, 984, 800, 40), {
+    text('wordmark', 'Wordmark', 'Koma Motion', box(96, 984, 800, 40), {
       fontSize: 22,
       fontWeight: 700,
       opacity: 0.6,

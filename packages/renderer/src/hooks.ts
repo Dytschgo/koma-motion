@@ -55,13 +55,13 @@ export function useElementSize<T extends HTMLElement>(): [(node: T | null) => vo
 }
 
 export interface TransitionPlayback extends PlaybackState {
-  play(): void;
-  pause(): void;
+  readonly play: () => void;
+  readonly pause: () => void;
   /** Starts again from the beginning. */
-  restart(): void;
+  readonly restart: () => void;
   /** Returns to the idle state at progress 0. */
-  reset(): void;
-  seek(progress: number): void;
+  readonly reset: () => void;
+  readonly seek: (progress: number) => void;
 }
 
 /**

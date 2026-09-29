@@ -13,16 +13,16 @@ export const FONT_SUGGESTIONS = [
   'Courier New',
 ] as const;
 
-/** The Brand Kit of a new project: ink, paper, vermilion, indigo and amber. */
+/** The Brand Kit of a new project: night blue, paper, coral, steel blue and sun yellow. */
 export function createDefaultBrandKit(): BrandKit {
   return {
     name: 'Untitled brand',
     colours: {
-      primary: '#FF5A36',
-      secondary: '#2B3A55',
-      accent: '#F2C14E',
-      background: '#0E0F13',
-      text: '#F2EFE9',
+      primary: '#FF7A59',
+      secondary: '#33507A',
+      accent: '#FFD166',
+      background: '#182033',
+      text: '#F5F3EE',
     },
     typography: {
       headingFont: 'Georgia',
