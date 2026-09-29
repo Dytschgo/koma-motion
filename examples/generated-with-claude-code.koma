@@ -1,0 +1,1518 @@
+{
+  "format": "koma-motion-project",
+  "schemaVersion": 1,
+  "id": "project_8d50836b0b6a49d3",
+  "name": "Generated with Claude Code",
+  "createdAt": "2026-09-29T13:42:37.891Z",
+  "updatedAt": "2026-09-29T13:43:36.525Z",
+  "brandKit": {
+    "name": "Untitled brand",
+    "colours": {
+      "primary": "#FF7A59",
+      "secondary": "#33507A",
+      "accent": "#FFD166",
+      "background": "#182033",
+      "text": "#F5F3EE"
+    },
+    "typography": {
+      "headingFont": "Georgia",
+      "bodyFont": "Segoe UI"
+    },
+    "logoAssetId": null,
+    "tone": "",
+    "visualStyle": "",
+    "iconStyle": "",
+    "preferredImagery": "",
+    "preferredTopics": [],
+    "referenceNotes": ""
+  },
+  "presentation": {
+    "id": "presentation_55fad3861680178e",
+    "title": "Koma Motion",
+    "objective": "Introduce Koma Motion: show the whole system first, then the motion engine, then show that the result stays editable.",
+    "audience": "General audience new to Koma Motion.",
+    "narrative": "We begin with the whole pipeline: Komas go into the motion engine, and an editable result comes out. The camera then moves in on the motion engine and explains how it finds motion by matching persistent objects. Finally, the attention moves to the output: the animation is still made of real objects that can be changed at any time.",
+    "aspectRatio": "16:9",
+    "komas": [
+      {
+        "id": "koma_4f01a3d926f31d43",
+        "title": "The complete system",
+        "purpose": "Show the whole pipeline in one view: Komas, the motion engine and the editable result.",
+        "speakerNotes": "Koma Motion has three parts. You design Komas, which are visual states. The motion engine works out the animation between them. What you get back is a presentation you can still edit.",
+        "background": {
+          "type": "solid",
+          "colour": "#182033"
+        },
+        "elements": [
+          {
+            "id": "element_655410f933ea9b2b",
+            "persistentId": "title",
+            "name": "Title",
+            "position": {
+              "x": 160,
+              "y": 130
+            },
+            "size": {
+              "width": 1600,
+              "height": 120
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 3,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Koma Motion: from states to motion"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 76,
+              "fontWeight": 700,
+              "colour": "#F5F3EE",
+              "textAlign": "center",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_ee36c68cbbc04ec7",
+            "persistentId": "flow-line",
+            "name": "Flow connector",
+            "position": {
+              "x": 400,
+              "y": 608
+            },
+            "size": {
+              "width": 1120,
+              "height": 4
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 0,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "line",
+              "cornerRadius": 0
+            },
+            "style": {
+              "fill": null,
+              "stroke": "#FFD166",
+              "strokeWidth": 6
+            }
+          },
+          {
+            "id": "element_284aa00824bd25d9",
+            "persistentId": "card-komas",
+            "name": "Komas card",
+            "position": {
+              "x": 180,
+              "y": 460
+            },
+            "size": {
+              "width": 440,
+              "height": 300
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 1,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "roundedRectangle",
+              "cornerRadius": 32
+            },
+            "style": {
+              "fill": "#33507A",
+              "stroke": null,
+              "strokeWidth": 0
+            }
+          },
+          {
+            "id": "element_fd2c4c4a0c05886f",
+            "persistentId": "label-komas",
+            "name": "Komas label",
+            "position": {
+              "x": 210,
+              "y": 490
+            },
+            "size": {
+              "width": 380,
+              "height": 240
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Komas"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 56,
+              "fontWeight": 700,
+              "colour": "#F5F3EE",
+              "textAlign": "center",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_c7b6f89611854f20",
+            "persistentId": "card-engine",
+            "name": "Motion engine card",
+            "position": {
+              "x": 740,
+              "y": 460
+            },
+            "size": {
+              "width": 440,
+              "height": 300
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 1,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "roundedRectangle",
+              "cornerRadius": 32
+            },
+            "style": {
+              "fill": "#FF7A59",
+              "stroke": null,
+              "strokeWidth": 0
+            }
+          },
+          {
+            "id": "element_5fc9103b17d220ee",
+            "persistentId": "label-engine",
+            "name": "Motion engine label",
+            "position": {
+              "x": 770,
+              "y": 490
+            },
+            "size": {
+              "width": 380,
+              "height": 240
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Motion engine"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 56,
+              "fontWeight": 700,
+              "colour": "#182033",
+              "textAlign": "center",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_fded2fbd717bebe1",
+            "persistentId": "card-output",
+            "name": "Editable result card",
+            "position": {
+              "x": 1300,
+              "y": 460
+            },
+            "size": {
+              "width": 440,
+              "height": 300
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 1,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "roundedRectangle",
+              "cornerRadius": 32
+            },
+            "style": {
+              "fill": "#FFD166",
+              "stroke": null,
+              "strokeWidth": 0
+            }
+          },
+          {
+            "id": "element_a6362e9d0c11ee82",
+            "persistentId": "label-output",
+            "name": "Editable result label",
+            "position": {
+              "x": 1330,
+              "y": 490
+            },
+            "size": {
+              "width": 380,
+              "height": 240
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Editable result"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 56,
+              "fontWeight": 700,
+              "colour": "#182033",
+              "textAlign": "center",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          }
+        ]
+      },
+      {
+        "id": "koma_c3a33901f266c194",
+        "title": "The motion engine",
+        "purpose": "Move in on the motion engine and explain how it creates motion.",
+        "speakerNotes": "The motion engine looks at two Komas and matches objects by their persistent ID. When an object appears in both, the engine works out the change: it moves, scales, rotates, fades or changes colour. You never draw a single keyframe.",
+        "background": {
+          "type": "solid",
+          "colour": "#182033"
+        },
+        "elements": [
+          {
+            "id": "element_ccb67574dadb0d16",
+            "persistentId": "flow-line",
+            "name": "Flow connector",
+            "position": {
+              "x": 360,
+              "y": 538
+            },
+            "size": {
+              "width": 1200,
+              "height": 4
+            },
+            "rotation": 0,
+            "opacity": 0.6,
+            "zIndex": 0,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "line",
+              "cornerRadius": 0
+            },
+            "style": {
+              "fill": null,
+              "stroke": "#FFD166",
+              "strokeWidth": 6
+            }
+          },
+          {
+            "id": "element_bf7e3780d56db554",
+            "persistentId": "card-komas",
+            "name": "Komas card",
+            "position": {
+              "x": 60,
+              "y": 440
+            },
+            "size": {
+              "width": 300,
+              "height": 200
+            },
+            "rotation": 0,
+            "opacity": 0.4,
+            "zIndex": 1,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "roundedRectangle",
+              "cornerRadius": 24
+            },
+            "style": {
+              "fill": "#33507A",
+              "stroke": null,
+              "strokeWidth": 0
+            }
+          },
+          {
+            "id": "element_1e2b84f945d8946d",
+            "persistentId": "label-komas",
+            "name": "Komas label",
+            "position": {
+              "x": 80,
+              "y": 460
+            },
+            "size": {
+              "width": 260,
+              "height": 160
+            },
+            "rotation": 0,
+            "opacity": 0.5,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Komas"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 36,
+              "fontWeight": 700,
+              "colour": "#F5F3EE",
+              "textAlign": "center",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_44c8f80ee9ea91d9",
+            "persistentId": "card-engine",
+            "name": "Motion engine card",
+            "position": {
+              "x": 460,
+              "y": 260
+            },
+            "size": {
+              "width": 1000,
+              "height": 560
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 1,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "roundedRectangle",
+              "cornerRadius": 40
+            },
+            "style": {
+              "fill": "#FF7A59",
+              "stroke": null,
+              "strokeWidth": 0
+            }
+          },
+          {
+            "id": "element_f85d3002e4251ccd",
+            "persistentId": "label-engine",
+            "name": "Motion engine label",
+            "position": {
+              "x": 520,
+              "y": 310
+            },
+            "size": {
+              "width": 880,
+              "height": 110
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Motion engine"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 72,
+              "fontWeight": 700,
+              "colour": "#182033",
+              "textAlign": "left",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_67174e51788737d0",
+            "persistentId": "engine-detail",
+            "name": "Motion engine explanation",
+            "position": {
+              "x": 520,
+              "y": 450
+            },
+            "size": {
+              "width": 880,
+              "height": 320
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Compares two Komas and matches objects by persistent ID.\n\nFor every shared object it works out the change: move, scale, rotate, fade or colour change. No keyframes needed."
+            },
+            "style": {
+              "fontFamily": "Segoe UI",
+              "fontSize": 38,
+              "fontWeight": 500,
+              "colour": "#182033",
+              "textAlign": "left",
+              "verticalAlign": "top",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_8e3fbcd6f93ae1b9",
+            "persistentId": "card-output",
+            "name": "Editable result card",
+            "position": {
+              "x": 1560,
+              "y": 440
+            },
+            "size": {
+              "width": 300,
+              "height": 200
+            },
+            "rotation": 0,
+            "opacity": 0.4,
+            "zIndex": 1,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "roundedRectangle",
+              "cornerRadius": 24
+            },
+            "style": {
+              "fill": "#FFD166",
+              "stroke": null,
+              "strokeWidth": 0
+            }
+          },
+          {
+            "id": "element_645a83eb5da09d1c",
+            "persistentId": "label-output",
+            "name": "Editable result label",
+            "position": {
+              "x": 1580,
+              "y": 460
+            },
+            "size": {
+              "width": 260,
+              "height": 160
+            },
+            "rotation": 0,
+            "opacity": 0.5,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Editable result"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 36,
+              "fontWeight": 700,
+              "colour": "#182033",
+              "textAlign": "center",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          }
+        ]
+      },
+      {
+        "id": "koma_d4160a92d2a3828d",
+        "title": "The result stays editable",
+        "purpose": "Show that the output is still made of real, editable objects.",
+        "speakerNotes": "The result is not a flattened video. Every object is still a real object with its own ID. Change a colour, move a shape or rewrite a heading, and the motion updates by itself.",
+        "background": {
+          "type": "solid",
+          "colour": "#182033"
+        },
+        "elements": [
+          {
+            "id": "element_a0ec47944382b294",
+            "persistentId": "title",
+            "name": "Title",
+            "position": {
+              "x": 160,
+              "y": 80
+            },
+            "size": {
+              "width": 1600,
+              "height": 120
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 3,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Motion you can still edit"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 72,
+              "fontWeight": 700,
+              "colour": "#F5F3EE",
+              "textAlign": "center",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_e7467778e9c850a6",
+            "persistentId": "flow-line",
+            "name": "Flow connector",
+            "position": {
+              "x": 520,
+              "y": 578
+            },
+            "size": {
+              "width": 120,
+              "height": 4
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 0,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "line",
+              "cornerRadius": 0
+            },
+            "style": {
+              "fill": null,
+              "stroke": "#FFD166",
+              "strokeWidth": 6
+            }
+          },
+          {
+            "id": "element_2264f1681b36abd7",
+            "persistentId": "card-engine",
+            "name": "Motion engine card",
+            "position": {
+              "x": 140,
+              "y": 480
+            },
+            "size": {
+              "width": 380,
+              "height": 200
+            },
+            "rotation": 0,
+            "opacity": 0.5,
+            "zIndex": 1,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "roundedRectangle",
+              "cornerRadius": 24
+            },
+            "style": {
+              "fill": "#FF7A59",
+              "stroke": null,
+              "strokeWidth": 0
+            }
+          },
+          {
+            "id": "element_408a1eec3cdbaedf",
+            "persistentId": "label-engine",
+            "name": "Motion engine label",
+            "position": {
+              "x": 160,
+              "y": 500
+            },
+            "size": {
+              "width": 340,
+              "height": 160
+            },
+            "rotation": 0,
+            "opacity": 0.7,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Motion engine"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 40,
+              "fontWeight": 700,
+              "colour": "#182033",
+              "textAlign": "center",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_f6a029b41a884e99",
+            "persistentId": "card-output",
+            "name": "Editable result card",
+            "position": {
+              "x": 640,
+              "y": 280
+            },
+            "size": {
+              "width": 1120,
+              "height": 600
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 1,
+            "locked": false,
+            "visible": true,
+            "type": "shape",
+            "content": {
+              "shape": "roundedRectangle",
+              "cornerRadius": 40
+            },
+            "style": {
+              "fill": "#FFD166",
+              "stroke": null,
+              "strokeWidth": 0
+            }
+          },
+          {
+            "id": "element_f892df827c8bcad7",
+            "persistentId": "label-output",
+            "name": "Editable result label",
+            "position": {
+              "x": 700,
+              "y": 320
+            },
+            "size": {
+              "width": 1000,
+              "height": 110
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Editable result"
+            },
+            "style": {
+              "fontFamily": "Georgia",
+              "fontSize": 64,
+              "fontWeight": 700,
+              "colour": "#182033",
+              "textAlign": "left",
+              "verticalAlign": "middle",
+              "lineHeight": 1.2
+            }
+          },
+          {
+            "id": "element_f9f7d42b590c4814",
+            "persistentId": "output-detail",
+            "name": "Editable result explanation",
+            "position": {
+              "x": 700,
+              "y": 460
+            },
+            "size": {
+              "width": 1000,
+              "height": 380
+            },
+            "rotation": 0,
+            "opacity": 1,
+            "zIndex": 2,
+            "locked": false,
+            "visible": true,
+            "type": "text",
+            "content": {
+              "text": "Not a flattened video. Every object is still a real object with its own ID.\n\nChange a colour, move a shape or rewrite a heading, and the motion updates by itself."
+            },
+            "style": {
+              "fontFamily": "Segoe UI",
+              "fontSize": 38,
+              "fontWeight": 500,
+              "colour": "#182033",
+              "textAlign": "left",
+              "verticalAlign": "top",
+              "lineHeight": 1.2
+            }
+          }
+        ]
+      }
+    ],
+    "transitions": [
+      {
+        "id": "transition_453e65ff8d8d850f",
+        "fromKomaId": "koma_4f01a3d926f31d43",
+        "toKomaId": "koma_c3a33901f266c194",
+        "strategy": "continuous",
+        "duration": 1200,
+        "easing": "easeInOut",
+        "elementTransitions": [
+          {
+            "persistentId": "card-engine",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_c7b6f89611854f20"
+            },
+            "to": {
+              "elementId": "element_44c8f80ee9ea91d9"
+            }
+          },
+          {
+            "persistentId": "card-engine",
+            "operation": "move",
+            "from": {
+              "elementId": "element_c7b6f89611854f20",
+              "position": {
+                "x": 740,
+                "y": 460
+              }
+            },
+            "to": {
+              "elementId": "element_44c8f80ee9ea91d9",
+              "position": {
+                "x": 460,
+                "y": 260
+              }
+            }
+          },
+          {
+            "persistentId": "card-engine",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_c7b6f89611854f20",
+              "size": {
+                "width": 440,
+                "height": 300
+              }
+            },
+            "to": {
+              "elementId": "element_44c8f80ee9ea91d9",
+              "size": {
+                "width": 1000,
+                "height": 560
+              }
+            }
+          },
+          {
+            "persistentId": "card-komas",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_284aa00824bd25d9"
+            },
+            "to": {
+              "elementId": "element_bf7e3780d56db554"
+            }
+          },
+          {
+            "persistentId": "card-komas",
+            "operation": "move",
+            "from": {
+              "elementId": "element_284aa00824bd25d9",
+              "position": {
+                "x": 180,
+                "y": 460
+              }
+            },
+            "to": {
+              "elementId": "element_bf7e3780d56db554",
+              "position": {
+                "x": 60,
+                "y": 440
+              }
+            }
+          },
+          {
+            "persistentId": "card-komas",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_284aa00824bd25d9",
+              "size": {
+                "width": 440,
+                "height": 300
+              }
+            },
+            "to": {
+              "elementId": "element_bf7e3780d56db554",
+              "size": {
+                "width": 300,
+                "height": 200
+              }
+            }
+          },
+          {
+            "persistentId": "card-komas",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_284aa00824bd25d9",
+              "opacity": 1
+            },
+            "to": {
+              "elementId": "element_bf7e3780d56db554",
+              "opacity": 0.4
+            }
+          },
+          {
+            "persistentId": "card-output",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_fded2fbd717bebe1"
+            },
+            "to": {
+              "elementId": "element_8e3fbcd6f93ae1b9"
+            }
+          },
+          {
+            "persistentId": "card-output",
+            "operation": "move",
+            "from": {
+              "elementId": "element_fded2fbd717bebe1",
+              "position": {
+                "x": 1300,
+                "y": 460
+              }
+            },
+            "to": {
+              "elementId": "element_8e3fbcd6f93ae1b9",
+              "position": {
+                "x": 1560,
+                "y": 440
+              }
+            }
+          },
+          {
+            "persistentId": "card-output",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_fded2fbd717bebe1",
+              "size": {
+                "width": 440,
+                "height": 300
+              }
+            },
+            "to": {
+              "elementId": "element_8e3fbcd6f93ae1b9",
+              "size": {
+                "width": 300,
+                "height": 200
+              }
+            }
+          },
+          {
+            "persistentId": "card-output",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_fded2fbd717bebe1",
+              "opacity": 1
+            },
+            "to": {
+              "elementId": "element_8e3fbcd6f93ae1b9",
+              "opacity": 0.4
+            }
+          },
+          {
+            "persistentId": "engine-detail",
+            "operation": "fadeIn",
+            "from": null,
+            "to": {
+              "elementId": "element_67174e51788737d0",
+              "opacity": 1
+            }
+          },
+          {
+            "persistentId": "flow-line",
+            "operation": "move",
+            "from": {
+              "elementId": "element_ee36c68cbbc04ec7",
+              "position": {
+                "x": 400,
+                "y": 608
+              }
+            },
+            "to": {
+              "elementId": "element_ccb67574dadb0d16",
+              "position": {
+                "x": 360,
+                "y": 538
+              }
+            }
+          },
+          {
+            "persistentId": "flow-line",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_ee36c68cbbc04ec7",
+              "size": {
+                "width": 1120,
+                "height": 4
+              }
+            },
+            "to": {
+              "elementId": "element_ccb67574dadb0d16",
+              "size": {
+                "width": 1200,
+                "height": 4
+              }
+            }
+          },
+          {
+            "persistentId": "flow-line",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_ee36c68cbbc04ec7",
+              "opacity": 1
+            },
+            "to": {
+              "elementId": "element_ccb67574dadb0d16",
+              "opacity": 0.6
+            }
+          },
+          {
+            "persistentId": "label-engine",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_5fc9103b17d220ee"
+            },
+            "to": {
+              "elementId": "element_f85d3002e4251ccd"
+            }
+          },
+          {
+            "persistentId": "label-engine",
+            "operation": "move",
+            "from": {
+              "elementId": "element_5fc9103b17d220ee",
+              "position": {
+                "x": 770,
+                "y": 490
+              }
+            },
+            "to": {
+              "elementId": "element_f85d3002e4251ccd",
+              "position": {
+                "x": 520,
+                "y": 310
+              }
+            }
+          },
+          {
+            "persistentId": "label-engine",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_5fc9103b17d220ee",
+              "size": {
+                "width": 380,
+                "height": 240
+              }
+            },
+            "to": {
+              "elementId": "element_f85d3002e4251ccd",
+              "size": {
+                "width": 880,
+                "height": 110
+              }
+            }
+          },
+          {
+            "persistentId": "label-komas",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_fd2c4c4a0c05886f"
+            },
+            "to": {
+              "elementId": "element_1e2b84f945d8946d"
+            }
+          },
+          {
+            "persistentId": "label-komas",
+            "operation": "move",
+            "from": {
+              "elementId": "element_fd2c4c4a0c05886f",
+              "position": {
+                "x": 210,
+                "y": 490
+              }
+            },
+            "to": {
+              "elementId": "element_1e2b84f945d8946d",
+              "position": {
+                "x": 80,
+                "y": 460
+              }
+            }
+          },
+          {
+            "persistentId": "label-komas",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_fd2c4c4a0c05886f",
+              "size": {
+                "width": 380,
+                "height": 240
+              }
+            },
+            "to": {
+              "elementId": "element_1e2b84f945d8946d",
+              "size": {
+                "width": 260,
+                "height": 160
+              }
+            }
+          },
+          {
+            "persistentId": "label-komas",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_fd2c4c4a0c05886f",
+              "opacity": 1
+            },
+            "to": {
+              "elementId": "element_1e2b84f945d8946d",
+              "opacity": 0.5
+            }
+          },
+          {
+            "persistentId": "label-output",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_a6362e9d0c11ee82"
+            },
+            "to": {
+              "elementId": "element_645a83eb5da09d1c"
+            }
+          },
+          {
+            "persistentId": "label-output",
+            "operation": "move",
+            "from": {
+              "elementId": "element_a6362e9d0c11ee82",
+              "position": {
+                "x": 1330,
+                "y": 490
+              }
+            },
+            "to": {
+              "elementId": "element_645a83eb5da09d1c",
+              "position": {
+                "x": 1580,
+                "y": 460
+              }
+            }
+          },
+          {
+            "persistentId": "label-output",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_a6362e9d0c11ee82",
+              "size": {
+                "width": 380,
+                "height": 240
+              }
+            },
+            "to": {
+              "elementId": "element_645a83eb5da09d1c",
+              "size": {
+                "width": 260,
+                "height": 160
+              }
+            }
+          },
+          {
+            "persistentId": "label-output",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_a6362e9d0c11ee82",
+              "opacity": 1
+            },
+            "to": {
+              "elementId": "element_645a83eb5da09d1c",
+              "opacity": 0.5
+            }
+          },
+          {
+            "persistentId": "title",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_655410f933ea9b2b",
+              "opacity": 1
+            },
+            "to": null
+          }
+        ],
+        "rationale": "The motion engine card grows to the centre while the other two cards shrink and dim at the sides. The title fades out and the explanation fades in, so the viewer feels the camera move in."
+      },
+      {
+        "id": "transition_ae9cbc94236b726e",
+        "fromKomaId": "koma_c3a33901f266c194",
+        "toKomaId": "koma_d4160a92d2a3828d",
+        "strategy": "staged",
+        "duration": 1400,
+        "easing": "easeInOut",
+        "elementTransitions": [
+          {
+            "persistentId": "card-engine",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_44c8f80ee9ea91d9"
+            },
+            "to": {
+              "elementId": "element_2264f1681b36abd7"
+            }
+          },
+          {
+            "persistentId": "card-engine",
+            "operation": "move",
+            "from": {
+              "elementId": "element_44c8f80ee9ea91d9",
+              "position": {
+                "x": 460,
+                "y": 260
+              }
+            },
+            "to": {
+              "elementId": "element_2264f1681b36abd7",
+              "position": {
+                "x": 140,
+                "y": 480
+              }
+            }
+          },
+          {
+            "persistentId": "card-engine",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_44c8f80ee9ea91d9",
+              "size": {
+                "width": 1000,
+                "height": 560
+              }
+            },
+            "to": {
+              "elementId": "element_2264f1681b36abd7",
+              "size": {
+                "width": 380,
+                "height": 200
+              }
+            }
+          },
+          {
+            "persistentId": "card-engine",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_44c8f80ee9ea91d9",
+              "opacity": 1
+            },
+            "to": {
+              "elementId": "element_2264f1681b36abd7",
+              "opacity": 0.5
+            }
+          },
+          {
+            "persistentId": "card-komas",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_bf7e3780d56db554",
+              "opacity": 0.4
+            },
+            "to": null
+          },
+          {
+            "persistentId": "card-output",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_8e3fbcd6f93ae1b9"
+            },
+            "to": {
+              "elementId": "element_f6a029b41a884e99"
+            }
+          },
+          {
+            "persistentId": "card-output",
+            "operation": "move",
+            "from": {
+              "elementId": "element_8e3fbcd6f93ae1b9",
+              "position": {
+                "x": 1560,
+                "y": 440
+              }
+            },
+            "to": {
+              "elementId": "element_f6a029b41a884e99",
+              "position": {
+                "x": 640,
+                "y": 280
+              }
+            }
+          },
+          {
+            "persistentId": "card-output",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_8e3fbcd6f93ae1b9",
+              "size": {
+                "width": 300,
+                "height": 200
+              }
+            },
+            "to": {
+              "elementId": "element_f6a029b41a884e99",
+              "size": {
+                "width": 1120,
+                "height": 600
+              }
+            }
+          },
+          {
+            "persistentId": "card-output",
+            "operation": "fadeIn",
+            "from": {
+              "elementId": "element_8e3fbcd6f93ae1b9",
+              "opacity": 0.4
+            },
+            "to": {
+              "elementId": "element_f6a029b41a884e99",
+              "opacity": 1
+            }
+          },
+          {
+            "persistentId": "engine-detail",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_67174e51788737d0",
+              "opacity": 1
+            },
+            "to": null
+          },
+          {
+            "persistentId": "flow-line",
+            "operation": "move",
+            "from": {
+              "elementId": "element_ccb67574dadb0d16",
+              "position": {
+                "x": 360,
+                "y": 538
+              }
+            },
+            "to": {
+              "elementId": "element_e7467778e9c850a6",
+              "position": {
+                "x": 520,
+                "y": 578
+              }
+            }
+          },
+          {
+            "persistentId": "flow-line",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_ccb67574dadb0d16",
+              "size": {
+                "width": 1200,
+                "height": 4
+              }
+            },
+            "to": {
+              "elementId": "element_e7467778e9c850a6",
+              "size": {
+                "width": 120,
+                "height": 4
+              }
+            }
+          },
+          {
+            "persistentId": "flow-line",
+            "operation": "fadeIn",
+            "from": {
+              "elementId": "element_ccb67574dadb0d16",
+              "opacity": 0.6
+            },
+            "to": {
+              "elementId": "element_e7467778e9c850a6",
+              "opacity": 1
+            }
+          },
+          {
+            "persistentId": "label-engine",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_f85d3002e4251ccd"
+            },
+            "to": {
+              "elementId": "element_408a1eec3cdbaedf"
+            }
+          },
+          {
+            "persistentId": "label-engine",
+            "operation": "move",
+            "from": {
+              "elementId": "element_f85d3002e4251ccd",
+              "position": {
+                "x": 520,
+                "y": 310
+              }
+            },
+            "to": {
+              "elementId": "element_408a1eec3cdbaedf",
+              "position": {
+                "x": 160,
+                "y": 500
+              }
+            }
+          },
+          {
+            "persistentId": "label-engine",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_f85d3002e4251ccd",
+              "size": {
+                "width": 880,
+                "height": 110
+              }
+            },
+            "to": {
+              "elementId": "element_408a1eec3cdbaedf",
+              "size": {
+                "width": 340,
+                "height": 160
+              }
+            }
+          },
+          {
+            "persistentId": "label-engine",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_f85d3002e4251ccd",
+              "opacity": 1
+            },
+            "to": {
+              "elementId": "element_408a1eec3cdbaedf",
+              "opacity": 0.7
+            }
+          },
+          {
+            "persistentId": "label-komas",
+            "operation": "fadeOut",
+            "from": {
+              "elementId": "element_1e2b84f945d8946d",
+              "opacity": 0.5
+            },
+            "to": null
+          },
+          {
+            "persistentId": "label-output",
+            "operation": "replace",
+            "from": {
+              "elementId": "element_645a83eb5da09d1c"
+            },
+            "to": {
+              "elementId": "element_f892df827c8bcad7"
+            }
+          },
+          {
+            "persistentId": "label-output",
+            "operation": "move",
+            "from": {
+              "elementId": "element_645a83eb5da09d1c",
+              "position": {
+                "x": 1580,
+                "y": 460
+              }
+            },
+            "to": {
+              "elementId": "element_f892df827c8bcad7",
+              "position": {
+                "x": 700,
+                "y": 320
+              }
+            }
+          },
+          {
+            "persistentId": "label-output",
+            "operation": "scale",
+            "from": {
+              "elementId": "element_645a83eb5da09d1c",
+              "size": {
+                "width": 260,
+                "height": 160
+              }
+            },
+            "to": {
+              "elementId": "element_f892df827c8bcad7",
+              "size": {
+                "width": 1000,
+                "height": 110
+              }
+            }
+          },
+          {
+            "persistentId": "label-output",
+            "operation": "fadeIn",
+            "from": {
+              "elementId": "element_645a83eb5da09d1c",
+              "opacity": 0.5
+            },
+            "to": {
+              "elementId": "element_f892df827c8bcad7",
+              "opacity": 1
+            }
+          },
+          {
+            "persistentId": "output-detail",
+            "operation": "fadeIn",
+            "from": null,
+            "to": {
+              "elementId": "element_f9f7d42b590c4814",
+              "opacity": 1
+            }
+          },
+          {
+            "persistentId": "title",
+            "operation": "fadeIn",
+            "from": null,
+            "to": {
+              "elementId": "element_a0ec47944382b294",
+              "opacity": 1
+            }
+          }
+        ],
+        "rationale": "First the engine shrinks to the left and the Komas card leaves. Then the result card grows into the main space and its explanation appears, which moves the attention along the pipeline."
+      }
+    ]
+  },
+  "assets": [],
+  "agentConfiguration": {
+    "selectedProviderId": "claude-code",
+    "timeoutSeconds": 300,
+    "providers": {
+      "claude-code": {
+        "model": "claude-opus-5-5"
+      }
+    }
+  },
+  "generationHistory": [
+    {
+      "id": "generation_1c1dd7dfba8a4c6a",
+      "createdAt": "2026-09-29T13:43:35.965Z",
+      "providerId": "claude-code",
+      "userRequest": "Create a three-frame presentation introducing Koma Motion. Start with the complete system, focus on the motion engine, then reveal how the result stays editable. Keep it simple: at most 8 elements per frame.",
+      "status": "succeeded",
+      "summary": "Created 3 Komas: The complete system, The motion engine, The result stays editable",
+      "warnings": [
+        "No objective or audience was given, so the content is written as a general introduction.",
+        "The Komas card and its label fade out in the last frame so it stays within 8 elements."
+      ]
+    }
+  ]
+}
