@@ -230,30 +230,55 @@ are written for the user.
 
 All agent output is untrusted. It passes these steps, in this order:
 
-1. **Size limit.** Output above 512 000 characters is rejected. The output of
-   a CLI is limited to 8 MB while it is being read, and the process is ended
-   when it produces more.
-2. **Extraction.** Accepted are a JSON object, a JSON object in a Markdown
-   code block, and a JSON object surrounded by text. The text is parsed with
-   `JSON.parse`. Nothing is evaluated.
-3. **Unsupported values.** Element types, strategies and easings that Koma
+1. **Size limit.** One limit of 512 KiB (524,288 characters) applies before
+   the text and structured output are chosen between. Raw text above that
+   limit is rejected. When the provider also supplies structured output, that
+   value is serialised with `JSON.stringify`: if serialisation throws, the
+   result is `noStructuredOutput`, not a size error; if the serialised text is
+   above the limit, the result is `outputTooLarge`. `outputTooLarge` is not
+   sent for repair. The output of a CLI is also limited to 8 MB while it is
+   being read, and the process is ended when it produces more.
+2. **Envelope.** A plain object from the provider (not `null` and not an
+   array) is an explicit envelope and is preferred. It is accepted when the
+   raw text is empty, when that text contains no JSON object, or when the
+   object in the text is the same JSON value (no numeric tolerance, and keys
+   inherited from a prototype do not count). If the text contains a different
+   object, the result is `invalidResponse` with the issue `inconsistentOutput`.
+   The two bodies are not merged, and the more permissive one is not chosen.
+   That failure may be repaired once. When structured output is absent or is
+   not a plain object, only the text is used.
+3. **Extraction.** Text is parsed as data with `JSON.parse` and is never
+   executed. If the trimmed text is one JSON object, that object is used.
+   Otherwise one left-to-right scan records balanced `{...}` spans. Braces and
+   escapes inside strings do not affect the scan, and an unmatched `{` does
+   not hide a later object. Only outermost objects are parsed. An outermost
+   object whose own `komas` property is an array is contract-shaped; that
+   check only chooses a candidate. Exactly one contract-shaped object is used,
+   so an earlier example such as `{}` is ignored. More than one contract-shaped
+   object is `noStructuredOutput`: the response contains more than one
+   possible answer and is not guessed. With none, exactly one parsed object is
+   used, including fenced JSON and an object followed by prose. Several such
+   objects are ambiguous and are rejected. An empty response, an array, or
+   text with no JSON object is `noStructuredOutput`.
+4. **Unsupported values.** Element types, strategies and easings that Koma
    Motion does not know are reported by name.
-4. **Schema.** Types, ranges, lengths and patterns.
-5. **Semantics.** Duplicate Koma keys, duplicate persistent ids in one Koma,
+5. **Schema.** Types, ranges, lengths and patterns.
+6. **Semantics.** Duplicate Koma keys, duplicate persistent ids in one Koma,
    transitions that refer to missing or non-adjacent Komas, element types
    that the request does not allow, missing content, assets that do not exist
    in the project, and the limits of the request.
-6. **Conversion.** Defaults are applied, the motion engine computes the
+7. **Conversion.** Defaults are applied, the motion engine computes the
    operations, and the resulting presentation is validated against the schema
    of the document model.
 
 ### Repair
 
-When the output fails at step 2, 3, 4 or 5, the provider is asked **once** to
-correct it. The repair prompt contains the list of problems and the rejected
-output. If the second output is also invalid, the execution fails with the
-issues of the second attempt. There are never more than two attempts. Errors
-of the program itself, such as a failed start, are not retried.
+When the output fails at step 2, 3, 4, 5 or 6, the provider is asked **once**
+to correct it. The repair prompt contains the list of problems and the
+rejected output. If the second output is also invalid, the execution fails
+with the issues of the second attempt. There are never more than two
+attempts. `outputTooLarge` stops the execution without a repair. Errors of
+the program itself, such as a failed start, are not retried.
 
 ## Prompt templates
 

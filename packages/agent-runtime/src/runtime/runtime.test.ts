@@ -120,6 +120,71 @@ describe('GenerationRunner', () => {
     expect(result.status).toBe('failed');
   });
 
+  it('rejects oversized text without a repair attempt', async () => {
+    const rawText = 'x'.repeat(622_112);
+    const { run, provider } = setup([rawText, valid]);
+    const result = await run();
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.error.code).toBe('outputTooLarge');
+      expect(result.diagnostics.attempts).toHaveLength(1);
+    }
+    expect(provider.contexts).toHaveLength(1);
+  });
+
+  it('rejects oversized structured output without a repair attempt', async () => {
+    const structured = { note: 'x'.repeat(622_112 - '{"note":""}'.length) };
+    expect(JSON.stringify(structured)).toHaveLength(622_112);
+    const { run, provider } = setup([
+      { structured, rawText: JSON.stringify(structured) },
+      { structured: buildResponse() },
+    ]);
+    const matchingText = await run();
+    expect(matchingText.status).toBe('failed');
+    if (matchingText.status === 'failed') {
+      expect(matchingText.error.code).toBe('outputTooLarge');
+      expect(matchingText.diagnostics.attempts).toHaveLength(1);
+    }
+
+    const shortText = setup([{ structured, rawText: '{}' }, { structured: buildResponse() }]);
+    const result = await shortText.run();
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.error.code).toBe('outputTooLarge');
+      expect(result.error.message).toContain('622112');
+      expect(result.diagnostics.attempts).toHaveLength(1);
+    }
+    expect(provider.contexts).toHaveLength(1);
+    expect(shortText.provider.contexts).toHaveLength(1);
+  });
+
+  it('repairs inconsistent text and structured output once', async () => {
+    const { run, provider } = setup([
+      { structured: { a: 1 }, rawText: '{"a":2}' },
+      { structured: buildResponse() },
+    ]);
+    const result = await run();
+    expect(result.status).toBe('succeeded');
+    if (result.status === 'succeeded') {
+      expect(result.repaired).toBe(true);
+    }
+    expect(provider.contexts).toHaveLength(2);
+    expect(provider.contexts[1]?.prompt.user).toContain('different answers');
+  });
+
+  it('does not attempt a third generation when output stays inconsistent', async () => {
+    const disagreement = { structured: { a: 1 }, rawText: '{"a":2}' };
+    const { run, provider } = setup([disagreement, disagreement, { structured: buildResponse() }]);
+    const result = await run();
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.error.code).toBe('invalidResponse');
+      expect(result.error.issues.map((issue) => issue.code)).toEqual(['inconsistentOutput']);
+      expect(result.diagnostics.attempts).toHaveLength(2);
+    }
+    expect(provider.contexts).toHaveLength(2);
+  });
+
   it('passes the model and the prompt to the provider', async () => {
     const { run, provider } = setup([valid]);
     await run({ model: 'claude-opus-5-5' });

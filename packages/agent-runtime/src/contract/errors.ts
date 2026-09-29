@@ -24,6 +24,7 @@ export const RESPONSE_ISSUE_CODES = [
   'unsupportedTransition',
   'missingContent',
   'limitExceeded',
+  'inconsistentOutput',
 ] as const;
 export const responseIssueCodeSchema = z.enum(RESPONSE_ISSUE_CODES);
 export type ResponseIssueCode = z.infer<typeof responseIssueCodeSchema>;
