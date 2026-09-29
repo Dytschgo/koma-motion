@@ -1,6 +1,7 @@
 /** Temporary interface state. Nothing in this store is saved with the project. */
 import { clampZoom } from '@koma-motion/renderer';
 import { create } from 'zustand';
+import { selectProject, useProjectStore } from './projectStore';
 
 export type WorkspaceView = 'canvas' | 'brandKit';
 
@@ -20,6 +21,18 @@ export interface Notice {
   readonly message: string;
 }
 
+/**
+ * The transition a preview is bound to. `fromKomaId` and `toKomaId` are the
+ * ends recorded when it started. A new `token` starts playback again.
+ * Progress stays in the playback hook; this store only keeps the identity.
+ */
+export interface PreviewIdentity {
+  readonly transitionId: string;
+  readonly fromKomaId: string;
+  readonly toKomaId: string;
+  readonly token: number;
+}
+
 interface UiState {
   readonly view: WorkspaceView;
   readonly selectedKomaId: string | null;
@@ -30,8 +43,7 @@ interface UiState {
   readonly agentPanelOpen: boolean;
   readonly confirmation: ConfirmationRequest | null;
   readonly notices: readonly Notice[];
-  /** The transition that is being previewed. A new `token` starts it again. */
-  readonly preview: { readonly transitionId: string; readonly token: number } | null;
+  readonly preview: PreviewIdentity | null;
 
   readonly setView: (view: WorkspaceView) => void;
   readonly selectKoma: (komaId: string | null) => void;
@@ -98,7 +110,22 @@ export const useUiStore = create<UiState>((set, get) => ({
     set((state) => ({ notices: state.notices.filter((notice) => notice.id !== id) }));
   },
   startPreview(transitionId) {
-    set({ preview: { transitionId, token: nextToken++ }, view: 'canvas', selectedElementId: null });
+    const transition = selectProject(useProjectStore.getState())?.presentation.transitions.find(
+      (candidate) => candidate.id === transitionId,
+    );
+    if (transition === undefined) {
+      return;
+    }
+    set({
+      preview: {
+        transitionId: transition.id,
+        fromKomaId: transition.fromKomaId,
+        toKomaId: transition.toKomaId,
+        token: nextToken++,
+      },
+      view: 'canvas',
+      selectedElementId: null,
+    });
   },
   stopPreview() {
     set({ preview: null });

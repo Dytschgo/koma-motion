@@ -15,7 +15,8 @@ import { useEffect, useMemo, useRef, type CSSProperties, type ReactElement } fro
 import {
   formatSeconds,
   getTransitionContext,
-  useCurrentTransition,
+  getTransitionOfKoma,
+  resolvePreviewTransition,
   useSelectedKoma,
 } from '../lib/selectors';
 import { changeTransition } from '../state/commands';
@@ -37,21 +38,34 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const selectKoma = useUiStore((state) => state.selectKoma);
   const preview = useUiStore((state) => state.preview);
   const startPreview = useUiStore((state) => state.startPreview);
+  const stopPreview = useUiStore((state) => state.stopPreview);
   const zoom = useUiStore((state) => state.zoom);
   const setZoom = useUiStore((state) => state.setZoom);
 
   const koma = useSelectedKoma();
-  const transition = useCurrentTransition();
-  const context = transition === null ? null : getTransitionContext(presentation, transition.id);
+  // The stage follows only a preview whose recorded ends are still valid.
+  // The transport keeps the selected Koma's transition so Play still has one
+  // when that preview has been stopped.
+  const stageContext = resolvePreviewTransition(presentation, preview);
+  const selectedTransition = getTransitionOfKoma(presentation, koma?.id ?? null);
+  const selectedContext =
+    selectedTransition === null ? null : getTransitionContext(presentation, selectedTransition.id);
+  const transportContext = stageContext ?? selectedContext;
   const reducedMotion = usePrefersReducedMotion();
+  /** Lets Restart replay a preview after it ends and selects the destination. */
   const lastPreviewed = useRef<string | null>(null);
+  if (stageContext !== null) {
+    lastPreviewed.current = stageContext.transition.id;
+  }
 
   const playback = useTransitionPlayback({
-    durationMs: reducedMotion ? REDUCED_MOTION_DURATION_MS : (transition?.duration ?? 0),
+    durationMs: reducedMotion
+      ? REDUCED_MOTION_DURATION_MS
+      : (transportContext?.transition.duration ?? 0),
     onFinished: () => {
       // The presentation has arrived at the target Koma.
-      if (context !== null) {
-        selectKoma(context.to.id);
+      if (stageContext !== null) {
+        selectKoma(stageContext.to.id);
       }
     },
   });
@@ -60,6 +74,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   /** Set when a preview starts because the position control was moved. */
   const pendingPosition = useRef<number | null>(null);
   const previewToken = preview?.token ?? null;
+  // Depends on the token only. A duration edit keeps the token, so progress stays.
   useEffect(() => {
     if (previewToken === null) {
       reset();
@@ -71,11 +86,13 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
     }
   }, [previewToken, restart, reset, seek]);
 
+  const previewValid = stageContext !== null;
   useEffect(() => {
-    if (preview !== null) {
-      lastPreviewed.current = preview.transitionId;
+    if (preview !== null && !previewValid) {
+      reset();
+      stopPreview();
     }
-  }, [preview]);
+  }, [preview, previewValid, reset, stopPreview]);
 
   const [attachArea, area] = useElementSize<HTMLDivElement>();
   const canvasSize = getCanvasSize(presentation.aspectRatio);
@@ -83,23 +100,23 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const scale = fitScale * (zoom ?? 1);
   const resolveAsset = useMemo(() => createAssetResolver(project.assets), [project.assets]);
 
-  const previewing = preview !== null && context !== null && playback.status !== 'idle';
+  const previewing = stageContext !== null && playback.status !== 'idle';
   const frame = useMemo(() => {
-    if (previewing) {
+    if (stageContext !== null && playback.status !== 'idle') {
       return getPreviewFrame({
-        from: context.from,
-        to: context.to,
-        transition: context.transition,
+        from: stageContext.from,
+        to: stageContext.to,
+        transition: stageContext.transition,
         progress: playback.progress,
         reducedMotion,
       });
     }
     return koma === null ? null : komaToFrame(koma);
-  }, [previewing, context, playback.progress, reducedMotion, koma]);
+  }, [stageContext, playback.status, playback.progress, reducedMotion, koma]);
 
   const unsupported = useMemo(
-    () => (transition === null ? [] : findUnsupportedOperations(transition)),
-    [transition],
+    () => (transportContext === null ? [] : findUnsupportedOperations(transportContext.transition)),
+    [transportContext],
   );
 
   const komaIndex = presentation.komas.findIndex((candidate) => candidate.id === koma?.id);
@@ -109,20 +126,27 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const togglePlayback = (): void => {
     if (playback.status === 'playing') {
       playback.pause();
-    } else if (playback.status === 'paused' && preview !== null) {
+    } else if (playback.status === 'paused' && stageContext !== null) {
       playback.play();
-    } else if (transition !== null) {
-      startPreview(transition.id);
+    } else if (transportContext !== null) {
+      startPreview(transportContext.transition.id);
     }
   };
 
   const restartPreview = (): void => {
-    const transitionId = preview?.transitionId ?? lastPreviewed.current ?? transition?.id;
-    if (
-      transitionId !== undefined &&
-      presentation.transitions.some((candidate) => candidate.id === transitionId)
-    ) {
-      startPreview(transitionId);
+    const candidates = [
+      preview?.transitionId,
+      lastPreviewed.current,
+      transportContext?.transition.id,
+    ];
+    for (const transitionId of candidates) {
+      if (
+        typeof transitionId === 'string' &&
+        presentation.transitions.some((candidate) => candidate.id === transitionId)
+      ) {
+        startPreview(transitionId);
+        return;
+      }
     }
   };
 
@@ -172,8 +196,8 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
                 scale={scale}
                 resolveAsset={resolveAsset}
                 label={
-                  previewing
-                    ? `Preview of the transition from ${context.from.title} to ${context.to.title}`
+                  stageContext !== null && playback.status !== 'idle'
+                    ? `Preview of the transition from ${stageContext.from.title} to ${stageContext.to.title}`
                     : `Koma ${String(komaIndex + 1)}: ${koma?.title ?? ''}`
                 }
                 selectedElementId={previewing ? null : selectedElementId}
@@ -233,13 +257,13 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
         </IconButton>
         <IconButton
           label={playback.status === 'playing' ? 'Pause' : 'Play'}
-          disabled={transition === null}
+          disabled={transportContext === null}
           tone="motion"
           onClick={togglePlayback}
         >
           {playback.status === 'playing' ? <PauseIcon /> : <PlayIcon />}
         </IconButton>
-        <IconButton label="Restart" disabled={transition === null} onClick={restartPreview}>
+        <IconButton label="Restart" disabled={transportContext === null} onClick={restartPreview}>
           <RestartIcon />
         </IconButton>
         <IconButton
@@ -252,12 +276,12 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           <NextIcon />
         </IconButton>
 
-        {context === null ? (
+        {transportContext === null ? (
           <p className="ml-3 text-ink-400">Add a second Koma to see motion between two Komas.</p>
         ) : (
           <>
             <p className="mx-3 flex-none text-ink-300">
-              Koma {context.fromIndex + 1} to Koma {context.fromIndex + 2}
+              Koma {transportContext.fromIndex + 1} to Koma {transportContext.fromIndex + 2}
             </p>
             <input
               type="range"
@@ -270,11 +294,11 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
               style={{ '--progress': `${String(progressPercent)}%` } as CSSProperties}
               onChange={(event) => {
                 const position = Number(event.target.value) / 1000;
-                if (preview?.transitionId === context.transition.id) {
+                if (stageContext?.transition.id === transportContext.transition.id) {
                   seek(position);
                 } else {
                   pendingPosition.current = position;
-                  startPreview(context.transition.id);
+                  startPreview(transportContext.transition.id);
                 }
               }}
             />
@@ -282,14 +306,17 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
               Duration
               <NumberInput
                 className="w-16"
-                value={context.transition.duration / 1000}
+                value={transportContext.transition.duration / 1000}
                 minimum={0.1}
                 maximum={10}
                 aria-label="Transition duration in seconds"
                 onValue={(seconds) => {
-                  apply(changeTransition(context.transition.id, { duration: seconds * 1000 }), {
-                    coalesceKey: `transition-duration:${context.transition.id}`,
-                  });
+                  apply(
+                    changeTransition(transportContext.transition.id, { duration: seconds * 1000 }),
+                    {
+                      coalesceKey: `transition-duration:${transportContext.transition.id}`,
+                    },
+                  );
                 }}
               />
               <span aria-hidden="true">s</span>

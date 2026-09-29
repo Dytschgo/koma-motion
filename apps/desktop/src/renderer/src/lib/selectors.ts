@@ -7,7 +7,7 @@ import {
   type Presentation,
 } from '@koma-motion/core';
 import { selectProject, useProjectStore } from '../state/projectStore';
-import { useUiStore } from '../state/uiStore';
+import { useUiStore, type PreviewIdentity } from '../state/uiStore';
 
 export interface TransitionContext {
   readonly transition: KomaTransition;
@@ -54,6 +54,47 @@ export function getTransitionOfKoma(
   return null;
 }
 
+/**
+ * A preview is valid only while a transition with this id still runs between
+ * the same two Komas and those Komas are still neighbours in that order.
+ * Duration and other settings may change. A missing id, different ends, or a
+ * reorder that separates the pair does not.
+ */
+export function resolvePreviewTransition(
+  presentation: Presentation,
+  preview: Pick<PreviewIdentity, 'transitionId' | 'fromKomaId' | 'toKomaId'> | null,
+): TransitionContext | null {
+  if (preview === null) {
+    return null;
+  }
+  const context = getTransitionContext(presentation, preview.transitionId);
+  if (
+    context === null ||
+    context.transition.fromKomaId !== preview.fromKomaId ||
+    context.transition.toKomaId !== preview.toKomaId
+  ) {
+    return null;
+  }
+  const toIndex = presentation.komas.findIndex((koma) => koma.id === preview.toKomaId);
+  return toIndex === context.fromIndex + 1 ? context : null;
+}
+
+/**
+ * The transition the transport and inspector edit. While a preview id is set,
+ * only that identity is returned: a stale id is not replaced with another
+ * transition. With no preview, this is the selected Koma's transition.
+ */
+export function getCurrentTransition(
+  presentation: Presentation,
+  selectedKomaId: string | null,
+  preview: Pick<PreviewIdentity, 'transitionId' | 'fromKomaId' | 'toKomaId'> | null,
+): KomaTransition | null {
+  if (preview !== null) {
+    return resolvePreviewTransition(presentation, preview)?.transition ?? null;
+  }
+  return getTransitionOfKoma(presentation, selectedKomaId);
+}
+
 export function useSelectedKoma(): Koma | null {
   const project = useProjectStore(selectProject);
   const selectedKomaId = useUiStore((state) => state.selectedKomaId);
@@ -70,7 +111,7 @@ export function useSelectedElement(): KomaElement | null {
   return koma?.elements.find((element) => element.id === selectedElementId) ?? null;
 }
 
-/** The transition that Preview plays: the one being previewed, or the one of the selected Koma. */
+/** The transition the transport edits. See `getCurrentTransition`. */
 export function useCurrentTransition(): KomaTransition | null {
   const project = useProjectStore(selectProject);
   const koma = useSelectedKoma();
@@ -78,15 +119,7 @@ export function useCurrentTransition(): KomaTransition | null {
   if (project === null) {
     return null;
   }
-  if (preview !== null) {
-    const previewed = project.presentation.transitions.find(
-      (transition) => transition.id === preview.transitionId,
-    );
-    if (previewed !== undefined) {
-      return previewed;
-    }
-  }
-  return getTransitionOfKoma(project.presentation, koma?.id ?? null);
+  return getCurrentTransition(project.presentation, koma?.id ?? null, preview);
 }
 
 export function formatSeconds(milliseconds: number): string {

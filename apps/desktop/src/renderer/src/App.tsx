@@ -22,6 +22,10 @@ import { selectHasUnsavedChanges, selectProject, useProjectStore } from './state
 import { useUiStore } from './state/uiStore';
 
 function isEditingText(target: EventTarget | null): boolean {
+  // The position slider is not a text field, so document undo still applies.
+  if (target instanceof HTMLInputElement && target.type === 'range') {
+    return false;
+  }
   return (
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
