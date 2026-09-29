@@ -1,0 +1,176 @@
+name: Publish nightly prerelease
+
+# A nightly is built on request from a commit of main and published as a
+# prerelease. It never becomes the latest release. See docs/RELEASES.md.
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit of main to build. Empty builds the newest commit of main.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    name: Check the commit
+    # The workflow can be started from any branch. Nightlies only come from main.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.candidate.outputs.sha }}
+      version: ${{ steps.candidate.outputs.version }}
+      tag: ${{ steps.candidate.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: candidate
+        shell: bash
+        env:
+          REQUESTED_SHA: ${{ inputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --force origin +refs/heads/main:refs/remotes/origin/main
+          requested="${REQUESTED_SHA:-$(git rev-parse origin/main)}"
+          [[ "$requested" =~ ^[0-9a-fA-F]{40}$ ]]
+          actual="$(git rev-parse "$requested^{commit}")"
+          test "$actual" = "${requested,,}"
+          git merge-base --is-ancestor "$actual" origin/main
+          base="$(git show "$actual:apps/desktop/package.json" | node -e "let text=''; process.stdin.on('data', (chunk) => text += chunk).on('end', () => process.stdout.write(JSON.parse(text).version))")"
+          version="$(node apps/desktop/scripts/release-channel.mjs nightly-version "$base" "$(date -u +%Y%m%d)" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          echo "sha=$actual" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+          echo "Nightly $version from $actual" >> "$GITHUB_STEP_SUMMARY"
+
+  quality:
+    name: Check the code
+    needs: guard
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:e2e
+
+  package:
+    name: Package (${{ matrix.platform }})
+    # Runs beside the checks of the code. Publishing needs both.
+    needs: guard
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            builder: --win
+          - os: macos-latest
+            platform: macos
+            builder: --mac --universal
+    env:
+      KOMA_EXPECT_VERSION: ${{ needs.guard.outputs.version }}
+      # The installers are not signed with a certificate.
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Package with the version of the nightly
+        working-directory: apps/desktop
+        # The version is set for this build only. Nothing is committed.
+        run: >-
+          pnpm exec electron-builder ${{ matrix.builder }} --publish never
+          -c.extraMetadata.version=${{ needs.guard.outputs.version }}
+          -c.publish.channel=nightly
+          -c.publish.releaseType=prerelease
+      - name: Test the packaged application
+        working-directory: apps/desktop
+        run: node scripts/verify-packaged.mjs ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: nightly-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/nightly*.yml
+      - name: Keep the results of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaged-test-results-${{ matrix.platform }}
+          path: apps/desktop/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    name: Publish
+    needs: [guard, quality, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.guard.outputs.version }}
+      TAG: ${{ needs.guard.outputs.tag }}
+      SHA: ${{ needs.guard.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: nightly-*
+          path: release-assets
+          merge-multiple: true
+      - name: Check and stage the files
+        run: node apps/desktop/scripts/stage-release-assets.mjs release-assets "$VERSION" nightly
+      - name: Create a draft with the checked files
+        run: |
+          gh release create "$TAG" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$SHA" \
+            --draft \
+            --prerelease \
+            --latest=false \
+            --title "Koma Motion $VERSION (nightly)" \
+            --notes "Nightly preview built from \`$SHA\`. It contains unfinished changes. Keep copies of your projects. The installers are not signed."
+      - name: Publish as a prerelease
+        run: |
+          gh release edit "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false \
+            --prerelease \
+            --latest=false

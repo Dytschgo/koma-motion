@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Two frames of one object: the frame before in pencil blue, the frame in motion in pencil red. -->
+  <rect x="32" y="32" width="960" height="960" rx="216" fill="#15181d"/>
+  <rect x="196" y="196" width="440" height="440" rx="84" fill="none" stroke="#7cc4e8" stroke-width="52"/>
+  <rect x="388" y="388" width="440" height="440" rx="84" fill="#f0705a"/>
+</svg>

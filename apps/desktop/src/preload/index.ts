@@ -20,12 +20,18 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
   'koma:providers:cancel',
   'koma:app:set-unsaved-changes',
   'koma:app:confirm-close',
+  'koma:updates:get-status',
+  'koma:updates:check',
+  'koma:updates:set-channel',
+  'koma:updates:download',
+  'koma:updates:install',
   'koma:app:get-info',
 ]);
 
 const EVENT_CHANNELS: ReadonlySet<string> = new Set([
   'koma:providers:status',
   'koma:app:save-and-close',
+  'koma:updates:status',
 ]);
 
 contextBridge.exposeInMainWorld(API_KEY, {

@@ -53,7 +53,7 @@ test('documentation screenshots', async () => {
     await capture('brand-kit');
 
     await window.getByRole('button', { name: 'Settings' }).click();
-    await expect(window.getByText(/PowerPoint: not available yet/)).toBeVisible();
+    await expect(window.getByRole('region', { name: 'App updates' })).toBeVisible();
     await capture('settings');
   } finally {
     await running.close();

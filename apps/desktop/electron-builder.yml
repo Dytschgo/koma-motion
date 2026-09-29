@@ -1,0 +1,59 @@
+# Packaging of the desktop application.
+#
+# The application is bundled into `out/` before it is packaged, including
+# every dependency. That is why package.json lists no runtime dependencies
+# and the package contains no node_modules.
+appId: com.dytschgo.koma-motion
+productName: Koma Motion
+copyright: Copyright (c) 2026 Koma Motion contributors
+
+directories:
+  output: release
+  buildResources: build
+
+files:
+  - out/**/*
+  - build/icon.png
+  - package.json
+  - '!**/*.map'
+
+asar: true
+icon: build/icon.png
+afterPack: scripts/adhoc-sign.cjs
+
+# Installers are not signed with a certificate yet. See docs/RELEASES.md.
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: Koma-Motion-Setup-${version}.${ext}
+
+nsis:
+  oneClick: true
+  perMachine: false
+  deleteAppDataOnUninstall: false
+
+mac:
+  target:
+    - dmg
+    - zip
+  category: public.app-category.graphics-design
+  minimumSystemVersion: 13.0.0
+  identity: null
+  hardenedRuntime: false
+  artifactName: Koma-Motion-${version}-${arch}-mac.${ext}
+
+dmg:
+  artifactName: Koma-Motion-${version}-${arch}.${ext}
+
+fileAssociations:
+  - ext: koma
+    name: Koma Motion project
+    description: Koma Motion project
+    role: Editor
+
+publish:
+  provider: github
+  owner: Dytschgo
+  repo: koma-motion
+  releaseType: release

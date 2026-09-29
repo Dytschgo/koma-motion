@@ -30,14 +30,29 @@ function getApplicationEnvironment(): Record<string, string> {
   return environment;
 }
 
-/** Starts the built application, exactly as `pnpm start` does. */
-export async function launchApplication(): Promise<RunningApplication> {
+/**
+ * Starts the built application, exactly as `pnpm start` does. With
+ * `executablePath`, a packaged application is started instead.
+ */
+export async function launchApplication(
+  options: { readonly executablePath?: string } = {},
+): Promise<RunningApplication> {
   const directory = await mkdtemp(join(tmpdir(), 'koma-motion-e2e-'));
-  const application = await electron.launch({
-    args: [APPLICATION_DIRECTORY, `--user-data-dir=${join(directory, 'user-data')}`],
-    cwd: APPLICATION_DIRECTORY,
-    env: getApplicationEnvironment(),
-  });
+  const userData = `--user-data-dir=${join(directory, 'user-data')}`;
+  const application = await electron.launch(
+    options.executablePath === undefined
+      ? {
+          args: [APPLICATION_DIRECTORY, userData],
+          cwd: APPLICATION_DIRECTORY,
+          env: getApplicationEnvironment(),
+        }
+      : {
+          executablePath: options.executablePath,
+          args: [userData],
+          // A packaged application must not use the network during a test.
+          env: { ...getApplicationEnvironment(), KOMA_SMOKE: '1' },
+        },
+  );
   const window = await application.firstWindow();
   const problems: string[] = [];
   window.on('pageerror', (error) => problems.push(`Page error: ${error.message}`));

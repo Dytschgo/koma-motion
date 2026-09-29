@@ -15,7 +15,8 @@ report. There is no bug bounty.
 
 ## Supported versions
 
-There are no releases yet. Security fixes are made on the `main` branch only.
+Security fixes are made on the `main` branch and published with the next
+stable release. Earlier releases receive no fixes.
 
 ## Security philosophy
 
@@ -98,7 +99,32 @@ a newer version of Koma Motion. One project file is read or written at a time.
 
 Koma Motion does not store API keys. Agent CLIs use their own authentication.
 
+### Updates
+
+The main process is the only part of the application that uses the network
+by itself, and it does so for updates only.
+
+- Installed versions ask the GitHub API which releases of Koma Motion exist:
+  when the application starts, every four hours and on request. The request
+  contains nothing about the user or a project. Versions that are run from
+  the source code do not check.
+- Release information is untrusted input. It is limited in time and size,
+  validated, and reduced to the files that are stored under exactly one
+  release of this repository. Redirects are not followed.
+- An update manifest must name the selected version. Every file it lists
+  must belong to that release and carry a SHA-512 checksum, which is checked
+  before anything is installed.
+- Nothing is downloaded or installed without a request of the user. An older
+  version is never installed.
+- The window cannot name a release, a manifest or an installer. Its update
+  requests carry a channel name and nothing else.
+
 ## Known limitations
+
+- **The installers are not signed with a certificate and not notarised.**
+  The checks above protect against damaged and mixed-up files. They do not
+  protect against someone who can publish releases in the repository or
+  change what GitHub delivers. See `docs/RELEASES.md`.
 
 - On Windows, with this Electron build, a top-level page can still construct
   `RTCPeerConnection`. Local STUN on `127.0.0.1` and `::1`, TURN-UDP, TURN-TCP
@@ -122,8 +148,6 @@ Koma Motion does not store API keys. Agent CLIs use their own authentication.
   On this Windows machine, creating a file symlink failed with `EPERM`.
   Directory junctions were tested in the unit tests and in the running
   application. macOS was not exercised by the change that added these checks.
-- Application builds are not code-signed or notarised yet. See
-  `docs/RELEASES.md`.
 - The agent CLIs are separate programs with their own security properties.
   Koma Motion restricts how it starts them but cannot make guarantees about
   their behaviour.

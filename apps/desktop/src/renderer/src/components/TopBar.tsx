@@ -8,8 +8,10 @@ import {
   selectProject,
   useProjectStore,
 } from '../state/projectStore';
+import { isNightlyVersion } from '../../../shared/updates';
 import { useUiStore } from '../state/uiStore';
-import { KomaMark, PlayIcon, RedoIcon, SettingsIcon, UndoIcon } from './icons';
+import { useUpdateStore } from '../state/updateStore';
+import { DownloadIcon, KomaMark, PlayIcon, RedoIcon, SettingsIcon, UndoIcon } from './icons';
 import { Button, IconButton } from './ui';
 
 export function TopBar(): ReactElement {
@@ -23,12 +25,24 @@ export function TopBar(): ReactElement {
   const startPreview = useUiStore((state) => state.startPreview);
   const setSettingsOpen = useUiStore((state) => state.setSettingsOpen);
   const transition = useCurrentTransition();
+  const update = useUpdateStore((state) => state.status);
+  const nightly = update !== null && isNightlyVersion(update.currentVersion);
+  const updateReady =
+    update !== null && (update.state === 'available' || update.state === 'downloaded');
 
   return (
     <header className="flex h-12 flex-none items-center gap-1 border-b border-desk-600 bg-desk-800 px-3">
       <div className="mr-3 flex items-center gap-2">
         <KomaMark />
         <span className="text-lg font-semibold tracking-tight">Koma Motion</span>
+        {nightly && (
+          <span
+            className="rounded-full border border-signal-warn/60 px-2 py-0.5 text-xs text-signal-warn"
+            title={`Nightly version ${update.currentVersion}`}
+          >
+            Nightly
+          </span>
+        )}
       </div>
 
       <nav aria-label="Project" className="flex items-center gap-0.5">
@@ -71,6 +85,17 @@ export function TopBar(): ReactElement {
         )}
       </div>
 
+      {updateReady && (
+        <Button
+          icon={<DownloadIcon size={14} />}
+          className="text-pencil-blue"
+          onClick={() => {
+            setSettingsOpen(true);
+          }}
+        >
+          {update.state === 'downloaded' ? 'Update ready' : 'Update available'}
+        </Button>
+      )}
       <Button
         variant="outline"
         icon={<PlayIcon size={14} />}

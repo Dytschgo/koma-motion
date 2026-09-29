@@ -1,0 +1,206 @@
+name: Publish stable release
+
+# A stable release is published by pushing a tag such as v0.1.0 that points
+# to a commit of main. See docs/RELEASES.md.
+on:
+  push:
+    tags: ['v*.*.*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  classify:
+    name: Check the tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.classify.outputs.sha }}
+      version: ${{ steps.classify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: classify
+        shell: bash
+        run: |
+          set -euo pipefail
+          channel="$(node apps/desktop/scripts/release-channel.mjs classify-tag "$GITHUB_REF_NAME")"
+          test "$channel" = stable
+          candidate="$(git rev-parse "$GITHUB_REF^{commit}")"
+          git fetch --force origin +refs/heads/main:refs/remotes/origin/main
+          # Only commits of main are released.
+          git merge-base --is-ancestor "$candidate" origin/main
+          version="$(node -p "require('./apps/desktop/package.json').version")"
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "The tag $GITHUB_REF_NAME does not match the version $version of the application." >&2
+            exit 1
+          fi
+          echo "sha=$candidate" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  quality:
+    name: Check the code
+    needs: classify
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.classify.outputs.sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm format:check
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm test:e2e
+
+  package:
+    name: Package (${{ matrix.platform }})
+    # Runs beside the checks of the code. Publishing needs both.
+    needs: classify
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            builder: --win
+          - os: macos-latest
+            platform: macos
+            builder: --mac --universal
+    env:
+      KOMA_EXPECT_VERSION: ${{ needs.classify.outputs.version }}
+      # The installers are not signed with a certificate.
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.classify.outputs.sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Package
+        working-directory: apps/desktop
+        run: pnpm exec electron-builder ${{ matrix.builder }} --publish never
+      - name: Test the packaged application
+        working-directory: apps/desktop
+        run: node scripts/verify-packaged.mjs ${{ matrix.platform }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.platform }}
+          if-no-files-found: error
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.dmg
+            apps/desktop/release/*.zip
+            apps/desktop/release/*.blockmap
+            apps/desktop/release/latest*.yml
+      - name: Keep the results of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaged-test-results-${{ matrix.platform }}
+          path: apps/desktop/test-results
+          if-no-files-found: ignore
+          retention-days: 7
+
+  publish:
+    name: Publish
+    needs: [classify, quality, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.classify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.classify.outputs.sha }}
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: release-assets
+          merge-multiple: true
+      - name: Check and stage the files
+        run: node apps/desktop/scripts/stage-release-assets.mjs release-assets "$VERSION" latest
+      - name: Create a draft with the checked files
+        run: |
+          gh release create "$GITHUB_REF_NAME" release-assets/* \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --draft \
+            --latest=false \
+            --title "Koma Motion $VERSION" \
+            --generate-notes
+      - name: Publish without marking it as the latest release
+        run: |
+          gh release edit "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --draft=false \
+            --latest=false
+
+  verify-public-download:
+    name: Test the public download
+    needs: [classify, publish]
+    runs-on: windows-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KOMA_EXPECT_VERSION: ${{ needs.classify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.classify.outputs.sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Download what users download
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir public-download
+          gh release download "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir public-download \
+            --pattern "Koma-Motion-Setup-$KOMA_EXPECT_VERSION.exe" \
+            --pattern SHA256SUMS.txt
+          cd public-download
+          grep "  Koma-Motion-Setup-$KOMA_EXPECT_VERSION.exe\$" SHA256SUMS.txt | sha256sum --check --strict
+      - name: Install and test the download
+        working-directory: apps/desktop
+        run: node scripts/verify-packaged.mjs windows ../../public-download
+
+  promote-latest:
+    name: Mark as the latest release
+    needs: verify-public-download
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Mark the tested release as the latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --latest

@@ -244,9 +244,18 @@ schema for the request and the response of every channel.
 | `koma:app:set-unsaved-changes` | tell the main process about unsaved changes |
 | `koma:app:confirm-close`       | close after saving                          |
 | `koma:app:get-info`            | version, platform, exporters                |
+| `koma:updates:get-status`      | the state of updating                       |
+| `koma:updates:check`           | check for an update                         |
+| `koma:updates:set-channel`     | choose the stable or the nightly channel    |
+| `koma:updates:download`        | download the update that was found          |
+| `koma:updates:install`         | restart and install the downloaded update   |
 
-Events from the main process: `koma:providers:status` and
-`koma:app:save-and-close`.
+Events from the main process: `koma:providers:status`,
+`koma:app:save-and-close` and `koma:updates:status`.
+
+The update channels carry no addresses. The window chooses a channel; which
+release, manifest and installer that means is decided in the main process
+(`apps/desktop/src/main/updates`). See `docs/RELEASES.md`.
 
 For every request the main process checks, in this order:
 

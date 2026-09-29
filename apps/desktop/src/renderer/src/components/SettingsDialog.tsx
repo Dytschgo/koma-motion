@@ -12,6 +12,7 @@ import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { Button, Field, Modal, NumberInput, TextInput } from './ui';
+import { UpdateControl } from './UpdateControl';
 
 const REPOSITORY_URL = 'https://github.com/Dytschgo/koma-motion';
 
@@ -116,6 +117,8 @@ export function SettingsDialog({
       }
     >
       <div className="flex flex-col gap-6">
+        <UpdateControl />
+
         <section className="flex flex-col gap-3">
           <h3 className="text-lg font-semibold">Agent providers</h3>
           {project === null ? (

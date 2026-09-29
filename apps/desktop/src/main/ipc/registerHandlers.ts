@@ -22,11 +22,13 @@ import {
   saveProjectAs,
   type ProjectSession,
 } from '../services/projectFiles';
+import type { UpdateService } from '../updates/service';
 import { limitProjectPersistence, rejectedRequestMessage } from './persistence';
 
 export interface WindowContext {
   readonly window: BrowserWindow;
   readonly session: ProjectSession;
+  readonly updates: UpdateService;
   /** Closes the window without asking about unsaved changes again. */
   closeConfirmed(): void;
   /** Called when the unsaved state or the file of the project changes. */
@@ -151,6 +153,41 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     context.closeConfirmed();
     return {};
   });
+
+  /** Runs an update action and turns a failure into a message for the user. */
+  const act = async (
+    action: () => Promise<unknown>,
+  ): Promise<IpcResponse<'koma:updates:check'>> => {
+    try {
+      await action();
+      return { status: 'done' };
+    } catch (error) {
+      return {
+        status: 'failed',
+        message: error instanceof Error ? error.message : 'The update action failed.',
+      };
+    }
+  };
+
+  handle('koma:updates:get-status', () => context.updates.getStatus());
+
+  handle('koma:updates:check', () => act(() => context.updates.check()));
+
+  handle('koma:updates:set-channel', ({ channel }) =>
+    act(() => context.updates.setChannel(channel)),
+  );
+
+  handle('koma:updates:download', () => act(() => context.updates.download()));
+
+  handle('koma:updates:install', () =>
+    act(() => {
+      // Installing restarts the application. Unsaved work must not be lost to it.
+      if (session.hasUnsavedChanges) {
+        return Promise.reject(new Error('Save your project before you restart to install.'));
+      }
+      return context.updates.install();
+    }),
+  );
 
   handle('koma:app:get-info', () => ({
     version: app.getVersion(),
