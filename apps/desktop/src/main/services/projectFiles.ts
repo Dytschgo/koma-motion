@@ -17,10 +17,52 @@ export interface ProjectSession {
    */
   filePath: string | null;
   hasUnsavedChanges: boolean;
+  /**
+   * Changes when the open project is replaced. A save that started earlier
+   * must not publish its path onto the replacement.
+   */
+  sessionId: number;
+  /** Highest save that has asked to publish a path for the current session. */
+  saveTicket: number;
+  /** Highest save that did publish a path. A later failure must not undo it. */
+  publishedSaveTicket: number;
+  /**
+   * Session captured when the user chose Save while closing. A later confirm
+   * closes the window only while this is still the open project.
+   */
+  saveAndCloseSessionId: number | null;
+  /** Serialises writes so an older save cannot replace a newer file on disk. */
+  writeTail: Promise<void>;
 }
 
 export function createProjectSession(): ProjectSession {
-  return { filePath: null, hasUnsavedChanges: false };
+  return {
+    filePath: null,
+    hasUnsavedChanges: false,
+    sessionId: 0,
+    saveTicket: 0,
+    publishedSaveTicket: 0,
+    saveAndCloseSessionId: null,
+    writeTail: Promise.resolve(),
+  };
+}
+
+/** The window may close after Save only for the same project, and only when it is clean. */
+export function canCompleteSaveAndClose(session: ProjectSession): boolean {
+  return (
+    session.saveAndCloseSessionId !== null &&
+    session.saveAndCloseSessionId === session.sessionId &&
+    !session.hasUnsavedChanges
+  );
+}
+
+function replaceOpenProject(session: ProjectSession): void {
+  session.sessionId += 1;
+  session.filePath = null;
+  session.hasUnsavedChanges = false;
+  session.saveAndCloseSessionId = null;
+  session.saveTicket = 0;
+  session.publishedSaveTicket = 0;
 }
 
 function toFileInfo(filePath: string): ProjectFileInfo {
@@ -49,7 +91,7 @@ export function createNewProject(
   name: string,
   now: Date,
 ): IpcResponse<'koma:project:create'> {
-  session.filePath = null;
+  replaceOpenProject(session);
   return {
     project: createProject({
       idGenerator: createRandomIdGenerator(),
@@ -77,6 +119,7 @@ export async function openProject(
   if (!loaded.ok) {
     return { status: 'failed', message: loaded.error.message };
   }
+  replaceOpenProject(session);
   session.filePath = filePath;
   return {
     status: 'opened',
@@ -86,17 +129,40 @@ export async function openProject(
   };
 }
 
+function enqueueWrite<T>(session: ProjectSession, operation: () => Promise<T>): Promise<T> {
+  const run = session.writeTail.then(operation, operation);
+  session.writeTail = run.then(
+    () => undefined,
+    () => undefined,
+  );
+  return run;
+}
+
+/**
+ * Writes `project` and publishes `filePath` when this save belongs to the
+ * session that started it and no newer save of that session has already
+ * published a path. A failed later save leaves the earlier path in place.
+ * Writes are queued so an older save cannot finish after a newer one and put
+ * the old bytes back on disk.
+ */
 async function writeTo(
   filePath: string,
   project: KomaProject,
   session: ProjectSession,
   now: Date,
+  sessionId: number,
 ): Promise<IpcResponse<'koma:project:save'>> {
-  const saved = await writeProjectFile(filePath, touchProject(project, now.toISOString()));
+  const ticket = ++session.saveTicket;
+  const saved = await enqueueWrite(session, () =>
+    writeProjectFile(filePath, touchProject(project, now.toISOString())),
+  );
   if (!saved.ok) {
     return { status: 'failed', message: saved.error.message };
   }
-  session.filePath = filePath;
+  if (session.sessionId === sessionId && ticket > session.publishedSaveTicket) {
+    session.filePath = filePath;
+    session.publishedSaveTicket = ticket;
+  }
   return { status: 'saved', project: saved.value, file: toFileInfo(filePath) };
 }
 
@@ -105,6 +171,7 @@ export async function saveProjectAs(
   session: ProjectSession,
   project: KomaProject,
   now: Date,
+  sessionId = session.sessionId,
 ): Promise<IpcResponse<'koma:project:save-as'>> {
   const selection = await dialog.showSaveDialog(window, {
     title: 'Save project as',
@@ -115,7 +182,11 @@ export async function saveProjectAs(
   if (selection.canceled || selection.filePath === '') {
     return { status: 'cancelled' };
   }
-  return writeTo(withProjectExtension(selection.filePath), project, session, now);
+  // The dialog outlived the project it was opened for.
+  if (session.sessionId !== sessionId) {
+    return { status: 'cancelled' };
+  }
+  return writeTo(withProjectExtension(selection.filePath), project, session, now, sessionId);
 }
 
 export async function saveProject(
@@ -124,8 +195,9 @@ export async function saveProject(
   project: KomaProject,
   now: Date,
 ): Promise<IpcResponse<'koma:project:save'>> {
+  const sessionId = session.sessionId;
   if (session.filePath === null) {
-    return saveProjectAs(window, session, project, now);
+    return saveProjectAs(window, session, project, now, sessionId);
   }
-  return writeTo(session.filePath, project, session, now);
+  return writeTo(session.filePath, project, session, now, sessionId);
 }

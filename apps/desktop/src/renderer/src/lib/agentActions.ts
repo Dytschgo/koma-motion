@@ -29,6 +29,7 @@ export async function detectProviders(): Promise<void> {
  */
 export async function generate(input: GenerationInput): Promise<void> {
   const project = selectProject(useProjectStore.getState());
+  const sessionId = useProjectStore.getState().sessionId;
   const agent = useAgentStore.getState();
   if (project === null || agent.execution !== null) {
     return;
@@ -42,6 +43,9 @@ export async function generate(input: GenerationInput): Promise<void> {
   agent.addEntry({ kind: 'request', text: input.userRequest });
   agent.startExecution({ executionId, providerId, providerName });
 
+  /** A project switch invalidates this run. Its output must not land in the replacement. */
+  const stillThisProject = (): boolean => useProjectStore.getState().sessionId === sessionId;
+
   try {
     const outcome = await invoke('koma:providers:execute', {
       executionId,
@@ -49,6 +53,9 @@ export async function generate(input: GenerationInput): Promise<void> {
       project,
       input,
     });
+    if (!stillThisProject()) {
+      return;
+    }
     const projects = useProjectStore.getState();
     if (outcome.status === 'succeeded') {
       projects.apply(applyGeneration(outcome.presentation, outcome.historyEntry));
@@ -71,6 +78,9 @@ export async function generate(input: GenerationInput): Promise<void> {
       });
     }
   } catch {
+    if (!stillThisProject()) {
+      return;
+    }
     useAgentStore.getState().addEntry({
       kind: 'failure',
       providerName,
@@ -91,7 +101,7 @@ export async function generate(input: GenerationInput): Promise<void> {
       request: input.userRequest,
     });
   } finally {
-    useAgentStore.getState().finishExecution();
+    useAgentStore.getState().finishExecution(executionId);
   }
 }
 

@@ -17,7 +17,7 @@ import {
 } from '@koma-motion/core';
 import { createAssetResolver } from '@koma-motion/renderer';
 import { useId, useLayoutEffect, useMemo, useState, type ReactElement } from 'react';
-import { invoke } from '../lib/api';
+import { chooseProjectLogo } from '../lib/projectActions';
 import { changeBrandKit, changeLogo } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { selectBrandKitRawDraft, useUiStore } from '../state/uiStore';
@@ -121,7 +121,6 @@ function coalesceKey(field: BrandKitDraftField): string {
 export function BrandKitEditor({ project }: { readonly project: KomaProject }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
   const setView = useUiStore((state) => state.setView);
-  const notify = useUiStore((state) => state.notify);
   const setBrandKitDraft = useUiStore((state) => state.setBrandKitDraft);
   const raw = useUiStore((state) => selectBrandKitRawDraft(state, project.id));
   const fontListId = useId();
@@ -183,14 +182,7 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
   const chooseLogo = async (): Promise<void> => {
     setSelectingLogo(true);
     try {
-      const response = await invoke('koma:brand-kit:select-logo', {});
-      if (response.status === 'selected') {
-        apply(changeLogo(response.asset));
-      } else if (response.status === 'failed') {
-        notify('error', response.message);
-      }
-    } catch {
-      notify('error', 'The logo could not be added.');
+      await chooseProjectLogo();
     } finally {
       setSelectingLogo(false);
     }
