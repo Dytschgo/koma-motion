@@ -330,11 +330,11 @@ execution and contain:
 - per attempt: exit code, length of the output and an excerpt of the error
   output of the program.
 
-Diagnostics never contain prompts, the output of the agent or environment
-variables. Error output is reduced before it is shown: values that look like
-API keys, tokens, authorisation headers or password assignments are replaced,
-control characters are removed, and the text is limited to 2000 characters.
-The reduction is based on patterns and cannot recognise every secret.
+Error output is reduced before it is shown: values that look like API keys,
+tokens, authorisation headers or password assignments are replaced, control
+characters are removed, and the text is limited to 2000 characters. Pattern
+redaction cannot guarantee removal of every secret, prompt or environment
+value from arbitrary stderr.
 
 Messages of unexpected errors are replaced by a neutral message, because they
 can contain anything.
