@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getResponseJsonSchema } from '../contract/response';
 import { presentationGenerationPromptV2 } from '../prompts/presentationGeneration';
+import { ProviderRegistry } from '../providers/registry';
 import type { AgentExecutionContext } from '../providers/types';
+import { GenerationRunner } from '../runtime/GenerationRunner';
 import { buildRequest, buildResponse } from '../testing/fixtures';
 import {
   buildClaudeCodeArguments,
@@ -829,6 +831,8 @@ describe('ClaudeCodeProvider', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.output.structured).toEqual(structured);
+      // The text is what Claude wrote, not a copy of the structured output.
+      expect(result.output.rawText).toBe('text');
     }
     const call = environment.calls[0];
     expect(call?.input).toContain('# Request');
@@ -838,6 +842,55 @@ describe('ClaudeCodeProvider', () => {
       expect.arrayContaining(['--safe-mode', '--restricted', '--no-chrome', '--strict-mcp-config']),
     );
     expect(call?.arguments).not.toContain('--bare');
+  });
+
+  it('lets the runner reject a result text that disagrees with the structured output', async () => {
+    const structured = buildResponse();
+    const text = { ...buildResponse(), visualRationale: 'A different answer.' };
+    const disagreeing = completed({
+      standardOutput: envelope({ structured_output: structured, result: JSON.stringify(text) }),
+    });
+    const environment = fakeEnvironment(disagreeing);
+    const runner = new GenerationRunner({
+      registry: new ProviderRegistry([new ClaudeCodeProvider(environment)]),
+    });
+
+    const result = await runner.execute({
+      executionId: 'execution-1',
+      providerId: 'claude-code',
+      request: buildRequest(),
+    });
+
+    // Both attempts disagree, so the execution fails after the single repair.
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.error.issues.map((issue) => issue.code)).toEqual(['inconsistentOutput']);
+      expect(result.diagnostics.attempts.map((attempt) => attempt.outcome)).toEqual([
+        'rejected',
+        'rejected',
+      ]);
+    }
+  });
+
+  it('lets the runner accept a result text that agrees with the structured output', async () => {
+    const structured = buildResponse();
+    const environment = fakeEnvironment(
+      completed({
+        standardOutput: envelope({
+          structured_output: structured,
+          result: JSON.stringify(structured),
+        }),
+      }),
+    );
+    const runner = new GenerationRunner({
+      registry: new ProviderRegistry([new ClaudeCodeProvider(environment)]),
+    });
+    const result = await runner.execute({
+      executionId: 'execution-1',
+      providerId: 'claude-code',
+      request: buildRequest(),
+    });
+    expect(result.status).toBe('succeeded');
   });
 
   it('falls back to the text result', async () => {

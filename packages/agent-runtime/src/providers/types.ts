@@ -102,7 +102,9 @@ export interface ProviderOutput {
   /**
    * Structured data, when the provider has a native structured output
    * feature. The runtime size-checks it and prefers this envelope only when
-   * the text is empty, has no object, or is the same JSON value.
+   * the text is empty, has no object, or is the same JSON value. Providers
+   * pass the text unchanged in `rawText`: replacing it with a copy of the
+   * structured output would hide a disagreement.
    */
   readonly structured?: unknown;
 }

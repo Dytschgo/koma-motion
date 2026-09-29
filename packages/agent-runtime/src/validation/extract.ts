@@ -139,44 +139,49 @@ function inconsistentOutput(): AgentError {
   return agentError('invalidResponse', INCONSISTENT_OUTPUT, [issue]);
 }
 
-function selectParsedObject(
-  objects: readonly Record<string, unknown>[],
-): Result<unknown, AgentError> {
+/**
+ * Why text did not yield an answer. `empty` and `noObject` mean the text holds
+ * no answer at all. `ambiguous` means it holds more than one, which is never
+ * resolved by preferring another source.
+ */
+type ExtractionFailure = 'tooLarge' | 'empty' | 'noObject' | 'ambiguous';
+
+type Extraction =
+  | { readonly ok: true; readonly value: unknown }
+  | { readonly ok: false; readonly reason: ExtractionFailure; readonly error: AgentError };
+
+function failed(reason: ExtractionFailure, error: AgentError): Extraction {
+  return { ok: false, reason, error };
+}
+
+function selectParsedObject(objects: readonly Record<string, unknown>[]): Extraction {
   const contractShaped = objects.filter(isContractShaped);
   if (contractShaped.length > 1) {
-    return err(agentError('noStructuredOutput', MULTIPLE_ANSWERS));
+    return failed('ambiguous', agentError('noStructuredOutput', MULTIPLE_ANSWERS));
   }
   const preferred = contractShaped.length === 1 ? contractShaped[0] : objects[0];
   if (objects.length > 1 && contractShaped.length === 0) {
-    return err(agentError('noStructuredOutput', AMBIGUOUS_OBJECTS));
+    return failed('ambiguous', agentError('noStructuredOutput', AMBIGUOUS_OBJECTS));
   }
   if (preferred !== undefined) {
-    return ok(preferred);
+    return { ok: true, value: preferred };
   }
-  return err(agentError('noStructuredOutput', NO_JSON_OBJECT));
+  return failed('noObject', agentError('noStructuredOutput', NO_JSON_OBJECT));
 }
 
-/**
- * Extracts the structured response from the raw text of an agent.
- *
- * The text is treated as data only and is never evaluated. A single JSON
- * object is returned as it is. Otherwise the only outermost balanced objects
- * are considered: one contract-shaped object wins over an example, and more
- * than one possible answer is rejected instead of guessed.
- */
-export function extractStructuredOutput(rawText: string): Result<unknown, AgentError> {
+function extract(rawText: string): Extraction {
   if (rawText.length > MAX_AGENT_OUTPUT_LENGTH) {
-    return err(outputTooLarge(rawText.length));
+    return failed('tooLarge', outputTooLarge(rawText.length));
   }
 
   const text = rawText.trim();
   if (text === '') {
-    return err(agentError('noStructuredOutput', EMPTY_RESPONSE));
+    return failed('empty', agentError('noStructuredOutput', EMPTY_RESPONSE));
   }
 
   const direct = tryParse(text);
   if (direct.ok && isPlainObject(direct.value)) {
-    return ok(direct.value);
+    return { ok: true, value: direct.value };
   }
 
   const objects: Record<string, unknown>[] = [];
@@ -190,12 +195,26 @@ export function extractStructuredOutput(rawText: string): Result<unknown, AgentE
 }
 
 /**
+ * Extracts the structured response from the raw text of an agent.
+ *
+ * The text is treated as data only and is never evaluated. A single JSON
+ * object is returned as it is. Otherwise the only outermost balanced objects
+ * are considered: one contract-shaped object wins over an example, and more
+ * than one possible answer is rejected instead of guessed.
+ */
+export function extractStructuredOutput(rawText: string): Result<unknown, AgentError> {
+  const extraction = extract(rawText);
+  return extraction.ok ? ok(extraction.value) : err(extraction.error);
+}
+
+/**
  * Chooses the value to validate from provider output.
  *
  * The size limit applies to the raw text and, when present, to the JSON
  * serialisation of structured output before either body is preferred. A plain
  * object envelope is kept when the text is empty, contains no JSON object, or
- * is the same JSON value. A different object is rejected rather than guessed.
+ * is the same JSON value. A different object is rejected rather than guessed,
+ * and so is text that contains more than one possible answer.
  */
 export function resolveProviderOutput(output: {
   readonly rawText: string;
@@ -222,9 +241,13 @@ export function resolveProviderOutput(output: {
     if (output.rawText.trim() === '') {
       return ok(structured);
     }
-    const extracted = extractStructuredOutput(output.rawText);
+    const extracted = extract(output.rawText);
     if (!extracted.ok) {
-      return extracted.error.code === 'outputTooLarge' ? extracted : ok(structured);
+      // Only text without any answer lets the envelope stand in for it. Text
+      // with several answers stays a rejection, whatever the envelope says.
+      return extracted.reason === 'empty' || extracted.reason === 'noObject'
+        ? ok(structured)
+        : err(extracted.error);
     }
     const normalised = tryParse(serialised);
     if (normalised.ok && jsonValuesEqual(extracted.value, normalised.value)) {

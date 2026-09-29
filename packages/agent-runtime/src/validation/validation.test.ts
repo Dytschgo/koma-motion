@@ -165,6 +165,34 @@ describe('resolveProviderOutput', () => {
     });
   });
 
+  it('rejects text with two answers even when an envelope is supplied', () => {
+    const first = buildResponse();
+    const second = { ...buildResponse(), visualRationale: 'A different answer.' };
+    const rawText = `${JSON.stringify(first)}
+${JSON.stringify(second)}`;
+
+    const withoutEnvelope = resolveProviderOutput({ rawText });
+    const withEnvelope = resolveProviderOutput({ rawText, structured: first });
+
+    for (const result of [withoutEnvelope, withEnvelope]) {
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.code).toBe('noStructuredOutput');
+        expect(result.error.message).toContain('more than one possible answer');
+      }
+    }
+  });
+
+  it('rejects an envelope that disagrees with the text', () => {
+    const structured = buildResponse();
+    const text = { ...buildResponse(), visualRationale: 'A different answer.' };
+    const result = resolveProviderOutput({ rawText: JSON.stringify(text), structured });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.issues.map((issue) => issue.code)).toEqual(['inconsistentOutput']);
+    }
+  });
+
   it('accepts an envelope that is the same JSON value', () => {
     const structured = { b: 1, a: { c: [true, null] } };
     const result = resolveProviderOutput({
