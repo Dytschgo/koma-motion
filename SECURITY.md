@@ -30,26 +30,28 @@ documents. The design therefore rests on four rules:
    to start processes.
 3. **Privileged work happens in the main process**, behind a small set of
    named, validated IPC channels.
-4. **Security is not weakened for development convenience.** Development
-   builds use the same isolation settings as production builds.
+4. **Security is not weakened for development convenience.** There is no
+   development server. Development builds are loaded through the same
+   protocol, with the same Content Security Policy and the same isolation
+   settings as production builds.
 
 ## Electron security boundary
 
-| Measure                                       | Status                                                                          |
-| --------------------------------------------- | ------------------------------------------------------------------------------- |
-| `contextIsolation`                            | Enabled                                                                         |
-| `nodeIntegration`                             | Disabled                                                                        |
-| `sandbox`                                     | Enabled for the renderer                                                        |
-| `webSecurity`                                 | Enabled                                                                         |
-| Preload API                                   | Small, typed, exposed through `contextBridge`                                   |
-| IPC channels                                  | Fixed allow-list; no generic "execute" channel                                  |
-| IPC payloads                                  | Validated with schemas in the main process; responses validated in the renderer |
-| IPC senders                                   | Only the main frame of the application window is accepted                       |
-| Content Security Policy                       | Set in the application; no remote scripts, no `eval` in production              |
-| Navigation                                    | Blocked, except for the development server in development                       |
-| New windows                                   | Blocked; allow-listed `https` links open in the system browser                  |
-| Permission requests (camera, microphone, ...) | Denied                                                                          |
-| Remote content                                | Not loaded                                                                      |
+| Measure                                       | Status                                                                                   |
+| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `contextIsolation`                            | Enabled                                                                                  |
+| `nodeIntegration`                             | Disabled                                                                                 |
+| `sandbox`                                     | Enabled for the renderer                                                                 |
+| `webSecurity`                                 | Enabled                                                                                  |
+| Preload API                                   | Small, typed, exposed through `contextBridge`                                            |
+| IPC channels                                  | Fixed allow-list; no generic "execute" channel                                           |
+| IPC payloads                                  | Validated with schemas in the main process; responses validated in the renderer          |
+| IPC senders                                   | Only the main frame of the application window is accepted                                |
+| Content Security Policy                       | Sent with every file of the application; no remote content, no inline scripts, no `eval` |
+| Navigation                                    | Blocked                                                                                  |
+| New windows                                   | Blocked; allow-listed `https` links open in the system browser                           |
+| Permission requests (camera, microphone, ...) | Denied                                                                                   |
+| Remote content                                | Not loaded                                                                               |
 
 ### Filesystem
 
