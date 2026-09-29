@@ -172,6 +172,84 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   expect(problems).toEqual([]);
 });
 
+test('adds, moves and deletes Komas and undoes every step', async () => {
+  const { window } = running;
+  const komas = window
+    .getByRole('list', { name: 'Komas' })
+    .getByRole('button', { name: /^Koma \d:/ });
+  const titles = async (): Promise<string[]> =>
+    (await komas.all()).length === 0
+      ? []
+      : Promise.all(
+          (await komas.all()).map(async (koma) => (await koma.getAttribute('aria-label')) ?? ''),
+        );
+
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  await window.getByRole('button', { name: 'Use the example request' }).click();
+  await window.getByRole('button', { name: 'Generate Komas' }).click();
+  await expect(komas).toHaveCount(3);
+
+  await test.step('a new Koma continues the selected Koma', async () => {
+    await window.getByRole('button', { name: 'Add Koma' }).click();
+    await expect(komas).toHaveCount(4);
+    expect(await titles()).toEqual([
+      'Koma 1: One connected system',
+      'Koma 2: Koma 4',
+      'Koma 3: The motion engine',
+      'Koma 4: Motion you can edit',
+    ]);
+    // Every object is still the same object, so nothing changes in between.
+    await expect(
+      window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
+    ).toContainText('0 changes');
+  });
+
+  await test.step('changing an element creates motion', async () => {
+    await window
+      .getByRole('region', { name: 'Canvas' })
+      .getByRole('button', { name: 'Motion engine (shape)' })
+      .click();
+    await window.getByLabel('X', { exact: true }).fill('300');
+    await expect(
+      window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
+    ).toContainText('1 change');
+    await expect(window.getByText('moves', { exact: true })).toBeVisible();
+  });
+
+  await test.step('move and delete', async () => {
+    await window.getByRole('button', { name: 'Move Koma down' }).click();
+    expect((await titles())[2]).toBe('Koma 3: Koma 4');
+
+    await window.getByRole('button', { name: 'Delete Koma' }).click();
+    await window.getByRole('button', { name: 'Keep Koma' }).click();
+    await expect(komas).toHaveCount(4);
+
+    await window.getByRole('button', { name: 'Delete Koma', exact: true }).click();
+    await window.getByRole('dialog').getByRole('button', { name: 'Delete Koma' }).click();
+    await expect(komas).toHaveCount(3);
+  });
+
+  await test.step('undo and redo', async () => {
+    const undo = window.getByRole('button', { name: 'Undo' });
+    await undo.click();
+    await expect(komas).toHaveCount(4);
+    await undo.click();
+    expect((await titles())[1]).toBe('Koma 2: Koma 4');
+
+    await window.getByRole('button', { name: 'Redo' }).click();
+    await window.getByRole('button', { name: 'Redo' }).click();
+    await expect(komas).toHaveCount(3);
+    await expect(window.getByRole('button', { name: 'Redo' })).toBeDisabled();
+
+    // Undo goes back as far as the empty project.
+    for (let step = 0; step < 6 && (await undo.isEnabled()); step += 1) {
+      await undo.click();
+    }
+    await expect(window.getByRole('list', { name: 'Komas' })).toHaveCount(0);
+    await expect(undo).toBeDisabled();
+  });
+});
+
 test('keeps the presentation when a generation is cancelled', async () => {
   const { window } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
@@ -223,6 +301,49 @@ test('keeps the window open when closing is cancelled', async () => {
   expect(
     await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
   ).toBe(1);
+});
+
+test('adds a logo to the Brand Kit without storing where it came from', async () => {
+  const { window, application, directory } = running;
+  const logoPath = join(directory, 'my-logo.png');
+  const projectPath = join(directory, 'with-logo.koma');
+  const onePixel =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  await writeFile(logoPath, Buffer.from(onePixel, 'base64'));
+
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await answerOpenDialog(application, logoPath);
+  await window.getByRole('button', { name: 'Choose a logo' }).click();
+  await expect(window.getByRole('button', { name: 'Replace the logo' })).toBeVisible();
+  await expect(window.getByText('my-logo.png')).toBeVisible();
+  await expect(
+    window.getByRole('img', { name: 'Preview of the Brand Kit' }).locator('img'),
+  ).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
+
+  await answerSaveDialog(application, projectPath);
+  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(window.getByText('All changes saved')).toBeVisible();
+  const text = await readFile(projectPath, 'utf8');
+  expect(text).toContain(onePixel);
+  // Neither the path of the image nor any part of its folder is stored.
+  expect(text).not.toContain(directory);
+  expect(text).not.toContain(JSON.stringify(directory).slice(1, -1));
+  expect(text).not.toContain('koma-motion-e2e');
+
+  // A file that only claims to be an image is refused.
+  const fakePath = join(directory, 'fake.png');
+  await writeFile(fakePath, 'This is not an image', 'utf8');
+  await answerOpenDialog(application, fakePath);
+  await window.getByRole('button', { name: 'Replace the logo' }).click();
+  await expect(window.getByRole('alert')).toContainText('not a PNG, JPEG, WebP or GIF image');
+});
+
+test('does not offer an exporter that does not exist yet', async () => {
+  const { window } = running;
+  await window.getByRole('button', { name: 'Settings' }).click();
+  await expect(window.getByText('PowerPoint: not available yet')).toBeVisible();
+  await expect(window.getByRole('button', { name: /export/i })).toHaveCount(0);
 });
 
 test('explains why a file cannot be opened', async () => {
