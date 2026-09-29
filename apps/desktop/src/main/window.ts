@@ -115,7 +115,9 @@ export function createMainWindow(): BrowserWindow {
       })
       .then(({ response }) => {
         if (response === CLOSE_CHOICES.save) {
-          // The renderer saves and then confirms that the window may close.
+          // Remember which project asked to be saved. A confirm for a later
+          // project, or for a project that still has unsaved edits, does not close.
+          session.saveAndCloseSessionId = session.sessionId;
           window.webContents.send(
             'koma:app:save-and-close',
             ipcEvents['koma:app:save-and-close'].parse({}),
