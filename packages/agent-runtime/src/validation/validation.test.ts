@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ResponseIssue } from '../contract/errors';
 import { getResponseJsonSchema } from '../contract/response';
 import { buildRequest, buildResponse } from '../testing/fixtures';
-import { extractStructuredOutput, MAX_AGENT_OUTPUT_LENGTH } from './extract';
+import { extractStructuredOutput, MAX_AGENT_OUTPUT_LENGTH, resolveProviderOutput } from './extract';
 import { validateAgentResponse } from './validateResponse';
 
 function issuesOf(output: unknown, request = buildRequest()): ResponseIssue[] {
@@ -31,6 +31,62 @@ describe('extractStructuredOutput', () => {
     });
   });
 
+  it('reads an object that is followed by prose', () => {
+    expect(extractStructuredOutput('{"a":1} That is the whole answer.')).toEqual({
+      ok: true,
+      value: { a: 1 },
+    });
+  });
+
+  it('ignores braces inside strings', () => {
+    expect(extractStructuredOutput('prefix {"a":"b}c{d"} suffix')).toEqual({
+      ok: true,
+      value: { a: 'b}c{d' },
+    });
+  });
+
+  it('keeps scanning after an unmatched brace', () => {
+    expect(extractStructuredOutput(`${'{'.repeat(20)} still {"a":1}`)).toEqual({
+      ok: true,
+      value: { a: 1 },
+    });
+  });
+
+  it('prefers the contract-shaped object over an earlier example', () => {
+    const answer = buildResponse();
+    const text = `{ Example {}. Actual answer ${JSON.stringify(answer)}`;
+    expect(extractStructuredOutput(text)).toEqual({ ok: true, value: answer });
+  });
+
+  it('does not guess between several objects', () => {
+    const result = extractStructuredOutput('{} {"a":1}');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('noStructuredOutput');
+      expect(result.error.message).toContain('no answer was guessed');
+    }
+  });
+
+  it('does not guess between several contract-shaped answers', () => {
+    const text = '{"komas":[{"key":"one"}]} {"komas":[{"key":"two"}]}';
+    const result = extractStructuredOutput(text);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('noStructuredOutput');
+      expect(result.error.message).toBe(
+        'The response contains more than one possible answer and was not guessed.',
+      );
+    }
+  });
+
+  it('finds one object after a long run of unmatched braces', () => {
+    const text = `${'{'.repeat(50_000)}{"a":1}`;
+    const started = performance.now();
+    const result = extractStructuredOutput(text);
+    expect(performance.now() - started).toBeLessThan(2_000);
+    expect(result).toEqual({ ok: true, value: { a: 1 } });
+  });
+
   it.each([
     ['prose', 'I could not create a presentation.'],
     ['an empty response', '   '],
@@ -56,6 +112,99 @@ describe('extractStructuredOutput', () => {
     const result = extractStructuredOutput('(function(){ globalThis.compromised = true })()');
     expect(result.ok).toBe(false);
     expect('compromised' in globalThis).toBe(false);
+  });
+});
+
+describe('resolveProviderOutput', () => {
+  const oversizedLength = 622_112;
+
+  function oversizedValue(): { readonly note: string } {
+    return { note: 'x'.repeat(oversizedLength - '{"note":""}'.length) };
+  }
+
+  it('rejects oversized text', () => {
+    const rawText = 'x'.repeat(oversizedLength);
+    const result = resolveProviderOutput({ rawText });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('outputTooLarge');
+      expect(result.error.message).toContain(String(oversizedLength));
+    }
+  });
+
+  it('rejects oversized structured output even when the text is short', () => {
+    const structured = oversizedValue();
+    expect(JSON.stringify(structured).length).toBe(oversizedLength);
+    const result = resolveProviderOutput({ rawText: '{}', structured });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('outputTooLarge');
+      expect(result.error.message).toContain(String(oversizedLength));
+    }
+  });
+
+  it('rejects structured output that cannot be serialised', () => {
+    const structured: Record<string, unknown> = {};
+    structured['self'] = structured;
+    const result = resolveProviderOutput({ rawText: '{}', structured });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('noStructuredOutput');
+    }
+  });
+
+  it('prefers a plain envelope when the text is empty or has no object', () => {
+    const structured = { a: 1 };
+    expect(resolveProviderOutput({ rawText: '   ', structured })).toEqual({
+      ok: true,
+      value: structured,
+    });
+    expect(resolveProviderOutput({ rawText: 'No JSON here.', structured })).toEqual({
+      ok: true,
+      value: structured,
+    });
+  });
+
+  it('accepts an envelope that is the same JSON value', () => {
+    const structured = { b: 1, a: { c: [true, null] } };
+    const result = resolveProviderOutput({
+      rawText: '{"a":{"c":[true,null]},"b":1}',
+      structured,
+    });
+    expect(result).toEqual({ ok: true, value: structured });
+  });
+
+  it('ignores prototype keys when comparing the envelope with the text', () => {
+    const structured: Record<string, unknown> = { a: 1 };
+    Object.setPrototypeOf(structured, { extra: true });
+    const result = resolveProviderOutput({ rawText: '{"a":1}', structured });
+    expect(result).toEqual({ ok: true, value: structured });
+  });
+
+  it('rejects an envelope that disagrees with the text', () => {
+    const result = resolveProviderOutput({
+      rawText: '{"a":1}',
+      structured: { a: 1.0000001 },
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('invalidResponse');
+      expect(result.error.issues).toEqual([
+        {
+          code: 'inconsistentOutput',
+          path: 'structured',
+          message:
+            'The text and the structured output are different answers, so neither one was used.',
+        },
+      ]);
+    }
+  });
+
+  it('uses the text when structured output is not a plain object', () => {
+    expect(resolveProviderOutput({ rawText: '{"a":1}', structured: [1, 2] })).toEqual({
+      ok: true,
+      value: { a: 1 },
+    });
   });
 });
 

@@ -186,6 +186,7 @@ export class ClaudeCodeProvider implements AgentProvider {
         ok: true,
         output: hasStructuredOutput
           ? {
+              // The runtime size-checks structured output before preferring the envelope.
               rawText: JSON.stringify(envelope.structuredOutput),
               structured: envelope.structuredOutput,
             }

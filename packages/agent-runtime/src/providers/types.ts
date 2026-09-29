@@ -97,7 +97,8 @@ export interface ProviderOutput {
   readonly rawText: string;
   /**
    * Structured data, when the provider has a native structured output
-   * feature. It is validated exactly like extracted text.
+   * feature. The runtime size-checks it and prefers this envelope only when
+   * the text is empty, has no object, or is the same JSON value.
    */
   readonly structured?: unknown;
 }
