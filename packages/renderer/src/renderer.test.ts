@@ -108,6 +108,34 @@ describe('getPreviewFrame', () => {
     expect(frame.layers[0]?.element.position).toEqual({ x: 200, y: 0 });
   });
 
+  it.each([false, true])(
+    'stays on the source until the end when blocked (reduced motion: %s)',
+    (reducedMotion) => {
+      const at = (progress: number): ReturnType<typeof getPreviewFrame> =>
+        getPreviewFrame({ from, to, transition, progress, reducedMotion, blocked: true });
+      expect(at(0.6)).toEqual(komaToFrame(from));
+      expect(at(0.99)).toEqual(komaToFrame(from));
+      expect(at(1)).toEqual(komaToFrame(to));
+    },
+  );
+
+  it.each([false, true])(
+    'does not play operations that refer to the wrong element (reduced motion: %s)',
+    (reducedMotion) => {
+      const invalid = {
+        ...transition,
+        elementTransitions: transition.elementTransitions.map((item) => ({
+          ...item,
+          to: item.to === null ? null : { ...item.to, elementId: 'element-invented' },
+        })),
+      };
+      const at = (progress: number): ReturnType<typeof getPreviewFrame> =>
+        getPreviewFrame({ from, to, transition: invalid, progress, reducedMotion });
+      expect(at(0.6)).toEqual(komaToFrame(from));
+      expect(at(1)).toEqual(komaToFrame(to));
+    },
+  );
+
   it('cuts from one Koma to the next with reduced motion', () => {
     const before = getPreviewFrame({ from, to, transition, progress: 0.49, reducedMotion: true });
     const after = getPreviewFrame({ from, to, transition, progress: 0.5, reducedMotion: true });

@@ -2,6 +2,7 @@ import type { Koma } from '@koma-motion/core';
 import {
   computeFrame,
   komaToFrame,
+  transitionBlocksPlayback,
   type Frame,
   type PlayableTransition,
 } from '@koma-motion/motion-engine';
@@ -11,6 +12,9 @@ import {
  *
  * With reduced motion nothing travels across the screen: the source Koma is
  * shown for the first half and the target Koma for the second half.
+ *
+ * A transition that must not be played stays on the source Koma until the
+ * end, with and without reduced motion.
  */
 export function getPreviewFrame(input: {
   readonly from: Koma;
@@ -22,7 +26,10 @@ export function getPreviewFrame(input: {
   readonly blocked?: boolean;
 }): Frame {
   if (input.reducedMotion) {
-    return komaToFrame(input.progress < 0.5 ? input.from : input.to);
+    const blocked =
+      input.blocked === true || transitionBlocksPlayback(input.from, input.to, input.transition);
+    const cut = blocked ? 1 : 0.5;
+    return komaToFrame(input.progress < cut ? input.from : input.to);
   }
   return computeFrame(input);
 }
