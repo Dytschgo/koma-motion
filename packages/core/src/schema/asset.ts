@@ -7,7 +7,8 @@ export type ImageMediaType = z.infer<typeof imageMediaTypeSchema>;
 
 /** Largest image that may be embedded in a project file, before base64 encoding. */
 export const MAX_EMBEDDED_ASSET_BYTES = 2 * 1024 * 1024;
-const MAX_EMBEDDED_ASSET_CHARACTERS = Math.ceil(MAX_EMBEDDED_ASSET_BYTES / 3) * 4;
+/** Base64 length of {@link MAX_EMBEDDED_ASSET_BYTES}. The project total is limited separately. */
+export const MAX_EMBEDDED_ASSET_CHARACTERS = Math.ceil(MAX_EMBEDDED_ASSET_BYTES / 3) * 4;
 
 /**
  * A path inside the project, never on the host filesystem: relative, forward

@@ -38,7 +38,7 @@ makes every change visible immediately.
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | `core`           | schemas and types of projects, Komas, elements and transitions; colours; identifiers; document operations                    | everywhere                     |
 | `brand-kit`      | default Brand Kit, validation of editor input, contrast checks, the Brand Kit as agents see it                               | everywhere                     |
-| `project-format` | deterministic serialisation, parsing, migrations, warnings; atomic file access under `/node`                                 | everywhere, `/node` in Node.js |
+| `project-format` | deterministic serialisation, parsing, migrations, warnings; whole-file replacement under `/node`                             | everywhere, `/node` in Node.js |
 | `motion-engine`  | comparing Komas, building and validating transitions, computing frames                                                       | everywhere                     |
 | `agent-runtime`  | request and response contract, prompts, validation, conversion, registry, runner, mock provider; CLI providers under `/node` | everywhere, `/node` in Node.js |
 | `renderer`       | React components that draw frames, asset loading, playback                                                                   | browser                        |
@@ -69,19 +69,24 @@ The proposed layout was kept. Three decisions need an explanation:
 renderer  agent-   project-   exporters   brand-kit
    |      runtime   format       |           |
    |       |  |       |          |           |
-   |       |  +-------|----------|-----------+
+   |       |  +-------+----------+-----------+
    |       |          |          |
-   +---> motion-engine|          |
-              |       |          |
-              +-------+----------+
-                      |
-                    core
+   +------> motion-engine <------+
+              |
+            core
 ```
+
+`renderer`, `agent-runtime` and `project-format` depend on `motion-engine`.
+`project-format` uses it to report stored motion that cannot be played.
+`motion-engine` does not import `project-format`, so that edge does not
+cycle. `agent-runtime` also depends on `brand-kit`. Every package above
+`core` may depend on `core`.
 
 Rules:
 
 - `core` depends on the schema library and on nothing else. It does not
-  import Electron, React, Node.js modules, providers or exporters.
+  import Electron, React, Node.js modules, providers, exporters or the
+  motion engine.
 - Packages never import from `apps/desktop`.
 - There are no circular dependencies between packages.
 - `renderer` consumes the model and the motion engine. It is not a source of
@@ -140,8 +145,8 @@ The motion engine has four tasks:
 | `computeFrame`       | compute what is visible at a given progress                   |
 
 It is deterministic and has no dependency on a clock, on randomness or on
-the renderer. Detecting changes and playing them are separate: `computeFrame`
-reads the stored transition and never compares Komas.
+the renderer. A stored transition that fails semantic checks is reported and
+not played. Otherwise `computeFrame` follows the stored transition.
 
 ## Renderer
 
@@ -199,7 +204,8 @@ available, and the application shows it that way. See
 | drawing and preview       |  IPC   | reading images                   |
 |                           |        | agent providers and processes    |
 | no Node.js, no files,     |        | validation of every request      |
-| no processes, no network  |        |                                  |
+| no processes, no own      |        |                                  |
+| network connections       |        |                                  |
 +---------------------------+        +----------------------------------+
               ^
               | contextBridge: invoke, subscribe
@@ -281,19 +287,21 @@ therefore clears the indicator.
 
 ## Security decisions
 
-| Decision                                                                       | Reason                                                                            |
-| ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
-| Context isolation on, Node.js integration off, sandbox on                      | code in the window cannot reach Node.js or Electron                               |
-| Own protocol `koma://app` instead of `file://`                                 | the window has a real origin, and only files of the renderer bundle can be loaded |
-| Content Security Policy without `unsafe-inline` for scripts and without `eval` | injected markup cannot run code                                                   |
-| `connect-src 'none'` and a request filter in the session                       | the window cannot make network requests                                           |
-| Navigation and new windows blocked                                             | the window always shows the application                                           |
-| All permission requests denied                                                 | the application needs no camera, microphone or location                           |
-| No development server                                                          | development builds use the same protocol and policy as production builds          |
-| Paths come from native dialogs only                                            | the renderer cannot read or write files of its choice                             |
-| Images are verified by content and copied into the project                     | project files cannot make the application read other files                        |
-| Agent processes start without a shell                                          | there is no shell that could interpret input                                      |
-| Agent output is validated data                                                 | output of a model cannot execute anything or name files                           |
+| Decision                                                                                      | Reason                                                                                                       |
+| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Context isolation on, Node.js integration off, sandbox on                                     | code in the window cannot reach Node.js or Electron                                                          |
+| Own protocol `koma://app` instead of `file://`                                                | the window has a real origin, and only files of the renderer bundle can be loaded                            |
+| Content Security Policy without `unsafe-inline` for scripts and without `eval`                | injected markup cannot run code                                                                              |
+| `connect-src 'none'`, a session request filter, and a connection allowlist that blocks WebRTC | the window cannot open its own network connections, including WebRTC over UDP or TCP                         |
+| Repository links open in the system browser                                                   | the renderer can ask the operating system to open only this repository; the browser then reaches the network |
+| Navigation and other new windows blocked                                                      | the window always shows the application                                                                      |
+| Protocol files are resolved through canonical paths                                           | a junction, symlink or alternate stream inside the bundle cannot expose another file                         |
+| All permission requests denied                                                                | the application needs no camera, microphone or location                                                      |
+| No development server                                                                         | development builds use the same protocol and policy as production builds                                     |
+| Paths come from native dialogs only                                                           | the renderer cannot read or write files of its choice                                                        |
+| Images are verified by content and copied into the project                                    | project files cannot make the application read other files                                                   |
+| Agent processes start without a shell                                                         | there is no shell that could interpret input                                                                 |
+| Agent output is validated data                                                                | output of a model cannot execute anything or name files                                                      |
 
 `SECURITY.md` describes the policy and how to report a vulnerability.
 

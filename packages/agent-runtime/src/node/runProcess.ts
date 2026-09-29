@@ -4,6 +4,8 @@ import type { ResolvedExecutable } from './resolveExecutable';
 
 export const MAX_ARGUMENT_LENGTH = 24_000;
 const FORCE_KILL_DELAY_MS = 2000;
+/** CreateProcess limit for the quoted command line, in UTF-16 code units. */
+const WINDOWS_MAX_COMMAND_LINE_LENGTH = 32_767;
 
 export interface ProcessSpecification {
   readonly executable: ResolvedExecutable;
@@ -15,6 +17,11 @@ export interface ProcessSpecification {
   readonly signal: AbortSignal;
   /** Combined limit for standard output and standard error, in bytes. */
   readonly maxOutputBytes: number;
+  /**
+   * When set, the child receives this object and nothing else. When omitted,
+   * the child inherits the environment of this process.
+   */
+  readonly env?: Readonly<Record<string, string>>;
 }
 
 export interface ProcessResult {
@@ -46,13 +53,81 @@ export function assertSafeArguments(values: readonly string[]): void {
   }
 }
 
+function systemErrorCode(error: unknown): string {
+  if (typeof error === 'object' && error !== null && 'code' in error) {
+    const { code } = error;
+    if (typeof code === 'string' && code !== '') {
+      return code;
+    }
+  }
+  return 'UNKNOWN';
+}
+
+/**
+ * Quotes one argument the way libuv builds a Windows command line
+ * (`quote_cmd_arg`). Empty arguments, spaces, tabs and embedded quotes are
+ * included so the measured length matches what CreateProcess receives.
+ */
+function quoteWindowsArgument(source: string): string {
+  if (source.length === 0) {
+    return '""';
+  }
+  if (!/[\t "]/.test(source)) {
+    return source;
+  }
+  if (!/["\\]/.test(source)) {
+    return `"${source}"`;
+  }
+
+  const characters: string[] = [];
+  let quoteHit = true;
+  for (let index = source.length - 1; index >= 0; index -= 1) {
+    const character = source.charAt(index);
+    characters.push(character);
+    if (quoteHit && character === '\\') {
+      characters.push('\\');
+    } else if (character === '"') {
+      quoteHit = true;
+      characters.push('\\');
+    } else {
+      quoteHit = false;
+    }
+  }
+  characters.reverse();
+  return `"${characters.join('')}"`;
+}
+
+/** Length of the command line Node passes to CreateProcess on Windows. */
+function windowsCommandLineLength(executable: string, args: readonly string[]): number {
+  const parts = [executable, ...args];
+  let length = parts.length > 0 ? parts.length - 1 : 0;
+  for (const part of parts) {
+    length += quoteWindowsArgument(part).length;
+  }
+  return length;
+}
+
+function didNotStart(startError: string | null, aborted = false): ProcessResult {
+  return {
+    exitCode: null,
+    standardOutput: '',
+    standardError: '',
+    outputLimitExceeded: false,
+    aborted,
+    startError,
+  };
+}
+
 /** Stops a process together with the processes it started. */
 function terminate(child: ChildProcess): void {
   const { pid } = child;
-  if (pid === undefined || child.exitCode !== null) {
+  if (pid === undefined) {
     return;
   }
   if (process.platform === 'win32') {
+    if (child.exitCode !== null) {
+      return;
+    }
     const systemRoot = process.env['SystemRoot'] ?? 'C:\\Windows';
     const killer = spawn(
       join(systemRoot, 'System32', 'taskkill.exe'),
@@ -64,18 +139,30 @@ function terminate(child: ChildProcess): void {
     });
     return;
   }
-  const signalGroup = (signal: NodeJS.Signals): void => {
-    try {
-      // The process was started as the leader of its own group.
-      process.kill(-pid, signal);
-    } catch {
-      child.kill(signal);
-    }
-  };
-  signalGroup('SIGTERM');
+
+  // POSIX process group. This branch is not executed on Windows (taskkill
+  // above is). It was not run on macOS. SIGKILL is sent to the group after
+  // the delay even when the leader has already exited, because a descendant
+  // can still be in the group. ESRCH means the group is gone.
+  try {
+    process.kill(-pid, 'SIGTERM');
+  } catch {
+    child.kill('SIGTERM');
+  }
   setTimeout(() => {
-    if (child.exitCode === null) {
-      signalGroup('SIGKILL');
+    try {
+      process.kill(-pid, 0);
+    } catch (error) {
+      if (systemErrorCode(error) === 'ESRCH') {
+        return;
+      }
+    }
+    try {
+      process.kill(-pid, 'SIGKILL');
+    } catch (error) {
+      if (systemErrorCode(error) === 'ESRCH') {
+        return;
+      }
     }
   }, FORCE_KILL_DELAY_MS).unref();
 }
@@ -83,8 +170,9 @@ function terminate(child: ChildProcess): void {
 /**
  * Starts a program without a shell and collects its output.
  *
- * The promise always resolves. Failure to start, a non-zero exit code, an
- * abort and an exceeded output limit are all described in the result.
+ * The promise always resolves. Failure to start, including a synchronous
+ * spawn error, a non-zero exit code, an abort and an exceeded output limit
+ * are all described in the result.
  */
 export function runProcess(specification: ProcessSpecification): Promise<ProcessResult> {
   const { executable, signal, maxOutputBytes } = specification;
@@ -93,24 +181,41 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
 
   return new Promise((resolve) => {
     if (signal.aborted) {
-      resolve({
-        exitCode: null,
-        standardOutput: '',
-        standardError: '',
-        outputLimitExceeded: false,
-        aborted: true,
-        startError: null,
-      });
+      resolve(didNotStart(null, true));
       return;
     }
 
-    const child = spawn(executable.command, allArguments, {
-      cwd: specification.workingDirectory,
-      shell: false,
-      windowsHide: true,
-      detached: process.platform !== 'win32',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    });
+    if (
+      process.platform === 'win32' &&
+      windowsCommandLineLength(executable.command, allArguments) > WINDOWS_MAX_COMMAND_LINE_LENGTH
+    ) {
+      resolve(didNotStart('ENAMETOOLONG'));
+      return;
+    }
+
+    let child: ChildProcess;
+    try {
+      child = spawn(executable.command, allArguments, {
+        cwd: specification.workingDirectory,
+        shell: false,
+        windowsHide: true,
+        detached: process.platform !== 'win32',
+        stdio: ['pipe', 'pipe', 'pipe'],
+        // An omitted env inherits. An explicit object replaces the environment;
+        // Node does not merge it with the parent.
+        ...(specification.env === undefined ? {} : { env: { ...specification.env } }),
+      });
+    } catch (error) {
+      resolve(didNotStart(systemErrorCode(error)));
+      return;
+    }
+
+    const { stdin, stdout, stderr } = child;
+    if (stdin === null || stdout === null || stderr === null) {
+      terminate(child);
+      resolve(didNotStart('UNKNOWN'));
+      return;
+    }
 
     const output: Buffer[] = [];
     const errors: Buffer[] = [];
@@ -131,8 +236,8 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
       }
       target.push(chunk);
     };
-    child.stdout.on('data', collect(output));
-    child.stderr.on('data', collect(errors));
+    stdout.on('data', collect(output));
+    stderr.on('data', collect(errors));
 
     const onAbort = (): void => {
       aborted = true;
@@ -165,7 +270,7 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
     });
 
     // A program that exits early closes its input: that is not an error here.
-    child.stdin.on('error', () => undefined);
-    child.stdin.end(specification.input, 'utf8');
+    stdin.on('error', () => undefined);
+    stdin.end(specification.input, 'utf8');
   });
 }

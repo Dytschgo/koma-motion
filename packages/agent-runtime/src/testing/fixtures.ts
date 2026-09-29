@@ -34,7 +34,7 @@ export function buildResponse(): AgentPresentationResponse {
 
 export type ScriptedAnswer =
   | string
-  | { readonly structured: unknown }
+  | { readonly structured: unknown; readonly rawText?: string }
   | { readonly fail: Parameters<typeof agentError> }
   | { readonly throwError: string }
   | { readonly waitForAbort: true };
@@ -90,7 +90,10 @@ export class ScriptedProvider implements AgentProvider {
     if ('structured' in answer) {
       return Promise.resolve({
         ok: true,
-        output: { rawText: JSON.stringify(answer.structured), structured: answer.structured },
+        output: {
+          rawText: answer.rawText ?? JSON.stringify(answer.structured),
+          structured: answer.structured,
+        },
         details,
       });
     }

@@ -234,7 +234,12 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
                     transition={transition}
                     from={index}
                     to={index + 1}
-                    active={preview?.transitionId === transition.id}
+                    active={
+                      preview !== null &&
+                      preview.transitionId === transition.id &&
+                      preview.fromKomaId === transition.fromKomaId &&
+                      preview.toKomaId === transition.toKomaId
+                    }
                   />
                 ),
                 <KomaItem

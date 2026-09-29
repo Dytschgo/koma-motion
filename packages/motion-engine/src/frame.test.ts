@@ -167,6 +167,124 @@ describe('computeFrame', () => {
       computeFrame({ from, to, transition, progress: 0.37 }),
     );
   });
+
+  it('does not play invented coordinates or a false element reference', () => {
+    const invented = {
+      ...transition,
+      elementTransitions: [
+        {
+          persistentId: 'motion-engine',
+          operation: 'move',
+          from: { elementId: 'engine-1', position: { x: 5, y: 5 } },
+          to: { elementId: 'missing-shape', position: { x: 9000, y: 9000 } },
+        },
+      ],
+    };
+    expect(computeFrame({ from, to, transition: invented, progress: 0.5 })).toEqual(
+      komaToFrame(from),
+    );
+    expect(computeFrame({ from, to, transition: invented, progress: 0 })).toEqual(
+      komaToFrame(from),
+    );
+    expect(computeFrame({ from, to, transition: invented, progress: 1 })).toEqual(komaToFrame(to));
+    expect(layer(komaToFrame(from), 'motion-engine/retained').element.position).toEqual(
+      engine.position,
+    );
+  });
+
+  it('does not play duplicate move operations', () => {
+    const move = transition.elementTransitions.find((item) => item.operation === 'move');
+    if (move === undefined) {
+      throw new Error('Expected a move');
+    }
+    const duplicated = {
+      ...transition,
+      elementTransitions: [...transition.elementTransitions, move],
+    };
+    expect(computeFrame({ from, to, transition: duplicated, progress: 0.5 })).toEqual(
+      komaToFrame(from),
+    );
+    expect(computeFrame({ from, to, transition: duplicated, progress: 1 })).toEqual(
+      komaToFrame(to),
+    );
+  });
+
+  it('keeps source stacking until the transition ends', () => {
+    const alpha = buildShape({
+      id: 'a-1',
+      persistentId: 'alpha',
+      name: 'Alpha',
+      zIndex: 1,
+      position: { x: 0, y: 0 },
+    });
+    const beta = buildShape({
+      id: 'b-1',
+      persistentId: 'beta',
+      name: 'Beta',
+      zIndex: 1,
+      position: { x: 40, y: 40 },
+    });
+    const gamma = buildShape({
+      id: 'c-2',
+      persistentId: 'gamma',
+      name: 'Gamma',
+      zIndex: 1,
+      position: { x: 80, y: 80 },
+    });
+    const source = buildKoma({ id: 'koma-1', elements: [alpha, beta] });
+    const target = buildKoma({
+      id: 'koma-2',
+      elements: [
+        { ...beta, id: 'b-2' },
+        { ...alpha, id: 'a-2', zIndex: 5, position: { x: 120, y: 0 } },
+        gamma,
+      ],
+    });
+    const stacked = transitionBetween(source, target);
+    const middle = computeFrame({ from: source, to: target, transition: stacked, progress: 0.5 });
+    expect(middle.layers.map((item) => item.persistentId)).toEqual(['alpha', 'beta', 'gamma']);
+    expect(middle.layers.map((item) => item.element.zIndex)).toEqual([1, 1, 1]);
+    expect(middle.layers[0]?.element.position).toEqual({ x: 60, y: 0 });
+
+    const end = computeFrame({ from: source, to: target, transition: stacked, progress: 1 });
+    expect(end.layers.map((item) => item.persistentId)).toEqual(['beta', 'alpha', 'gamma']);
+    expect(end.layers.find((item) => item.persistentId === 'alpha')?.element.zIndex).toBe(5);
+  });
+
+  it('keeps a replace cross-fade on the source zIndex with outgoing first', () => {
+    const title = buildText({
+      id: 'title-1',
+      persistentId: 'title',
+      position: { x: 0, y: 0 },
+      zIndex: 3,
+    });
+    const source = buildKoma({ id: 'koma-1', elements: [title] });
+    const target = buildKoma({
+      id: 'koma-2',
+      elements: [
+        {
+          ...title,
+          id: 'title-2',
+          position: { x: 80, y: 0 },
+          zIndex: 9,
+          content: { text: 'New words' },
+        },
+      ],
+    });
+    const crossFade = transitionBetween(source, target);
+    const frame = computeFrame({
+      from: source,
+      to: target,
+      transition: crossFade,
+      progress: 0.25,
+    });
+    expect(frame.layers.map((item) => item.key)).toEqual(['title/outgoing', 'title/incoming']);
+    expect(frame.layers.map((item) => item.element.zIndex)).toEqual([3, 3]);
+    expect(
+      computeFrame({ from: source, to: target, transition: crossFade, progress: 1 }).layers[0]
+        ?.element.zIndex,
+    ).toBe(9);
+  });
 });
 
 describe('staged strategy', () => {

@@ -7,6 +7,8 @@ export type MotionIssueCode =
   | 'invalidElementReference'
   | 'unsupportedOperation'
   | 'staleTransition'
+  | 'duplicateOperation'
+  | 'conflictingOperations'
   | 'ambiguousState'
   | 'settingAdjusted';
 

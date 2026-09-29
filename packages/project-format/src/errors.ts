@@ -1,4 +1,4 @@
-import type { ValidationIssue } from '@koma-motion/core';
+import { PROJECT_TOO_LARGE_MESSAGE, type ValidationIssue } from '@koma-motion/core';
 
 export type ProjectFormatErrorCode =
   | 'invalidJson'
@@ -9,6 +9,7 @@ export type ProjectFormatErrorCode =
   | 'tooLarge'
   | 'fileNotReadable'
   | 'fileNotWritable'
+  | 'uninspectableTarget'
   | 'wouldOverwriteNewerProject';
 
 export interface ProjectFormatError {
@@ -16,6 +17,10 @@ export interface ProjectFormatError {
   /** A sentence that can be shown to the user as it is. */
   readonly message: string;
   readonly issues: readonly ValidationIssue[];
+}
+
+export function isProjectTooLarge(issues: readonly ValidationIssue[]): boolean {
+  return issues.some((issue) => issue.message === PROJECT_TOO_LARGE_MESSAGE);
 }
 
 export function projectFormatError(

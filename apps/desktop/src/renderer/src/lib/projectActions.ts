@@ -1,6 +1,12 @@
 /** New, Open, Save and Save As: the steps between the interface and the main process. */
-import { selectHasUnsavedChanges, selectProject, useProjectStore } from '../state/projectStore';
 import { useAgentStore } from '../state/agentStore';
+import { changeLogo } from '../state/commands';
+import {
+  selectHasUnsavedChanges,
+  selectProject,
+  useProjectStore,
+  type SaveClaim,
+} from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { invoke } from './api';
 
@@ -31,11 +37,30 @@ async function confirmReplacingProject(action: string): Promise<boolean> {
   });
 }
 
+/**
+ * Drops a generation that belonged to the project being replaced. Its result
+ * is also ignored, because the project session changes when the new one loads.
+ */
+function detachGeneration(): void {
+  const execution = useAgentStore.getState().execution;
+  if (execution === null) {
+    return;
+  }
+  const { executionId } = execution;
+  useAgentStore.getState().finishExecution(executionId);
+  void invoke('koma:providers:cancel', { executionId }).catch(() => undefined);
+}
+
 function showProject(): void {
+  detachGeneration();
   useUiStore.getState().reset();
   useAgentStore.getState().clearConversation();
   const project = selectProject(useProjectStore.getState());
   useUiStore.getState().selectKoma(project?.presentation.komas[0]?.id ?? null);
+}
+
+function isCurrentSession(sessionId: number): boolean {
+  return useProjectStore.getState().sessionId === sessionId;
 }
 
 export async function createNewProject(): Promise<void> {
@@ -68,27 +93,49 @@ export async function openProject(): Promise<void> {
   }
 }
 
-/** Saves the project. Resolves to `true` when the project was written. */
+/**
+ * Saves the snapshot that is current when the save starts.
+ *
+ * Resolves to `true` only when that snapshot is still the open project and
+ * the document has no newer unsaved edits. An older save that finishes after
+ * a newer one does not change the path or the saved-state marker, and a save
+ * that finishes after the project was replaced is ignored.
+ */
 async function save(channel: 'koma:project:save' | 'koma:project:save-as'): Promise<boolean> {
   const project = selectProject(useProjectStore.getState());
-  if (project === null) {
+  const claim = useProjectStore.getState().claimSave();
+  if (project === null || claim === null) {
     return false;
   }
   try {
     const response = await invoke(channel, { project });
+    if (!isCurrentSession(claim.sessionId)) {
+      return false;
+    }
     if (response.status === 'saved') {
-      useProjectStore.getState().markSaved(project, response.project, response.file);
+      useProjectStore.getState().markSaved(project, response.project, response.file, claim);
+      if (!didAcceptSave(claim)) {
+        return false;
+      }
       useUiStore.getState().notify('info', `Saved ${response.file.fileName}`);
-      return true;
+      return !selectHasUnsavedChanges(useProjectStore.getState());
     }
     if (response.status === 'failed') {
       useUiStore.getState().notify('error', response.message);
     }
     return false;
   } catch (error) {
-    reportError('Saving the project', error);
+    if (isCurrentSession(claim.sessionId)) {
+      reportError('Saving the project', error);
+    }
     return false;
   }
+}
+
+/** True when this save is still the newest one applied to its project session. */
+function didAcceptSave(claim: SaveClaim): boolean {
+  const state = useProjectStore.getState();
+  return state.sessionId === claim.sessionId && state.appliedSaveSerial === claim.serial;
 }
 
 export function saveProject(): Promise<boolean> {
@@ -99,9 +146,53 @@ export function saveProjectAs(): Promise<boolean> {
   return save('koma:project:save-as');
 }
 
-/** Called when the user chose "Save" while closing the window. */
+/**
+ * Called when the user chose "Save" while closing the window.
+ *
+ * The window closes only when the saved snapshot is still the current
+ * document of the same project. Edits made while the save was running stay
+ * open. Cancelling the save dialog also leaves the window open.
+ */
 export async function saveAndClose(): Promise<void> {
-  if (await saveProject()) {
-    await invoke('koma:app:confirm-close', {});
+  const sessionId = useProjectStore.getState().sessionId;
+  const savedCurrentRevision = await saveProject();
+  if (
+    !savedCurrentRevision ||
+    !isCurrentSession(sessionId) ||
+    selectHasUnsavedChanges(useProjectStore.getState())
+  ) {
+    return;
+  }
+  await invoke('koma:app:set-unsaved-changes', { hasUnsavedChanges: false });
+  if (!isCurrentSession(sessionId) || selectHasUnsavedChanges(useProjectStore.getState())) {
+    return;
+  }
+  await invoke('koma:app:confirm-close', {});
+}
+
+/**
+ * Adds a logo chosen in the native dialog. The image is applied only when
+ * the same project is still open: a dialog that outlives a project switch
+ * must not attach the image to the replacement.
+ */
+export async function chooseProjectLogo(): Promise<void> {
+  const sessionId = useProjectStore.getState().sessionId;
+  if (sessionId === 0) {
+    return;
+  }
+  try {
+    const response = await invoke('koma:brand-kit:select-logo', {});
+    if (!isCurrentSession(sessionId)) {
+      return;
+    }
+    if (response.status === 'selected') {
+      useProjectStore.getState().apply(changeLogo(response.asset));
+    } else if (response.status === 'failed') {
+      useUiStore.getState().notify('error', response.message);
+    }
+  } catch {
+    if (isCurrentSession(sessionId)) {
+      useUiStore.getState().notify('error', 'The logo could not be added.');
+    }
   }
 }

@@ -1,4 +1,5 @@
-import { buildProject } from '@koma-motion/core/testing';
+import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
+import { buildTransition, computeFrame, komaToFrame } from '@koma-motion/motion-engine';
 import { describe, expect, it } from 'vitest';
 import { migrateToVersion, type Migration } from './migrations';
 import { parseProject } from './parse';
@@ -74,9 +75,69 @@ describe('serialiseProject', () => {
       expect(serialise(parsed.value.project)).toBe(text);
     }
   });
+
+  it('keeps multibyte extension text across a round trip', () => {
+    const text = serialise({ ...buildProject(), futureFeature: { label: 'café' } });
+    const parsed = parseProject(text);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.value.project['futureFeature']).toEqual({ label: 'café' });
+      expect(serialise(parsed.value.project)).toBe(text);
+    }
+  });
 });
 
 describe('parseProject', () => {
+  it('reports an unplayable stored transition without rewriting the project', () => {
+    const source = buildShape({
+      id: 'shape-1',
+      persistentId: 'marker',
+      position: { x: 40, y: 80 },
+    });
+    const target = { ...source, id: 'shape-2', position: { x: 400, y: 80 } };
+    const from = buildKoma({ id: 'koma-1', title: 'Start', elements: [source] });
+    const to = buildKoma({ id: 'koma-2', title: 'End', elements: [target] });
+    const built = buildTransition({ id: 'transition-1', from, to });
+    if (!built.ok) {
+      throw new Error('Expected a transition');
+    }
+    const invented = {
+      ...built.value.transition,
+      elementTransitions: [
+        {
+          persistentId: 'marker',
+          operation: 'move' as const,
+          from: { elementId: 'shape-1', position: { x: 1, y: 2 } },
+          to: { elementId: 'missing-shape', position: { x: 9000, y: 9000 } },
+        },
+      ],
+    };
+    const project = buildProject({
+      presentation: buildPresentation({ komas: [from, to], transitions: [invented] }),
+    });
+    const text = serialise(project);
+    const parsed = parseProject(text);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) {
+      return;
+    }
+
+    expect(parsed.value.warnings.some((warning) => warning.includes('missing-shape'))).toBe(true);
+    expect(serialise(parsed.value.project)).toBe(text);
+    expect(parsed.value.project.presentation.transitions[0]?.elementTransitions).toEqual(
+      invented.elementTransitions,
+    );
+
+    const middle = computeFrame({ from, to, transition: invented, progress: 0.5 });
+    expect(
+      middle.layers.find((layer) => layer.persistentId === 'marker')?.element.position,
+    ).toEqual(source.position);
+    expect(computeFrame({ from, to, transition: invented, progress: 0 })).toEqual(
+      komaToFrame(from),
+    );
+    expect(computeFrame({ from, to, transition: invented, progress: 1 })).toEqual(komaToFrame(to));
+  });
+
   it('round-trips a project without losing content', () => {
     const project = buildProject();
     const parsed = parseProject(serialise(project));

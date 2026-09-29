@@ -27,7 +27,9 @@ documents. The design therefore rests on four rules:
    converted into the document model. It is never executed.
 2. **The renderer is untrusted.** The user interface runs in a sandboxed
    process without Node.js, without filesystem access and without the ability
-   to start processes.
+   to start processes or to open its own network connections. The main process
+   may open a link to this repository in the system browser. That browser
+   reaches the network.
 3. **Privileged work happens in the main process**, behind a small set of
    named, validated IPC channels.
 4. **Security is not weakened for development convenience.** There is no
@@ -37,21 +39,24 @@ documents. The design therefore rests on four rules:
 
 ## Electron security boundary
 
-| Measure                                       | Status                                                                                   |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `contextIsolation`                            | Enabled                                                                                  |
-| `nodeIntegration`                             | Disabled                                                                                 |
-| `sandbox`                                     | Enabled for the renderer                                                                 |
-| `webSecurity`                                 | Enabled                                                                                  |
-| Preload API                                   | Small, typed, exposed through `contextBridge`                                            |
-| IPC channels                                  | Fixed allow-list; no generic "execute" channel                                           |
-| IPC payloads                                  | Validated with schemas in the main process; responses validated in the renderer          |
-| IPC senders                                   | Only the main frame of the application window is accepted                                |
-| Content Security Policy                       | Sent with every file of the application; no remote content, no inline scripts, no `eval` |
-| Navigation                                    | Blocked                                                                                  |
-| New windows                                   | Blocked; allow-listed `https` links open in the system browser                           |
-| Permission requests (camera, microphone, ...) | Denied                                                                                   |
-| Remote content                                | Not loaded                                                                               |
+| Measure                                       | Status                                                                                                                                                                                                                                     |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `contextIsolation`                            | Enabled                                                                                                                                                                                                                                    |
+| `nodeIntegration`                             | Disabled                                                                                                                                                                                                                                   |
+| `sandbox`                                     | Enabled for the renderer                                                                                                                                                                                                                   |
+| `webSecurity`                                 | Enabled                                                                                                                                                                                                                                    |
+| Preload API                                   | Small, typed, exposed through `contextBridge`                                                                                                                                                                                              |
+| IPC channels                                  | Fixed allow-list; no generic "execute" channel                                                                                                                                                                                             |
+| IPC payloads                                  | Validated with schemas in the main process; responses validated in the renderer                                                                                                                                                            |
+| IPC senders                                   | Only the main frame of the application window is accepted                                                                                                                                                                                  |
+| Content Security Policy                       | Sent with every file of the application; no remote content, no inline scripts, no `eval`                                                                                                                                                   |
+| Connection allowlist                          | `(response-origin);webrtc=block` on every application response. `ConnectionAllowlists` is enabled before startup. This blocks WebRTC, including direct TCP and TURN. CSP `connect-src` and the session request filter do not cover WebRTC. |
+| Session request filter                        | Cancels requests other than `koma://app/`, `data:` and unpackaged `devtools:`                                                                                                                                                              |
+| Navigation                                    | Top-level navigation away from the application is blocked, as are subframe navigations of that window                                                                                                                                      |
+| New windows                                   | Blocked. A normalised `https://github.com/Dytschgo/koma-motion` URL, or a subpath without a query, may be opened in the system browser                                                                                                     |
+| Protocol files                                | Served only from a canonical path inside the renderer bundle. Junctions, symlinks, alternate data streams, Windows device names and trailing dots or spaces are rejected                                                                   |
+| Permission requests (camera, microphone, ...) | Denied                                                                                                                                                                                                                                     |
+| Remote content                                | Not loaded into the window. Opening a repository link reaches the network in the system browser                                                                                                                                            |
 
 ### Filesystem
 
@@ -64,6 +69,13 @@ Images are read by the main process after the user selected them in a native
 dialog. The file type is verified from the file content, the size is limited,
 and the bytes are stored inside the project. Elements refer to images by asset
 id. Project files cannot make the application read other files.
+
+A project file is limited to 64 MiB of UTF-8. The window's save request is
+held to the same limit, including unknown extension data and the combined
+size of embedded images. Before a save replaces an existing file, that file
+is inspected. A missing file can be created. A file that cannot be read, or
+that is larger than the limit, is left unchanged: it might be a project from
+a newer version of Koma Motion. One project file is read or written at a time.
 
 ### Agent providers
 
@@ -86,10 +98,32 @@ Koma Motion does not store API keys. Agent CLIs use their own authentication.
 
 ## Known limitations
 
+- On Windows, with this Electron build, a top-level page can still construct
+  `RTCPeerConnection`. Local STUN on `127.0.0.1` and `::1`, TURN-UDP, TURN-TCP
+  and TURNS then complete without a packet or a TCP connection at a listener
+  on the loopback address. The listeners were checked with a local probe
+  before the page ran. mDNS multicast, WebTransport, a completed TURN
+  allocation and a TLS handshake were not measured.
+- A same-origin child frame can still construct `RTCPeerConnection`. On
+  Windows that terminated the renderer (Chromium issue 565837691) and sent no
+  packets. Subframe navigations are cancelled and the constructor is replaced
+  when the frame is created, but page script can call it on the initial
+  `about:blank` document before that replacement runs. The window can close.
+- A same-origin worker and a blob worker both failed to start during the same
+  Windows run, and neither sent a packet. A worker that had started was not
+  observed. The application protocol does not enable fetch.
+- Resolving a protocol file checks the canonical path and then reads it. A
+  local process that replaces a bundle file with a junction between those two
+  steps can still be followed by the read. The renderer has no filesystem API
+  it can use to do that.
+- File symlinks are rejected when the operating system allows creating one.
+  On this Windows machine, creating a file symlink failed with `EPERM`.
+  Directory junctions were tested in the unit tests and in the running
+  application. macOS was not exercised by the change that added these checks.
 - Application builds are not code-signed or notarised yet. See
   `docs/RELEASES.md`.
 - The agent CLIs are separate programs with their own security properties.
   Koma Motion restricts how it starts them but cannot make guarantees about
   their behaviour.
-- The redaction of diagnostics is pattern-based and cannot recognise every
-  possible secret.
+- The redaction of diagnostics is pattern-based and cannot guarantee removal
+  of every secret, prompt or environment value from arbitrary stderr.

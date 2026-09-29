@@ -1,4 +1,14 @@
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import {
   GenerationRunner,
@@ -11,13 +21,16 @@ import {
   assetReferenceSchema,
   createSeededIdGenerator,
   MAX_EMBEDDED_ASSET_BYTES,
+  MAX_PROJECT_FILE_BYTES,
+  PROJECT_TOO_LARGE_MESSAGE,
   presentationSchema,
 } from '@koma-motion/core';
 import { buildProject } from '@koma-motion/core/testing';
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { ipcContract, ipcEvents } from '../shared/ipc';
 import {
   CONTENT_SECURITY_POLICY,
+  externalBrowserDestination,
   isAllowedExternalLink,
   isAppUrl,
   resolveAppFile,
@@ -28,20 +41,95 @@ import { createImageAsset, detectImageType, toDisplayName } from './services/ima
 const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 
 describe('resolveAppFile', () => {
-  const directory = resolve('/application/renderer');
+  let root: string;
+  let directory: string;
+  let outside: string;
+  const links: string[] = [];
+
+  function writeBundle(): void {
+    mkdirSync(join(directory, 'assets'));
+    writeFileSync(join(directory, 'index.html'), '<!doctype html>');
+    writeFileSync(join(directory, 'assets', 'index-abc.js'), 'export {};');
+    writeFileSync(join(directory, 'assets', 'font.woff2'), 'woff');
+    writeFileSync(join(directory, 'secret.json'), '{}');
+    writeFileSync(join(outside, 'secret.html'), 'secret-html');
+    writeFileSync(join(outside, 'secret.js'), 'secret-js');
+    writeFileSync(join(outside, 'secret.png'), 'secret-png');
+  }
+
+  beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'koma-renderer-'));
+    directory = join(root, 'renderer');
+    outside = join(root, 'outside');
+    mkdirSync(directory);
+    mkdirSync(outside);
+    writeBundle();
+    links.length = 0;
+  });
+
+  afterEach(() => {
+    for (const link of links) {
+      rmSync(link, { force: true, recursive: false });
+    }
+    rmSync(root, { recursive: true, force: true });
+  });
 
   it('serves files of the renderer bundle', () => {
-    expect(resolveAppFile('koma://app/index.html', directory)).toBe(join(directory, 'index.html'));
-    expect(resolveAppFile('koma://app/', directory)).toBe(join(directory, 'index.html'));
+    expect(resolveAppFile('koma://app/index.html', directory)).toBe(
+      realpathSync(join(directory, 'index.html')),
+    );
+    expect(resolveAppFile('koma://app/', directory)).toBe(
+      realpathSync(join(directory, 'index.html')),
+    );
     expect(resolveAppFile('koma://app/assets/index-abc.js', directory)).toBe(
-      join(directory, 'assets', 'index-abc.js'),
+      realpathSync(join(directory, 'assets', 'index-abc.js')),
+    );
+    expect(resolveAppFile('koma://app/assets/font.woff2', directory)).toBe(
+      realpathSync(join(directory, 'assets', 'font.woff2')),
     );
   });
 
   it('keeps encoded parent folders inside the bundle', () => {
     expect(resolveAppFile('koma://app/%2e%2e/%2e%2e/secret.json', directory)).toBe(
-      join(directory, 'secret.json'),
+      realpathSync(join(directory, 'secret.json')),
     );
+  });
+
+  it('rejects a directory junction or symlink that points outside the bundle', () => {
+    const link = join(directory, 'escape');
+    symlinkSync(outside, link, process.platform === 'win32' ? 'junction' : 'dir');
+    links.push(link);
+    expect(resolveAppFile('koma://app/escape/secret.html', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/escape/secret.js', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/index.html', directory)).toBe(
+      realpathSync(join(directory, 'index.html')),
+    );
+    expect(readFileSync(join(outside, 'secret.html'), 'utf8')).toBe('secret-html');
+  });
+
+  it('rejects a file symlink that points outside the bundle when the system allows it', () => {
+    const link = join(directory, 'linked.js');
+    try {
+      symlinkSync(join(outside, 'secret.js'), link, 'file');
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      expect(code === 'EPERM' || code === 'EACCES').toBe(true);
+      return;
+    }
+    links.push(link);
+    expect(resolveAppFile('koma://app/linked.js', directory)).toBeNull();
+  });
+
+  it('rejects alternate streams and Windows device names', () => {
+    writeFileSync(join(directory, 'index.html:hidden.js'), 'hidden();');
+    expect(resolveAppFile('koma://app/index.html:hidden.js', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/index.html%3Ahidden.js', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/index.html::$DATA', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/aux.png', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/NUL.js', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/COM1.js', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/index.html.', directory)).toBeNull();
+    expect(resolveAppFile('koma://app/assets/font.woff2%20', directory)).toBeNull();
   });
 
   it.each([
@@ -53,6 +141,7 @@ describe('resolveAppFile', () => {
     ['a file without extension', 'koma://app/assets'],
     ['a NUL character', 'koma://app/index.html%00.png'],
     ['text that is not a URL', 'index.html'],
+    ['a missing file', 'koma://app/missing.html'],
   ])('refuses %s', (_label, url) => {
     expect(resolveAppFile(url, directory)).toBeNull();
   });
@@ -66,12 +155,29 @@ describe('navigation rules', () => {
   });
 
   it('opens only links of the project in the browser', () => {
-    expect(isAllowedExternalLink('https://github.com/Dytschgo/koma-motion')).toBe(true);
+    expect(externalBrowserDestination('https://github.com/Dytschgo/koma-motion')).toBe(
+      'https://github.com/Dytschgo/koma-motion',
+    );
+    expect(
+      externalBrowserDestination('https://github.com/Dytschgo/koma-motion/issues#readme'),
+    ).toBe('https://github.com/Dytschgo/koma-motion/issues#readme');
     expect(isAllowedExternalLink('https://github.com/Dytschgo/koma-motion/issues')).toBe(true);
     expect(isAllowedExternalLink('https://github.com/Dytschgo/koma-motion-evil')).toBe(false);
     expect(isAllowedExternalLink('https://example.com/')).toBe(false);
     expect(isAllowedExternalLink('file:///C:/Windows/System32/calc.exe')).toBe(false);
     expect(isAllowedExternalLink('javascript:alert(1)')).toBe(false);
+    expect(isAllowedExternalLink('https://user:pass@github.com/Dytschgo/koma-motion')).toBe(false);
+    expect(
+      isAllowedExternalLink('https://github.com/Dytschgo/koma-motion?return=https://evil.test'),
+    ).toBe(false);
+    expect(isAllowedExternalLink('https://github.com/Dytschgo/koma-motion/..%2f..%2fother')).toBe(
+      false,
+    );
+    expect(isAllowedExternalLink('https://github.com/Dytschgo/koma-motion\\@evil')).toBe(false);
+    expect(isAllowedExternalLink('https://github.com:8443/Dytschgo/koma-motion')).toBe(false);
+    expect(externalBrowserDestination('https://github.com:443/Dytschgo/koma-motion')).toBe(
+      'https://github.com/Dytschgo/koma-motion',
+    );
   });
 
   it('forbids remote content, inline scripts and eval', () => {
@@ -115,6 +221,19 @@ describe('IPC contract', () => {
       ipcContract['koma:project:save'].request.safeParse({ project: buildProject() }).success,
     ).toBe(true);
   });
+
+  it('rejects a save of a project past the shared byte limit', () => {
+    const project = { ...buildProject(), note: 'x'.repeat(MAX_PROJECT_FILE_BYTES + 1) };
+    for (const channel of ['koma:project:save', 'koma:project:save-as'] as const) {
+      const parsed = ipcContract[channel].request.safeParse({ project });
+      expect(parsed.success).toBe(false);
+      if (!parsed.success) {
+        expect(
+          parsed.error.issues.some((issue) => issue.message === PROJECT_TOO_LARGE_MESSAGE),
+        ).toBe(true);
+      }
+    }
+  }, 30_000);
 
   it('rejects malformed execution requests', () => {
     const valid = {

@@ -2,19 +2,20 @@ import {
   collectProjectWarnings,
   describeIssues,
   err,
+  exceedsUtf8ByteLength,
   komaProjectSchema,
+  MAX_PROJECT_FILE_BYTES,
   ok,
   PROJECT_FORMAT,
+  PROJECT_TOO_LARGE_MESSAGE,
   toValidationIssues,
   type KomaProject,
   type Result,
 } from '@koma-motion/core';
-import { projectFormatError, type ProjectFormatError } from './errors';
+import { validateTransition } from '@koma-motion/motion-engine';
+import { isProjectTooLarge, projectFormatError, type ProjectFormatError } from './errors';
 import { migrateToVersion, type RawProject } from './migrations';
 import { findDroppedFields } from './unknownFields';
-
-/** Largest project text that is parsed, in characters. */
-export const MAX_PROJECT_TEXT_LENGTH = 64 * 1024 * 1024;
 
 export interface LoadedProject {
   readonly project: KomaProject;
@@ -42,10 +43,8 @@ export function readSchemaVersion(document: unknown): number | null {
 
 /** Parses, migrates and validates the text of a `.koma` file. */
 export function parseProject(text: string): Result<LoadedProject, ProjectFormatError> {
-  if (text.length > MAX_PROJECT_TEXT_LENGTH) {
-    return err(
-      projectFormatError('tooLarge', 'The file is too large to be a Koma Motion project.'),
-    );
+  if (exceedsUtf8ByteLength(text, MAX_PROJECT_FILE_BYTES)) {
+    return err(projectFormatError('tooLarge', PROJECT_TOO_LARGE_MESSAGE));
   }
 
   let document: unknown;
@@ -78,6 +77,9 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
   const validated = komaProjectSchema.safeParse(migrated.value.document);
   if (!validated.success) {
     const issues = toValidationIssues(validated.error);
+    if (isProjectTooLarge(issues)) {
+      return err(projectFormatError('tooLarge', PROJECT_TOO_LARGE_MESSAGE, issues));
+    }
     return err(
       projectFormatError(
         'invalidProject',
@@ -100,6 +102,11 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
   }
   for (const warning of collectProjectWarnings(validated.data)) {
     warnings.push(warning.message);
+  }
+  for (const transition of validated.data.presentation.transitions) {
+    for (const issue of validateTransition(transition, validated.data.presentation)) {
+      warnings.push(issue.message);
+    }
   }
 
   return ok({

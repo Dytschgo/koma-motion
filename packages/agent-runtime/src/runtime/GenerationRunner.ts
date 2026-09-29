@@ -5,8 +5,8 @@ import {
 } from '../contract/request';
 import { getResponseJsonSchema, type AgentPresentationResponse } from '../contract/response';
 import {
-  presentationGenerationPromptV1,
-  presentationRepairPromptV1,
+  presentationGenerationPromptV2,
+  presentationRepairPromptV2,
   type AgentPrompt,
 } from '../prompts/presentationGeneration';
 import type { ProviderRegistry } from '../providers/registry';
@@ -18,7 +18,7 @@ import type {
   ExecutionStatusEvent,
   ProviderExecutionResult,
 } from '../providers/types';
-import { extractStructuredOutput } from '../validation/extract';
+import { resolveProviderOutput } from '../validation/extract';
 import { validateAgentResponse } from '../validation/validateResponse';
 
 export const DEFAULT_TIMEOUT_MS = 300_000;
@@ -250,7 +250,7 @@ export class GenerationRunner {
     }
 
     const responseJsonSchema = getResponseJsonSchema();
-    let prompt: AgentPrompt = presentationGenerationPromptV1.render({
+    let prompt: AgentPrompt = presentationGenerationPromptV2.render({
       request,
       responseJsonSchema,
     });
@@ -307,12 +307,9 @@ export class GenerationRunner {
       }
 
       report('validating', 'Checking the response');
-      const { rawText, structured } = result.output;
-      const extracted =
-        structured === undefined
-          ? extractStructuredOutput(rawText)
-          : ({ ok: true, value: structured } as const);
-      const validated = extracted.ok ? validateAgentResponse(extracted.value, request) : extracted;
+      const { rawText } = result.output;
+      const resolved = resolveProviderOutput(result.output);
+      const validated = resolved.ok ? validateAgentResponse(resolved.value, request) : resolved;
 
       if (validated.ok) {
         record('completed', rawText.length, result.details);
@@ -333,7 +330,7 @@ export class GenerationRunner {
       if (validated.error.code === 'outputTooLarge') {
         break;
       }
-      prompt = presentationRepairPromptV1.render({
+      prompt = presentationRepairPromptV2.render({
         request,
         responseJsonSchema,
         previousOutput: rawText,

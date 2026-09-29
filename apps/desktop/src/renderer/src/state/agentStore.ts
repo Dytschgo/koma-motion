@@ -58,7 +58,8 @@ interface AgentState {
   ) => void;
   readonly addStatus: (event: ExecutionStatusEvent) => void;
   readonly requestCancel: () => void;
-  readonly finishExecution: () => void;
+  /** Clears the execution only when it is still the one identified by `executionId`. */
+  readonly finishExecution: (executionId: string) => void;
   readonly addEntry: (entry: NewEntry) => void;
   readonly clearConversation: () => void;
 }
@@ -91,8 +92,8 @@ export const useAgentStore = create<AgentState>((set) => ({
         : { execution: { ...state.execution, cancelRequested: true } },
     );
   },
-  finishExecution() {
-    set({ execution: null });
+  finishExecution(executionId) {
+    set((state) => (state.execution?.executionId === executionId ? { execution: null } : state));
   },
   addEntry(entry) {
     set((state) => ({

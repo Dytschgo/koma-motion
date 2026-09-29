@@ -170,15 +170,34 @@ kept.
 `computeFrame({ from, to, transition, progress })` returns what is visible at
 a progress between 0 and 1.
 
-- The frame is computed from the **stored transition only**. Playback does not
-  compare Komas. If a stored transition lacks an operation, the affected
-  property does not animate and changes at the end.
-- At progress 0 the frame is exactly the source Koma, at progress 1 exactly
-  the target Koma.
+- At progress 0 the frame is exactly the source Koma. At progress 1 it is
+  exactly the target Koma.
+- A stored transition that fails a semantic check is reported and is not
+  played. The file is not rewritten: the project still opens, and the stored
+  operations stay as they were written. For that transition, any progress
+  below 1 shows the source Koma and progress 1 shows the target Koma.
+  Playback does not apply the stored coordinates.
+- Semantic failures are a missing endpoint, endpoints that do not follow one
+  another, an element reference that is not the element in that endpoint, an
+  operation with neither endpoint, two operations on one object that are
+  duplicates or that write the same property, and operations that are not the
+  difference of the two Komas. `fadeIn` and `fadeOut` both write opacity.
+  `hold` conflicts with any other operation on that object. A `replace`
+  cross-fade may be stored together with property operations such as `move`:
+  that is how a replaced object also changes geometry.
+- An operation name this version does not know is skipped and reported. It
+  does not by itself disable the other operations of a transition that is
+  otherwise valid.
 - A replaced object is drawn twice while it cross-fades: the outgoing state
   and the incoming state, both following the interpolated geometry.
-- Operations that this version does not know are skipped. The application
-  shows a warning for them.
+- `zIndex` is not interpolated. For a progress strictly between 0 and 1, an
+  object that exists in the source keeps the source `zIndex`. An object that
+  only enters uses the target `zIndex`. Objects that share a `zIndex` and
+  exist in the source keep the source array order. Entering objects keep the
+  target array order and paint after source objects with the same `zIndex`.
+  A replace cross-fade keeps both layers on the source `zIndex`, outgoing
+  immediately before incoming, so the two layers overlap. At progress 1 the
+  target `zIndex` and the target array order are shown unchanged.
 
 The renderer draws frames. It has no knowledge of how they were computed, and
 the motion model does not depend on an animation library: the preview uses

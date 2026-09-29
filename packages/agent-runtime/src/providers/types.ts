@@ -27,7 +27,11 @@ export const providerDetectionResultSchema = z.object({
 });
 export type ProviderDetectionResult = z.infer<typeof providerDetectionResultSchema>;
 
-/** Technical facts about one attempt. Never contains prompts, output or environment values. */
+/**
+ * Technical facts about one attempt. Pattern redaction of error output cannot
+ * guarantee removal of every secret, prompt or environment value from
+ * arbitrary stderr.
+ */
 export const attemptDiagnosticsSchema = z.object({
   attempt: z.number().int(),
   kind: z.enum(['generation', 'repair']),
@@ -97,7 +101,8 @@ export interface ProviderOutput {
   readonly rawText: string;
   /**
    * Structured data, when the provider has a native structured output
-   * feature. It is validated exactly like extracted text.
+   * feature. The runtime size-checks it and prefers this envelope only when
+   * the text is empty, has no object, or is the same JSON value.
    */
   readonly structured?: unknown;
 }

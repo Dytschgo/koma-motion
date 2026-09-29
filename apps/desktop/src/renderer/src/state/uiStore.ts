@@ -1,6 +1,21 @@
 /** Temporary interface state. Nothing in this store is saved with the project. */
+import type { BrandKitRawDraft } from '@koma-motion/brand-kit';
 import { clampZoom } from '@koma-motion/renderer';
 import { create } from 'zustand';
+import { selectProject, useProjectStore } from './projectStore';
+
+/**
+ * Raw Brand Kit text for one open project. It is not saved. `projectId` stops
+ * it applying to a different project. `reset()` drops it when the project is
+ * replaced. A failed commit must not clear it; the editor removes a field
+ * only after that field normalises and the control is no longer focused.
+ */
+export interface BrandKitDraftState {
+  readonly projectId: string;
+  readonly raw: BrandKitRawDraft;
+}
+
+const EMPTY_BRAND_KIT_RAW_DRAFT: BrandKitRawDraft = {};
 
 export type WorkspaceView = 'canvas' | 'brandKit';
 
@@ -20,6 +35,18 @@ export interface Notice {
   readonly message: string;
 }
 
+/**
+ * The transition a preview is bound to. `fromKomaId` and `toKomaId` are the
+ * ends recorded when it started. A new `token` starts playback again.
+ * Progress stays in the playback hook; this store only keeps the identity.
+ */
+export interface PreviewIdentity {
+  readonly transitionId: string;
+  readonly fromKomaId: string;
+  readonly toKomaId: string;
+  readonly token: number;
+}
+
 interface UiState {
   readonly view: WorkspaceView;
   readonly selectedKomaId: string | null;
@@ -30,8 +57,9 @@ interface UiState {
   readonly agentPanelOpen: boolean;
   readonly confirmation: ConfirmationRequest | null;
   readonly notices: readonly Notice[];
-  /** The transition that is being previewed. A new `token` starts it again. */
-  readonly preview: { readonly transitionId: string; readonly token: number } | null;
+  readonly preview: PreviewIdentity | null;
+  /** Raw Brand Kit text. Ignored when its project id is not the open project. */
+  readonly brandKitDraft: BrandKitDraftState | null;
 
   readonly setView: (view: WorkspaceView) => void;
   readonly selectKoma: (komaId: string | null) => void;
@@ -45,7 +73,20 @@ interface UiState {
   readonly dismissNotice: (id: number) => void;
   readonly startPreview: (transitionId: string) => void;
   readonly stopPreview: () => void;
+  readonly setBrandKitDraft: (projectId: string, raw: BrandKitRawDraft) => void;
   readonly reset: () => void;
+}
+
+/** Raw Brand Kit text for `projectId`, or nothing when the draft is for another project. */
+export function selectBrandKitRawDraft(
+  state: { readonly brandKitDraft: BrandKitDraftState | null },
+  projectId: string,
+): BrandKitRawDraft {
+  const draft = state.brandKitDraft;
+  if (draft === null || draft.projectId !== projectId) {
+    return EMPTY_BRAND_KIT_RAW_DRAFT;
+  }
+  return draft.raw;
 }
 
 let nextToken = 1;
@@ -60,6 +101,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   confirmation: null,
   notices: [],
   preview: null,
+  brandKitDraft: null,
 
   setView(view) {
     set({ view, preview: null });
@@ -98,10 +140,32 @@ export const useUiStore = create<UiState>((set, get) => ({
     set((state) => ({ notices: state.notices.filter((notice) => notice.id !== id) }));
   },
   startPreview(transitionId) {
-    set({ preview: { transitionId, token: nextToken++ }, view: 'canvas', selectedElementId: null });
+    const transition = selectProject(useProjectStore.getState())?.presentation.transitions.find(
+      (candidate) => candidate.id === transitionId,
+    );
+    if (transition === undefined) {
+      return;
+    }
+    set({
+      preview: {
+        transitionId: transition.id,
+        fromKomaId: transition.fromKomaId,
+        toKomaId: transition.toKomaId,
+        token: nextToken++,
+      },
+      view: 'canvas',
+      selectedElementId: null,
+    });
   },
   stopPreview() {
     set({ preview: null });
+  },
+  setBrandKitDraft(projectId, raw) {
+    set((state) =>
+      state.brandKitDraft?.projectId === projectId && state.brandKitDraft.raw === raw
+        ? state
+        : { brandKitDraft: { projectId, raw } },
+    );
   },
   reset() {
     set({
@@ -110,6 +174,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       selectedElementId: null,
       zoom: null,
       preview: null,
+      brandKitDraft: null,
     });
   },
 }));

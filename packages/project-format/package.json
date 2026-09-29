@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
-    "@koma-motion/core": "workspace:*"
+    "@koma-motion/core": "workspace:*",
+    "@koma-motion/motion-engine": "workspace:*"
   }
 }

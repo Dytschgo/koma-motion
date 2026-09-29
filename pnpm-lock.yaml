@@ -147,6 +147,9 @@ importers:
       '@koma-motion/core':
         specifier: workspace:*
         version: link:../core
+      '@koma-motion/motion-engine':
+        specifier: workspace:*
+        version: link:../motion-engine
 
   packages/renderer:
     dependencies:

@@ -1,4 +1,11 @@
-import { TRANSITION_OPERATIONS, type Koma, type Presentation } from '@koma-motion/core';
+import {
+  findTransitionStructureIssues,
+  TRANSITION_OPERATIONS,
+  type ElementMotionState,
+  type Koma,
+  type Presentation,
+  type TransitionStructureIssue,
+} from '@koma-motion/core';
 import { diffKomas, isDeepEqual } from './diff';
 import { motionIssue, type MotionIssue } from './issues';
 
@@ -16,133 +23,163 @@ export interface TransitionLike {
 export interface ElementTransitionLike {
   readonly persistentId: string;
   readonly operation: string;
-  readonly from: { readonly elementId: string } | null;
-  readonly to: { readonly elementId: string } | null;
+  readonly from: ElementMotionState | null;
+  readonly to: ElementMotionState | null;
 }
 
 export function isSupportedOperation(operation: string): boolean {
   return TRANSITION_OPERATIONS.some((supported) => supported === operation);
 }
 
-function checkReference(
-  koma: Koma,
-  label: 'source' | 'target',
-  persistentId: string,
-  state: { readonly elementId: string },
-): MotionIssue | null {
-  const element = koma.elements.find((candidate) => candidate.persistentId === persistentId);
-  if (element === undefined) {
-    return motionIssue(
-      'invalidElementReference',
-      `The transition refers to "${persistentId}", which does not exist in the ${label} Koma "${koma.title}".`,
-      persistentId,
-    );
+function quoteList(values: readonly string[]): string {
+  const quoted = values.map((value) => `"${value}"`);
+  const last = quoted.at(-1);
+  if (last === undefined) {
+    return '';
   }
-  if (element.id !== state.elementId) {
-    return motionIssue(
-      'invalidElementReference',
-      `The transition refers to element "${state.elementId}" for "${persistentId}", but the ${label} Koma "${koma.title}" contains element "${element.id}".`,
-      persistentId,
-    );
+  if (quoted.length === 1) {
+    return last;
   }
-  return null;
+  if (quoted.length === 2) {
+    return `${quoted[0] ?? ''} and ${last}`;
+  }
+  return `${quoted.slice(0, -1).join(', ')} and ${last}`;
+}
+
+function toMotionIssue(issue: TransitionStructureIssue): MotionIssue {
+  switch (issue.code) {
+    case 'missingSourceKoma':
+      return motionIssue(
+        'missingSourceKoma',
+        `The source Koma "${issue.fromKomaId}" of the transition does not exist.`,
+      );
+    case 'missingTargetKoma':
+      return motionIssue(
+        'missingTargetKoma',
+        `The target Koma "${issue.toKomaId}" of the transition does not exist.`,
+      );
+    case 'nonAdjacentKomas':
+      return motionIssue(
+        'nonAdjacentKomas',
+        `The transition connects "${issue.fromTitle}" and "${issue.toTitle}", which do not follow one another.`,
+      );
+    case 'missingPersistentId':
+      return motionIssue(
+        'invalidElementReference',
+        `The transition refers to "${issue.persistentId}", which does not exist in the ${issue.endpoint} Koma "${issue.komaTitle}".`,
+        issue.persistentId,
+      );
+    case 'wrongElementId':
+      return motionIssue(
+        'invalidElementReference',
+        `The transition refers to element "${issue.elementId}" for "${issue.persistentId}", but the ${issue.endpoint} Koma "${issue.komaTitle}" contains element "${issue.actualElementId}".`,
+        issue.persistentId,
+      );
+    case 'neitherEndpoint':
+      return motionIssue(
+        'invalidElementReference',
+        `The operation "${issue.operation}" on "${issue.persistentId}" has neither a source nor a target state.`,
+        issue.persistentId,
+      );
+    case 'duplicateOperation':
+      return motionIssue(
+        'duplicateOperation',
+        `There is more than one "${issue.operation}" operation on "${issue.persistentId}". The transition is not played.`,
+        issue.persistentId,
+      );
+    case 'conflictingOperations':
+      return motionIssue(
+        'conflictingOperations',
+        `The operations ${quoteList(issue.operations)} on "${issue.persistentId}" conflict. The transition is not played.`,
+        issue.persistentId,
+      );
+  }
 }
 
 /**
  * Checks a transition against the presentation it belongs to. An empty result
- * means the transition can be played exactly as it is stored.
+ * means the transition can be played exactly as it is stored. Issues are
+ * reported and the transition is left unchanged.
  */
 export function validateTransition(
   transition: TransitionLike,
   presentation: Presentation,
 ): MotionIssue[] {
-  const fromIndex = presentation.komas.findIndex((koma) => koma.id === transition.fromKomaId);
-  const toIndex = presentation.komas.findIndex((koma) => koma.id === transition.toKomaId);
-  const from = presentation.komas[fromIndex];
-  const to = presentation.komas[toIndex];
+  const structural = findTransitionStructureIssues(presentation, transition).map(toMotionIssue);
+  const unsupported = transition.elementTransitions
+    .filter((elementTransition) => !isSupportedOperation(elementTransition.operation))
+    .map((elementTransition) =>
+      motionIssue(
+        'unsupportedOperation',
+        `The operation "${elementTransition.operation}" on "${elementTransition.persistentId}" is not supported by this version of Koma Motion and is not played.`,
+        elementTransition.persistentId,
+      ),
+    );
 
-  const issues: MotionIssue[] = [];
-  if (from === undefined) {
-    issues.push(
-      motionIssue(
-        'missingSourceKoma',
-        `The source Koma "${transition.fromKomaId}" of the transition does not exist.`,
-      ),
-    );
+  if (structural.length > 0) {
+    return [...structural, ...unsupported];
   }
-  if (to === undefined) {
-    issues.push(
-      motionIssue(
-        'missingTargetKoma',
-        `The target Koma "${transition.toKomaId}" of the transition does not exist.`,
-      ),
-    );
+
+  const supported = transition.elementTransitions.filter((elementTransition) =>
+    isSupportedOperation(elementTransition.operation),
+  );
+  // An unknown operation on its own is a warning, not a stale transition.
+  // An empty operation list, or any supported list, still has to match the Komas.
+  if (supported.length === 0 && unsupported.length > 0) {
+    return unsupported;
   }
+
+  const from = presentation.komas.find((koma) => koma.id === transition.fromKomaId);
+  const to = presentation.komas.find((koma) => koma.id === transition.toKomaId);
   if (from === undefined || to === undefined) {
-    return issues;
-  }
-
-  if (toIndex !== fromIndex + 1) {
-    issues.push(
-      motionIssue(
-        'nonAdjacentKomas',
-        `The transition connects "${from.title}" and "${to.title}", which do not follow one another.`,
-      ),
-    );
-  }
-
-  for (const elementTransition of transition.elementTransitions) {
-    const { persistentId, operation } = elementTransition;
-    if (!isSupportedOperation(operation)) {
-      issues.push(
-        motionIssue(
-          'unsupportedOperation',
-          `The operation "${operation}" on "${persistentId}" is not supported by this version of Koma Motion and is not played.`,
-          persistentId,
-        ),
-      );
-      continue;
-    }
-    if (elementTransition.from === null && elementTransition.to === null) {
-      issues.push(
-        motionIssue(
-          'invalidElementReference',
-          `The operation "${operation}" on "${persistentId}" has neither a source nor a target state.`,
-          persistentId,
-        ),
-      );
-      continue;
-    }
-    const references = [
-      elementTransition.from === null
-        ? null
-        : checkReference(from, 'source', persistentId, elementTransition.from),
-      elementTransition.to === null
-        ? null
-        : checkReference(to, 'target', persistentId, elementTransition.to),
-    ];
-    for (const issue of references) {
-      if (issue !== null) {
-        issues.push(issue);
-      }
-    }
-  }
-
-  if (issues.length > 0) {
-    return issues;
+    return unsupported;
   }
 
   const expected = diffKomas(from, to);
   if (!expected.ok) {
-    return [...expected.error];
+    return [...expected.error, ...unsupported];
   }
-  if (!isDeepEqual(expected.value.elementTransitions, transition.elementTransitions)) {
-    issues.push(
+  if (!isDeepEqual(expected.value.elementTransitions, supported)) {
+    return [
       motionIssue(
         'staleTransition',
         `The transition from "${from.title}" to "${to.title}" no longer matches the content of the Komas.`,
       ),
-    );
+      ...unsupported,
+    ];
   }
-  return issues;
+  return unsupported;
+}
+
+/**
+ * Whether the stored operations must not be interpolated between these two
+ * Komas. Adjacency is not decided here: the caller already supplied the
+ * endpoints, and a presentation-level failure is passed in as `blocked`.
+ */
+export function transitionBlocksPlayback(
+  from: Koma,
+  to: Koma,
+  transition: { readonly elementTransitions: TransitionLike['elementTransitions'] },
+): boolean {
+  const presentation: Presentation = {
+    id: 'playback',
+    title: '',
+    objective: '',
+    audience: '',
+    narrative: '',
+    aspectRatio: '16:9',
+    komas: [
+      { ...from, id: 'playback-source' },
+      { ...to, id: 'playback-target' },
+    ],
+    transitions: [],
+  };
+  return validateTransition(
+    {
+      fromKomaId: 'playback-source',
+      toKomaId: 'playback-target',
+      elementTransitions: transition.elementTransitions,
+    },
+    presentation,
+  ).some((issue) => issue.code !== 'unsupportedOperation');
 }
