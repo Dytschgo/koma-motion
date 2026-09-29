@@ -177,6 +177,13 @@ a progress between 0 and 1.
   operations stay as they were written. For that transition, any progress
   below 1 shows the source Koma and progress 1 shows the target Koma.
   Playback does not apply the stored coordinates.
+- Two failures are not semantic checks but schema errors, and a `.koma` file
+  that contains them does not open: a transition whose source or target Koma
+  does not exist, and an operation name outside the list above.
+- The check runs once for the same two Komas and the same operations. Its
+  result is reused for every further frame, so the cost of a frame does not
+  depend on the size of the Komas being validated. Documents are immutable:
+  a change creates new objects, which are checked again.
 - Semantic failures are a missing endpoint, endpoints that do not follow one
   another, an element reference that is not the element in that endpoint, an
   operation with neither endpoint, two operations on one object that are
@@ -185,9 +192,11 @@ a progress between 0 and 1.
   `hold` conflicts with any other operation on that object. A `replace`
   cross-fade may be stored together with property operations such as `move`:
   that is how a replaced object also changes geometry.
-- An operation name this version does not know is skipped and reported. It
-  does not by itself disable the other operations of a transition that is
-  otherwise valid.
+- An operation name this version does not know is skipped and reported by
+  `computeFrame` and `validateTransition`. It does not by itself disable the
+  other operations of a transition that is otherwise valid. This applies to
+  transitions that are passed to these functions directly. It does not apply
+  to `.koma` files, which are rejected when they contain such a name.
 - A replaced object is drawn twice while it cross-fades: the outgoing state
   and the incoming state, both following the interpolated geometry.
 - `zIndex` is not interpolated. For a progress strictly between 0 and 1, an
@@ -206,7 +215,10 @@ the motion model does not depend on an animation library: the preview uses
 ### Reduced motion
 
 When the operating system asks for reduced motion, the preview does not move
-objects. It shows the source Koma, then cuts to the target Koma.
+objects. It shows the source Koma, then cuts to the target Koma half-way.
+
+A transition that is not played behaves the same with and without reduced
+motion: the source Koma stays until the end.
 
 ## Planned extensions
 
@@ -219,9 +231,10 @@ The following operations are planned. None of them is implemented.
 - mask transitions
 - intermediate stop-motion frames
 
-The model is prepared for them in two ways: operations are a list per object,
-so new kinds can be added without changing existing ones, and playback skips
-operations it does not know instead of failing.
+The model is prepared for them in one way: operations are a list per object,
+so new kinds can be added without changing existing ones. A new operation
+needs a new schema version, because version 1 files accept only the
+operations listed above.
 
 ## Stop Motion Mode (concept, not implemented)
 

@@ -24,9 +24,14 @@ What "verified" means here:
 - **Claude Code** detection and generation were tested on 29 September 2026
   with Claude Code 2.1.283 on Windows 11, with the model `claude-opus-5-5`.
   A request for three Komas was run once through the runtime and once through
-  the application. Both runs produced a valid presentation. Those runs did
-  not include `--safe-mode`, `--restricted` or `--no-chrome`. Neither
-  detection nor generation has been tested on macOS.
+  the application. Both runs produced a valid presentation. Those two runs
+  used the earlier invocation: without `--safe-mode`, `--restricted` and
+  `--no-chrome`, and with the complete environment of the application.
+- **Claude Code with the current invocation**, which includes those three
+  flags and passes only the allowlisted environment variables, was run once
+  through the runtime on the same day and computer. The run produced a valid
+  presentation. It has not been run through the application.
+- Neither detection nor generation of Claude Code has been tested on macOS.
 - **Codex CLI** detection was tested with Codex CLI 0.157.1 on Windows 11,
   including the resolution of the npm command shim. The arguments for
   generation, including every `--disable`, were taken from that help output
@@ -364,7 +369,7 @@ can contain anything.
 | ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | The renderer cannot start processes         | providers run in the main process; the renderer sends a provider id and the request                                                                                   |
 | No shell                                    | `spawn` with `shell: false`, an executable path and an argument array                                                                                                 |
-| The prompt is not an argument               | the prompt is written to standard input                                                                                                                               |
+| The request of the user is not an argument  | the request, the Brand Kit and the project context are written to standard input. Claude receives the fixed system instructions and the response schema as arguments. |
 | Arguments are controlled                    | all arguments are fixed, except the model name, which must match a restricted pattern                                                                                 |
 | The invocation limits what the agent can do | Claude: no tools, safe mode, restricted mode, Chrome disabled; managed settings still apply. Codex: read-only, which still allows reads; generation has not been run. |
 | No project context for the agent            | the working directory is an empty temporary folder that is removed afterwards                                                                                         |
@@ -412,9 +417,12 @@ claude --print --output-format json --input-format text
        [--model <model>] --system-prompt <text> --json-schema <schema>
 ```
 
-The prompt is read from standard input. The output is one JSON object. Koma
-Motion uses `structured_output` when it is an object and `result` otherwise,
-and reports an error when `is_error` is true.
+The request is read from standard input. The system instructions and the
+response schema are arguments: both are fixed text of Koma Motion and contain
+nothing the user or a project wrote. The output is one JSON object. Koma
+Motion passes `result` and `structured_output` to validation, which rejects
+the output when the two disagree, and reports an error when `is_error` is
+true.
 
 `--bare` is not used. Its help text says Anthropic auth is strictly
 `ANTHROPIC_API_KEY` or `apiKeyHelper` via `--settings`, and that OAuth and

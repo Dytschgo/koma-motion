@@ -151,16 +151,51 @@ export function validateTransition(
   return unsupported;
 }
 
+type Operations = TransitionLike['elementTransitions'];
+
+/**
+ * Verdicts by identity of source Koma, target Koma and operation list.
+ * Documents are immutable, so the same three objects always give the same
+ * verdict. Entries disappear together with the objects they describe.
+ */
+const verdicts = new WeakMap<Koma, WeakMap<Koma, WeakMap<Operations, boolean>>>();
+
 /**
  * Whether the stored operations must not be interpolated between these two
  * Komas. Adjacency is not decided here: the caller already supplied the
  * endpoints, and a presentation-level failure is passed in as `blocked`.
+ *
+ * Playback asks this for every frame. The validation runs once for the same
+ * Komas and operations and its verdict is reused, so a frame costs a lookup.
+ * A verdict cannot be supplied from outside: whatever is played has been
+ * validated here.
  */
 export function transitionBlocksPlayback(
   from: Koma,
   to: Koma,
-  transition: { readonly elementTransitions: TransitionLike['elementTransitions'] },
+  transition: { readonly elementTransitions: Operations },
 ): boolean {
+  const operations = transition.elementTransitions;
+  let byTarget = verdicts.get(from);
+  if (byTarget === undefined) {
+    byTarget = new WeakMap();
+    verdicts.set(from, byTarget);
+  }
+  let byOperations = byTarget.get(to);
+  if (byOperations === undefined) {
+    byOperations = new WeakMap();
+    byTarget.set(to, byOperations);
+  }
+  const known = byOperations.get(operations);
+  if (known !== undefined) {
+    return known;
+  }
+  const blocked = validateForPlayback(from, to, operations);
+  byOperations.set(operations, blocked);
+  return blocked;
+}
+
+function validateForPlayback(from: Koma, to: Koma, operations: Operations): boolean {
   const presentation: Presentation = {
     id: 'playback',
     title: '',
@@ -178,7 +213,7 @@ export function transitionBlocksPlayback(
     {
       fromKomaId: 'playback-source',
       toKomaId: 'playback-target',
-      elementTransitions: transition.elementTransitions,
+      elementTransitions: operations,
     },
     presentation,
   ).some((issue) => issue.code !== 'unsupportedOperation');

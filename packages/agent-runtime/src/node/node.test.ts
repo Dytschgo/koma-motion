@@ -5,7 +5,9 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { getResponseJsonSchema } from '../contract/response';
 import { presentationGenerationPromptV2 } from '../prompts/presentationGeneration';
+import { ProviderRegistry } from '../providers/registry';
 import type { AgentExecutionContext } from '../providers/types';
+import { GenerationRunner } from '../runtime/GenerationRunner';
 import { buildRequest, buildResponse } from '../testing/fixtures';
 import {
   buildClaudeCodeArguments,
@@ -19,7 +21,7 @@ import {
   type CliEnvironment,
 } from './cliEnvironment';
 import { buildCodexArguments, CodexCliProvider } from './CodexCliProvider';
-import { MAX_DIAGNOSTIC_LENGTH, redactDiagnostics } from './redact';
+import { MAX_DIAGNOSTIC_LENGTH, MAX_SCANNED_LENGTH, redactDiagnostics } from './redact';
 import { resolveExecutable, type ResolutionEnvironment } from './resolveExecutable';
 import {
   assertSafeArguments,
@@ -829,6 +831,8 @@ describe('ClaudeCodeProvider', () => {
     expect(result.ok).toBe(true);
     if (result.ok) {
       expect(result.output.structured).toEqual(structured);
+      // The text is what Claude wrote, not a copy of the structured output.
+      expect(result.output.rawText).toBe('text');
     }
     const call = environment.calls[0];
     expect(call?.input).toContain('# Request');
@@ -838,6 +842,55 @@ describe('ClaudeCodeProvider', () => {
       expect.arrayContaining(['--safe-mode', '--restricted', '--no-chrome', '--strict-mcp-config']),
     );
     expect(call?.arguments).not.toContain('--bare');
+  });
+
+  it('lets the runner reject a result text that disagrees with the structured output', async () => {
+    const structured = buildResponse();
+    const text = { ...buildResponse(), visualRationale: 'A different answer.' };
+    const disagreeing = completed({
+      standardOutput: envelope({ structured_output: structured, result: JSON.stringify(text) }),
+    });
+    const environment = fakeEnvironment(disagreeing);
+    const runner = new GenerationRunner({
+      registry: new ProviderRegistry([new ClaudeCodeProvider(environment)]),
+    });
+
+    const result = await runner.execute({
+      executionId: 'execution-1',
+      providerId: 'claude-code',
+      request: buildRequest(),
+    });
+
+    // Both attempts disagree, so the execution fails after the single repair.
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.error.issues.map((issue) => issue.code)).toEqual(['inconsistentOutput']);
+      expect(result.diagnostics.attempts.map((attempt) => attempt.outcome)).toEqual([
+        'rejected',
+        'rejected',
+      ]);
+    }
+  });
+
+  it('lets the runner accept a result text that agrees with the structured output', async () => {
+    const structured = buildResponse();
+    const environment = fakeEnvironment(
+      completed({
+        standardOutput: envelope({
+          structured_output: structured,
+          result: JSON.stringify(structured),
+        }),
+      }),
+    );
+    const runner = new GenerationRunner({
+      registry: new ProviderRegistry([new ClaudeCodeProvider(environment)]),
+    });
+    const result = await runner.execute({
+      executionId: 'execution-1',
+      providerId: 'claude-code',
+      request: buildRequest(),
+    });
+    expect(result.status).toBe('succeeded');
   });
 
   it('falls back to the text result', async () => {
@@ -1106,6 +1159,101 @@ describe('redactDiagnostics', () => {
     expect(bare).toBe('context password=[redacted]');
     expect(bare).not.toContain('hun');
     expect(bare).toContain('context');
+  });
+
+  it.each([
+    [
+      'a quoted header with a lower-case token',
+      '{"Authorization":"Bearer abcdefghijklmnop"}',
+      '{"Authorization":"Bearer [redacted]"}',
+    ],
+    [
+      'a quoted header with letters-only base64',
+      'headers={"Authorization":"Basic dXNlcjpwYXNz"}',
+      'headers={"Authorization":"Basic [redacted]"}',
+    ],
+    [
+      'an unquoted header with a lower-case token',
+      'Authorization: Bearer abcdefghijklmnop',
+      'Authorization: Bearer [redacted]',
+    ],
+    ['a header without a scheme', 'authorization=abcdefghijklmnop', 'authorization=[redacted]'],
+    [
+      'a proxy header',
+      'Proxy-Authorization: Basic dXNlcjpwYXNz',
+      'Proxy-Authorization: Basic [redacted]',
+    ],
+    [
+      'a header inside a JSON string',
+      String.raw`body: "{\"Authorization\":\"Bearer abcdefghijklmnop\"}"`,
+      String.raw`body: "{\"Authorization\":\"Bearer [redacted]\"}"`,
+    ],
+    ['standalone letters-only base64', 'sent Basic dXNlcjpwYXNz', 'sent Basic [redacted]'],
+    ['a standalone token in mixed case', 'sent Bearer AbCdEfGhIjKlMnOp', 'sent Bearer [redacted]'],
+    [
+      'a standalone long token in lower case',
+      'sent Bearer abcdefghijklmnopqrstuvwxyz',
+      'sent Bearer [redacted]',
+    ],
+  ])('redacts %s', (_label, text, expected) => {
+    expect(redactDiagnostics(text)).toBe(expected);
+  });
+
+  it('redacts a whole password that contains an escaped quote', () => {
+    const redacted = redactDiagnostics(JSON.stringify({ password: 'alpha"remaining-secret' }));
+    expect(redacted).toBe('{"password":"[redacted]"}');
+    expect(redacted).not.toContain('remaining-secret');
+  });
+
+  it.each([
+    ['an escaped quote', String.raw`password="alpha\"remaining-secret`],
+    ['a trailing backslash', 'password="alpha-secret\\'],
+    ['a nested JSON string', String.raw`{\"password\":\"alpha-secret`],
+  ])('redacts a quoted password that is cut off after %s', (_label, text) => {
+    const redacted = redactDiagnostics(text);
+    expect(redacted).not.toContain('alpha');
+    expect(redacted).not.toContain('secret');
+    expect(redacted).toContain('[redacted]');
+  });
+
+  it('keeps the text after a redacted quoted value', () => {
+    expect(redactDiagnostics('{"password":"a\\"b","status":"failed"}')).toBe(
+      '{"password":"[redacted]","status":"failed"}',
+    );
+  });
+
+  it('does not examine more than the scanned length', () => {
+    const secret = 'password=hunter22';
+    const beyond = `${'word '.repeat(MAX_SCANNED_LENGTH / 5)}${secret}`;
+    const redacted = redactDiagnostics(beyond, 10_000_000);
+    expect(redacted.length).toBeLessThanOrEqual(MAX_SCANNED_LENGTH);
+    expect(redacted).not.toContain('hunter22');
+  });
+
+  it('drops a credential that the scanned length cuts in the middle', () => {
+    // The key starts before the limit and ends after it.
+    const key = 'sk-ant-REDACTME0123456789abcdef';
+    const padding = 'w'.repeat(MAX_SCANNED_LENGTH - 12);
+    const redacted = redactDiagnostics(`start ${padding} ${key} end`, 10_000_000);
+    expect(redacted).not.toContain('sk-ant');
+    expect(redacted).not.toContain('REDACTME');
+    expect(redacted.startsWith('start')).toBe(true);
+  });
+
+  it('takes time in proportion to the input, not to its square', () => {
+    const measure = (text: string): number => {
+      const started = performance.now();
+      redactDiagnostics(text);
+      return performance.now() - started;
+    };
+    // Input that made every position of a dotted name a new starting point.
+    const adversarial = 'a.'.repeat(MAX_SCANNED_LENGTH / 2);
+    measure(adversarial);
+    expect(measure(adversarial)).toBeLessThan(500);
+    // Input beyond the scanned length costs nothing extra.
+    expect(measure('a.'.repeat(4 * 1024 * 1024))).toBeLessThan(500);
+    expect(measure(`${'password="'}${'\\"'.repeat(30_000)}`)).toBeLessThan(500);
+    expect(measure('Authorization: '.repeat(4000))).toBeLessThan(500);
   });
 
   it('still appends the truncation suffix at the default limit', () => {
