@@ -4,6 +4,7 @@ import { ipcEvents } from '../shared/ipc';
 import { registerHandlers } from './ipc/registerHandlers';
 import { APP_URL, hardenWebContents } from './security';
 import { createProjectSession } from './services/projectFiles';
+import type { UpdateService } from './updates/service';
 
 const APPLICATION_NAME = 'Koma Motion';
 /** Matches the background of the interface, so the window does not flash while it loads. */
@@ -37,7 +38,7 @@ function buildMenu(): Menu {
   return Menu.buildFromTemplate(template);
 }
 
-export function createMainWindow(): BrowserWindow {
+export function createMainWindow(updates: UpdateService): BrowserWindow {
   const window = new BrowserWindow({
     title: APPLICATION_NAME,
     width: 1480,
@@ -46,6 +47,8 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 700,
     show: false,
     backgroundColor: WINDOW_BACKGROUND,
+    // Packaged builds carry their icon in the executable. This is for development.
+    icon: join(__dirname, '../../build/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.cjs'),
       contextIsolation: true,
@@ -81,6 +84,7 @@ export function createMainWindow(): BrowserWindow {
   const handlers = registerHandlers({
     window,
     session,
+    updates,
     closeConfirmed: () => {
       closeConfirmed = true;
       window.close();

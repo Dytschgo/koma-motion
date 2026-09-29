@@ -22,6 +22,7 @@ import {
   providerIdSchema,
 } from '@koma-motion/core';
 import { z } from 'zod';
+import { updateChannelSchema, updateStatusSchema } from './updates';
 
 export const API_KEY = 'komaMotion';
 
@@ -57,6 +58,12 @@ const generationOutcome = z.discriminatedUnion('status', [
     historyEntry: generationHistoryEntrySchema,
     diagnostics: executionDiagnosticsSchema,
   }),
+]);
+
+/** The outcome of an action that can fail with a message for the user. */
+const actionResult = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('done') }),
+  failure,
 ]);
 
 export const ipcContract = {
@@ -132,6 +139,26 @@ export const ipcContract = {
     request: empty,
     response: empty,
   },
+  'koma:updates:get-status': {
+    request: empty,
+    response: updateStatusSchema,
+  },
+  'koma:updates:check': {
+    request: empty,
+    response: actionResult,
+  },
+  'koma:updates:set-channel': {
+    request: z.object({ channel: updateChannelSchema }).strict(),
+    response: actionResult,
+  },
+  'koma:updates:download': {
+    request: empty,
+    response: actionResult,
+  },
+  'koma:updates:install': {
+    request: empty,
+    response: actionResult,
+  },
   'koma:app:get-info': {
     request: empty,
     response: z.object({
@@ -160,6 +187,8 @@ export const ipcEvents = {
   'koma:providers:status': executionStatusEventSchema,
   /** The window is about to close and the user chose to save first. */
   'koma:app:save-and-close': empty,
+  /** The state of updating changed. */
+  'koma:updates:status': updateStatusSchema,
 } as const;
 
 export type IpcEventChannel = keyof typeof ipcEvents;

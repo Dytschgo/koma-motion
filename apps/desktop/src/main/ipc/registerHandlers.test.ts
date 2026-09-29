@@ -104,6 +104,15 @@ function openHandlers(): {
   const registered = registerHandlers({
     window,
     session: createProjectSession(),
+    updates: {
+      getStatus: () => ({ state: 'idle', channel: 'stable', currentVersion: '0.1.0' }),
+      check: () => Promise.resolve(),
+      setChannel: () =>
+        Promise.resolve({ state: 'idle', channel: 'stable', currentVersion: '0.1.0' }),
+      download: () => Promise.resolve(),
+      install: () => Promise.resolve(),
+      dispose: () => undefined,
+    },
     closeConfirmed() {
       return undefined;
     },
