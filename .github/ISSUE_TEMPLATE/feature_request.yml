@@ -1,0 +1,41 @@
+name: Feature request
+description: Suggest an idea or an improvement.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Koma Motion is an early-stage prototype. Please check the roadmap issues first,
+        your idea may already be planned.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe the situation in which the current behaviour falls short.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Core document model
+        - Motion engine
+        - Agents
+        - Brand Kit
+        - Desktop application
+        - Exporters
+        - Documentation
+        - Other
+    validations:
+      required: true

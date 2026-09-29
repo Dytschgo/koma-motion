@@ -1,0 +1,62 @@
+name: Bug report
+description: Report something that does not work as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to report a bug. Koma Motion is an early-stage prototype.
+
+        **Do not report security problems here.** Follow SECURITY.md instead.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Create a new project
+        2. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Windows
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: The application version or the Git commit you built from.
+    validations:
+      required: true
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Agent provider
+      options:
+        - Mock provider
+        - Claude Code CLI
+        - Codex CLI
+        - Not related to a provider
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics
+      description: |
+        Error messages or diagnostics shown by the application. Remove personal data,
+        tokens and the content of private presentations before you paste anything.
+      render: text

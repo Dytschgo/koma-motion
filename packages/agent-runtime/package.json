@@ -1,0 +1,21 @@
+{
+  "name": "@koma-motion/agent-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Agent provider architecture, structured generation contract and providers.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./node": "./src/node/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@koma-motion/brand-kit": "workspace:*",
+    "@koma-motion/core": "workspace:*",
+    "@koma-motion/motion-engine": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

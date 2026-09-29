@@ -1,0 +1,17 @@
+{
+  "name": "@koma-motion/motion-engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Deterministic motion diffing and interpolation between Komas.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@koma-motion/core": "workspace:*"
+  }
+}

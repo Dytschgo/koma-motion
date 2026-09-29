@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+out/
+dist/
+release/
+*.tsbuildinfo
+
+# Test output
+coverage/
+test-results/
+playwright-report/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.cer
+*.key
+*.provisionprofile
+
+# Logs and caches
+*.log
+.eslintcache
+.cache/
+.vite/
+
+# Operating-system metadata
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor-local configuration
+.idea/
+.vscode/
+*.swp
+.claude/
+
+# Temporary files
+tmp/
+*.tmp
+
+# Personal test presentations and user reference material.
+# Sample projects that belong in the repository live in examples/.
+*.koma
+!examples/**/*.koma
+reference-material/

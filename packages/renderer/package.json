@@ -1,0 +1,28 @@
+{
+  "name": "@koma-motion/renderer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "React renderer and transition playback for Komas.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@koma-motion/core": "workspace:*",
+    "@koma-motion/motion-engine": "workspace:*"
+  },
+  "peerDependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  }
+}

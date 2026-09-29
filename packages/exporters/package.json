@@ -1,0 +1,17 @@
+{
+  "name": "@koma-motion/exporters",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Exporter interface and the placeholder PowerPoint exporter.",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@koma-motion/core": "workspace:*"
+  }
+}
