@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { spawnSync } from 'node:child_process';
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -23,14 +24,145 @@ import {
 } from './runProcess';
 
 let directory: string;
+const trackedPidFiles: string[] = [];
 
 beforeEach(async () => {
   directory = await mkdtemp(join(tmpdir(), 'koma-agent-test-'));
 });
 
 afterEach(async () => {
+  for (const file of trackedPidFiles) {
+    const pid = await readPid(file);
+    if (pid !== null) {
+      stopPid(pid);
+    }
+  }
+  trackedPidFiles.length = 0;
   await rm(directory, { recursive: true, force: true, maxRetries: 3 });
 });
+
+const DESCENDANT_LIFETIME_MS = 20_000;
+
+function descendantCommand(): string {
+  return `require("node:fs").writeFileSync(process.argv[1], String(process.pid)); setTimeout(() => process.exit(0), ${DESCENDANT_LIFETIME_MS});`;
+}
+
+function parentCommand(flood: boolean): string {
+  const floodOutput = flood
+    ? `
+const started = Date.now();
+const floodOutput = () => {
+  if (Date.now() - started > 15000) {
+    process.exit(0);
+    return;
+  }
+  try {
+    readFileSync(childPidFile, 'utf8');
+  } catch {
+    setTimeout(floodOutput, 20);
+    return;
+  }
+  const chunk = 'x'.repeat(65536);
+  const timer = setInterval(() => {
+    process.stdout.write(chunk);
+  }, 5);
+  setTimeout(() => {
+    clearInterval(timer);
+    process.exit(0);
+  }, ${DESCENDANT_LIFETIME_MS});
+};
+floodOutput();
+`
+    : '';
+  return `'use strict';
+const { spawn } = require('node:child_process');
+const { readFileSync, writeFileSync } = require('node:fs');
+const parentPidFile = process.argv[2];
+const childPidFile = process.argv[3];
+writeFileSync(parentPidFile, String(process.pid));
+const child = spawn(
+  process.execPath,
+  ['-e', ${JSON.stringify(descendantCommand())}, childPidFile],
+  { shell: false, windowsHide: true, stdio: 'ignore' },
+);
+child.on('error', () => undefined);
+setTimeout(() => process.exit(0), ${DESCENDANT_LIFETIME_MS});
+${floodOutput}`;
+}
+
+async function readPid(file: string): Promise<number | null> {
+  try {
+    const pid = Number((await readFile(file, 'utf8')).trim());
+    return Number.isInteger(pid) && pid > 0 ? pid : null;
+  } catch {
+    return null;
+  }
+}
+
+function stopPid(pid: number): void {
+  try {
+    if (process.platform === 'win32') {
+      const systemRoot = process.env['SystemRoot'] ?? 'C:\\Windows';
+      const result = spawnSync(
+        join(systemRoot, 'System32', 'taskkill.exe'),
+        ['/PID', String(pid), '/T', '/F'],
+        { shell: false, windowsHide: true, stdio: 'ignore' },
+      );
+      if (result.error !== undefined) {
+        process.kill(pid);
+      }
+      return;
+    }
+    process.kill(pid, 'SIGKILL');
+  } catch {
+    // The process has already exited.
+  }
+}
+
+function isProcessRunning(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function waitForPid(file: string): Promise<number> {
+  const started = Date.now();
+  while (Date.now() - started < 8_000) {
+    const pid = await readPid(file);
+    if (pid !== null) {
+      return pid;
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 30);
+    });
+  }
+  throw new Error(`descendant did not write its pid to ${file}`);
+}
+
+async function waitUntilStopped(pid: number): Promise<void> {
+  const started = Date.now();
+  while (Date.now() - started < 8_000) {
+    if (!isProcessRunning(pid)) {
+      return;
+    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 50);
+    });
+  }
+  throw new Error(`process ${pid} is still running`);
+}
+
+async function releaseTrackedProcesses(): Promise<void> {
+  for (const file of trackedPidFiles) {
+    const pid = await readPid(file);
+    if (pid !== null) {
+      stopPid(pid);
+    }
+  }
+}
 
 const node = { command: process.execPath, prefixArguments: [] };
 
@@ -152,6 +284,97 @@ describe('runProcess', () => {
     expect(result.startError).toBe('ENOENT');
     expect(result.exitCode).toBeNull();
   });
+
+  it('returns exit code 0 for a short-lived process', async () => {
+    const result = await run('process.exit(0)');
+    expect(result.exitCode).toBe(0);
+    expect(result.startError).toBeNull();
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'resolves instead of rejecting when the command line is too long',
+    async () => {
+      const long = 'a'.repeat(20_000);
+      const result = await runProcess({
+        executable: { command: process.execPath, prefixArguments: [] },
+        arguments: ['-e', 'process.exit(0)', long, long],
+        input: '',
+        workingDirectory: directory,
+        signal: AbortSignal.timeout(5_000),
+        maxOutputBytes: 1024,
+      });
+      expect(result).toMatchObject({
+        exitCode: null,
+        standardOutput: '',
+        standardError: '',
+        outputLimitExceeded: false,
+        aborted: false,
+        startError: 'ENAMETOOLONG',
+      });
+    },
+  );
+
+  it('kills a descendant when the process is aborted', async () => {
+    const parentPidFile = join(directory, 'parent.pid');
+    const childPidFile = join(directory, 'child.pid');
+    trackedPidFiles.push(parentPidFile, childPidFile);
+    const parentScript = join(directory, 'parent-cancel.cjs');
+    await writeFile(parentScript, parentCommand(false), 'utf8');
+    const controller = new AbortController();
+    const pending = runProcess({
+      executable: node,
+      arguments: [parentScript, parentPidFile, childPidFile],
+      input: '',
+      workingDirectory: directory,
+      signal: controller.signal,
+      maxOutputBytes: 1024 * 1024,
+    });
+    try {
+      const childPid = await waitForPid(childPidFile);
+      controller.abort();
+      const result = await pending;
+      expect(result.aborted).toBe(true);
+      await waitUntilStopped(childPid);
+      expect(isProcessRunning(childPid)).toBe(false);
+    } finally {
+      controller.abort();
+      await releaseTrackedProcesses();
+    }
+  }, 15_000);
+
+  it('kills a descendant when output exceeds the limit', async () => {
+    const parentPidFile = join(directory, 'parent-flood.pid');
+    const childPidFile = join(directory, 'child-flood.pid');
+    trackedPidFiles.push(parentPidFile, childPidFile);
+    const parentScript = join(directory, 'parent-flood.cjs');
+    await writeFile(parentScript, parentCommand(true), 'utf8');
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort();
+    }, 12_000);
+    try {
+      const result = await runProcess({
+        executable: node,
+        arguments: [parentScript, parentPidFile, childPidFile],
+        input: '',
+        workingDirectory: directory,
+        signal: controller.signal,
+        maxOutputBytes: 100_000,
+      });
+      expect(result.outputLimitExceeded).toBe(true);
+      expect(result.aborted).toBe(false);
+      const childPid = await readPid(childPidFile);
+      expect(childPid).not.toBeNull();
+      if (childPid !== null) {
+        await waitUntilStopped(childPid);
+        expect(isProcessRunning(childPid)).toBe(false);
+      }
+    } finally {
+      clearTimeout(timer);
+      controller.abort();
+      await releaseTrackedProcesses();
+    }
+  }, 15_000);
 });
 
 describe('assertSafeArguments', () => {
@@ -212,7 +435,9 @@ describe('resolveExecutable', () => {
 
       expect(await resolveExecutable('tool', environment('win32', bin, nodeDirectory))).toEqual({
         command: join(nodeDirectory, 'node.exe'),
-        prefixArguments: [join(bin, 'node_modules', '@scope', 'tool', 'bin', 'tool.js')],
+        prefixArguments: [
+          await realpath(join(bin, 'node_modules', '@scope', 'tool', 'bin', 'tool.js')),
+        ],
       });
     },
   );
@@ -227,6 +452,69 @@ describe('resolveExecutable', () => {
         '"%_prog%"  "%dp0%\\node_modules\\..\\outside.js" %*\r\n',
       );
       expect(await resolveExecutable('tool', environment('win32', directory))).toBeNull();
+    },
+  );
+
+  it.runIf(process.platform === 'win32')(
+    'resolves a script in node_modules/<package>',
+    async () => {
+      const script = join(directory, 'node_modules', 'tool', 'bin', 'tool.js');
+      await mkdir(join(directory, 'node_modules', 'tool', 'bin'), { recursive: true });
+      await writeFile(script, '');
+      await writeFile(join(directory, 'node.exe'), '');
+      await writeFile(
+        join(directory, 'tool.cmd'),
+        '"%_prog%"  "%dp0%\\node_modules\\tool\\bin\\tool.js" %*\r\n',
+      );
+
+      expect(await resolveExecutable('tool', environment('win32', directory))).toEqual({
+        command: join(directory, 'node.exe'),
+        prefixArguments: [await realpath(script)],
+      });
+    },
+  );
+
+  it.runIf(process.platform === 'win32')(
+    'rejects a script that only shares the node_modules prefix',
+    async () => {
+      const escaped = join(directory, 'node_modules_evil');
+      await mkdir(escaped, { recursive: true });
+      await writeFile(join(escaped, 'evil.js'), '');
+      await writeFile(join(directory, 'node.exe'), '');
+      await writeFile(
+        join(directory, 'tool.cmd'),
+        '"%_prog%"  "%dp0%\\node_modules\\..\\node_modules_evil\\evil.js" %*\r\n',
+      );
+
+      expect(await resolveExecutable('tool', environment('win32', directory))).toBeNull();
+    },
+  );
+
+  it.runIf(process.platform === 'win32')(
+    'rejects a node_modules junction that points outside it',
+    async () => {
+      const nodeModules = join(directory, 'node_modules');
+      const outside = join(directory, 'outside-target');
+      const junction = join(nodeModules, 'pkg');
+      await mkdir(nodeModules, { recursive: true });
+      await mkdir(outside, { recursive: true });
+      await writeFile(join(outside, 'evil.js'), '');
+      await writeFile(join(directory, 'node.exe'), '');
+      try {
+        await symlink(outside, junction, 'junction');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'unknown error';
+        throw new Error(`Junction creation was denied: ${message}`, { cause: error });
+      }
+      try {
+        await writeFile(
+          join(directory, 'tool.cmd'),
+          '"%_prog%"  "%dp0%\\node_modules\\pkg\\evil.js" %*\r\n',
+        );
+        expect(await resolveExecutable('tool', environment('win32', directory))).toBeNull();
+      } finally {
+        await rm(junction, { force: true });
+      }
     },
   );
 
