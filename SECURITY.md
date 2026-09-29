@@ -91,5 +91,5 @@ Koma Motion does not store API keys. Agent CLIs use their own authentication.
 - The agent CLIs are separate programs with their own security properties.
   Koma Motion restricts how it starts them but cannot make guarantees about
   their behaviour.
-- The redaction of diagnostics is pattern-based and cannot recognise every
-  possible secret.
+- The redaction of diagnostics is pattern-based and cannot guarantee removal
+  of every secret, prompt or environment value from arbitrary stderr.

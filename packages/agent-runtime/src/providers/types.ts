@@ -27,7 +27,11 @@ export const providerDetectionResultSchema = z.object({
 });
 export type ProviderDetectionResult = z.infer<typeof providerDetectionResultSchema>;
 
-/** Technical facts about one attempt. Never contains prompts, output or environment values. */
+/**
+ * Technical facts about one attempt. Pattern redaction of error output cannot
+ * guarantee removal of every secret, prompt or environment value from
+ * arbitrary stderr.
+ */
 export const attemptDiagnosticsSchema = z.object({
   attempt: z.number().int(),
   kind: z.enum(['generation', 'repair']),

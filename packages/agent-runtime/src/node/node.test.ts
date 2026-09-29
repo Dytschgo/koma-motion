@@ -13,7 +13,7 @@ import {
 } from './ClaudeCodeProvider';
 import { detectCli, type CliEnvironment } from './cliEnvironment';
 import { buildCodexArguments, CodexCliProvider } from './CodexCliProvider';
-import { redactDiagnostics } from './redact';
+import { MAX_DIAGNOSTIC_LENGTH, redactDiagnostics } from './redact';
 import { resolveExecutable, type ResolutionEnvironment } from './resolveExecutable';
 import {
   assertSafeArguments,
@@ -448,5 +448,104 @@ describe('redactDiagnostics', () => {
     expect(redactDiagnostics('\u001b[31mred\u001b[0m\u0007 text')).toBe('red text');
     const long = redactDiagnostics('x'.repeat(5000), 100);
     expect(long).toBe(`${'x'.repeat(100)}\n[truncated]`);
+  });
+
+  it.each([
+    ['a single-quoted password', "password='hunter22'", "password='[redacted]'"],
+    ['a double-quoted password', 'password="hunter22"', 'password="[redacted]"'],
+    ['a short password', 'password=abc', 'password=[redacted]'],
+    ['a spaced quoted password', "password = 'hunter 22'", "password = '[redacted]'"],
+    ['an api key', 'api_key=abcd', 'api_key=[redacted]'],
+    ['a hyphenated api key', 'api-key=abcd', 'api-key=[redacted]'],
+    ['a database password', 'db_password=abcd', 'db_password=[redacted]'],
+    ['an id token', 'id_token=abcd', 'id_token=[redacted]'],
+    ['a secret key', 'secret_key=hunter22', 'secret_key=[redacted]'],
+    ['credentials', 'credentials=hunter22', 'credentials=[redacted]'],
+  ])('redacts %s', (_label, text, expected) => {
+    expect(redactDiagnostics(text)).toBe(expected);
+  });
+
+  it('redacts a synthetic temporary AWS access key and still redacts AKIA', () => {
+    // ASIA / AKIA plus 16 uppercase alphanumerics. Synthetic, not a live key.
+    const temporary = 'ASIA0000SYNTHETIC1AB';
+    const longLived = 'AKIA0000SYNTHETIC1AB';
+    expect(temporary).toHaveLength(20);
+    expect(longLived).toHaveLength(20);
+
+    const redacted = redactDiagnostics(`key ${temporary} and ${longLived} used`);
+    expect(redacted).not.toContain('SYNTHETIC');
+    expect(redacted).not.toContain(temporary);
+    expect(redacted).not.toContain(longLived);
+    expect(redacted).toContain('key');
+    expect(redacted).toContain('used');
+    expect(redacted).toContain('[redacted]');
+  });
+
+  it('leaves ordinary words that merely look like authorisation', () => {
+    expect(redactDiagnostics('Basic understanding of motion')).toBe(
+      'Basic understanding of motion',
+    );
+    expect(redactDiagnostics('Bearer comprehension of motion')).toBe(
+      'Bearer comprehension of motion',
+    );
+    expect(redactDiagnostics('tokenCount: 1024')).toBe('tokenCount: 1024');
+    expect(redactDiagnostics('token_count: 1024')).toBe('token_count: 1024');
+    expect(redactDiagnostics('tokenizer: 1234')).toBe('tokenizer: 1234');
+  });
+
+  it('redacts authorisation values that are actually credentials', () => {
+    const bearer = redactDiagnostics('authorization=Bearer REDACTME.0123456789');
+    expect(bearer).not.toContain('REDACTME');
+    expect(bearer).toContain('[redacted]');
+
+    const basic = redactDiagnostics('prefix Basic QWxhZGRpbjpvcGVuIHNlc2FtZQ== suffix');
+    expect(basic).not.toContain('QWxhZGRpbjpvcGVuIHNlc2FtZQ');
+    expect(basic).toContain('prefix');
+    expect(basic).toContain('suffix');
+  });
+
+  it('redacts a secret at the start of a string that is then truncated', () => {
+    const text = `sk-ant-REDACTME0123456789abcdef ordinary words ${'y'.repeat(400)}`;
+    const redacted = redactDiagnostics(text, 48);
+    expect(redacted).not.toContain('REDACTME');
+    expect(redacted).toContain('ordinary words');
+    expect(redacted.endsWith('\n[truncated]')).toBe(true);
+    expect(redacted).toHaveLength(48 + '\n[truncated]'.length);
+  });
+
+  it('redacts a secret broken apart by an ANSI sequence or a control character', () => {
+    const coloured = redactDiagnostics('before password=\u001b[31mhunter22\u001b[0m after');
+    expect(coloured).toBe('before password=[redacted] after');
+    expect(coloured).not.toContain('hunter22');
+    expect(coloured).not.toContain('\u001b');
+
+    const splitKey = redactDiagnostics('before sk-ant-RED\u0000ACTME0123456789abcdef after');
+    expect(splitKey).not.toContain('REDACTME');
+    expect(splitKey).not.toContain('\u0000');
+    expect(splitKey).toContain('before');
+    expect(splitKey).toContain('after');
+
+    const escaped = redactDiagnostics('before sk-ant-RED\u001bACTME0123456789abcdef after');
+    expect(escaped).not.toContain('REDACTME');
+    expect(escaped).not.toContain('\u001b');
+    expect(escaped).toContain('before');
+    expect(escaped).toContain('after');
+  });
+
+  it('redacts a credential value cut off at the end of the input', () => {
+    const quoted = redactDiagnostics("context password='hunter");
+    expect(quoted).toBe("context password='[redacted]");
+    expect(quoted).not.toContain('hunter');
+    expect(quoted).toContain('context');
+
+    const bare = redactDiagnostics('context password=hun');
+    expect(bare).toBe('context password=[redacted]');
+    expect(bare).not.toContain('hun');
+    expect(bare).toContain('context');
+  });
+
+  it('still appends the truncation suffix at the default limit', () => {
+    const redacted = redactDiagnostics('z'.repeat(MAX_DIAGNOSTIC_LENGTH + 25));
+    expect(redacted).toBe(`${'z'.repeat(MAX_DIAGNOSTIC_LENGTH)}\n[truncated]`);
   });
 });
