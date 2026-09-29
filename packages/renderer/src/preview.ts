@@ -18,6 +18,8 @@ export function getPreviewFrame(input: {
   readonly transition: PlayableTransition;
   readonly progress: number;
   readonly reducedMotion: boolean;
+  /** When set, the stored transition is not interpolated. */
+  readonly blocked?: boolean;
 }): Frame {
   if (input.reducedMotion) {
     return komaToFrame(input.progress < 0.5 ? input.from : input.to);

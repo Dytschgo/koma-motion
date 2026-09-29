@@ -310,4 +310,105 @@ describe('validateTransition', () => {
   it('reports a transition that no longer matches its Komas', () => {
     expect(codes({ ...valid, elementTransitions: [] })).toEqual(['staleTransition']);
   });
+
+  it('reports duplicate move operations', () => {
+    const move = valid.elementTransitions[0];
+    if (move === undefined) {
+      throw new Error('Expected a move');
+    }
+    expect(codes({ ...valid, elementTransitions: [move, { ...move }] })).toEqual([
+      'duplicateOperation',
+    ]);
+  });
+
+  it('reports operations that write the same property', () => {
+    expect(
+      codes({
+        ...valid,
+        elementTransitions: [
+          {
+            persistentId: 'motion-engine',
+            operation: 'fadeIn',
+            from: { elementId: 'engine-1', opacity: 0 },
+            to: { elementId: 'engine-2', opacity: 1 },
+          },
+          {
+            persistentId: 'motion-engine',
+            operation: 'fadeOut',
+            from: { elementId: 'engine-1', opacity: 1 },
+            to: { elementId: 'engine-2', opacity: 0 },
+          },
+        ],
+      }),
+    ).toEqual(['conflictingOperations']);
+  });
+
+  it('reports hold combined with another operation', () => {
+    const move = valid.elementTransitions[0];
+    if (move === undefined) {
+      throw new Error('Expected a move');
+    }
+    expect(
+      codes({
+        ...valid,
+        elementTransitions: [
+          {
+            persistentId: 'motion-engine',
+            operation: 'hold',
+            from: { elementId: 'engine-1' },
+            to: { elementId: 'engine-2' },
+          },
+          move,
+        ],
+      }),
+    ).toEqual(['conflictingOperations']);
+  });
+
+  it('does not disable a valid transition because of an unknown operation', () => {
+    expect(
+      codes({
+        ...valid,
+        elementTransitions: [
+          ...valid.elementTransitions,
+          {
+            persistentId: 'motion-engine',
+            operation: 'morph',
+            from: { elementId: 'engine-1' },
+            to: { elementId: 'engine-2' },
+          },
+        ],
+      }),
+    ).toEqual(['unsupportedOperation']);
+  });
+
+  it('accepts a replace cross-fade that also moves', () => {
+    const shape = buildShape({ id: 'engine-1', persistentId: 'motion-engine' });
+    const from = buildKoma({ id: 'koma-1', title: 'System', elements: [shape] });
+    const moved = buildKoma({
+      id: 'koma-2',
+      title: 'Focus',
+      elements: [
+        {
+          ...shape,
+          id: 'engine-2',
+          position: { x: 900, y: 100 },
+          content: { shape: 'rectangle', cornerRadius: 0 },
+        },
+      ],
+    });
+    const result = buildTransition({ id: 'transition-replace', from, to: moved });
+    if (!result.ok) {
+      throw new Error('Expected a transition');
+    }
+    expect(result.value.transition.elementTransitions.map((item) => item.operation)).toEqual([
+      'replace',
+      'move',
+    ]);
+    expect(
+      validateTransition(
+        result.value.transition,
+        buildPresentation({ komas: [from, moved], transitions: [result.value.transition] }),
+      ),
+    ).toEqual([]);
+  });
 });

@@ -1,5 +1,9 @@
 import { getCanvasSize, type KomaProject } from '@koma-motion/core';
-import { findUnsupportedOperations, komaToFrame } from '@koma-motion/motion-engine';
+import {
+  findUnsupportedOperations,
+  komaToFrame,
+  validateTransition,
+} from '@koma-motion/motion-engine';
 import {
   createAssetResolver,
   getFitScale,
@@ -83,6 +87,17 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const scale = fitScale * (zoom ?? 1);
   const resolveAsset = useMemo(() => createAssetResolver(project.assets), [project.assets]);
 
+  const motionIssues = useMemo(() => {
+    if (transition === null) {
+      return [];
+    }
+    const blocking = validateTransition(transition, presentation).filter(
+      (issue) => issue.code !== 'unsupportedOperation',
+    );
+    return [...blocking, ...findUnsupportedOperations(transition)];
+  }, [presentation, transition]);
+  const transitionBlocked = motionIssues.some((issue) => issue.code !== 'unsupportedOperation');
+
   const previewing = preview !== null && context !== null && playback.status !== 'idle';
   const frame = useMemo(() => {
     if (previewing) {
@@ -92,15 +107,11 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
         transition: context.transition,
         progress: playback.progress,
         reducedMotion,
+        blocked: transitionBlocked,
       });
     }
     return koma === null ? null : komaToFrame(koma);
-  }, [previewing, context, playback.progress, reducedMotion, koma]);
-
-  const unsupported = useMemo(
-    () => (transition === null ? [] : findUnsupportedOperations(transition)),
-    [transition],
-  );
+  }, [previewing, context, playback.progress, reducedMotion, koma, transitionBlocked]);
 
   const komaIndex = presentation.komas.findIndex((candidate) => candidate.id === koma?.id);
   const previousKoma = presentation.komas[komaIndex - 1];
@@ -130,7 +141,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
 
   return (
     <section aria-label="Canvas" className="flex min-h-0 min-w-0 flex-1 flex-col bg-desk-950">
-      {unsupported.length > 0 && (
+      {motionIssues.length > 0 && (
         <div
           role="alert"
           className="flex items-start gap-2 border-b border-signal-warn/40 bg-desk-800 px-4 py-2 text-signal-warn"
@@ -143,7 +154,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
               Warning: this transition contains operations that cannot be played.
             </p>
             <ul>
-              {unsupported.map((issue, index) => (
+              {motionIssues.map((issue, index) => (
                 <li key={index}>{issue.message}</li>
               ))}
             </ul>

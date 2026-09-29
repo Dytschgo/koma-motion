@@ -9,6 +9,7 @@ import {
   type KomaProject,
   type Result,
 } from '@koma-motion/core';
+import { validateTransition } from '@koma-motion/motion-engine';
 import { projectFormatError, type ProjectFormatError } from './errors';
 import { migrateToVersion, type RawProject } from './migrations';
 import { findDroppedFields } from './unknownFields';
@@ -100,6 +101,11 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
   }
   for (const warning of collectProjectWarnings(validated.data)) {
     warnings.push(warning.message);
+  }
+  for (const transition of validated.data.presentation.transitions) {
+    for (const issue of validateTransition(transition, validated.data.presentation)) {
+      warnings.push(issue.message);
+    }
   }
 
   return ok({
