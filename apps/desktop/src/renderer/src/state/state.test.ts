@@ -1,16 +1,20 @@
+import { editBrandKitField, pruneBrandKitRawDraft } from '@koma-motion/brand-kit';
 import { createSeededIdGenerator, komaProjectSchema, type KomaProject } from '@koma-motion/core';
 import { buildKoma, buildProject, buildShape, buildText } from '@koma-motion/core/testing';
 import { validateTransition } from '@koma-motion/motion-engine';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import {
   addKoma,
   applyGeneration,
+  changeBrandKit,
   changeElement,
   changeTransition,
   deleteKoma,
   reorderKoma,
   type ProjectCommand,
 } from './commands';
+import { selectProject, useProjectStore } from './projectStore';
+import { selectBrandKitRawDraft, useUiStore } from './uiStore';
 import {
   canRedo,
   canUndo,
@@ -21,6 +25,64 @@ import {
   redo,
   undo,
 } from './history';
+
+describe('brand kit draft', () => {
+  afterEach(() => {
+    useUiStore.getState().reset();
+    useProjectStore.setState({
+      history: null,
+      file: null,
+      savedProject: null,
+      loadWarnings: [],
+    });
+  });
+
+  it('is kept for its project only and dropped when the project is replaced', () => {
+    useUiStore.getState().setBrandKitDraft('project-1', {
+      name: 'Acme ',
+      colours: { primary: 'nope' },
+    });
+    expect(selectBrandKitRawDraft(useUiStore.getState(), 'project-1')).toEqual({
+      name: 'Acme ',
+      colours: { primary: 'nope' },
+    });
+    expect(selectBrandKitRawDraft(useUiStore.getState(), 'project-2')).toEqual({});
+
+    useUiStore.getState().reset();
+    expect(useUiStore.getState().brandKitDraft).toBeNull();
+    expect(selectBrandKitRawDraft(useUiStore.getState(), 'project-1')).toEqual({});
+  });
+
+  it('keeps invalid text when a valid field is undone and the control is not focused', () => {
+    const project = buildProject();
+    useProjectStore.getState().load(project, null);
+    const edited = editBrandKitField(
+      project.brandKit,
+      { colours: { primary: 'nope' } },
+      'name',
+      'Acme Corp',
+    );
+    useUiStore.getState().setBrandKitDraft(project.id, edited.raw);
+    useProjectStore.getState().apply(changeBrandKit(edited.brandKit), {
+      coalesceKey: 'brand-kit:name',
+    });
+
+    useProjectStore.getState().undo();
+    const current = selectProject(useProjectStore.getState());
+    expect(current?.brandKit.name).toBe(project.brandKit.name);
+    expect(selectBrandKitRawDraft(useUiStore.getState(), project.id).colours?.primary).toBe('nope');
+
+    const stored = current?.brandKit ?? project.brandKit;
+    const raw = selectBrandKitRawDraft(useUiStore.getState(), project.id);
+    expect(pruneBrandKitRawDraft(stored, raw, null).colours?.primary).toBe('nope');
+    expect(pruneBrandKitRawDraft(stored, raw, null).name).toBeUndefined();
+    expect(pruneBrandKitRawDraft(stored, raw, 'name').name).toBe('Acme Corp');
+
+    useProjectStore.getState().redo();
+    expect(selectProject(useProjectStore.getState())?.brandKit.name).toBe('Acme Corp');
+    expect(selectBrandKitRawDraft(useUiStore.getState(), 'project-2')).toEqual({});
+  });
+});
 
 describe('history', () => {
   it('undoes and redoes changes', () => {

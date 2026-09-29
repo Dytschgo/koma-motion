@@ -49,7 +49,8 @@ export const renameProject =
 
 export const changeBrandKit =
   (brandKit: BrandKit): ProjectCommand =>
-  (project) => ({ ...project, brandKit });
+  (project) =>
+    project.brandKit === brandKit ? project : { ...project, brandKit };
 
 export const changeLogo =
   (asset: AssetReference | null): ProjectCommand =>
