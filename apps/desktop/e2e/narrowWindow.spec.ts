@@ -5,9 +5,9 @@ test('keeps the position control usable in a narrow window with reduced motion',
   const running = await launchApplication();
   const { window, application } = running;
   try {
-    // The smallest size the window allows, as on a small screen.
+    // Narrower than the minimum width: what a small screen gives the window.
     await application.evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]?.setSize(1120, 700);
+      BrowserWindow.getAllWindows()[0]?.setSize(1024, 700);
     });
     await window.emulateMedia({ reducedMotion: 'reduce' });
     await window.getByRole('button', { name: 'Create a project' }).click();
@@ -15,6 +15,8 @@ test('keeps the position control usable in a narrow window with reduced motion',
     await window.getByRole('button', { name: 'Generate Komas' }).click();
     await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
 
+    // Both must be visible: neither may push the other out of the window.
+    await expect(window.getByText(/Reduced motion is on/)).toBeVisible();
     const slider = window.getByLabel('Position in the transition');
     await expect(slider).toBeVisible();
     const box = await slider.boundingBox();

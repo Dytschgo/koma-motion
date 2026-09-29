@@ -221,6 +221,18 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           )
         )}
 
+        {reducedMotion && transportContext !== null && (
+          // On the canvas, not in the transport bar: there it competed with
+          // the position control for space and one of them disappeared.
+          <p
+            role="note"
+            className="absolute bottom-3 left-3 max-w-[60%] rounded-lg border border-desk-600 bg-desk-800 px-3 py-1.5 text-sm text-ink-300"
+          >
+            Reduced motion is on: previews cut instead of moving (
+            {formatSeconds(REDUCED_MOTION_DURATION_MS)}).
+          </p>
+        )}
+
         <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-desk-600 bg-desk-800 p-0.5">
           <Button
             aria-label="Zoom out"
@@ -335,16 +347,6 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
               />
               <span aria-hidden="true">s</span>
             </label>
-            {reducedMotion && (
-              // The note gives way to the position control in a narrow window.
-              <p
-                className="ml-3 min-w-0 shrink truncate text-sm text-ink-400"
-                title={`Reduced motion is on: previews cut instead of moving (${formatSeconds(REDUCED_MOTION_DURATION_MS)}).`}
-              >
-                Reduced motion is on: previews cut instead of moving (
-                {formatSeconds(REDUCED_MOTION_DURATION_MS)}).
-              </p>
-            )}
           </>
         )}
       </div>
