@@ -1,7 +1,7 @@
 import { constants } from 'node:fs';
-import { access, readFile, stat } from 'node:fs/promises';
+import { access, readFile, realpath, stat } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { delimiter, isAbsolute, join, resolve } from 'node:path';
+import { delimiter, isAbsolute, join, relative, resolve } from 'node:path';
 
 /**
  * A program that can be started without a shell: an executable file and the
@@ -27,6 +27,8 @@ const EXECUTABLE_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 /**
  * Applications started from the macOS Dock or Finder do not inherit the PATH
  * of the login shell, so the usual installation folders are searched as well.
+ * Discovery searches PATH and those extra directories. Containing an npm shim
+ * script does not stop a hostile PATH entry from selecting a different install.
  */
 function getSearchDirectories({ platform, env, homeDirectory }: ResolutionEnvironment): string[] {
   const fromPath = (env['PATH'] ?? env['Path'] ?? '')
@@ -63,6 +65,22 @@ async function isExecutableFile(path: string): Promise<boolean> {
 }
 
 /**
+ * True when `candidate` is strictly inside `root`. Comparison is
+ * case-insensitive on Windows. A shared prefix such as `node_modules_evil`
+ * does not count, and `..` is rejected as a segment.
+ */
+function isInsideDirectory(root: string, candidate: string, platform: NodeJS.Platform): boolean {
+  const fromRoot = relative(
+    platform === 'win32' ? root.toLowerCase() : root,
+    platform === 'win32' ? candidate.toLowerCase() : candidate,
+  );
+  if (fromRoot === '' || isAbsolute(fromRoot) || fromRoot.startsWith('..')) {
+    return false;
+  }
+  return !fromRoot.split(/[/\\]/).includes('..');
+}
+
+/**
  * npm installs command line tools on Windows as `.cmd` files that start
  * Node.js with a script. `.cmd` files can only run through a shell, which
  * Koma Motion never uses. This reads the script path from the `.cmd` file so
@@ -84,18 +102,39 @@ async function resolveNpmShim(
     return null;
   }
   const scriptPath = resolve(directory, match[1]);
-  if (!scriptPath.startsWith(resolve(directory, 'node_modules')) || !(await isFile(scriptPath))) {
+  const nodeModulesPath = resolve(directory, 'node_modules');
+  // Checked on the path before realpath and again on the canonical path, so a
+  // string-prefix escape and a junction that leaves node_modules both fail.
+  if (
+    match[1].split(/[/\\]/).includes('..') ||
+    !isInsideDirectory(nodeModulesPath, scriptPath, environment.platform)
+  ) {
+    return null;
+  }
+
+  let canonicalRoot: string;
+  let canonicalScript: string;
+  try {
+    canonicalRoot = await realpath(nodeModulesPath);
+    canonicalScript = await realpath(scriptPath);
+  } catch {
+    return null;
+  }
+  if (
+    !isInsideDirectory(canonicalRoot, canonicalScript, environment.platform) ||
+    !(await isFile(canonicalScript))
+  ) {
     return null;
   }
 
   const bundledNode = join(directory, 'node.exe');
   if (await isFile(bundledNode)) {
-    return { command: bundledNode, prefixArguments: [scriptPath] };
+    return { command: bundledNode, prefixArguments: [canonicalScript] };
   }
   for (const candidate of getSearchDirectories(environment)) {
     const nodePath = join(candidate, 'node.exe');
     if (await isFile(nodePath)) {
-      return { command: nodePath, prefixArguments: [scriptPath] };
+      return { command: nodePath, prefixArguments: [canonicalScript] };
     }
   }
   return null;

@@ -80,8 +80,17 @@ Executables are resolved without a shell:
 - On Windows, `<name>.exe` is preferred. npm installs command line tools as
   `<name>.cmd` files, which can only run through a shell. For those, Koma
   Motion reads the path of the script from the `.cmd` file and starts
-  `node.exe` with that script. The script must be inside the `node_modules`
-  folder next to the `.cmd` file.
+  `node.exe` with that script. The script and the `node_modules` directory
+  next to the `.cmd` file are canonicalised with `realpath`. The script must
+  be strictly inside that directory: the relative path is non-empty, is not
+  absolute and does not start with `..` (a `..` segment is rejected). A
+  string prefix such as `node_modules_evil`, or a junction that resolves
+  outside the directory, is rejected. If either `realpath` fails, the shim
+  is rejected.
+
+Discovery searches `PATH` and the extra directories above. The containment
+check does not stop a hostile `PATH` entry from pointing at a different
+install. It does not solve path hijacking.
 
 A provider that is not available does not affect the rest of the application.
 A provider whose detection throws is reported as `error`.
@@ -110,9 +119,17 @@ undoable step. After a failure the presentation is exactly what it was.
 ### Cancellation
 
 `GenerationRunner.cancel(executionId)` aborts the signal of the execution.
-CLI providers then end the process and the processes it started
-(`taskkill /T /F` on Windows, a signal to the process group elsewhere). The
-runner does not wait for a provider that ignores the signal.
+CLI providers then end the process and the processes it started. On Windows
+that is `taskkill /T /F`. Elsewhere the process group is sent `SIGTERM`, and
+after a short delay the group is checked with signal `0` and sent `SIGKILL`
+if it still exists, even when the leader has already exited. That POSIX
+behaviour was not retested on macOS. The runner does not wait for a provider
+that ignores the signal.
+
+The promise that runs a CLI process always resolves. A failure to start,
+including a synchronous spawn failure such as a Windows command line that is
+too long, a non-zero exit, cancellation and an output limit are all reported
+on the result. The promise does not reject for those outcomes.
 
 ### Timeouts
 
