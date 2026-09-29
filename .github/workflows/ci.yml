@@ -65,3 +65,82 @@ jobs:
           path: apps/desktop/test-results
           if-no-files-found: ignore
           retention-days: 7
+
+  package:
+    name: Package (${{ matrix.platform }})
+    # Builds the installers the way a release does and tests them. Nothing is published.
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            platform: windows
+            builder: --win
+          - os: macos-latest
+            platform: macos
+            builder: --mac --universal
+    env:
+      # The installers are not signed with a certificate.
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build the application
+        run: pnpm build
+
+      - name: Package
+        working-directory: apps/desktop
+        run: pnpm exec electron-builder ${{ matrix.builder }} --publish never
+
+      - name: Test the packaged application
+        working-directory: apps/desktop
+        run: node scripts/verify-packaged.mjs ${{ matrix.platform }}
+
+      - name: Check the update manifest against the installers
+        working-directory: apps/desktop
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(node -p "require('./package.json').version")"
+          manifest="latest.yml"
+          if [ "${{ matrix.platform }}" = "macos" ]; then manifest="latest-mac.yml"; fi
+          node --input-type=module -e "
+            import { readFile } from 'node:fs/promises';
+            import { createHash } from 'node:crypto';
+            import { expectedInstallers, parseManifest } from './scripts/release-channel.mjs';
+            const parsed = parseManifest(await readFile('release/$manifest', 'utf8'), '$manifest');
+            const expected = expectedInstallers('$version', 'latest')['$manifest'];
+            if (parsed.version !== '$version') throw new Error('Wrong version in $manifest');
+            if (parsed.path !== expected[0]) throw new Error('Wrong update file in $manifest');
+            for (const entry of parsed.entries) {
+              if (!expected.includes(entry.url)) throw new Error('Unexpected file ' + entry.url);
+              const hash = createHash('sha512').update(await readFile('release/' + entry.url)).digest('base64');
+              if (hash !== entry.sha512) throw new Error('Wrong checksum for ' + entry.url);
+            }
+            console.log('$manifest describes ' + parsed.entries.map((entry) => entry.url).join(', '));
+          "
+
+      - name: Keep the results of failed tests
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: packaged-test-results-${{ matrix.platform }}
+          path: apps/desktop/test-results
+          if-no-files-found: ignore
+          retention-days: 7
