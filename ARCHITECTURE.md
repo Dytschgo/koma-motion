@@ -69,19 +69,24 @@ The proposed layout was kept. Three decisions need an explanation:
 renderer  agent-   project-   exporters   brand-kit
    |      runtime   format       |           |
    |       |  |       |          |           |
-   |       |  +-------|----------|-----------+
+   |       |  +-------+----------+-----------+
    |       |          |          |
-   +---> motion-engine|          |
-              |       |          |
-              +-------+----------+
-                      |
-                    core
+   +------> motion-engine <------+
+              |
+            core
 ```
+
+`renderer`, `agent-runtime` and `project-format` depend on `motion-engine`.
+`project-format` uses it to report stored motion that cannot be played.
+`motion-engine` does not import `project-format`, so that edge does not
+cycle. `agent-runtime` also depends on `brand-kit`. Every package above
+`core` may depend on `core`.
 
 Rules:
 
 - `core` depends on the schema library and on nothing else. It does not
-  import Electron, React, Node.js modules, providers or exporters.
+  import Electron, React, Node.js modules, providers, exporters or the
+  motion engine.
 - Packages never import from `apps/desktop`.
 - There are no circular dependencies between packages.
 - `renderer` consumes the model and the motion engine. It is not a source of
@@ -140,8 +145,8 @@ The motion engine has four tasks:
 | `computeFrame`       | compute what is visible at a given progress                   |
 
 It is deterministic and has no dependency on a clock, on randomness or on
-the renderer. Detecting changes and playing them are separate: `computeFrame`
-reads the stored transition and never compares Komas.
+the renderer. A stored transition that fails semantic checks is reported and
+not played. Otherwise `computeFrame` follows the stored transition.
 
 ## Renderer
 

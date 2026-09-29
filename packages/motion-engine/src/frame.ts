@@ -11,7 +11,7 @@ import {
 } from '@koma-motion/core';
 import { applyEasing, clamp01, getOperationProgress, lerp, type MotionRole } from './easing';
 import { motionIssue, type MotionIssue } from './issues';
-import { isSupportedOperation } from './validate';
+import { isSupportedOperation, transitionBlocksPlayback } from './validate';
 
 /**
  * The parts of a transition that playback needs. `operation` is a plain
@@ -199,19 +199,41 @@ export function findUnsupportedOperations(transition: PlayableTransition): Motio
     );
 }
 
+interface OrderedLayer {
+  readonly layer: FrameLayer;
+  readonly zIndex: number;
+  /** 0 when the object exists in the source, 1 when it only enters. */
+  readonly band: number;
+  readonly order: number;
+  /** 0 for every layer except the incoming half of a replace, which is 1. */
+  readonly stack: number;
+}
+
+function withZIndex(element: KomaElement, zIndex: number): KomaElement {
+  return element.zIndex === zIndex ? element : { ...element, zIndex };
+}
+
 /**
  * Computes what is visible at `progress` (0..1) of a transition.
  *
- * The frame is derived from the stored transition model only. This function
- * does not compare the Komas: detecting changes is the job of `diffKomas`.
  * At progress 0 the frame is exactly the source Koma, at progress 1 exactly
- * the target Koma.
+ * the target Koma. A transition that fails semantic checks is not
+ * interpolated: progress below 1 stays on the source Koma. `blocked` forces
+ * that path when the caller already knows the transition cannot be played,
+ * for example because the endpoints are not adjacent.
+ *
+ * Between the endpoints, `zIndex` is discrete. An object that exists in the
+ * source keeps the source `zIndex` and, among equal `zIndex` values, the
+ * source array order. An entering object uses the target `zIndex` and paints
+ * after source objects that share it. A replace cross-fade keeps both layers
+ * on the source `zIndex`, outgoing immediately before incoming.
  */
 export function computeFrame(input: {
   readonly from: Koma;
   readonly to: Koma;
   readonly transition: PlayableTransition;
   readonly progress: number;
+  readonly blocked?: boolean;
 }): Frame {
   const { from, to, transition } = input;
   const progress = clamp01(input.progress);
@@ -220,6 +242,9 @@ export function computeFrame(input: {
   }
   if (progress >= 1) {
     return komaToFrame(to);
+  }
+  if (input.blocked === true || transitionBlocksPlayback(from, to, transition)) {
+    return komaToFrame(from);
   }
 
   const operationsById = new Map<string, PlayableElementTransition[]>();
@@ -235,37 +260,54 @@ export function computeFrame(input: {
   const progressOf = (role: MotionRole): number =>
     getOperationProgress(progress, transition.strategy, transition.easing, role);
 
-  const targets = new Map(
-    to.elements
-      .filter((element) => element.visible)
-      .map((element) => [element.persistentId, element]),
-  );
-  const sources = new Map(
-    from.elements
-      .filter((element) => element.visible)
-      .map((element) => [element.persistentId, element]),
-  );
+  const sourceElements = from.elements.filter((element) => element.visible);
+  const targetElements = to.elements.filter((element) => element.visible);
+  const targets = new Map(targetElements.map((element) => [element.persistentId, element]));
+  const sources = new Map(sourceElements.map((element) => [element.persistentId, element]));
+  const sourceOrder = new Map(from.elements.map((element, index) => [element.persistentId, index]));
+  const targetOrder = new Map(to.elements.map((element, index) => [element.persistentId, index]));
 
-  const layers: FrameLayer[] = [];
+  const ordered: OrderedLayer[] = [];
+  const push = (
+    layer: FrameLayer,
+    zIndex: number,
+    band: number,
+    order: number,
+    stack: number,
+  ): void => {
+    ordered.push({
+      layer: { ...layer, element: withZIndex(layer.element, zIndex) },
+      zIndex,
+      band,
+      order,
+      stack,
+    });
+  };
 
-  for (const source of sources.values()) {
+  for (const source of sourceElements) {
     if (targets.has(source.persistentId)) {
       continue;
     }
     const exits = (operationsById.get(source.persistentId) ?? []).some(
       (operation) => operation.operation === 'fadeOut' && operation.to === null,
     );
-    layers.push({
-      key: `${source.persistentId}/exiting`,
-      persistentId: source.persistentId,
-      role: 'exiting',
-      element: exits
-        ? { ...source, opacity: clamp01(source.opacity * (1 - progressOf('exiting'))) }
-        : source,
-    });
+    push(
+      {
+        key: `${source.persistentId}/exiting`,
+        persistentId: source.persistentId,
+        role: 'exiting',
+        element: exits
+          ? { ...source, opacity: clamp01(source.opacity * (1 - progressOf('exiting'))) }
+          : source,
+      },
+      source.zIndex,
+      0,
+      sourceOrder.get(source.persistentId) ?? 0,
+      0,
+    );
   }
 
-  for (const target of targets.values()) {
+  for (const target of targetElements) {
     const { persistentId } = target;
     const operations = operationsById.get(persistentId) ?? [];
     const source = sources.get(persistentId);
@@ -275,42 +317,73 @@ export function computeFrame(input: {
         (operation) => operation.operation === 'fadeIn' && operation.from === null,
       );
       if (enters) {
-        layers.push({
-          key: `${persistentId}/entering`,
-          persistentId,
-          role: 'entering',
-          element: { ...target, opacity: clamp01(target.opacity * progressOf('entering')) },
-        });
+        push(
+          {
+            key: `${persistentId}/entering`,
+            persistentId,
+            role: 'entering',
+            element: { ...target, opacity: clamp01(target.opacity * progressOf('entering')) },
+          },
+          target.zIndex,
+          1,
+          targetOrder.get(persistentId) ?? 0,
+          0,
+        );
       }
       continue;
     }
 
     const state = interpolateRetained(source, operations, progressOf('retained'));
+    const order = sourceOrder.get(persistentId) ?? 0;
     if (state.replaceProgress === null) {
-      layers.push({
-        key: `${persistentId}/retained`,
-        persistentId,
-        role: 'retained',
-        element: applyColours(withGeometry(target, state, state.opacity), state.colours),
-      });
+      push(
+        {
+          key: `${persistentId}/retained`,
+          persistentId,
+          role: 'retained',
+          element: applyColours(withGeometry(target, state, state.opacity), state.colours),
+        },
+        source.zIndex,
+        0,
+        order,
+        0,
+      );
     } else {
       const fade = state.replaceProgress;
-      layers.push(
+      push(
         {
           key: `${persistentId}/outgoing`,
           persistentId,
           role: 'outgoing',
           element: withGeometry(source, state, state.opacity * (1 - fade)),
         },
+        source.zIndex,
+        0,
+        order,
+        0,
+      );
+      push(
         {
           key: `${persistentId}/incoming`,
           persistentId,
           role: 'incoming',
           element: withGeometry(target, state, state.opacity * fade),
         },
+        source.zIndex,
+        0,
+        order,
+        1,
       );
     }
   }
+
+  ordered.sort(
+    (left, right) =>
+      left.zIndex - right.zIndex ||
+      left.band - right.band ||
+      left.order - right.order ||
+      left.stack - right.stack,
+  );
 
   return {
     background: {
@@ -321,6 +394,6 @@ export function computeFrame(input: {
         applyEasing(transition.easing, progress),
       ),
     },
-    layers,
+    layers: ordered.map((item) => item.layer),
   };
 }

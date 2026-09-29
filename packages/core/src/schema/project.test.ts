@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { collectProjectWarnings } from '../projectWarnings';
-import { buildKoma, buildProject, buildShape, buildText } from '../testing/fixtures';
+import {
+  buildKoma,
+  buildPresentation,
+  buildProject,
+  buildShape,
+  buildText,
+} from '../testing/fixtures';
 import { toValidationIssues } from '../validation';
 import { projectPathSchema } from './asset';
 import { komaSchema } from './koma';
+import { findTransitionStructureIssues } from './presentation';
 import { komaProjectSchema } from './project';
 
 describe('komaProjectSchema', () => {
@@ -166,5 +173,48 @@ describe('collectProjectWarnings', () => {
 
   it('reports nothing for a complete project', () => {
     expect(collectProjectWarnings(buildProject())).toEqual([]);
+  });
+});
+
+describe('findTransitionStructureIssues', () => {
+  it('reports a false element reference without rejecting the project', () => {
+    const source = buildShape({ id: 'shape-1', persistentId: 'marker' });
+    const target = { ...source, id: 'shape-2', position: { x: 400, y: 100 } };
+    const project = buildProject({
+      presentation: buildPresentation({
+        komas: [
+          buildKoma({ id: 'koma-1', title: 'Start', elements: [source] }),
+          buildKoma({ id: 'koma-2', title: 'End', elements: [target] }),
+        ],
+        transitions: [
+          {
+            id: 'transition-1',
+            fromKomaId: 'koma-1',
+            toKomaId: 'koma-2',
+            strategy: 'continuous',
+            duration: 900,
+            easing: 'linear',
+            rationale: '',
+            elementTransitions: [
+              {
+                persistentId: 'marker',
+                operation: 'move',
+                from: { elementId: 'shape-1', position: { x: 1, y: 2 } },
+                to: { elementId: 'missing-shape', position: { x: 9000, y: 9000 } },
+              },
+            ],
+          },
+        ],
+      }),
+    });
+
+    expect(komaProjectSchema.safeParse(project).success).toBe(true);
+    const transition = project.presentation.transitions[0];
+    if (transition === undefined) {
+      throw new Error('Expected a transition');
+    }
+    expect(
+      findTransitionStructureIssues(project.presentation, transition).map((issue) => issue.code),
+    ).toEqual(['wrongElementId']);
   });
 });
