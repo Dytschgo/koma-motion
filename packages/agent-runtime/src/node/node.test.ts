@@ -21,7 +21,7 @@ import {
   type CliEnvironment,
 } from './cliEnvironment';
 import { buildCodexArguments, CodexCliProvider } from './CodexCliProvider';
-import { MAX_DIAGNOSTIC_LENGTH, redactDiagnostics } from './redact';
+import { MAX_DIAGNOSTIC_LENGTH, MAX_SCANNED_LENGTH, redactDiagnostics } from './redact';
 import { resolveExecutable, type ResolutionEnvironment } from './resolveExecutable';
 import {
   assertSafeArguments,
@@ -1159,6 +1159,101 @@ describe('redactDiagnostics', () => {
     expect(bare).toBe('context password=[redacted]');
     expect(bare).not.toContain('hun');
     expect(bare).toContain('context');
+  });
+
+  it.each([
+    [
+      'a quoted header with a lower-case token',
+      '{"Authorization":"Bearer abcdefghijklmnop"}',
+      '{"Authorization":"Bearer [redacted]"}',
+    ],
+    [
+      'a quoted header with letters-only base64',
+      'headers={"Authorization":"Basic dXNlcjpwYXNz"}',
+      'headers={"Authorization":"Basic [redacted]"}',
+    ],
+    [
+      'an unquoted header with a lower-case token',
+      'Authorization: Bearer abcdefghijklmnop',
+      'Authorization: Bearer [redacted]',
+    ],
+    ['a header without a scheme', 'authorization=abcdefghijklmnop', 'authorization=[redacted]'],
+    [
+      'a proxy header',
+      'Proxy-Authorization: Basic dXNlcjpwYXNz',
+      'Proxy-Authorization: Basic [redacted]',
+    ],
+    [
+      'a header inside a JSON string',
+      String.raw`body: "{\"Authorization\":\"Bearer abcdefghijklmnop\"}"`,
+      String.raw`body: "{\"Authorization\":\"Bearer [redacted]\"}"`,
+    ],
+    ['standalone letters-only base64', 'sent Basic dXNlcjpwYXNz', 'sent Basic [redacted]'],
+    ['a standalone token in mixed case', 'sent Bearer AbCdEfGhIjKlMnOp', 'sent Bearer [redacted]'],
+    [
+      'a standalone long token in lower case',
+      'sent Bearer abcdefghijklmnopqrstuvwxyz',
+      'sent Bearer [redacted]',
+    ],
+  ])('redacts %s', (_label, text, expected) => {
+    expect(redactDiagnostics(text)).toBe(expected);
+  });
+
+  it('redacts a whole password that contains an escaped quote', () => {
+    const redacted = redactDiagnostics(JSON.stringify({ password: 'alpha"remaining-secret' }));
+    expect(redacted).toBe('{"password":"[redacted]"}');
+    expect(redacted).not.toContain('remaining-secret');
+  });
+
+  it.each([
+    ['an escaped quote', String.raw`password="alpha\"remaining-secret`],
+    ['a trailing backslash', 'password="alpha-secret\\'],
+    ['a nested JSON string', String.raw`{\"password\":\"alpha-secret`],
+  ])('redacts a quoted password that is cut off after %s', (_label, text) => {
+    const redacted = redactDiagnostics(text);
+    expect(redacted).not.toContain('alpha');
+    expect(redacted).not.toContain('secret');
+    expect(redacted).toContain('[redacted]');
+  });
+
+  it('keeps the text after a redacted quoted value', () => {
+    expect(redactDiagnostics('{"password":"a\\"b","status":"failed"}')).toBe(
+      '{"password":"[redacted]","status":"failed"}',
+    );
+  });
+
+  it('does not examine more than the scanned length', () => {
+    const secret = 'password=hunter22';
+    const beyond = `${'word '.repeat(MAX_SCANNED_LENGTH / 5)}${secret}`;
+    const redacted = redactDiagnostics(beyond, 10_000_000);
+    expect(redacted.length).toBeLessThanOrEqual(MAX_SCANNED_LENGTH);
+    expect(redacted).not.toContain('hunter22');
+  });
+
+  it('drops a credential that the scanned length cuts in the middle', () => {
+    // The key starts before the limit and ends after it.
+    const key = 'sk-ant-REDACTME0123456789abcdef';
+    const padding = 'w'.repeat(MAX_SCANNED_LENGTH - 12);
+    const redacted = redactDiagnostics(`start ${padding} ${key} end`, 10_000_000);
+    expect(redacted).not.toContain('sk-ant');
+    expect(redacted).not.toContain('REDACTME');
+    expect(redacted.startsWith('start')).toBe(true);
+  });
+
+  it('takes time in proportion to the input, not to its square', () => {
+    const measure = (text: string): number => {
+      const started = performance.now();
+      redactDiagnostics(text);
+      return performance.now() - started;
+    };
+    // Input that made every position of a dotted name a new starting point.
+    const adversarial = 'a.'.repeat(MAX_SCANNED_LENGTH / 2);
+    measure(adversarial);
+    expect(measure(adversarial)).toBeLessThan(500);
+    // Input beyond the scanned length costs nothing extra.
+    expect(measure('a.'.repeat(4 * 1024 * 1024))).toBeLessThan(500);
+    expect(measure(`${'password="'}${'\\"'.repeat(30_000)}`)).toBeLessThan(500);
+    expect(measure('Authorization: '.repeat(4000))).toBeLessThan(500);
   });
 
   it('still appends the truncation suffix at the default limit', () => {

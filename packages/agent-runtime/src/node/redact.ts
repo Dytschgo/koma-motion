@@ -19,27 +19,48 @@ const SECRET_PATTERNS: readonly RegExp[] = [
   /\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\b/g,
 ];
 
-/** `Authorization:` / `authorization=` followed by Basic or Bearer. */
-const AUTHORIZATION_PATTERN =
-  /\b(authorization)(\s*[:=]\s*)(bearer|basic)\b(\s*)("[^"]*(?:"|$)|'[^']*(?:'|$)|[^\s"',;]+)/gi;
+/**
+ * A value after a name: a quoted string, a quoted string inside another JSON
+ * string (`\"...\"`), or a bare word. Escaped characters belong to a quoted
+ * value, so an escaped quote does not end it. A value may be cut off at the
+ * end of the input. Every alternative starts with a different character and
+ * consumes its input once, so matching stays linear.
+ */
+const QUOTED_VALUE =
+  String.raw`\\"(?:[^"\\]|\\[^"])*(?:\\"|\\?$)` +
+  String.raw`|"(?:[^"\\]|\\.)*\\?(?:"|$)` +
+  String.raw`|'(?:[^'\\]|\\.)*\\?(?:'|$)`;
+const BARE_VALUE = String.raw`[^\s"',;\\]+`;
+
+/** Between a name and its value: an optional closing quote, `:` or `=`. */
+const SEPARATOR = String.raw`\\?["']?\s*[:=]\s*`;
+
+const SCHEMES = 'bearer|basic|token|digest|negotiate';
+const LEADING_SCHEME = new RegExp(String.raw`^(?:${SCHEMES})\s+`, 'i');
 
 /**
- * A standalone Bearer token is at least 12 characters and contains a digit or
- * a token symbol, so an English word does not match.
+ * `Authorization` as a header, an assignment or a JSON property. Everything
+ * after the name is a credential, whatever it looks like: valid credentials
+ * can consist of letters only.
  */
-const BEARER_PATTERN = /\b(bearer)(\s+)([A-Za-z0-9._~+/=-]{12,})/gi;
-const BEARER_MARKER = /[\d._+/=-]/;
+const AUTHORIZATION_PATTERN = new RegExp(
+  String.raw`(?<![A-Za-z0-9])((?:proxy-)?authorization)(${SEPARATOR})` +
+    String.raw`(${QUOTED_VALUE}|(?:(?:${SCHEMES})\s+)?${BARE_VALUE})`,
+  'gi',
+);
 
-/** A standalone Basic value is base64-shaped, not prose. */
-const BASIC_PATTERN = /\b(basic)(\s+)([A-Za-z0-9+/=]{12,})/gi;
-const BASIC_MARKER = /[\d+/=]/;
+/** A scheme followed by a value, without the word `Authorization` before it. */
+const STANDALONE_SCHEME_PATTERN = /\b(bearer|basic)(\s+)([A-Za-z0-9._~+/=-]{12,})/gi;
 
 /**
- * `NAME=value` and `"name": "value"`. The value may be quoted and may be cut
- * off at the end of the input. An empty value is not a credential.
+ * `NAME=value` and `"name": "value"`. The length of a name is limited so that
+ * a long run of name characters is scanned once, not once per position. A
+ * longer name still matches from a later position, which includes its end.
  */
-const ASSIGNMENT_PATTERN =
-  /(?<![A-Za-z0-9])([A-Za-z_][\w.-]*)(["']?\s*[:=]\s*)("[^"]*(?:"|$)|'[^']*(?:'|$)|[^\s"',;]+)/g;
+const ASSIGNMENT_PATTERN = new RegExp(
+  String.raw`(?<![A-Za-z0-9])([A-Za-z_][\w.-]{0,127})(${SEPARATOR})(${QUOTED_VALUE}|${BARE_VALUE})`,
+  'g',
+);
 
 /** Whole segments. A plural (`credentials`) still counts; a prefix (`tokenizer`) does not. */
 const CREDENTIAL_SEGMENTS = new Set([
@@ -54,6 +75,12 @@ const CREDENTIAL_SEGMENTS = new Set([
 export const MAX_DIAGNOSTIC_LENGTH = 2000;
 
 /**
+ * Longest input that is examined. Output of a program can be megabytes long
+ * and this runs in the main process, so the work must not grow with it.
+ */
+export const MAX_SCANNED_LENGTH = 64 * 1024;
+
+/**
  * Prepares program output for display.
  *
  * ANSI/OSC/CSI sequences and control characters other than tab and line feed
@@ -62,69 +89,83 @@ export const MAX_DIAGNOSTIC_LENGTH = 2000;
  * prompt or environment value from arbitrary stderr.
  */
 export function redactDiagnostics(text: string, maxLength = MAX_DIAGNOSTIC_LENGTH): string {
-  let redacted = stripControls(text);
+  let redacted = stripControls(limitInput(text));
   for (const pattern of SECRET_PATTERNS) {
     redacted = replaceMatches(redacted, pattern, () => REDACTED);
   }
-  redacted = replaceMatches(redacted, AUTHORIZATION_PATTERN, (match) => redactAuthorization(match));
-  redacted = replaceMatches(redacted, BEARER_PATTERN, (match) =>
-    redactMarked(match, BEARER_MARKER),
-  );
-  redacted = replaceMatches(redacted, BASIC_PATTERN, (match) => redactMarked(match, BASIC_MARKER));
-  redacted = replaceMatches(redacted, ASSIGNMENT_PATTERN, (match) => redactAssignment(match));
+  redacted = replaceMatches(redacted, AUTHORIZATION_PATTERN, redactAuthorization);
+  redacted = replaceMatches(redacted, STANDALONE_SCHEME_PATTERN, redactStandaloneScheme);
+  redacted = replaceMatches(redacted, ASSIGNMENT_PATTERN, redactAssignment);
   redacted = redacted.trim();
   return redacted.length > maxLength ? `${redacted.slice(0, maxLength)}\n[truncated]` : redacted;
 }
 
-function redactAuthorization(match: RegExpMatchArray): string {
-  const header = match[1] ?? '';
-  const separator = match[2] ?? '';
-  const scheme = match[3] ?? '';
-  const space = match[4] ?? '';
-  const rest = match[5] ?? '';
-  const quoted = redactQuoted(rest);
-  if (quoted === null) {
-    return match[0];
+/**
+ * Cuts long input before it is examined. The cut is moved back to the last
+ * white space, because a credential that is cut in the middle may no longer
+ * look like one. Input without white space near the cut is dropped entirely.
+ */
+function limitInput(text: string): string {
+  if (text.length <= MAX_SCANNED_LENGTH) {
+    return text;
   }
-  return `${header}${separator}${scheme}${space}${quoted}`;
+  const window = text.slice(0, MAX_SCANNED_LENGTH);
+  const boundary = Math.max(
+    window.lastIndexOf(' '),
+    window.lastIndexOf('\n'),
+    window.lastIndexOf('\t'),
+  );
+  return boundary === -1 ? '' : window.slice(0, boundary);
 }
 
-function redactMarked(match: RegExpMatchArray, marker: RegExp): string {
-  const label = match[1] ?? '';
+function redactAuthorization(match: RegExpMatchArray): string {
+  const name = match[1] ?? '';
+  const separator = match[2] ?? '';
+  const value = redactValue(match[3] ?? '', true);
+  return value === null ? match[0] : `${name}${separator}${value}`;
+}
+
+/**
+ * Without the word `Authorization`, a scheme can be part of a sentence such
+ * as "basic understanding". A value counts as prose when it is a short word
+ * in lower case. Everything else, including letters in mixed case, is
+ * treated as a credential.
+ */
+function redactStandaloneScheme(match: RegExpMatchArray): string {
+  const scheme = match[1] ?? '';
   const space = match[2] ?? '';
   const value = match[3] ?? '';
-  if (!marker.test(value)) {
-    return match[0];
-  }
-  return `${label}${space}${REDACTED}`;
+  const looksLikeProse = value.length < 20 && /^[a-z]+$/.test(value);
+  return looksLikeProse ? match[0] : `${scheme}${space}${REDACTED}`;
 }
 
 function redactAssignment(match: RegExpMatchArray): string {
   const name = match[1] ?? '';
   const separator = match[2] ?? '';
-  const rest = match[3] ?? '';
   if (!isCredentialName(name)) {
     return match[0];
   }
-  const quoted = redactQuoted(rest);
-  if (quoted === null) {
-    return match[0];
-  }
-  return `${name}${separator}${quoted}`;
+  const value = redactValue(match[3] ?? '', false);
+  return value === null ? match[0] : `${name}${separator}${value}`;
 }
 
-/** Redacts a quoted or bare assignment/header value. Empty values stay as they are. */
-function redactQuoted(rest: string): string | null {
-  const quote = rest.startsWith('"') || rest.startsWith("'") ? rest.charAt(0) : '';
-  if (quote === '') {
-    return rest.length === 0 ? null : REDACTED;
-  }
-  const closed = rest.length > 1 && rest.endsWith(quote);
-  const value = closed ? rest.slice(1, -1) : rest.slice(1);
-  if (value.length === 0) {
+/**
+ * Replaces a quoted or bare value and keeps its quotes. Empty values stay as
+ * they are. With `keepScheme`, a leading scheme such as `Bearer` stays
+ * readable, because it is not part of the credential.
+ */
+function redactValue(value: string, keepScheme: boolean): string | null {
+  const opening = /^(?:\\"|"|')/.exec(value)?.[0] ?? '';
+  const closed = opening !== '' && value.length > opening.length && value.endsWith(opening);
+  const inner = value.slice(opening.length, closed ? value.length - opening.length : undefined);
+  if (inner.length === 0) {
     return null;
   }
-  return `${quote}${REDACTED}${closed ? quote : ''}`;
+  const scheme = keepScheme ? (LEADING_SCHEME.exec(inner)?.[0] ?? '') : '';
+  if (scheme !== '' && inner.length === scheme.length) {
+    return null;
+  }
+  return `${opening}${scheme}${REDACTED}${closed ? opening : ''}`;
 }
 
 /**
