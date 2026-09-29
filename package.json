@@ -17,10 +17,12 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "typecheck": "pnpm -r --no-bail typecheck",
-    "test": "vitest run",
+    "test": "vitest run && pnpm --filter @koma-motion/desktop test:scripts",
     "test:watch": "vitest",
     "test:e2e": "pnpm --filter @koma-motion/desktop test:e2e",
-    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "package:win": "pnpm --filter @koma-motion/desktop package:win",
+    "package:mac": "pnpm --filter @koma-motion/desktop package:mac"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -1,3 +1,9 @@
 packages:
   - apps/*
   - packages/*
+
+# No dependency may run install scripts. electron-winstaller belongs to
+# electron-builder and is only needed for a Windows installer format that
+# Koma Motion does not use.
+allowBuilds:
+  electron-winstaller: false
