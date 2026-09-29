@@ -49,7 +49,7 @@ async function openBrandKit(page: Page): Promise<void> {
 /** Replaces the field one character at a time. `fill()` would hide the space bug. */
 async function typeOver(field: Locator, text: string): Promise<void> {
   await field.click();
-  await field.press('Control+A');
+  await field.press('ControlOrMeta+A');
   await field.pressSequentially(text, { delay: 15 });
 }
 
@@ -59,7 +59,7 @@ test('keeps spaces in the brand name and heading font while typing', async () =>
 
   const name = window.getByLabel('Brand name');
   await name.click();
-  await name.press('Control+A');
+  await name.press('ControlOrMeta+A');
   await name.pressSequentially('Acme', { delay: 15 });
   await name.pressSequentially(' ', { delay: 15 });
   await expect(name).toHaveValue('Acme ');
@@ -70,7 +70,7 @@ test('keeps spaces in the brand name and heading font while typing', async () =>
 
   const heading = window.getByLabel('Heading font');
   await heading.click();
-  await heading.press('Control+A');
+  await heading.press('ControlOrMeta+A');
   await heading.pressSequentially('Times', { delay: 15 });
   await heading.pressSequentially(' ', { delay: 15 });
   await expect(heading).toHaveValue('Times ');

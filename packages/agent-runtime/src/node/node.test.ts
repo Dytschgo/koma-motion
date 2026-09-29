@@ -575,8 +575,10 @@ describe('buildCliChildEnvironment', () => {
     expect(result.standardOutput).not.toContain('synthetic-github-token');
     expect(result.standardOutput).not.toContain('synthetic-meta');
     const allowlist: readonly string[] = CLI_CHILD_ENVIRONMENT_ALLOWLIST;
+    // The operating system adds these to every process; the parent did not pass them.
+    const addedBySystem = ['LOGONSERVER', '__CF_USER_TEXT_ENCODING'];
     const unexpected = keyNames.filter(
-      (name) => !allowlist.includes(name) && name !== 'LOGONSERVER',
+      (name) => !allowlist.includes(name) && !addedBySystem.includes(name),
     );
     expect(unexpected).toEqual([]);
     expect(keyNames).toContain('PATH');

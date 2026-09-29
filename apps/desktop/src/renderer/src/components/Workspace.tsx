@@ -131,14 +131,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
       });
     }
     return koma === null ? null : komaToFrame(koma);
-  }, [
-    stageContext,
-    playback.status,
-    playback.progress,
-    reducedMotion,
-    koma,
-    transitionBlocked,
-  ]);
+  }, [stageContext, playback.status, playback.progress, reducedMotion, koma, transitionBlocked]);
 
   const komaIndex = presentation.komas.findIndex((candidate) => candidate.id === koma?.id);
   const previousKoma = presentation.komas[komaIndex - 1];
@@ -306,7 +299,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
             </p>
             <input
               type="range"
-              className="scrubber min-w-0 flex-1"
+              className="scrubber min-w-24 flex-1"
               min={0}
               max={1000}
               value={Math.round((previewing ? playback.progress : 0) * 1000)}
@@ -343,7 +336,11 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
               <span aria-hidden="true">s</span>
             </label>
             {reducedMotion && (
-              <p className="ml-3 flex-none text-sm text-ink-400">
+              // The note gives way to the position control in a narrow window.
+              <p
+                className="ml-3 min-w-0 shrink truncate text-sm text-ink-400"
+                title={`Reduced motion is on: previews cut instead of moving (${formatSeconds(REDUCED_MOTION_DURATION_MS)}).`}
+              >
                 Reduced motion is on: previews cut instead of moving (
                 {formatSeconds(REDUCED_MOTION_DURATION_MS)}).
               </p>
