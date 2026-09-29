@@ -106,6 +106,7 @@ jobs:
 
       - name: Package
         working-directory: apps/desktop
+        shell: bash
         run: pnpm exec electron-builder ${{ matrix.builder }} --publish never
 
       - name: Test the packaged application
@@ -135,6 +136,19 @@ jobs:
             }
             console.log('$manifest describes ' + parsed.entries.map((entry) => entry.url).join(', '));
           "
+
+      - name: Package and test a nightly version
+        working-directory: apps/desktop
+        shell: bash
+        # The same command as in the nightly workflow. Nothing is published.
+        run: |
+          set -euo pipefail
+          version="$(node scripts/release-channel.mjs nightly-version "$(node -p "require('./package.json').version")" "$(date -u +%Y%m%d)" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
+          rm -rf release
+          pnpm exec electron-builder ${{ matrix.builder }} --publish never             --config.extraMetadata.version="$version"             --config.publish.channel=nightly             --config.publish.releaseType=prerelease
+          ls release
+          test -f release/nightly${{ matrix.platform == 'macos' && '-mac' || '' }}.yml
+          KOMA_EXPECT_VERSION="$version" node scripts/verify-packaged.mjs ${{ matrix.platform }}
 
       - name: Keep the results of failed tests
         if: failure()

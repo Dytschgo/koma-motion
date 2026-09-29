@@ -98,6 +98,7 @@ jobs:
       - run: pnpm build
       - name: Package
         working-directory: apps/desktop
+        shell: bash
         run: pnpm exec electron-builder ${{ matrix.builder }} --publish never
       - name: Test the packaged application
         working-directory: apps/desktop
