@@ -10,7 +10,7 @@ const WINDOWS_MAX_COMMAND_LINE_LENGTH = 32_767;
 export interface ProcessSpecification {
   readonly executable: ResolvedExecutable;
   readonly arguments: readonly string[];
-  /** Text written to standard input. The prompt travels here, never as an argument. */
+  /** Text written to standard input. Everything a user or a project wrote travels here. */
   readonly input: string;
   readonly workingDirectory: string;
   /** Stops the process when aborted. */

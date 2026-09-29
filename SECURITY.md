@@ -81,7 +81,9 @@ a newer version of Koma Motion. One project file is read or written at a time.
 
 - CLIs are started without a shell, with an executable path and an explicit
   argument array.
-- The prompt is passed on standard input, not as an argument.
+- What the user and the project contribute to a prompt is passed on standard
+  input, not as an argument. Claude Code receives the fixed system
+  instructions and the response schema as arguments.
 - The only user-controlled argument is the optional model name, which is
   restricted to a safe alphabet.
 - Agents are started with their tools disabled (Claude Code) or in a read-only
