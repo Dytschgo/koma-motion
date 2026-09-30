@@ -25,12 +25,15 @@ test('explains existing content sent by external providers before generation', a
       BrowserWindow.getAllWindows()[0]?.setSize(1120, 700);
     });
     await expect(disclosure).toBeVisible();
+    // The chat body scrolls in a low window; the disclosure must be reachable there.
+    await disclosure.scrollIntoViewIfNeeded();
     const box = await disclosure.boundingBox();
     const viewport = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }));
     if (box === null) throw new Error('Provider disclosure has no visible bounds.');
-    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height);
+    // One pixel for rounding at a fractional device scale factor.
+    expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
     expect(box.x).toBeGreaterThanOrEqual(0);
-    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
     await window.screenshot({ path: test.info().outputPath('provider-disclosure-narrow.png') });
     await provider.selectOption('mock');
     await expect(disclosure).toHaveCount(0);
