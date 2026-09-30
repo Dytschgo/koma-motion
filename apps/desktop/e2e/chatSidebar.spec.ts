@@ -177,7 +177,13 @@ test('lets the Brand Kit and the chat take turns in a narrow window', async () =
   expect((await getBox(canvas)).width).toBeGreaterThanOrEqual(400);
   await expect(window.getByRole('button', { name: 'Zoom in' })).toBeInViewport({ ratio: 1 });
 
-  // Opening the chat again closes the Brand Kit.
+  // Closing the Brand Kit brings the chat back.
+  await window.getByRole('button', { name: 'Close panel' }).click();
+  await expect(chat).toBeVisible();
+
+  // Opening the chat while the Brand Kit is open closes the Brand Kit.
+  await brandKit.click();
+  await expect(brandKitName).toBeVisible();
   await window.getByRole('button', { name: 'Show the chat' }).click();
   await expect(chat).toBeVisible();
   await expect(brandKitName).toBeHidden();

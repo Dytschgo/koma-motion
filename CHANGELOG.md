@@ -28,7 +28,7 @@ changes to the project format.
   dragging its edge or with the arrow keys. The width and whether it is open
   are remembered by the application, not saved in the project. In a narrow
   window the open chat is shown in place of the Inspector, and the chat and
-  the Brand Kit take turns.
+  the Brand Kit take turns: the chat comes back when the Brand Kit closes.
 
 ## [0.1.0] - 2026-09-29
 
