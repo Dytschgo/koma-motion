@@ -1,4 +1,8 @@
-import { editBrandKitField, pruneBrandKitRawDraft } from '@koma-motion/brand-kit';
+import {
+  editBrandKitField,
+  pruneBrandKitRawDraft,
+  toLibraryBrandKit,
+} from '@koma-motion/brand-kit';
 import {
   MAX_KOMAS,
   createSeededIdGenerator,
@@ -11,6 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   addKoma,
   applyGeneration,
+  applySavedBrandKit,
   changeBrandKit,
   changeElement,
   changeKomaDetails,
@@ -19,7 +24,13 @@ import {
   reorderKoma,
   type ProjectCommand,
 } from './commands';
-import { selectProject, useProjectStore } from './projectStore';
+import { selectSavedKits, useBrandKitLibraryStore } from './brandKitLibraryStore';
+import {
+  selectCanUndo,
+  selectHasUnsavedChanges,
+  selectProject,
+  useProjectStore,
+} from './projectStore';
 import { selectBrandKitRawDraft, useUiStore } from './uiStore';
 import {
   canRedo,
@@ -321,5 +332,88 @@ describe('document commands', () => {
     const before = JSON.stringify(base);
     run(base, addKoma('koma-1'), deleteKoma('koma-1'));
     expect(JSON.stringify(base)).toBe(before);
+  });
+});
+
+describe('saved Brand Kits', () => {
+  const pixel =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+  afterEach(() => {
+    useUiStore.getState().reset();
+    useProjectStore.setState({ history: null, file: null, savedProject: null, loadWarnings: [] });
+    useBrandKitLibraryStore.setState({
+      library: { status: 'idle' },
+      busy: false,
+      selectedKitId: null,
+    });
+  });
+
+  it('applies a kit with its logo as one undoable change that marks the project unsaved', () => {
+    const project = buildProject();
+    useProjectStore.getState().load(project, null);
+    const saved = toLibraryBrandKit({ ...project.brandKit, name: 'Acme', tone: 'calm' });
+
+    useProjectStore
+      .getState()
+      .apply(applySavedBrandKit(saved, { name: 'acme.png', mediaType: 'image/png', data: pixel }));
+    const applied = selectProject(useProjectStore.getState());
+    expect(applied?.brandKit).toMatchObject({ name: 'Acme', tone: 'calm' });
+    expect(
+      applied?.assets.find((asset) => asset.id === applied.brandKit.logoAssetId),
+    ).toMatchObject({ embeddedData: { data: pixel } });
+    expect(komaProjectSchema.safeParse(applied).success).toBe(true);
+    expect(selectHasUnsavedChanges(useProjectStore.getState())).toBe(true);
+
+    useProjectStore.getState().undo();
+    expect(selectProject(useProjectStore.getState())).toBe(project);
+    expect(selectHasUnsavedChanges(useProjectStore.getState())).toBe(false);
+
+    useProjectStore.getState().redo();
+    expect(selectProject(useProjectStore.getState())).toBe(applied);
+  });
+
+  it('keeps library state out of the project and its history', () => {
+    const project = buildProject();
+    useProjectStore.getState().load(project, null);
+    useBrandKitLibraryStore.getState().receive({
+      status: 'ready',
+      kits: [
+        {
+          id: 'kit_acme',
+          name: 'Acme',
+          createdAt: '2026-09-30T10:00:00.000Z',
+          updatedAt: '2026-09-30T10:00:00.000Z',
+          brandKit: toLibraryBrandKit(project.brandKit),
+          logo: null,
+        },
+      ],
+      unreadableCount: 0,
+      kitId: 'kit_acme',
+    });
+    expect(useBrandKitLibraryStore.getState().selectedKitId).toBe('kit_acme');
+    expect(selectCanUndo(useProjectStore.getState())).toBe(false);
+    expect(selectHasUnsavedChanges(useProjectStore.getState())).toBe(false);
+
+    // Replacing the project keeps the library: it belongs to the computer.
+    useProjectStore.getState().load(buildProject({ id: 'project-2' }), null);
+    useUiStore.getState().reset();
+    expect(selectSavedKits(useBrandKitLibraryStore.getState())).toHaveLength(1);
+
+    useBrandKitLibraryStore.getState().receive({
+      status: 'ready',
+      kits: [],
+      unreadableCount: 0,
+      kitId: null,
+    });
+    expect(useBrandKitLibraryStore.getState().selectedKitId).toBeNull();
+  });
+
+  it('shows the inspector again when an element is selected', () => {
+    useUiStore.getState().setView('brandKit');
+    useUiStore.getState().selectKoma('koma-1');
+    expect(useUiStore.getState().view).toBe('brandKit');
+    useUiStore.getState().selectElement('element-1');
+    expect(useUiStore.getState().view).toBe('canvas');
   });
 });

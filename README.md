@@ -95,7 +95,9 @@ Everything in this list is implemented and covered by automated tests.
 
 - Create a project, open a project, save and save as (`.koma` files).
 - Edit a Brand Kit with colours, fonts, a logo and descriptions, with a live
-  preview and readability checks.
+  preview and readability checks, in a panel beside the canvas.
+- Save Brand Kits, logo included, to a library on this computer and apply
+  them to any project. Applying a kit can be undone.
 - Describe a presentation in the chat and choose a provider. The chat is a
   sidebar beside the canvas that can be resized and collapsed.
 - Generate three Komas with the built-in mock provider, without network and
@@ -115,9 +117,13 @@ Everything in this list is implemented and covered by automated tests.
 | -------------------------------------------------- | -------------------------------------------- |
 | ![Generated Komas](docs/screenshots/generated.png) | ![Inspector](docs/screenshots/inspector.png) |
 
-| Brand Kit                                           | Start                                         |
-| --------------------------------------------------- | --------------------------------------------- |
-| ![Brand Kit editor](docs/screenshots/brand-kit.png) | ![Start screen](docs/screenshots/welcome.png) |
+| Brand Kit                                           | Saved Brand Kits                                             |
+| --------------------------------------------------- | ------------------------------------------------------------ |
+| ![Brand Kit editor](docs/screenshots/brand-kit.png) | ![Brand Kit library](docs/screenshots/brand-kit-library.png) |
+
+| Start                                         |
+| --------------------------------------------- |
+| ![Start screen](docs/screenshots/welcome.png) |
 
 The screenshots are created from the running application with
 `KOMA_SCREENSHOTS=1 pnpm test:e2e screenshots`.
@@ -173,6 +179,14 @@ and generated Komas use its colours and fonts. Colours are stored in one
 format, `#RRGGBB`, and are validated before they are stored.
 
 Changing the Brand Kit does not change Komas that already exist.
+
+Brand Kits can be saved to a library and applied to other projects. The
+library belongs to your computer, not to a project: it is stored in the data
+folder of Koma Motion, and the logo of each saved kit is copied there, so a
+saved kit keeps working after the project it came from is closed or deleted.
+Applying a saved kit copies its settings and logo into the open project; you
+can undo it, and the project file stays self-contained. A library file that
+cannot be read is reported and never overwritten.
 
 ## Motion model
 

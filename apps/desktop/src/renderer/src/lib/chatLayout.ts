@@ -14,6 +14,11 @@ export const CANVAS_MIN_WIDTH = 420;
 /** Width of the Inspector (`Inspector.tsx`). */
 export const INSPECTOR_WIDTH = 304;
 
+/** Width of the Brand Kit panel (`BrandKitPanel.tsx`): 32% of the window, from 360 to 480 px. */
+export function getBrandKitPanelWidth(windowWidth: number): number {
+  return Math.min(480, Math.max(360, windowWidth * 0.32));
+}
+
 export interface ChatPreferences {
   readonly open: boolean;
   /** The width the user chose. The sidebar is narrower when the window has no room. */

@@ -157,3 +157,44 @@ test('keeps the canvas and the chat usable in a narrow window', async () => {
   await window.screenshot({ path: test.info().outputPath('chat-narrow-collapsed.png') });
   expect(problems).toEqual([]);
 });
+
+test('lets the Brand Kit and the chat take turns in a narrow window', async () => {
+  const { window, application, problems } = running;
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(1120, 760);
+  });
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  const { chat, canvas } = getParts(window);
+  const brandKit = window.getByRole('button', { name: 'Brand Kit', exact: true });
+  const brandKitName = window.getByLabel('Brand name');
+  await expect(chat).toBeVisible();
+
+  // Opening the Brand Kit collapses the chat, so the canvas keeps its room.
+  await brandKit.click();
+  await expect(brandKitName).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Show the chat' })).toBeVisible();
+  expect((await getBox(canvas)).width).toBeGreaterThanOrEqual(400);
+  await expect(window.getByRole('button', { name: 'Zoom in' })).toBeInViewport({ ratio: 1 });
+
+  // Opening the chat again closes the Brand Kit.
+  await window.getByRole('button', { name: 'Show the chat' }).click();
+  await expect(chat).toBeVisible();
+  await expect(brandKitName).toBeHidden();
+  await expect(brandKit).toHaveAttribute('aria-pressed', 'false');
+  expect((await getBox(canvas)).width).toBeGreaterThanOrEqual(400);
+  expect(problems).toEqual([]);
+});
+
+test('shows the Brand Kit and the chat side by side in a wide window', async () => {
+  const { window, application, problems } = running;
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(1800, 900);
+  });
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  const { chat, canvas } = getParts(window);
+  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await expect(window.getByLabel('Brand name')).toBeVisible();
+  await expect(chat).toBeVisible();
+  expect((await getBox(canvas)).width).toBeGreaterThanOrEqual(420);
+  expect(problems).toEqual([]);
+});
