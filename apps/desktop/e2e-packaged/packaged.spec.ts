@@ -76,7 +76,7 @@ test('creates, generates, previews and saves a presentation', async () => {
 
   await window.getByRole('button', { name: 'Create a project' }).click();
   await window.getByLabel('Project name').fill('Packaged');
-  await window.getByLabel('Provider').selectOption('mock');
+  await window.getByLabel('Provider', { exact: true }).selectOption('mock');
   await window.getByRole('button', { name: 'Use the example request' }).click();
   await window.getByRole('button', { name: 'Generate Komas' }).click();
   await expect(
