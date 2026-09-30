@@ -257,8 +257,8 @@ export function AgentPanel({ project }: { readonly project: KomaProject }): Reac
             {conversation.length === 0 && !running ? (
               <div className="m-auto max-w-lg text-center text-ink-300">
                 <p>
-                  Describe the presentation you want. The Brand Kit of this project is sent along
-                  with your request.
+                  Describe the presentation you want. Your request includes the Brand Kit, a text
+                  summary of existing Komas, and asset names.
                 </p>
                 <Button
                   variant="outline"
@@ -379,8 +379,8 @@ export function AgentPanel({ project }: { readonly project: KomaProject }): Reac
             </div>
             {selected?.metadata.usesExternalService === true && (
               <p className="text-sm text-ink-400">
-                {selected.metadata.displayName} sends your request and Brand Kit to an online
-                service.
+                {selected.metadata.displayName} sends your request, Brand Kit, a text summary of
+                existing Komas, and asset names to an online service.
               </p>
             )}
             {project.presentation.komas.length > 0 && (
