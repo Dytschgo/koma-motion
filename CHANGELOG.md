@@ -25,6 +25,10 @@ changes to the project format.
 
 ### Changed
 
+- The chat composer puts the provider, its model and the number of Komas
+  side by side. The Koma count starts at 5 and offers Auto. The model list
+  shows Default and the model id configured for the provider. The Audience
+  field was removed: the agent infers the audience from the request.
 - The Brand Kit opens in a panel beside the canvas instead of replacing it,
   so the Komas and the transition controls stay available.
 - Only one Koma Motion runs per data folder. Starting it again brings the

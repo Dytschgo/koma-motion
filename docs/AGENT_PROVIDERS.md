@@ -190,7 +190,8 @@ Agents answer with data. Koma Motion does not parse prose.
 
 `PresentationGenerationRequest` contains:
 
-- the request of the user, objective and audience,
+- the request of the user, objective and audience (the chat sends neither
+  objective nor audience; the agent infers them from the request),
 - the Brand Kit as structured data, without image data,
 - the requested number of Komas,
 - a summary of the existing presentation, when there is one,

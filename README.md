@@ -99,7 +99,9 @@ Everything in this list is implemented and covered by automated tests.
 - Save Brand Kits, logo included, to a library on this computer and apply
   them to any project. Applying a kit can be undone.
 - Describe a presentation in the chat and choose a provider. The chat is a
-  sidebar beside the canvas that can be resized and collapsed.
+  sidebar beside the canvas that can be resized and collapsed. Beside the
+  request, choose the model of the provider and the number of Komas (5 at
+  first, or Auto to let the agent decide).
 - Generate three Komas with the built-in mock provider, without network and
   without an API key.
 - Generate Komas with Claude Code or Grok. Tested on Windows.
