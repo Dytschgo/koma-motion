@@ -15,7 +15,16 @@ import {
   providerMetadataSchema,
 } from '@koma-motion/agent-runtime';
 import {
+  brandKitLogoDataSchema,
+  MAX_SAVED_BRAND_KITS,
+  savedBrandKitLogoSchema,
+  savedBrandKitNameSchema,
+  savedBrandKitSchema,
+} from '@koma-motion/brand-kit';
+import {
   assetReferenceSchema,
+  brandKitSchema,
+  idSchema,
   generationHistoryEntrySchema,
   komaProjectSchema,
   presentationSchema,
@@ -66,6 +75,34 @@ const actionResult = z.discriminatedUnion('status', [
   failure,
 ]);
 
+/** A saved Brand Kit as the library shows it. `available` is false when its logo file is gone. */
+const savedBrandKitSummary = savedBrandKitSchema.extend({
+  logo: savedBrandKitLogoSchema.extend({ available: z.boolean() }).nullable(),
+});
+
+/**
+ * The Brand Kit library after an action. `kitId` names the kit an action
+ * created or changed. A library that cannot be read is reported, never
+ * replaced: `canStartNew` offers to keep the file as a backup and start again.
+ */
+const brandKitLibraryState = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('ready'),
+    kits: z.array(savedBrandKitSummary).max(MAX_SAVED_BRAND_KITS),
+    /** Entries that could not be read. They stay in the file unchanged. */
+    unreadableCount: z.number().int().nonnegative(),
+    kitId: idSchema.nullable(),
+  }),
+  z.object({ status: z.literal('damaged'), message: z.string(), canStartNew: z.boolean() }),
+  failure,
+]);
+
+/** Settings and logo bytes taken from the open project. */
+const brandKitContent = {
+  brandKit: brandKitSchema,
+  logo: brandKitLogoDataSchema.nullable(),
+};
+
 export const ipcContract = {
   'koma:project:create': {
     request: z.object({ name: z.string().trim().min(1).max(200) }).strict(),
@@ -105,6 +142,50 @@ export const ipcContract = {
     response: z.discriminatedUnion('status', [
       z.object({ status: z.literal('selected'), asset: assetReferenceSchema }),
       cancelled,
+      failure,
+    ]),
+  },
+  'koma:brand-kits:list': {
+    request: empty,
+    response: brandKitLibraryState,
+  },
+  'koma:brand-kits:create': {
+    request: z.object({ name: savedBrandKitNameSchema, ...brandKitContent }).strict(),
+    response: brandKitLibraryState,
+  },
+  'koma:brand-kits:update': {
+    request: z.object({ id: idSchema, ...brandKitContent }).strict(),
+    response: brandKitLibraryState,
+  },
+  'koma:brand-kits:rename': {
+    request: z.object({ id: idSchema, name: savedBrandKitNameSchema }).strict(),
+    response: brandKitLibraryState,
+  },
+  'koma:brand-kits:duplicate': {
+    request: z.object({ id: idSchema }).strict(),
+    response: brandKitLibraryState,
+  },
+  'koma:brand-kits:delete': {
+    request: z.object({ id: idSchema }).strict(),
+    response: brandKitLibraryState,
+  },
+  'koma:brand-kits:load': {
+    request: z.object({ id: idSchema }).strict(),
+    response: z.discriminatedUnion('status', [
+      z.object({
+        status: z.literal('loaded'),
+        kit: savedBrandKitSummary,
+        logo: brandKitLogoDataSchema.nullable(),
+        /** Set when the kit has a logo that could not be read from the library. */
+        logoProblem: z.string().nullable(),
+      }),
+      failure,
+    ]),
+  },
+  'koma:brand-kits:start-new': {
+    request: empty,
+    response: z.discriminatedUnion('status', [
+      z.object({ status: z.literal('started'), backupFileName: z.string() }),
       failure,
     ]),
   },
@@ -196,6 +277,8 @@ export type IpcEventPayload<C extends IpcEventChannel> = z.output<(typeof ipcEve
 
 export type GenerationOutcome = z.output<typeof generationOutcome>;
 export type ProjectFileInfo = z.output<typeof fileInfo>;
+export type BrandKitLibraryState = z.output<typeof brandKitLibraryState>;
+export type SavedBrandKitSummary = z.output<typeof savedBrandKitSummary>;
 
 /**
  * The preload script forwards requests without interpreting them. Payloads

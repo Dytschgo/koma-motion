@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, session } from 'electron';
 import { ipcEvents } from '../shared/ipc';
+import { createBrandKitLibrary } from './services/brandKitLibrary';
 import { hardenSession, hardenWebContents, registerAppScheme, serveApp } from './security';
 import { createUpdateService, type UpdateService } from './updates/service';
 import { createMainWindow } from './window';
@@ -33,11 +34,13 @@ void app.whenReady().then(async () => {
     }
   });
   updates = service;
-  createMainWindow(service);
+  // Outside every project, so saved Brand Kits can be used in any of them.
+  const brandKits = createBrandKitLibrary(join(app.getPath('userData'), 'brand-kits'));
+  createMainWindow(service, brandKits);
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      createMainWindow(service);
+      createMainWindow(service, brandKits);
     }
   });
 });

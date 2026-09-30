@@ -91,7 +91,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   });
 
   await test.step('configure the Brand Kit', async () => {
-    await window.getByRole('button', { name: 'Brand Kit' }).click();
+    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
     await window.getByLabel('Brand name').fill('Koma Motion');
     await window.getByLabel('Primary colour').fill('#e4572e');
 
@@ -100,7 +100,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     await window.getByLabel('Accent colour').fill('#FFC914');
     await expect(window.getByText(/not a valid hex colour/)).toHaveCount(0);
 
-    await window.getByRole('button', { name: 'Back to the canvas' }).click();
+    await window.getByRole('button', { name: 'Close panel' }).click();
   });
 
   await test.step('select the mock provider', async () => {
@@ -419,16 +419,16 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
   const canvasImage = getStage().getByRole('img', { name: 'Original logo' });
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
-  await window.getByRole('button', { name: 'Brand Kit' }).click();
+  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
   await answerOpenDialog(application, replacementPath);
   await window.getByRole('button', { name: 'Replace the logo' }).click();
   await expect(window.getByText('replacement.png')).toBeVisible();
-  await window.getByRole('button', { name: 'Back to the canvas' }).click();
+  await window.getByRole('button', { name: 'Close panel' }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
-  await window.getByRole('button', { name: 'Brand Kit' }).click();
+  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
   await window.getByRole('button', { name: 'Remove the logo' }).click();
-  await window.getByRole('button', { name: 'Back to the canvas' }).click();
+  await window.getByRole('button', { name: 'Close panel' }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
   await window.getByRole('button', { name: 'Save', exact: true }).click();
@@ -469,7 +469,7 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
   await window.getByRole('button', { name: 'Open', exact: true }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
-  await window.getByRole('button', { name: 'Brand Kit' }).click();
+  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
   await answerOpenDialog(application, replacementPath);
   await window.getByRole('button', { name: 'Replace the logo' }).click();
   await expect(window.getByRole('alert')).toContainText(`${String(MAX_PROJECT_ASSETS)} images`);
@@ -479,7 +479,7 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
   while ((await dismissNotices.count()) > 0) {
     await dismissNotices.first().click();
   }
-  await window.getByRole('button', { name: 'Back to the canvas' }).click();
+  await window.getByRole('button', { name: 'Close panel' }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
   await expect(window.getByText('All changes saved')).toBeVisible();
   expect(await readFile(fullPath, 'utf8')).toBe(fullText.value);

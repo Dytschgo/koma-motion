@@ -1,9 +1,17 @@
-import { MAX_PROJECT_FILE_BYTES, PROJECT_TOO_LARGE_MESSAGE } from '@koma-motion/core';
-import { buildProject } from '@koma-motion/core/testing';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  MAX_EMBEDDED_ASSET_CHARACTERS,
+  MAX_PROJECT_FILE_BYTES,
+  PROJECT_TOO_LARGE_MESSAGE,
+} from '@koma-motion/core';
+import { buildBrandKit, buildProject } from '@koma-motion/core/testing';
 import { withProjectFileOperation } from '@koma-motion/project-format/node';
 import type { BrowserWindow, IpcMainInvokeEvent, WebContents } from 'electron';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_URL } from '../securityPolicy';
+import { createBrandKitLibrary } from '../services/brandKitLibrary';
 import { createProjectSession } from '../services/projectFiles';
 import { registerHandlers } from './registerHandlers';
 
@@ -94,7 +102,86 @@ describe('project persistence IPC', () => {
   });
 });
 
-function openHandlers(): {
+describe('Brand Kit library IPC', () => {
+  let directory: string;
+
+  beforeEach(async () => {
+    directory = await mkdtemp(join(tmpdir(), 'koma-ipc-brand-kits-'));
+  });
+
+  afterEach(async () => {
+    for (const registration of registrations.splice(0)) {
+      registration.dispose();
+    }
+    await rm(directory, { recursive: true, force: true, maxRetries: 5 });
+  });
+
+  it('creates and lists kits through the contract', async () => {
+    const { event, invoke } = openHandlers(directory);
+    const created = await invoke('koma:brand-kits:create', event, {
+      name: 'Acme',
+      brandKit: buildBrandKit({ name: 'Acme' }),
+      logo: null,
+    });
+    expect(created).toMatchObject({ status: 'ready', kits: [{ name: 'Acme' }] });
+    await expect(invoke('koma:brand-kits:list', event, {})).resolves.toMatchObject({
+      status: 'ready',
+      kits: [{ name: 'Acme' }],
+    });
+  });
+
+  it('rejects malformed requests before touching the library', async () => {
+    const { event, invoke } = openHandlers(directory);
+    const brandKit = buildBrandKit();
+    const rejected = [
+      ['koma:brand-kits:delete', { id: '../library' }],
+      ['koma:brand-kits:load', { id: 'C:/Users/someone' }],
+      ['koma:brand-kits:rename', { id: 'kit_a', name: '   ' }],
+      ['koma:brand-kits:rename', { id: 'kit_a', name: 'x'.repeat(121) }],
+      ['koma:brand-kits:duplicate', { id: 'kit_a', path: '/tmp/elsewhere' }],
+      [
+        'koma:brand-kits:create',
+        { name: 'Acme', brandKit: { ...brandKit, colours: 'red' }, logo: null },
+      ],
+      [
+        'koma:brand-kits:create',
+        {
+          name: 'Acme',
+          brandKit,
+          logo: { name: 'a.svg', mediaType: 'image/svg+xml', data: 'AAAA' },
+        },
+      ],
+      [
+        'koma:brand-kits:create',
+        {
+          name: 'Acme',
+          brandKit,
+          logo: {
+            name: 'a.png',
+            mediaType: 'image/png',
+            data: 'A'.repeat(MAX_EMBEDDED_ASSET_CHARACTERS + 4),
+          },
+        },
+      ],
+      ['koma:brand-kits:start-new', { force: true }],
+    ] as const;
+    for (const [channel, payload] of rejected) {
+      await expect(invoke(channel, event, payload), channel).rejects.toThrow(
+        `Invalid request for ${channel}`,
+      );
+    }
+    await expect(readdir(directory)).resolves.toEqual([]);
+  });
+
+  it('rejects a request from an unexpected sender', async () => {
+    const { invoke } = openHandlers(directory);
+    const frame = { url: 'https://example.com' };
+    const stranger = { sender: { mainFrame: frame }, senderFrame: frame } as IpcMainInvokeEvent;
+    await expect(invoke('koma:brand-kits:list', stranger, {})).rejects.toThrow('Request rejected');
+  });
+});
+
+function openHandlers(brandKitDirectory = join(tmpdir(), 'koma-unused-brand-kits')): {
   event: IpcMainInvokeEvent;
   invoke: (channel: string, event: IpcMainInvokeEvent, payload: unknown) => Promise<unknown>;
 } {
@@ -104,6 +191,7 @@ function openHandlers(): {
   const registered = registerHandlers({
     window,
     session: createProjectSession(),
+    brandKits: createBrandKitLibrary(brandKitDirectory),
     updates: {
       getStatus: () => ({ state: 'idle', channel: 'stable', currentVersion: '0.1.0' }),
       check: () => Promise.resolve(),

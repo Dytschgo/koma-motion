@@ -1,6 +1,6 @@
 import { useEffect, type ReactElement } from 'react';
 import { AgentPanel } from './components/AgentPanel';
-import { BrandKitEditor } from './components/BrandKitEditor';
+import { BrandKitPanel } from './components/BrandKitPanel';
 import { Inspector } from './components/Inspector';
 import { KomaStrip } from './components/KomaStrip';
 import { ConfirmDialog, Notices } from './components/Overlays';
@@ -108,13 +108,11 @@ export function App(): ReactElement {
           <KomaStrip project={project} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             <main className="flex min-h-0 flex-1">
+              <Workspace project={project} />
               {view === 'brandKit' ? (
-                <BrandKitEditor project={project} />
+                <BrandKitPanel project={project} />
               ) : (
-                <>
-                  <Workspace project={project} />
-                  <Inspector project={project} />
-                </>
+                <Inspector project={project} />
               )}
             </main>
             <AgentPanel project={project} />

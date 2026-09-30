@@ -49,8 +49,35 @@ test('documentation screenshots', async () => {
     ).toHaveAttribute('aria-label', /^Preview of the transition/);
     await capture('transition-preview');
 
+    await window.getByRole('button', { name: 'Koma 1: One connected system' }).click();
     await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await window.getByLabel('Brand name').fill('Koma Motion');
+    await window.getByLabel('Tone').fill('Calm, precise and a little playful');
+    await expect(window.getByRole('button', { name: 'Save to library' })).toBeEnabled();
+    await window.getByLabel('Tone').blur();
+    await window.getByRole('tabpanel').evaluate((panel) => {
+      panel.scrollTop = 0;
+    });
+    // Buttons fade between states; a capture must not catch them halfway.
+    await window.waitForTimeout(300);
     await capture('brand-kit');
+
+    await window.getByRole('tab', { name: /Library/ }).click();
+    await window.getByRole('button', { name: 'New blank kit' }).click();
+    await window.getByRole('button', { name: 'Save current as new kit' }).click();
+    await expect(window.getByRole('button', { name: 'Koma Motion', exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+    await expect(window.getByRole('button', { name: 'Apply to this project' })).toBeVisible();
+    const dismiss = window.getByRole('list', { name: 'Messages' }).getByRole('button', {
+      name: 'Dismiss',
+    });
+    while ((await dismiss.count()) > 0) {
+      await dismiss.first().click();
+    }
+    await capture('brand-kit-library');
+    await window.getByRole('button', { name: 'Close panel' }).click();
 
     await window.getByRole('button', { name: 'Settings' }).click();
     await expect(window.getByRole('region', { name: 'App updates' })).toBeVisible();
