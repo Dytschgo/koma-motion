@@ -20,6 +20,9 @@ changes to the project format.
 
 - The Brand Kit opens in a panel beside the canvas instead of replacing it,
   so the Komas and the transition controls stay available.
+- Only one Koma Motion runs per data folder. Starting it again brings the
+  open window to the front, so two processes can no longer overwrite each
+  other's saved Brand Kits.
 
 ## [0.1.0] - 2026-09-29
 

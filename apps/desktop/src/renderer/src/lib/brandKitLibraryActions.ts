@@ -192,7 +192,8 @@ export async function applySavedBrandKitToProject(id: string): Promise<void> {
   if (selectProject(useProjectStore.getState()) === null) {
     return;
   }
-  if (hasInvalidDraft()) {
+  const replacesDraft = hasInvalidDraft();
+  if (replacesDraft) {
     const confirmed = await useUiStore.getState().confirm({
       title: 'Replace the fields with errors?',
       message:
@@ -221,7 +222,14 @@ export async function applySavedBrandKitToProject(id: string): Promise<void> {
     const { kit, logo, logoProblem } = response;
     const updated = applySavedBrandKit(kit.brandKit, logo)(project, idGenerator);
     if (updated === project) {
+      // Nothing to undo, but the confirmed replacement of the invalid text still happens.
+      if (replacesDraft) {
+        useUiStore.getState().setBrandKitDraft(project.id, {});
+      }
       notify('info', `This project already uses "${kit.name}".`);
+      if (logoProblem !== null) {
+        notify('error', logoProblem);
+      }
       return;
     }
     const serialised = serialiseProject(updated);

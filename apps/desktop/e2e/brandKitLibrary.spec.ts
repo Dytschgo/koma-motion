@@ -266,3 +266,28 @@ test('keeps the canvas controls usable beside the Brand Kit at the minimum width
   await expect(panel).toHaveCount(0);
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
 });
+
+test('replaces invalid Brand Kit text with a saved kit the project already uses', async () => {
+  const { window, problems } = running;
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  await openLibrary(window);
+  await window.getByRole('button', { name: 'Save current as new kit' }).click();
+  await expect(window.getByText('In use')).toBeVisible();
+  await dismissNotices(window);
+
+  await window.getByRole('tab', { name: 'This project' }).click();
+  const primary = window.getByLabel('Primary colour');
+  const valid = await primary.inputValue();
+  await primary.fill('oops');
+  await expect(primary).toHaveValue('oops');
+
+  await window.getByRole('tab', { name: /Library/ }).click();
+  await window.getByRole('button', { name: 'Apply to this project' }).click();
+  await window.getByRole('button', { name: 'Apply saved kit' }).click();
+  await expect(window.getByText(/This project already uses/)).toBeVisible();
+
+  await window.getByRole('tab', { name: 'This project' }).click();
+  await expect(window.getByLabel('Primary colour')).toHaveValue(valid);
+  await expect(window.getByRole('button', { name: 'Undo' })).toBeDisabled();
+  expect(problems).toEqual([]);
+});

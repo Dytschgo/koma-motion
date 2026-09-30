@@ -39,6 +39,7 @@ import { detectImageType, toDisplayName } from './imageAsset';
 export const LIBRARY_FILE_NAME = 'library.json';
 export const LOGO_DIRECTORY_NAME = 'logos';
 const LOGO_FILE_PATTERN = /^([0-9a-f]{64})\.(png|jpg|webp|gif)$/;
+const BACKUP_FILE_PATTERN = /^library\.unreadable-.*\.json$/;
 
 type LibraryState = IpcResponse<'koma:brand-kits:list'>;
 type LoadResponse = IpcResponse<'koma:brand-kits:load'>;
@@ -279,6 +280,16 @@ export function createBrandKitLibrary(
     return stored;
   }
 
+  /** The text of every library kept aside by startNew. */
+  async function readBackups(): Promise<string[]> {
+    const names = await readdir(directory).catch(() => []);
+    return Promise.all(
+      names
+        .filter((name) => BACKUP_FILE_PATTERN.test(name))
+        .map((name) => readFile(join(directory, name), 'utf8').catch(() => '')),
+    );
+  }
+
   /** Removes logo files that no entry refers to, unreadable entries included. */
   async function collectLogos(
     kits: readonly SavedBrandKit[],
@@ -291,11 +302,13 @@ export function createBrandKitLibrary(
       return;
     }
     const used = new Set(kits.flatMap((kit) => (kit.logo === null ? [] : [kit.logo.sha256])));
-    const unreadableText = JSON.stringify(unreadable);
+    // Unreadable entries and libraries kept as backups may still refer to a
+    // logo. Their logos stay, so restoring a backup restores its logos too.
+    const kept = [JSON.stringify(unreadable), ...(await readBackups())];
     for (const name of names) {
       const match = LOGO_FILE_PATTERN.exec(name);
       const hash = match?.[1];
-      if (hash === undefined || used.has(hash) || unreadableText.includes(hash)) {
+      if (hash === undefined || used.has(hash) || kept.some((text) => text.includes(hash))) {
         continue;
       }
       await unlink(join(logoDirectory, name)).catch(() => undefined);
@@ -306,9 +319,16 @@ export function createBrandKitLibrary(
     kits: readonly SavedBrandKit[],
     unreadable: readonly unknown[],
   ): Promise<void> {
+    const text = serialiseBrandKitLibrary(kits, unreadable);
+    // A library that could not be read back is never written.
+    if (Buffer.byteLength(text, 'utf8') > MAX_BRAND_KIT_LIBRARY_BYTES) {
+      throw new LibraryError(
+        `The Brand Kit library would be larger than ${String(MAX_BRAND_KIT_LIBRARY_BYTES / 1024 / 1024)} MB. Delete a saved Brand Kit or shorten its descriptions. ${NOT_CHANGED}`,
+      );
+    }
     try {
       await mkdir(directory, { recursive: true });
-      await writeFileAtomic(libraryPath, serialiseBrandKitLibrary(kits, unreadable));
+      await writeFileAtomic(libraryPath, text);
     } catch (error) {
       throw new LibraryError(
         `The Brand Kit library could not be saved. ${describeWriteError(error)} ${NOT_CHANGED}`,

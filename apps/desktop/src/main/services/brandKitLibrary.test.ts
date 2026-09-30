@@ -7,6 +7,7 @@ import {
   BRAND_KIT_LIBRARY_FORMAT,
   createDefaultBrandKit,
   getProjectLogoData,
+  MAX_BRAND_KIT_LIBRARY_BYTES,
   type BrandKitLogoData,
 } from '@koma-motion/brand-kit';
 import { createSeededIdGenerator, komaProjectSchema } from '@koma-motion/core';
@@ -323,6 +324,43 @@ describe('Brand Kit library', () => {
     expect(failed.status).toBe('failed');
     expect(messageOf(failed)).toContain('were not changed');
     await expect(readFile(libraryPath, 'utf8')).resolves.toBe(before);
+  });
+
+  it('keeps the logos of a library kept as a backup', async () => {
+    const library = open();
+    ready(await library.create({ name: 'Acme', brandKit: buildBrandKit(), logo }));
+    const libraryPath = join(libraryDirectory, LIBRARY_FILE_NAME);
+    await writeFile(libraryPath, `${await readFile(libraryPath, 'utf8')}{`, 'utf8');
+    expect((await library.startNew()).status).toBe('started');
+
+    ready(await library.create({ name: 'Blank', brandKit: buildBrandKit(), logo: null }));
+    await expect(readdir(join(libraryDirectory, LOGO_DIRECTORY_NAME))).resolves.toEqual([
+      `${ONE_PIXEL_SHA256}.png`,
+    ]);
+  });
+
+  it('refuses a change that would make the library too large to read', async () => {
+    await mkdir(libraryDirectory, { recursive: true });
+    const libraryPath = join(libraryDirectory, LIBRARY_FILE_NAME);
+    // An unreadable entry that fills the document almost to its limit.
+    const before = JSON.stringify({
+      format: BRAND_KIT_LIBRARY_FORMAT,
+      version: 1,
+      kits: [{ id: 'kit_big', padding: 'x'.repeat(MAX_BRAND_KIT_LIBRARY_BYTES - 1000) }],
+    });
+    await writeFile(libraryPath, before, 'utf8');
+    const library = open();
+    expect(ready(await library.list()).unreadableCount).toBe(1);
+
+    const failed = await library.create({
+      name: 'Acme',
+      brandKit: { ...buildBrandKit(), referenceNotes: '\u0001'.repeat(1000) },
+      logo: null,
+    });
+    expect(failed.status).toBe('failed');
+    expect(messageOf(failed)).toContain('larger than');
+    await expect(readFile(libraryPath, 'utf8')).resolves.toBe(before);
+    expect(ready(await library.list()).kits).toEqual([]);
   });
 
   it('runs actions one after another so none is lost', async () => {

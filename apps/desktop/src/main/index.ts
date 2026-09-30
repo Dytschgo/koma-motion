@@ -8,6 +8,24 @@ import { createMainWindow } from './window';
 
 registerAppScheme();
 
+// One running instance per data folder. Saved Brand Kits are read, changed and
+// written back by the main process, and a second process doing the same at the
+// same time would silently discard the other's changes.
+const isFirstInstance = app.requestSingleInstanceLock();
+if (!isFirstInstance) {
+  app.quit();
+}
+
+app.on('second-instance', () => {
+  const [window] = BrowserWindow.getAllWindows();
+  if (window !== undefined && !window.isDestroyed()) {
+    if (window.isMinimized()) {
+      window.restore();
+    }
+    window.focus();
+  }
+});
+
 // Every web contents, whoever creates it, gets the same restrictions.
 app.on('web-contents-created', (_event, contents) => {
   hardenWebContents(contents);
@@ -22,6 +40,9 @@ app.on('window-all-closed', () => {
 });
 
 void app.whenReady().then(async () => {
+  if (!isFirstInstance) {
+    return;
+  }
   hardenSession(session.defaultSession);
   serveApp(join(__dirname, '../renderer'));
 

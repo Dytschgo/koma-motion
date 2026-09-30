@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 
-const APPLICATION_DIRECTORY = resolve(import.meta.dirname, '..');
+export const APPLICATION_DIRECTORY = resolve(import.meta.dirname, '..');
 
 export interface RunningApplication {
   readonly application: ElectronApplication;
@@ -20,7 +20,7 @@ export interface RunningApplication {
  * built with Electron set this variable, and it would make Electron start as
  * plain Node.js instead of as the application.
  */
-function getApplicationEnvironment(): Record<string, string> {
+export function getApplicationEnvironment(): Record<string, string> {
   const environment: Record<string, string> = {};
   for (const [name, value] of Object.entries(process.env)) {
     if (value !== undefined && name !== 'ELECTRON_RUN_AS_NODE') {
