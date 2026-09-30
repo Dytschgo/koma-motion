@@ -19,7 +19,20 @@ An experimental open-source AI-native presentation motion studio.
 | Windows  | [Koma-Motion-Setup.exe](https://github.com/Dytschgo/koma-motion/releases/latest/download/Koma-Motion-Setup.exe) |
 | macOS    | [Koma-Motion.dmg](https://github.com/Dytschgo/koma-motion/releases/latest/download/Koma-Motion.dmg)             |
 
-The installers are not signed, so Windows and macOS warn when you open them.
+Or install from the terminal. On macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Dytschgo/koma-motion/main/scripts/install.sh | bash
+```
+
+On Windows, in PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/Dytschgo/koma-motion/main/scripts/install.ps1 | iex
+```
+
+Both check the download against the published checksums. The installers are
+not signed, so Windows and macOS warn when you open them.
 [docs/RELEASES.md](docs/RELEASES.md#installing) explains how to install and
 how to switch to nightly previews.
 

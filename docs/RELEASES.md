@@ -39,6 +39,13 @@ open it. Windows shows a warning because the installer is not signed: choose
 "More info" and then "Run anyway". Koma Motion is installed for the current
 user and needs no administrator rights.
 
+From PowerShell, this downloads the installer, checks it against
+`SHA256SUMS.txt` and runs it without a window:
+
+```powershell
+irm https://raw.githubusercontent.com/Dytschgo/koma-motion/main/scripts/install.ps1 | iex
+```
+
 ### macOS
 
 Download `Koma-Motion.dmg` from the
@@ -47,6 +54,19 @@ open it and move Koma Motion to the Applications folder. macOS refuses to
 open the application at first, because it is not notarised. Open System
 Settings, go to "Privacy & Security" and choose "Open Anyway" for Koma
 Motion.
+
+From the Terminal, this downloads the disk image, checks it against
+`SHA256SUMS.txt`, checks the signature and the required macOS version, and
+installs into `~/Applications`, keeping a previous version as a backup:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Dytschgo/koma-motion/main/scripts/install.sh | bash
+```
+
+`KOMA_MOTION_RELEASE_TAG=v0.1.0` in front of the command installs that
+release instead of the latest. The script does not remove the quarantine of
+the download, so the "Open Anyway" step above is still needed the first
+time.
 
 The application is signed ad hoc. That lets it start on Apple silicon, but
 it is no proof of where the application comes from.
