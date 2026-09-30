@@ -198,15 +198,34 @@ are the way back.
 | The packaged application reports the expected version   | `e2e-packaged/packaged.spec.ts`                             |
 | Channels, versions and manifests follow the rules above | unit tests of `src/main/updates` and of the release scripts |
 | The channel is stored and survives a restart            | `e2e/updates.spec.ts`                                       |
+| An update on Windows installs from a published release  | `scripts/verify-update.mjs`, by hand, see below             |
 
 Not verified:
 
-- **Installing an update on Windows from one published version to the next.**
-  The parts are tested separately; the complete path needs two published
-  versions and an installed application.
+- Updating to a newer stable version. No second stable version exists yet.
+- Updating an application that is installed in the default folder. The test
+  installs into a temporary folder.
 - Installing on a Mac by hand, including the steps in "Privacy & Security".
 - Windows on ARM64.
 - The behaviour of virus scanners towards the unsigned installer.
+
+### Testing an update
+
+`scripts/verify-update.mjs` tests a real update on Windows. It uses the
+network and the public releases, so it is run by hand and is no part of CI.
+
+```sh
+cd apps/desktop
+node scripts/verify-update.mjs <installer> <stable|nightly> <expected version>
+```
+
+It installs the installer into a temporary folder, chooses the channel in
+the settings, downloads the update, restarts to install it, and runs the
+tests of the packaged application against the result. The application is
+removed again at the end.
+
+On 2026-09-30 this updated the published `0.1.0` to the published
+`0.1.1-nightly.20260929.36646156587` on Windows 11.
 
 ## What is still needed
 
