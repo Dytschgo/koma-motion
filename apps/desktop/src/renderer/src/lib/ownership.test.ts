@@ -830,3 +830,60 @@ function succeeded(presentation: Presentation): unknown {
     warnings: [],
   };
 }
+
+describe('combined generation confirmation and asset selection', () => {
+  beforeEach(resetStores);
+
+  it('rechecks assets selected while a generation decision is pending', async () => {
+    const initial = buildProject({
+      assets: [availableLogo],
+      brandKit: { ...buildProject().brandKit, logoAssetId: availableLogo.id },
+    });
+    useProjectStore.getState().load(initial, null);
+    const execution = defer<unknown>();
+    const selection = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') return execution.promise;
+      if (channel === 'koma:brand-kit:select-logo') return selection.promise;
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+    const pendingGeneration = generate({
+      userRequest: 'Use the logo',
+      objective: null,
+      audience: null,
+      requestedKomaCount: 1,
+    });
+    const pendingLogo = chooseProjectLogo();
+    const firstKoma = initial.presentation.komas[0];
+    if (firstKoma === undefined) throw new Error('Expected a fixture Koma');
+    useProjectStore
+      .getState()
+      .apply(changeKomaDetails(firstKoma.id, { title: 'My concurrent edit' }));
+    execution.resolve(succeeded(imagePresentation()));
+    await vi.waitFor(() => expect(useUiStore.getState().confirmation).not.toBeNull());
+    selection.resolve({
+      status: 'selected',
+      asset: {
+        ...availableLogo,
+        id: 'replacement-logo',
+        projectPath: 'assets/replacement-logo.png',
+      },
+    });
+    await pendingLogo;
+    const beforeDecision = selectProject(useProjectStore.getState());
+    expect(beforeDecision?.assets.some((asset) => asset.id === availableLogo.id)).toBe(false);
+    useUiStore.getState().answerConfirmation(true);
+    await pendingGeneration;
+    expect(selectProject(useProjectStore.getState())).toBe(beforeDecision);
+    expect(beforeDecision?.presentation.komas[0]?.title).toBe('My concurrent edit');
+    expect(beforeDecision?.generationHistory).toEqual([]);
+    expect(useAgentStore.getState().conversation.some((entry) => entry.kind === 'result')).toBe(
+      false,
+    );
+    expect(useAgentStore.getState().conversation.at(-1)).toMatchObject({
+      kind: 'failure',
+      error: { code: 'invalidResponse', message: expect.stringContaining('current assets') },
+    });
+    expect(useAgentStore.getState().execution).toBeNull();
+  });
+});
