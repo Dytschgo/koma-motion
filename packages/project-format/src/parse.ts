@@ -1,5 +1,6 @@
 import {
   collectProjectWarnings,
+  CURRENT_SCHEMA_VERSION,
   describeIssues,
   err,
   exceedsUtf8ByteLength,
@@ -82,8 +83,8 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
     }
     return err(
       projectFormatError(
-        'invalidProject',
-        `The project contains invalid data:\n${describeIssues(issues)}`,
+        migrated.value.migratedFrom === null ? 'invalidProject' : 'migrationFailed',
+        `${migrated.value.migratedFrom === null ? 'The project contains invalid data' : 'The upgraded project could not be validated'}:\n${describeIssues(issues)}`,
         issues,
       ),
     );
@@ -92,8 +93,7 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
   const warnings: string[] = [];
   if (migrated.value.migratedFrom !== null) {
     warnings.push(
-      `The project was upgraded from format version ${String(migrated.value.migratedFrom)}. Saving stores it in the current format.`,
-      'Generation now runs until completion or cancellation. The old automatic time limit was disabled; you can enable an optional timer in Settings.',
+      `The project was upgraded from format version ${String(migrated.value.migratedFrom)} to ${String(CURRENT_SCHEMA_VERSION)}. Saving writes the current format.`,
     );
   }
   for (const path of findDroppedFields(migrated.value.document, validated.data)) {

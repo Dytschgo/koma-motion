@@ -140,9 +140,10 @@ export const ipcContract = {
         project: komaProjectSchema,
         file: fileInfo,
         warnings: z.array(z.string()),
+        migratedFrom: z.number().int().positive().nullable().optional(),
       }),
       cancelled,
-      failure,
+      failure.extend({ diagnostics: z.string().optional() }),
     ]),
   },
   'koma:project:save': {
@@ -154,7 +155,9 @@ export const ipcContract = {
     ]),
   },
   'koma:project:save-as': {
-    request: z.object({ project: komaProjectSchema }).strict(),
+    request: z
+      .object({ project: komaProjectSchema, preserveOriginal: z.boolean().optional() })
+      .strict(),
     response: z.discriminatedUnion('status', [
       z.object({ status: z.literal('saved'), project: komaProjectSchema, file: fileInfo }),
       cancelled,

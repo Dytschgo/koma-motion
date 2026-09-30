@@ -508,8 +508,12 @@ test('explains why a file cannot be opened', async () => {
   await answerOpenDialog(application, filePath);
   await window.getByRole('button', { name: 'Open a project' }).click();
 
-  await expect(window.getByRole('alert')).toContainText('format version 99');
-  await expect(window.getByRole('alert')).toContainText('Update Koma Motion');
+  const health = window.getByRole('dialog', { name: 'Project health' });
+  await expect(health).toContainText('The original file was not changed');
+  await health.getByText('Inspect diagnostics', { exact: true }).click();
+  await expect(health).toContainText('format version 99');
+  await expect(health).toContainText('Update Koma Motion');
+  await health.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(window.getByRole('heading', { name: /Presentations are frames/ })).toBeVisible();
 });
 

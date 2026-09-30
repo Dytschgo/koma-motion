@@ -1,6 +1,5 @@
 import {
   MAX_ELEMENT_TEXT_LENGTH,
-  collectProjectWarnings,
   EASINGS,
   parseColour,
   SHAPE_KINDS,
@@ -783,33 +782,6 @@ function TransitionSection({
   );
 }
 
-function WarningsSection({ project }: { readonly project: KomaProject }): ReactElement | null {
-  const loadWarnings = useProjectStore((state) => state.loadWarnings);
-  const warnings = useMemo(() => {
-    const current = collectProjectWarnings(project).map((warning) => warning.message);
-    return [
-      ...new Set([...current, ...loadWarnings.filter((warning) => !current.includes(warning))]),
-    ];
-  }, [project, loadWarnings]);
-  if (warnings.length === 0) {
-    return null;
-  }
-  return (
-    <Section title={`Warnings (${String(warnings.length)})`}>
-      <ul className="flex flex-col gap-2 text-sm text-signal-warn">
-        {warnings.map((warning) => (
-          <li key={warning} className="flex gap-2">
-            <span className="flex-none">
-              <WarningIcon size={14} />
-            </span>
-            {warning}
-          </li>
-        ))}
-      </ul>
-    </Section>
-  );
-}
-
 export function Inspector({ project }: { readonly project: KomaProject }): ReactElement {
   const preview = useUiStore((state) => state.preview);
   const koma = useSelectedKoma();
@@ -822,7 +794,6 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
       aria-label="Inspector"
       className="w-[304px] flex-none overflow-y-auto border-l border-desk-600 bg-desk-800"
     >
-      <WarningsSection project={project} />
       {koma === null ? (
         <p className="p-4 text-ink-400">Select a Koma to see its details.</p>
       ) : (

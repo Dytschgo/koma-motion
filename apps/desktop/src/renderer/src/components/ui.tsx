@@ -310,7 +310,7 @@ export function Modal({
       ref={reference}
       aria-labelledby={titleId}
       className={join(
-        'm-auto max-h-[85vh] rounded-xl border border-desk-600 bg-desk-800 p-0 text-ink-100',
+        'm-auto max-h-[85vh] max-w-[calc(100vw-2rem)] rounded-xl border border-desk-600 bg-desk-800 p-0 text-ink-100',
         'shadow-[0_24px_80px_rgb(0_0_0/0.55)]',
         width === 'narrow' ? 'w-[440px]' : 'w-[640px]',
       )}

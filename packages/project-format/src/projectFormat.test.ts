@@ -91,6 +91,13 @@ describe('serialiseProject', () => {
 });
 
 describe('parseProject', () => {
+  it('reports failed post-migration validation without changing the supplied document', () => {
+    const document = { ...buildProject(), schemaVersion: 1, name: '' };
+    const before = JSON.stringify(document);
+    const parsed = parseProject(before);
+    expect(parsed).toMatchObject({ ok: false, error: { code: 'migrationFailed' } });
+    expect(JSON.stringify(document)).toBe(before);
+  });
   it('reports an unplayable stored transition without rewriting the project', () => {
     const source = buildShape({
       id: 'shape-1',
@@ -251,6 +258,26 @@ describe('migrateToVersion', () => {
     if (!result.ok) {
       expect(result.error.code).toBe('unsupportedSchemaVersion');
     }
+  });
+
+  it('returns a recoverable error when a migration throws, without changing its input', () => {
+    const document = { schemaVersion: 1, custom: 'keep' };
+    const result = migrateToVersion(document, 1, 2, [
+      {
+        fromVersion: 1,
+        migrate: () => {
+          throw new Error('Internal implementation detail');
+        },
+      },
+    ]);
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: 'migrationFailed',
+      },
+    });
+    if (!result.ok) expect(result.error.message).toContain('could not be completed');
+    expect(document).toEqual({ schemaVersion: 1, custom: 'keep' });
   });
 });
 
