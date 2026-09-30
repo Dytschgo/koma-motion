@@ -22,9 +22,20 @@ changes to the project format.
   replace images in place.
 - Project instructions, sent with every generation request, and reusable
   instruction templates stored by the application.
+- Layers in the Inspector: every element of the Koma, frontmost first, with
+  its type, name and whether it is hidden, locked or off the canvas. Select
+  covered and hidden elements, show or hide and lock them, filter long lists,
+  and bring elements forward or send them backward.
+- Recalculate motion: a transition whose Komas changed after its motion was
+  worked out is marked as out of date and can be rebuilt as one undoable
+  step. Its duration, strategy, easing and rationale are kept.
 
 ### Changed
 
+- The Inspector shows one context at a time: the selected element, the Koma
+  or its motion. Selecting on the canvas opens the element; a preview opens
+  the motion. Element controls for the type come first; less frequent Koma
+  settings fold away.
 - The Brand Kit opens in a panel beside the canvas instead of replacing it,
   so the Komas and the transition controls stay available.
 - Only one Koma Motion runs per data folder. Starting it again brings the

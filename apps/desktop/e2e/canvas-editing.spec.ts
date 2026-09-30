@@ -166,6 +166,12 @@ test('moves, resizes, cancels and edits text with one undo per committed gesture
   await window.getByLabel('Position in the transition').fill('500');
   await expect(stage.getByRole('button')).toHaveCount(0);
   await expect(window.getByRole('button', { name: 'Add image', exact: true })).toBeDisabled();
+  // A preview shows the motion; the Koma fields stay read-only until it stops.
+  await expect(window.getByRole('tab', { name: /^Motion/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await window.getByRole('tab', { name: 'Koma' }).click();
   await expect(window.getByLabel('Title', { exact: true })).toBeDisabled();
   await window.getByRole('button', { name: 'Stop preview', exact: true }).click();
   await expect(shape).toBeVisible();

@@ -9,8 +9,9 @@ import { komaToFrame } from '@koma-motion/motion-engine';
 import { createAssetResolver, KomaStage, type AssetResolver } from '@koma-motion/renderer';
 import { useMemo, type ReactElement } from 'react';
 import { formatSeconds, useSelectedKoma } from '../lib/selectors';
-import { addKoma, deleteKoma, renameProject, reorderKoma } from '../state/commands';
-import { selectProject, useProjectStore } from '../state/projectStore';
+import { addKomaAfter } from '../lib/projectActions';
+import { deleteKoma, renameProject, reorderKoma } from '../state/commands';
+import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { DownIcon, PlusIcon, TrashIcon, UpIcon } from './icons';
 import { Button, IconButton, TextInput } from './ui';
@@ -184,7 +185,6 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
   const view = useUiStore((state) => state.view);
   const setView = useUiStore((state) => state.setView);
   const preview = useUiStore((state) => state.preview);
-  const selectKoma = useUiStore((state) => state.selectKoma);
   const selectedKoma = useSelectedKoma();
   const resolveAsset = useMemo(() => createAssetResolver(project.assets), [project.assets]);
   const { komas } = project.presentation;
@@ -262,14 +262,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
           variant="outline"
           icon={<PlusIcon size={14} />}
           onClick={() => {
-            const known = new Set(komas.map((koma) => koma.id));
-            apply(addKoma(selectedKoma?.id ?? null));
-            const added = selectProject(useProjectStore.getState())?.presentation.komas.find(
-              (koma) => !known.has(koma.id),
-            );
-            if (added !== undefined) {
-              selectKoma(added.id);
-            }
+            addKomaAfter(selectedKoma?.id ?? null);
           }}
         >
           Add Koma

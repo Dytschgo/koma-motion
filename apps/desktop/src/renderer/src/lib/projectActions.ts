@@ -1,7 +1,7 @@
 /** New, Open, Save and Save As: the steps between the interface and the main process. */
 import { setBrandLogo, type KomaProject, type IdGenerator } from '@koma-motion/core';
 import { serialiseProject } from '@koma-motion/project-format';
-import { importImage } from '../state/commands';
+import { addKoma, importImage } from '../state/commands';
 import { useAgentStore } from '../state/agentStore';
 import {
   selectHasUnsavedChanges,
@@ -251,5 +251,19 @@ export async function chooseKomaImage(komaId: string, elementId?: string): Promi
     if (image) useUiStore.getState().selectElement(image.id);
   } catch (error) {
     if (isCurrentSession(sessionId)) reportError('Importing the image', error);
+  }
+}
+
+/** Adds a Koma after `afterKomaId`, or an empty one at the end, and selects it. */
+export function addKomaAfter(afterKomaId: string | null): void {
+  const known = new Set(
+    selectProject(useProjectStore.getState())?.presentation.komas.map((koma) => koma.id),
+  );
+  useProjectStore.getState().apply(addKoma(afterKomaId));
+  const added = selectProject(useProjectStore.getState())?.presentation.komas.find(
+    (koma) => !known.has(koma.id),
+  );
+  if (added !== undefined) {
+    useUiStore.getState().selectKoma(added.id);
   }
 }

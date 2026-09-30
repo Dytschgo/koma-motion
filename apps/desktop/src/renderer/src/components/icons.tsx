@@ -134,6 +134,76 @@ export const DownloadIcon = (props: IconProps): ReactElement => (
   </Icon>
 );
 
+export const TextIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M3.5 4V3h9v1M8 3v10M6 13h4" />
+  </Icon>
+);
+
+export const ShapeIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <rect x="2.5" y="6.5" width="7" height="7" rx="1" />
+    <circle cx="10.5" cy="5.5" r="3" />
+  </Icon>
+);
+
+export const ImageIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
+    <path d="m2.5 11 3.5-3.5 3 3 1.5-1.5 3 3" />
+    <circle cx="10.5" cy="6" r="1" />
+  </Icon>
+);
+
+export const GroupIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <rect x="2.5" y="2.5" width="7" height="7" rx="1" />
+    <path d="M6.5 13.5h6a1 1 0 0 0 1-1v-6" />
+  </Icon>
+);
+
+export const EyeIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" />
+    <circle cx="8" cy="8" r="2" />
+  </Icon>
+);
+
+export const EyeOffIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M6.2 4A6.4 6.4 0 0 1 8 3.5C12 3.5 14.5 8 14.5 8a11 11 0 0 1-1.7 2.2M10.4 11.9A6 6 0 0 1 8 12.5C4 12.5 1.5 8 1.5 8a11.3 11.3 0 0 1 2.6-3" />
+    <path d="m2.5 2.5 11 11" />
+  </Icon>
+);
+
+export const LockIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <rect x="3.5" y="7" width="9" height="6.5" rx="1" />
+    <path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" />
+  </Icon>
+);
+
+export const UnlockIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <rect x="3.5" y="7" width="9" height="6.5" rx="1" />
+    <path d="M5.5 7V5a2.5 2.5 0 0 1 4.8-1" />
+  </Icon>
+);
+
+export const BringForwardIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <rect x="5.5" y="2.5" width="8" height="8" rx="1" fill="currentColor" fillOpacity="0.35" />
+    <path d="M2.5 6v6.5a1 1 0 0 0 1 1H10" />
+  </Icon>
+);
+
+export const SendBackwardIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <rect x="2.5" y="5.5" width="8" height="8" rx="1" />
+    <path d="M6 2.5h6.5a1 1 0 0 1 1 1V10" />
+  </Icon>
+);
+
 const CHEVRON_PATHS = {
   up: 'm4 10 4-4 4 4',
   down: 'm4 6 4 4 4-4',
