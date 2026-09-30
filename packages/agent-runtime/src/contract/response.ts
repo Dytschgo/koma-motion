@@ -10,7 +10,7 @@ import { z } from 'zod';
 import {
   agentElementTypeSchema,
   MAX_AGENT_ELEMENTS_PER_KOMA,
-  MAX_REQUESTED_KOMAS,
+  MAX_AGENT_TEXT_LENGTH,
 } from './request';
 
 /**
@@ -39,7 +39,13 @@ export const agentElementSchema = z.object({
   rotation: z.number().min(-3600).max(3600),
   opacity: z.number().min(0).max(1),
   zIndex: z.number().int().min(-10000).max(10000),
-  text: z.string().max(5000).nullable(),
+  text: z
+    .string()
+    .max(
+      MAX_AGENT_TEXT_LENGTH,
+      'A text element exceeds the 100,000-character layout safety budget. Split it across elements or Komas.',
+    )
+    .nullable(),
   fontRole: z.enum(FONT_ROLES).nullable(),
   fontSize: z.number().min(1).max(2000).nullable(),
   fontWeight: z.number().int().min(100).max(900).nullable(),
@@ -60,7 +66,12 @@ export const agentKomaSchema = z.object({
   purpose: z.string().max(2000),
   speakerNotes: z.string().max(20000),
   backgroundColour: colourSchema.nullable(),
-  elements: z.array(agentElementSchema).max(MAX_AGENT_ELEMENTS_PER_KOMA),
+  elements: z
+    .array(agentElementSchema)
+    .max(
+      MAX_AGENT_ELEMENTS_PER_KOMA,
+      'This Koma exceeds the 2,000-element rendering safety budget. Split it across Komas.',
+    ),
 });
 
 export const agentTransitionSchema = z.object({
@@ -80,8 +91,8 @@ export const agentPresentationResponseSchema = z.object({
     audience: z.string().max(1000),
     narrative: z.string().max(10000),
   }),
-  komas: z.array(agentKomaSchema).min(1).max(MAX_REQUESTED_KOMAS),
-  transitions: z.array(agentTransitionSchema).max(MAX_REQUESTED_KOMAS),
+  komas: z.array(agentKomaSchema).min(1),
+  transitions: z.array(agentTransitionSchema),
   /** A concise, visible reason for the visual design. */
   visualRationale: z.string().max(2000),
   warnings: z.array(z.string().max(500)).max(20),

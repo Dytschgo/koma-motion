@@ -1,7 +1,7 @@
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { open, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { modelNameSchema } from '@koma-motion/core';
-import { agentError } from '../contract/errors';
+import { err, ok, modelNameSchema, type Result } from '@koma-motion/core';
+import { agentError, type AgentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
 import type {
   AgentExecutionContext,
@@ -10,7 +10,7 @@ import type {
   ProviderExecutionResult,
   ProviderMetadata,
 } from '../providers/types';
-import { MAX_AGENT_OUTPUT_LENGTH } from '../validation/extract';
+import { MAX_AGENT_OUTPUT_BYTES, AGENT_OUTPUT_TOO_LARGE_MESSAGE } from '../validation/extract';
 import {
   createCliEnvironment,
   describeProcessFailure,
@@ -88,16 +88,37 @@ export function buildCodexArguments(options: {
   ];
 }
 
-async function readAnswer(workingDirectory: string): Promise<string | null> {
+/** Read at most the response budget plus one byte, even if the file grows after stat. */
+async function readAnswer(workingDirectory: string): Promise<Result<string, AgentError>> {
   const path = join(workingDirectory, ANSWER_FILE_NAME);
+  const tooLarge = () => err(agentError('outputTooLarge', AGENT_OUTPUT_TOO_LARGE_MESSAGE));
   try {
-    const details = await stat(path);
-    if (!details.isFile() || details.size > MAX_AGENT_OUTPUT_LENGTH * 4) {
-      return null;
+    const handle = await open(path, 'r');
+    try {
+      const details = await handle.stat();
+      if (!details.isFile()) throw new Error('Not a file');
+      if (details.size > MAX_AGENT_OUTPUT_BYTES) return tooLarge();
+      const chunks: Buffer[] = [];
+      let received = 0;
+      while (received <= MAX_AGENT_OUTPUT_BYTES) {
+        const chunk = Buffer.alloc(Math.min(64 * 1024, MAX_AGENT_OUTPUT_BYTES + 1 - received));
+        const { bytesRead } = await handle.read(chunk);
+        if (bytesRead === 0) return ok(Buffer.concat(chunks, received).toString('utf8'));
+        received += bytesRead;
+        if (received > MAX_AGENT_OUTPUT_BYTES) return tooLarge();
+        chunks.push(chunk.subarray(0, bytesRead));
+      }
+      return tooLarge();
+    } finally {
+      await handle.close();
     }
-    return await readFile(path, 'utf8');
   } catch {
-    return null;
+    return err(
+      agentError(
+        'noStructuredOutput',
+        'Codex CLI did not write a readable answer. Retry the generation.',
+      ),
+    );
   }
 }
 
@@ -177,14 +198,8 @@ export class CodexCliProvider implements AgentProvider {
         return { ok: false, error: agentError(failure.code, failure.message), details };
       }
       const answer = await readAnswer(workingDirectory);
-      if (answer === null) {
-        return {
-          ok: false,
-          error: agentError('noStructuredOutput', `${this.displayName} did not write an answer.`),
-          details,
-        };
-      }
-      return { ok: true, output: { rawText: answer }, details };
+      if (!answer.ok) return { ok: false, error: answer.error, details };
+      return { ok: true, output: { rawText: answer.value }, details };
     } finally {
       await this.#environment.removeWorkingDirectory(workingDirectory).catch(() => undefined);
     }

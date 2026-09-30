@@ -14,6 +14,7 @@ is in `packages/agent-runtime/src/node` and runs in the Electron main process.
 | Mock provider   | `mock`        | verified            | verified, covered by automated tests |
 | Claude Code CLI | `claude-code` | verified on Windows | verified on Windows                  |
 | Codex CLI       | `codex`       | verified on Windows | **implemented, not verified**        |
+| Grok CLI        | `grok`        | verified on Windows | verified on Windows                  |
 
 What "verified" means here:
 
@@ -42,6 +43,16 @@ What "verified" means here:
   experimental. Two points are known to be open: whether the response schema
   is accepted by the structured output feature of Codex, and the behaviour
   on macOS.
+- **Grok** help was inspected on Windows on 30 September 2026 with Grok
+  1.0.44 (`grok --help`, `grok --version`). Flags that were not in that help
+  output are not used. `--no-auto-update` is described in the installed
+  headless guide and is accepted by this binary, but it is absent from
+  `grok --help`, so the provider does not pass it. Detection and a headless
+  call with a one-field schema and one three-Koma generation were run on the
+  same computer. The account was already signed in with grok.com.
+  `XAI_API_KEY` was not set. Both used the allowlisted child environment.
+  The generation produced a valid presentation. Grok has not been tested on
+  macOS.
 
 ## The AgentProvider interface
 
@@ -148,9 +159,12 @@ on the result. The promise does not reject for those outcomes.
 
 ### Timeouts
 
-Every execution has a time limit that covers all attempts. The default is 300
-seconds. It is stored in the project and can be set between 10 and 900
-seconds in the settings.
+Executions run until completion or manual cancellation by default. Settings can
+opt into a deadline covering all attempts; `timeoutSeconds: null` disables it.
+The optional timer accepts 10 through 2,147,483 whole seconds (the signed
+32-bit JavaScript timer boundary, about 24.9 days). Disable it for longer runs.
+The separate 15-second CLI **version probe** remains bounded; it is not a
+generation deadline. Providers and their services may impose their own limits.
 
 ### Structured errors
 
@@ -183,7 +197,13 @@ Agents answer with data. Koma Motion does not parse prose.
 - the canvas size,
 - the allowed element types, transition strategies, easings and operations,
 - the assets that may be used, as id and name,
-- limits: at most 12 Komas, 40 elements per Koma and 600 characters per text.
+- no built-in Koma-count limit (`constraints.maxKomas: null`); a caller may
+  explicitly supply a smaller count constraint,
+- technical rendering budgets of 2,000 elements per Koma and 100,000 UTF-16
+  code units per text element. User requests have a 1 MiB UTF-8 input budget.
+
+See [the complete limit audit](GENERATION_LIMITS.md) for memory rationale,
+recovery, retained metadata limits, and project compatibility.
 
 ### Response
 
@@ -262,14 +282,16 @@ are written for the user.
 
 All agent output is untrusted. It passes these steps, in this order:
 
-1. **Size limit.** One limit of 512 KiB (524,288 characters) applies before
-   the text and structured output are chosen between. Raw text above that
-   limit is rejected. When the provider also supplies structured output, that
-   value is serialised with `JSON.stringify`: if serialisation throws, the
-   result is `noStructuredOutput`, not a size error; if the serialised text is
-   above the limit, the result is `outputTooLarge`. `outputTooLarge` is not
-   sent for repair. The output of a CLI is also limited to 8 MB while it is
-   being read, and the process is ended when it produces more.
+1. **Size limit.** An 8 MiB UTF-8 response budget applies to both raw text
+   and serialised structured output before choosing between them. Serialisation
+   also stops on a coarse content budget while traversing an object, before
+   building an arbitrarily large string. Invalid/circular values return
+   `noStructuredOutput`; excess output returns `outputTooLarge` without repair.
+   Combined CLI stdout and stderr stop at 32 MiB, allowing envelope overhead.
+   Answer files are read in bounded chunks, at most 8 MiB plus one byte even
+   if the file grows during reading. Partial responses are never accepted.
+   Errors explain the memory boundary and suggest reducing detail or generating
+   sections in separate projects. See [allocation rationale](GENERATION_LIMITS.md).
 2. **Envelope.** A plain object from the provider (not `null` and not an
    array) is an explicit envelope and is preferred. It is accepted when the
    raw text is empty, when that text contains no JSON object, or when the
@@ -367,18 +389,18 @@ can contain anything.
 
 ## Security boundaries
 
-| Rule                                        | Implementation                                                                                                                                                        |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The renderer cannot start processes         | providers run in the main process; the renderer sends a provider id and the request                                                                                   |
-| No shell                                    | `spawn` with `shell: false`, an executable path and an argument array                                                                                                 |
-| The request of the user is not an argument  | the request, the Brand Kit and the project context are written to standard input. Claude receives the fixed system instructions and the response schema as arguments. |
-| Arguments are controlled                    | all arguments are fixed, except the model name, which must match a restricted pattern                                                                                 |
-| The invocation limits what the agent can do | Claude: no tools, safe mode, restricted mode, Chrome disabled; managed settings still apply. Codex: read-only, which still allows reads; generation has not been run. |
-| No project context for the agent            | the working directory is an empty temporary folder that is removed afterwards                                                                                         |
-| Output is data                              | output is parsed as JSON and validated; it is never executed                                                                                                          |
-| Output cannot name files                    | the response has no paths; asset ids are checked against the project                                                                                                  |
-| Executions end                              | time limit, cancellation and output limit                                                                                                                             |
-| No credentials in Koma Motion               | Koma Motion stores and asks for no keys. Claude keeps its existing sign-in. Codex auth still uses `CODEX_HOME`.                                                       |
+| Rule                                        | Implementation                                                                                                                                                                                                                                                                                                                                             |
+| ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The renderer cannot start processes         | providers run in the main process; the renderer sends a provider id and the request                                                                                                                                                                                                                                                                        |
+| No shell                                    | `spawn` with `shell: false`, an executable path and an argument array                                                                                                                                                                                                                                                                                      |
+| The request of the user is not an argument  | Claude and Codex read the request, the Brand Kit and the project context from standard input. Grok does not read a prompt from standard input, so that text is written to a file Koma Motion creates in the temporary directory and the argument is that path. Claude and Grok receive the fixed system instructions and the response schema as arguments. |
+| Arguments are controlled                    | all arguments are fixed, except the model name, which must match a restricted pattern                                                                                                                                                                                                                                                                      |
+| The invocation limits what the agent can do | Claude: no tools, safe mode, restricted mode, Chrome disabled; managed settings still apply. Codex: read-only, which still allows reads; generation has not been run. Grok: no built-in tools, web search disabled, subagents disabled, plan mode disabled, permission mode `dontAsk`, sandbox profile `strict`.                                           |
+| No project context for the agent            | the working directory is an empty temporary folder that is removed afterwards                                                                                                                                                                                                                                                                              |
+| Output is data                              | output is parsed as JSON and validated; it is never executed                                                                                                                                                                                                                                                                                               |
+| Output cannot name files                    | the response has no paths; asset ids are checked against the project                                                                                                                                                                                                                                                                                       |
+| Executions end                              | time limit, cancellation and output limit                                                                                                                                                                                                                                                                                                                  |
+| No credentials in Koma Motion               | Koma Motion stores and asks for no keys. Claude keeps its existing sign-in. Codex auth still uses `CODEX_HOME`. Grok keeps its existing sign-in under its own home directory, or `XAI_API_KEY` when the parent process already has it.                                                                                                                     |
 
 ### Child environment
 
@@ -397,7 +419,7 @@ A name is copied only when the parent already has a string value:
   `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`, `HTTP_PROXY`, `HTTPS_PROXY`,
   `NO_PROXY`, and the same names in lowercase.
 - Auth named by the installed help or by this document: `ANTHROPIC_API_KEY`,
-  `OPENAI_API_KEY` and `CODEX_HOME`.
+  `OPENAI_API_KEY`, `CODEX_HOME`, `XAI_API_KEY` and `GROK_HOME`.
 
 No other `*_TOKEN` or `*_KEY` variables are copied. `CODEX_HOME` is not
 repointed. On Windows, Node keeps one spelling of a case-insensitive name,
@@ -483,6 +505,98 @@ Koma Motion does not store keys. Generation with this combination was not
 executed. The arguments come from help plus `features list`, not from a live
 run.
 
+**Grok** (help of Grok 1.0.44 on Windows, 30 September 2026, then run):
+
+```text
+grok --prompt-file <temporary folder>/prompt.txt
+     --output-format json
+     --json-schema <schema>
+     --verbatim
+     --tools ""
+     --disable-web-search
+     --no-subagents
+     --no-plan
+     --permission-mode dontAsk
+     --sandbox strict
+     --cwd <temporary folder>
+     [--model <model>]
+     --system-prompt-override <text>
+```
+
+The request is the contents of `prompt.txt`. Koma Motion creates that file.
+It contains the user's request, project instructions, the Brand Kit, a text
+summary of existing Komas, asset ids and names, and the response schema.
+Standard input is empty. `--json-schema` is the response contract as one
+JSON argument. On this version it implies `--output-format json`. The
+printed object has `text` and, when the schema is used, `structuredOutput`.
+Koma Motion passes both to validation and does not read `thought`. An object
+`{"type":"error","message":"..."}` is a provider error. That error shape is
+the one described by the installed headless guide. It was not produced by
+the successful calls below.
+
+`grok models` on this installation reported a grok.com sign-in and these
+model ids: `grok-4.7` (default), `grok-4.7-build-fast`, `grok-4.6` and
+`grok-4.5`. The provider does not store that list. An empty model uses the
+CLI default. A model name is passed only when it matches the restricted
+model pattern. `--model grok-4.7` was accepted in a separate call. The
+`modelUsage` key of that call was `grok-4.7-build`.
+
+The argument list above was run once with a one-field schema, no `--model`,
+the allowlisted environment and the existing sign-in. `XAI_API_KEY` was not
+set. The process exited 0, printed no standard error, and returned
+`{"ok": true}` in both `text` and `structuredOutput`, with `stopReason`
+`end_turn` and `num_turns` 1. `--model grok-4.7` was accepted in a separate
+call that also passed `--sandbox strict`, `--max-turns 1` and
+`--no-auto-update`. That call likewise exited 0. `--max-turns` is not used:
+it was only tried with the one-field schema, and the installed guide
+describes structured-output retries. The presentation schema is larger than
+the one-field schema and fits in one argument.
+
+On 30 September 2026 the argument list above, with no `--model`, generated
+a presentation through `GenerationRunner` on Windows. Grok 1.0.44 used the
+existing grok.com sign-in and the allowlisted environment. `XAI_API_KEY`
+was not set. The process exited 0 after 420 seconds, with empty standard
+error. The first response was valid, so there was no repair. It produced
+three Komas and retained motion between them. Diagnostics recorded the
+prompt template `presentation-generation@3`, which is the template the
+runner used for that run.
+
+Grok writes a session. `grok --help` has no flag that disables session
+persistence, and the successful JSON included a `sessionId`. The transcript
+is stored by the CLI under `~/.grok/sessions`, or under `$GROK_HOME` when
+that variable is already set. Koma Motion does not copy or delete those
+files.
+
+`--tools ""` allowlists no built-in tools. The installed headless guide says
+MCP meta-tools can remain unless they are denied. This installation had no
+`mcp.json`. `--permission-mode dontAsk` does not prompt, and the installed
+permissions guide says tools outside the built-in read-only set are not
+run in that mode. MCP was not given a separate live test. User config in
+`~/.grok/config.toml` is still loaded. There is no verified flag that skips
+it. The permissions guide says a CLI permission mode overrides the config
+mode for that process.
+
+`--sandbox strict` is the most restrictive profile in the installed sandbox
+guide. That guide's platform table lists Linux and macOS, not Windows. The
+Windows calls, including the presentation run, passed the flag, exited 0,
+and printed no sandbox message. That does not prove the profile was
+enforced.
+
+`XAI_API_KEY` and `GROK_HOME` are copied only when the parent process
+already has them. Koma Motion does not store keys and has no API-key
+setting. Sign in with `grok login`, or `grok login --device-auth` on a
+machine without a browser. Install on Windows with:
+
+```powershell
+irm https://x.ai/cli/install.ps1 | iex
+```
+
+On macOS or Linux the installed getting-started guide uses
+`curl -fsSL https://x.ai/cli/install.sh | bash`. Those installers were not
+run as part of this verification. The provider looks up `grok` on `PATH`
+and in the usual installation directories, including `%USERPROFILE%\.grok\bin`
+on Windows.
+
 ### Remaining trust
 
 - Admin-managed Claude settings still apply. Managed policy settings cannot
@@ -490,6 +604,9 @@ run.
 - Codex read-only is not "no filesystem access".
 - Codex generation was not run. The Codex argument list is unverified against
   a real generation.
+- Grok session transcripts stay in the CLI's own data directory. User Grok
+  config and hooks still load. Sandbox enforcement on Windows is not
+  established. MCP meta-tools were not given a separate test.
 - Prompt wording, including the untrusted-data delimiters, is not a boundary.
 - `PATH` discovery still trusts the local install locations on `PATH` and the
   extra installation folders searched beside it. The child receives that
@@ -545,12 +662,15 @@ Tests against installed CLIs are skipped unless they are requested, because
 generation uses the account of the person who runs them.
 
 ```sh
-# Detection of both CLIs. Uses no model.
+# Detection of Claude Code, Codex and Grok. Uses no model. Each CLI must be installed.
 KOMA_LIVE_DETECTION=1 pnpm vitest run packages/agent-runtime/src/node/live.test.ts
 
 # One generation with Claude Code through the runtime.
 KOMA_LIVE_GENERATION=claude-code KOMA_LIVE_MODEL=claude-opus-5-5 \
   pnpm vitest run packages/agent-runtime/src/node/live.test.ts
+
+# One generation with Grok through the runtime. Leave the model unset for the CLI default.
+KOMA_LIVE_GENERATION=grok pnpm vitest run packages/agent-runtime/src/node/live.test.ts
 
 # One generation with Claude Code through the application.
 KOMA_LIVE_E2E=claude-code pnpm test:e2e -- live.spec.ts
@@ -595,3 +715,7 @@ try {
 Open `claude-code.koma` in Koma Motion to test the original result. The edited
 copy demonstrates persistence. These are editable Koma projects; PowerPoint
 export is not implemented.
+
+Generation and repair prompt version 4 retain project instructions and imported-data
+separation, remove the product Koma-count rule, and label a shortened repair excerpt
+as incomplete. The full corrected response must pass validation again.

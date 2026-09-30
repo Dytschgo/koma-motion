@@ -3,7 +3,8 @@ import { hexColourSchema } from '../colour';
 import { idSchema } from '../ids';
 import { komaElementSchema, type KomaElement, type LeafElement } from './element';
 
-export const MAX_ELEMENTS_PER_KOMA = 200;
+/** Top-level rendering safety budget; groups retain their separate child budget; see docs/GENERATION_LIMITS.md. */
+export const MAX_ELEMENTS_PER_KOMA = 2000;
 
 export const komaBackgroundSchema = z.object({
   type: z.literal('solid'),
@@ -59,7 +60,12 @@ export const komaSchema = z
     purpose: z.string().max(2000),
     speakerNotes: z.string().max(20000),
     background: komaBackgroundSchema,
-    elements: z.array(komaElementSchema).max(MAX_ELEMENTS_PER_KOMA),
+    elements: z
+      .array(komaElementSchema)
+      .max(
+        MAX_ELEMENTS_PER_KOMA,
+        'This Koma exceeds the 2,000-element rendering safety budget. Split it across Komas.',
+      ),
   })
   .superRefine((koma, context) => {
     const seenIds = new Set<string>();

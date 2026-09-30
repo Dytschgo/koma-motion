@@ -1,4 +1,5 @@
 import {
+  agentError,
   buildGenerationRequest,
   convertResponseToPresentation,
   type AgentError,
@@ -7,6 +8,9 @@ import {
   type GenerationRunner,
 } from '@koma-motion/agent-runtime';
 import {
+  appendGenerationHistory,
+  komaProjectSchema,
+  PROJECT_TOO_LARGE_MESSAGE,
   createSeededIdGenerator,
   hashString,
   type GenerationHistoryEntry,
@@ -61,7 +65,7 @@ export async function generatePresentation(options: {
     executionId,
     providerId,
     request,
-    timeoutMs: configuration.timeoutSeconds * 1000,
+    timeoutMs: configuration.timeoutSeconds === null ? null : configuration.timeoutSeconds * 1000,
     model: configuration.providers[providerId]?.model ?? null,
     onStatus,
   });
@@ -102,14 +106,32 @@ export async function generatePresentation(options: {
     warnings.push('The first response of the provider was not valid. It was corrected once.');
   }
   const count = presentation.komas.length;
+  const entry = historyEntry(
+    'succeeded',
+    `Created ${String(count)} ${count === 1 ? 'Koma' : 'Komas'}: ${presentation.komas.map((koma) => koma.title).join(', ')}`,
+    warnings,
+  );
+  const candidate = komaProjectSchema.safeParse(
+    appendGenerationHistory({ ...project, presentation }, entry),
+  );
+  if (!candidate.success) {
+    const tooLarge = candidate.error.issues.some(
+      (issue) => issue.message === PROJECT_TOO_LARGE_MESSAGE,
+    );
+    return failed(
+      'failed',
+      agentError(
+        tooLarge ? 'outputTooLarge' : 'conversionFailed',
+        tooLarge
+          ? PROJECT_TOO_LARGE_MESSAGE
+          : 'The generated presentation could not be applied to this project. No Komas were replaced.',
+      ),
+    );
+  }
   return {
     status: 'succeeded',
     presentation,
-    historyEntry: historyEntry(
-      'succeeded',
-      `Created ${String(count)} ${count === 1 ? 'Koma' : 'Komas'}: ${presentation.komas.map((koma) => koma.title).join(', ')}`,
-      warnings,
-    ),
+    historyEntry: entry,
     warnings,
     repaired: result.repaired,
     diagnostics: result.diagnostics,

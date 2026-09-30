@@ -1,4 +1,4 @@
-import { MAX_PROJECT_ASSETS, type ImageElement } from '@koma-motion/core';
+import { CURRENT_SCHEMA_VERSION, MAX_PROJECT_ASSETS, type ImageElement } from '@koma-motion/core';
 import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
 import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -39,7 +39,7 @@ test('explains the mock demo and how to generate from a request', async () => {
   const exampleRequest =
     'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
   const mockExplanation = window.getByText(
-    'Mock always creates the same three-Koma demo, whatever you ask. To generate from your request, choose Claude Code above.',
+    'Mock always creates the same three-Koma demo, whatever you ask. To generate from your request, choose an installed agent above.',
   );
   await expect(provider).toHaveValue('mock');
   await expect(mockExplanation).toBeVisible();
@@ -178,7 +178,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     const saved: unknown = JSON.parse(await readFile(filePath, 'utf8'));
     expect(saved).toMatchObject({
       format: 'koma-motion-project',
-      schemaVersion: 1,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       name: 'Introduction',
       brandKit: { name: 'Koma Motion', colours: { primary: '#E4572E', accent: '#FFC914' } },
       presentation: { title: 'Koma Motion' },
@@ -244,7 +244,7 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
     ).toContainText('0 changes');
   });
 
-  await test.step('changing an element creates motion', async () => {
+  await test.step('changing an element keeps stored motion until explicitly regenerated', async () => {
     await window
       .getByRole('region', { name: 'Canvas' })
       .getByRole('button', { name: 'Motion engine (shape)' })
@@ -252,8 +252,8 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
     await window.getByLabel('X', { exact: true }).fill('300');
     await expect(
       window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
-    ).toContainText('1 change');
-    await expect(window.getByText('moves', { exact: true })).toBeVisible();
+    ).toContainText('0 changes');
+    await expect(window.getByLabel('X', { exact: true })).toHaveValue('300');
   });
 
   await test.step('move and delete', async () => {

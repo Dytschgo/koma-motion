@@ -5,8 +5,8 @@ import {
 } from '../contract/request';
 import { getResponseJsonSchema, type AgentPresentationResponse } from '../contract/response';
 import {
-  presentationGenerationPromptV2,
-  presentationRepairPromptV2,
+  presentationGenerationPromptV4,
+  presentationRepairPromptV4,
   type AgentPrompt,
 } from '../prompts/presentationGeneration';
 import type { ProviderRegistry } from '../providers/registry';
@@ -21,7 +21,9 @@ import type {
 import { resolveProviderOutput } from '../validation/extract';
 import { validateAgentResponse } from '../validation/validateResponse';
 
-export const DEFAULT_TIMEOUT_MS = 300_000;
+export const DEFAULT_TIMEOUT_MS = null;
+/** Node timers overflow above this value; reject invalid opt-in deadlines. */
+export const MAX_TIMEOUT_MS = 2_147_483_647;
 /** One generation attempt plus at most one repair attempt. */
 export const MAX_ATTEMPTS = 2;
 
@@ -29,7 +31,7 @@ export interface GenerationExecution {
   readonly executionId: string;
   readonly providerId: string;
   readonly request: PresentationGenerationRequest;
-  readonly timeoutMs?: number;
+  readonly timeoutMs?: number | null;
   readonly model?: string | null;
   readonly onStatus?: (event: ExecutionStatusEvent) => void;
 }
@@ -61,12 +63,12 @@ interface RunningExecution {
   stopReason: StopReason | null;
 }
 
-const STOP_ERRORS: Readonly<Record<StopReason, (timeoutMs: number) => AgentError>> = {
+const STOP_ERRORS: Readonly<Record<StopReason, (timeoutMs: number | null) => AgentError>> = {
   cancelled: () => agentError('cancelled', 'The generation was stopped.'),
   timedOut: (timeoutMs) =>
     agentError(
       'timedOut',
-      `The provider did not finish within ${String(Math.round(timeoutMs / 1000))} seconds and was stopped.`,
+      `The provider did not finish within ${String(Math.round((timeoutMs ?? 0) / 1000))} seconds and was stopped.`,
     ),
 };
 
@@ -171,6 +173,17 @@ export class GenerationRunner {
       return fail(agentError('internalError', 'This generation is already running.'));
     }
 
+    if (
+      timeoutMs !== null &&
+      (!Number.isSafeInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > MAX_TIMEOUT_MS)
+    ) {
+      return fail(
+        agentError(
+          'invalidRequest',
+          'The optional timeout exceeds the JavaScript timer range. Disable the timeout or choose a shorter interval.',
+        ),
+      );
+    }
     report('preparing', 'Preparing the request');
     const request = presentationGenerationRequestSchema.safeParse(execution.request);
     if (!request.success) {
@@ -194,10 +207,13 @@ export class GenerationRunner {
 
     const running: RunningExecution = { controller: new AbortController(), stopReason: null };
     this.#running.set(executionId, running);
-    const timer = setTimeout(() => {
-      running.stopReason ??= 'timedOut';
-      running.controller.abort();
-    }, timeoutMs);
+    const timer =
+      timeoutMs === null
+        ? undefined
+        : setTimeout(() => {
+            running.stopReason ??= 'timedOut';
+            running.controller.abort();
+          }, timeoutMs);
 
     try {
       return await this.#run(provider, request.data, execution, running, {
@@ -231,7 +247,7 @@ export class GenerationRunner {
       readonly report: (phase: ExecutionPhase, message: string) => void;
       readonly fail: (error: AgentError) => PresentationGenerationResult;
       readonly diagnostics: () => ExecutionDiagnostics;
-      readonly timeoutMs: number;
+      readonly timeoutMs: number | null;
       readonly setPromptTemplate: (value: string) => void;
     },
   ): Promise<PresentationGenerationResult> {
@@ -250,7 +266,7 @@ export class GenerationRunner {
     }
 
     const responseJsonSchema = getResponseJsonSchema();
-    let prompt: AgentPrompt = presentationGenerationPromptV2.render({
+    let prompt: AgentPrompt = presentationGenerationPromptV4.render({
       request,
       responseJsonSchema,
     });
@@ -330,7 +346,7 @@ export class GenerationRunner {
       if (validated.error.code === 'outputTooLarge') {
         break;
       }
-      prompt = presentationRepairPromptV2.render({
+      prompt = presentationRepairPromptV4.render({
         request,
         responseJsonSchema,
         previousOutput: rawText,

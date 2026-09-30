@@ -18,13 +18,16 @@ import {
   buildCliChildEnvironment,
   CLI_CHILD_ENVIRONMENT_ALLOWLIST,
   detectCli,
+  MAX_CLI_OUTPUT_BYTES,
   type CliEnvironment,
 } from './cliEnvironment';
 import { buildCodexArguments, CodexCliProvider } from './CodexCliProvider';
+import { buildGrokArguments, GrokCliProvider, parseGrokEnvelope } from './GrokCliProvider';
 import { MAX_DIAGNOSTIC_LENGTH, MAX_SCANNED_LENGTH, redactDiagnostics } from './redact';
 import { resolveExecutable, type ResolutionEnvironment } from './resolveExecutable';
 import {
   assertSafeArguments,
+  MAX_ARGUMENT_LENGTH,
   runProcess,
   type ProcessResult,
   type ProcessSpecification,
@@ -256,6 +259,91 @@ function context(overrides: Partial<AgentExecutionContext> = {}): AgentExecution
     ...overrides,
   };
 }
+
+describe('provider instruction transport', () => {
+  it.each(['claude-code', 'codex', 'grok', 'mock'])(
+    'sends distinct instruction and request text to %s without changing permissions',
+    async (id) => {
+      const instructions = 'Use plain language.\n$(touch forbidden) --sandbox danger-full-access';
+      const request = buildRequest({
+        systemInstructions: instructions,
+        userRequest: 'Current task',
+      });
+      let filePrompt = '';
+      const environment = fakeEnvironment(async (specification) => {
+        if (specification.arguments.includes('--version'))
+          return completed({ standardOutput: '1.0.0' });
+        if (id === 'codex') {
+          await writeFile(
+            join(specification.workingDirectory, 'answer.json'),
+            JSON.stringify(buildResponse()),
+          );
+          return completed();
+        }
+        if (id === 'grok') {
+          filePrompt = await readFile(join(specification.workingDirectory, 'prompt.txt'), 'utf8');
+          return completed({
+            standardOutput: JSON.stringify({ structuredOutput: buildResponse() }),
+          });
+        }
+        return completed({
+          standardOutput: JSON.stringify({
+            type: 'result',
+            result: JSON.stringify(buildResponse()),
+          }),
+        });
+      });
+      const { MockAgentProvider } = await import('../providers/mock/MockAgentProvider');
+      const provider =
+        id === 'codex'
+          ? new CodexCliProvider(environment)
+          : id === 'claude-code'
+            ? new ClaudeCodeProvider(environment)
+            : id === 'grok'
+              ? new GrokCliProvider(environment)
+              : new MockAgentProvider({ delayMs: 0 });
+      let mockRequest: unknown;
+      if (id === 'mock') {
+        const generate = provider.generatePresentation.bind(provider);
+        provider.generatePresentation = (sent, context) => {
+          mockRequest = sent;
+          expect(context.prompt.user).toContain(JSON.stringify(instructions));
+          return generate(sent, context);
+        };
+      }
+      const runner = new GenerationRunner({ registry: new ProviderRegistry([provider]) });
+      expect(
+        (await runner.execute({ executionId: 'instruction-provider', providerId: id, request }))
+          .status,
+      ).toBe('succeeded');
+      if (id === 'mock') {
+        expect(mockRequest).toMatchObject({
+          systemInstructions: instructions,
+          userRequest: 'Current task',
+        });
+        return;
+      }
+      const call = environment.calls.find(
+        (specification) => !specification.arguments.includes('--version'),
+      );
+      const prompt = id === 'grok' ? filePrompt : call?.input;
+      expect(prompt).toContain(JSON.stringify(instructions));
+      expect(prompt).toContain('# Request\nCurrent task');
+      expect(call?.arguments).not.toContain(instructions);
+      expect(call?.arguments).not.toContain('danger-full-access');
+      if (id === 'codex') expect(call?.arguments).toContain('read-only');
+      else if (id === 'grok') {
+        expect(call?.arguments).toContain('strict');
+        expect(call?.arguments).toContain('--tools');
+        expect(call?.arguments).toContain('dontAsk');
+      } else {
+        expect(call?.arguments).toContain('--restricted');
+        expect(call?.arguments).toContain('--tools');
+        expect(call?.arguments).toContain('--permission-prompts');
+      }
+    },
+  );
+});
 
 describe('runProcess', () => {
   it('passes input and arguments without a shell', async () => {
@@ -495,6 +583,8 @@ describe('buildCliChildEnvironment', () => {
     'ANTHROPIC_API_KEY',
     'OPENAI_API_KEY',
     'CODEX_HOME',
+    'XAI_API_KEY',
+    'GROK_HOME',
   ];
 
   it('copies only allowlisted string values', () => {
@@ -506,6 +596,8 @@ describe('buildCliChildEnvironment', () => {
         ANTHROPIC_API_KEY: 'synthetic-anthropic',
         OPENAI_API_KEY: 'synthetic-openai',
         CODEX_HOME: 'C:\\synthetic\\codex-home',
+        XAI_API_KEY: 'synthetic-xai',
+        GROK_HOME: 'C:\\synthetic\\grok-home',
         AWS_SECRET_ACCESS_KEY: 'synthetic-aws',
         GITHUB_TOKEN: 'synthetic-github-token',
         http_proxy: 'http://synthetic-proxy.example',
@@ -516,6 +608,8 @@ describe('buildCliChildEnvironment', () => {
       ANTHROPIC_API_KEY: 'synthetic-anthropic',
       OPENAI_API_KEY: 'synthetic-openai',
       CODEX_HOME: 'C:\\synthetic\\codex-home',
+      XAI_API_KEY: 'synthetic-xai',
+      GROK_HOME: 'C:\\synthetic\\grok-home',
       http_proxy: 'http://synthetic-proxy.example',
     });
   });
@@ -1032,6 +1126,25 @@ describe('CodexCliProvider', () => {
     );
   });
 
+  it('rejects oversized answer files explicitly instead of treating them as missing or partial', async () => {
+    const environment = fakeEnvironment(async (specification) => {
+      await writeFile(
+        join(specification.workingDirectory, 'answer.json'),
+        'x'.repeat(8 * 1024 * 1024 + 1),
+      );
+      return completed();
+    });
+    const result = await new CodexCliProvider(environment).generatePresentation(
+      buildRequest(),
+      context(),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('outputTooLarge');
+      expect(result.error.message).toContain('No partial presentation');
+    }
+  });
+
   it('reports a run without an answer', async () => {
     const provider = new CodexCliProvider(fakeEnvironment(completed()));
     const result = await provider.generatePresentation(buildRequest(), context());
@@ -1039,6 +1152,257 @@ describe('CodexCliProvider', () => {
     if (!result.ok) {
       expect(result.error.code).toBe('noStructuredOutput');
     }
+  });
+});
+
+describe('GrokCliProvider', () => {
+  const envelope = (fields: Record<string, unknown>): string =>
+    JSON.stringify({ stopReason: 'end_turn', text: '', ...fields });
+
+  it('builds arguments that keep the request out of the command line', () => {
+    const schema = JSON.stringify(getResponseJsonSchema());
+    expect(schema.length).toBeLessThanOrEqual(MAX_ARGUMENT_LENGTH);
+    const promptFile = join(directory, 'prompt.txt');
+    expect(
+      buildGrokArguments({
+        promptFile,
+        workingDirectory: directory,
+        systemPrompt: 'system',
+        responseJsonSchema: schema,
+        model: 'grok-4.7',
+      }),
+    ).toEqual([
+      '--prompt-file',
+      promptFile,
+      '--output-format',
+      'json',
+      '--json-schema',
+      schema,
+      '--verbatim',
+      '--tools',
+      '',
+      '--disable-web-search',
+      '--no-subagents',
+      '--no-plan',
+      '--permission-mode',
+      'dontAsk',
+      '--sandbox',
+      'strict',
+      '--cwd',
+      directory,
+      '--model',
+      'grok-4.7',
+      '--system-prompt-override',
+      'system',
+    ]);
+    const withoutModel = buildGrokArguments({
+      promptFile,
+      workingDirectory: directory,
+      systemPrompt: 'system',
+      responseJsonSchema: '{}',
+      model: null,
+    });
+    expect(withoutModel).not.toContain('--model');
+    expect(withoutModel).not.toContain('--always-approve');
+    expect(withoutModel).not.toContain('--yolo');
+    expect(withoutModel.join('\n')).not.toContain('Create a three-frame');
+  });
+
+  it.each(['grok; rm -rf /', '--yolo', 'a b', ''])('rejects the model name "%s"', (model) => {
+    expect(() =>
+      buildGrokArguments({
+        promptFile: 'prompt.txt',
+        workingDirectory: directory,
+        systemPrompt: '',
+        responseJsonSchema: '{}',
+        model,
+      }),
+    ).toThrow();
+  });
+
+  it('writes the request to a prompt file and returns structured output', async () => {
+    const structured = buildResponse();
+    let writtenPrompt = '';
+    const environment = fakeEnvironment(async (specification) => {
+      const promptFile =
+        specification.arguments[specification.arguments.indexOf('--prompt-file') + 1];
+      writtenPrompt = await readFile(promptFile ?? '', 'utf8');
+      return completed({
+        standardOutput: envelope({
+          text: 'text',
+          structuredOutput: structured,
+        }),
+      });
+    });
+    const provider = new GrokCliProvider(environment);
+
+    const result = await provider.generatePresentation(buildRequest(), context());
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.output.structured).toEqual(structured);
+      expect(result.output.rawText).toBe('text');
+    }
+    const call = environment.calls[0];
+    expect(call?.input).toBe('');
+    expect(call?.env).toEqual(CHILD_ENVIRONMENT);
+    expect(call?.maxOutputBytes).toBe(MAX_CLI_OUTPUT_BYTES);
+    expect(writtenPrompt).toContain('# Request');
+    expect(writtenPrompt).toContain('Create a three-frame presentation introducing Koma Motion.');
+    expect(call?.arguments.join('\n')).not.toContain('# Request');
+    expect(call?.arguments.join('\n')).not.toContain('Create a three-frame');
+    expect(call?.arguments).toEqual(
+      expect.arrayContaining([
+        '--verbatim',
+        '--tools',
+        '',
+        '--disable-web-search',
+        '--no-subagents',
+        '--permission-mode',
+        'dontAsk',
+        '--sandbox',
+        'strict',
+      ]),
+    );
+  });
+
+  it('lets the runner reject a text that disagrees with the structured output', async () => {
+    const structured = buildResponse();
+    const text = { ...buildResponse(), visualRationale: 'A different answer.' };
+    const environment = fakeEnvironment(
+      completed({
+        standardOutput: envelope({
+          structuredOutput: structured,
+          text: JSON.stringify(text),
+        }),
+      }),
+    );
+    const runner = new GenerationRunner({
+      registry: new ProviderRegistry([new GrokCliProvider(environment)]),
+    });
+
+    const result = await runner.execute({
+      executionId: 'execution-1',
+      providerId: 'grok',
+      request: buildRequest(),
+    });
+
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.error.issues.map((issue) => issue.code)).toEqual(['inconsistentOutput']);
+      expect(result.diagnostics.attempts.map((attempt) => attempt.outcome)).toEqual([
+        'rejected',
+        'rejected',
+      ]);
+    }
+  });
+
+  it('lets the runner accept a text that agrees with the structured output', async () => {
+    const structured = buildResponse();
+    const environment = fakeEnvironment(
+      completed({
+        standardOutput: envelope({
+          structuredOutput: structured,
+          text: JSON.stringify(structured),
+        }),
+      }),
+    );
+    const runner = new GenerationRunner({
+      registry: new ProviderRegistry([new GrokCliProvider(environment)]),
+    });
+    const result = await runner.execute({
+      executionId: 'execution-1',
+      providerId: 'grok',
+      request: buildRequest(),
+    });
+    expect(result.status).toBe('succeeded');
+    if (result.status === 'succeeded') {
+      expect(result.response.komas.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('hands text that is not the expected envelope to validation', async () => {
+    const provider = new GrokCliProvider(
+      fakeEnvironment(completed({ standardOutput: 'not json at all' })),
+    );
+    const runner = new GenerationRunner({
+      registry: new ProviderRegistry([provider]),
+    });
+    const result = await runner.execute({
+      executionId: 'execution-1',
+      providerId: 'grok',
+      request: buildRequest(),
+    });
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.error.code).toBe('noStructuredOutput');
+    }
+  });
+
+  it('reports errors of the CLI and redacts them', async () => {
+    const provider = new GrokCliProvider(
+      fakeEnvironment(
+        completed({
+          exitCode: 1,
+          standardOutput: envelope({
+            type: 'error',
+            message: 'Sign in failed. XAI_API_KEY=REDACTME123456',
+          }),
+        }),
+      ),
+    );
+    const result = await provider.generatePresentation(buildRequest(), context());
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('executionFailed');
+      expect(result.error.message).toContain('Sign in failed');
+      expect(result.error.message).not.toContain('REDACTME123456');
+    }
+  });
+
+  it.each([
+    ['a failing exit code', completed({ exitCode: 1, standardError: 'boom' }), 'executionFailed'],
+    ['cancellation', completed({ exitCode: null, aborted: true }), 'cancelled'],
+    ['an output limit', completed({ exitCode: null, outputLimitExceeded: true }), 'outputTooLarge'],
+    ['a missing installation', completed(), 'providerUnavailable'],
+  ] as const)('reports %s', async (label, outcome, code) => {
+    const installed = label !== 'a missing installation';
+    const provider = new GrokCliProvider(fakeEnvironment(outcome, installed));
+    const result = await provider.generatePresentation(buildRequest(), context());
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe(code);
+    }
+  });
+
+  it('stays unavailable without affecting another provider', async () => {
+    const registry = new ProviderRegistry([
+      new GrokCliProvider(fakeEnvironment(completed(), false)),
+      new CodexCliProvider(fakeEnvironment(completed({ standardOutput: 'codex 0.157.1\n' }))),
+    ]);
+    const detected = await registry.detectAll();
+    expect(detected.map((entry) => entry.detection.availability)).toEqual([
+      'unavailable',
+      'available',
+    ]);
+  });
+
+  it('parses result and error envelopes', () => {
+    expect(parseGrokEnvelope('not json')).toBeNull();
+    expect(parseGrokEnvelope('[]')).toBeNull();
+    expect(parseGrokEnvelope('{"sessionId":"abc"}')).toBeNull();
+    expect(
+      parseGrokEnvelope(envelope({ text: '{"ok":true}', structuredOutput: { ok: true } })),
+    ).toEqual({
+      isError: false,
+      result: '{"ok":true}',
+      structuredOutput: { ok: true },
+    });
+    expect(parseGrokEnvelope('{"type":"error","message":"sign in"}')).toEqual({
+      isError: true,
+      result: 'sign in',
+      structuredOutput: undefined,
+    });
   });
 });
 

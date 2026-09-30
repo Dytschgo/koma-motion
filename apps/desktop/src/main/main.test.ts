@@ -250,7 +250,7 @@ describe('IPC contract', () => {
       request.safeParse({ ...valid, input: { ...valid.input, userRequest: '  ' } }).success,
     ).toBe(false);
     expect(
-      request.safeParse({ ...valid, input: { ...valid.input, requestedKomaCount: 500 } }).success,
+      request.safeParse({ ...valid, input: { ...valid.input, requestedKomaCount: -1 } }).success,
     ).toBe(false);
   });
 });

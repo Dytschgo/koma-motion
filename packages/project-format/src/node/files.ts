@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { open, readFile, rename, stat, unlink } from 'node:fs/promises';
+import { open, rename, stat, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import {
   CURRENT_SCHEMA_VERSION,
@@ -58,6 +58,26 @@ function uninspectableMessage(filePath: string, detail: string): string {
   return `"${basename(filePath)}" could not be inspected, so it was not overwritten. ${detail} Save under a different name instead.`;
 }
 
+/** A file may grow after stat. Read at most the budget plus one byte. */
+async function readBoundedProjectFile(filePath: string): Promise<Buffer> {
+  const handle = await open(filePath, 'r');
+  try {
+    const chunks: Buffer[] = [];
+    let received = 0;
+    while (received <= MAX_PROJECT_FILE_BYTES) {
+      const chunk = Buffer.alloc(Math.min(64 * 1024, MAX_PROJECT_FILE_BYTES + 1 - received));
+      const { bytesRead } = await handle.read(chunk);
+      if (bytesRead === 0) return Buffer.concat(chunks, received);
+      received += bytesRead;
+      if (received > MAX_PROJECT_FILE_BYTES) throw new RangeError(PROJECT_TOO_LARGE_MESSAGE);
+      chunks.push(chunk.subarray(0, bytesRead));
+    }
+    throw new RangeError(PROJECT_TOO_LARGE_MESSAGE);
+  } finally {
+    await handle.close();
+  }
+}
+
 export async function readProjectFile(
   filePath: string,
 ): Promise<Result<LoadedProjectFile, ProjectFormatError>> {
@@ -76,8 +96,10 @@ export async function readProjectFile(
       if (details.size > MAX_PROJECT_FILE_BYTES) {
         return err(projectFormatError('tooLarge', PROJECT_TOO_LARGE_MESSAGE));
       }
-      contents = await readFile(filePath);
+      contents = await readBoundedProjectFile(filePath);
     } catch (error) {
+      if (error instanceof RangeError)
+        return err(projectFormatError('tooLarge', PROJECT_TOO_LARGE_MESSAGE));
       return err(
         projectFormatError(
           'fileNotReadable',
@@ -130,7 +152,7 @@ async function inspectExistingTarget(filePath: string): Promise<TargetInspection
 
   let contents: Buffer;
   try {
-    contents = await readFile(filePath);
+    contents = await readBoundedProjectFile(filePath);
   } catch (error) {
     return {
       status: 'uninspectable',

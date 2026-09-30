@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { getResponseJsonSchema } from '../contract/response';
 import {
   presentationGenerationPromptV1,
@@ -16,6 +16,8 @@ import {
   type ScriptedAnswer,
 } from '../testing/fixtures';
 import { GenerationRunner, type PresentationGenerationResult } from './GenerationRunner';
+
+import { MAX_AGENT_OUTPUT_BYTES } from '../validation/extract';
 
 const valid = JSON.stringify(buildResponse());
 
@@ -104,7 +106,7 @@ describe('GenerationRunner', () => {
       expect(result.response.komas).toHaveLength(3);
       expect(result.repaired).toBe(false);
       expect(result.diagnostics.attempts).toHaveLength(1);
-      expect(result.diagnostics.promptTemplate).toBe('presentation-generation@2');
+      expect(result.diagnostics.promptTemplate).toBe('presentation-generation@4');
     }
     expect([...new Set(events.map((event) => event.phase))]).toEqual([
       'preparing',
@@ -128,7 +130,7 @@ describe('GenerationRunner', () => {
   });
 
   it('rejects oversized text without a repair attempt', async () => {
-    const rawText = 'x'.repeat(622_112);
+    const rawText = 'x'.repeat(MAX_AGENT_OUTPUT_BYTES + 1);
     const { run, provider } = setup([rawText, valid]);
     const result = await run();
     expect(result.status).toBe('failed');
@@ -140,8 +142,8 @@ describe('GenerationRunner', () => {
   });
 
   it('rejects oversized structured output without a repair attempt', async () => {
-    const structured = { note: 'x'.repeat(622_112 - '{"note":""}'.length) };
-    expect(JSON.stringify(structured)).toHaveLength(622_112);
+    const structured = { note: 'x'.repeat(MAX_AGENT_OUTPUT_BYTES + 1 - '{"note":""}'.length) };
+    expect(JSON.stringify(structured)).toHaveLength(MAX_AGENT_OUTPUT_BYTES + 1);
     const { run, provider } = setup([
       { structured, rawText: JSON.stringify(structured) },
       { structured: buildResponse() },
@@ -158,7 +160,7 @@ describe('GenerationRunner', () => {
     expect(result.status).toBe('failed');
     if (result.status === 'failed') {
       expect(result.error.code).toBe('outputTooLarge');
-      expect(result.error.message).toContain('622112');
+      expect(result.error.message).toContain('8 MiB');
       expect(result.diagnostics.attempts).toHaveLength(1);
     }
     expect(provider.contexts).toHaveLength(1);
@@ -196,7 +198,7 @@ describe('GenerationRunner', () => {
     const { run, provider } = setup([valid]);
     await run({ model: 'claude-opus-5-5' });
     expect(provider.contexts[0]?.model).toBe('claude-opus-5-5');
-    expect(provider.contexts[0]?.prompt.templateVersion).toBe(2);
+    expect(provider.contexts[0]?.prompt.templateVersion).toBe(4);
     expect(provider.contexts[0]?.prompt.user).toContain('# Brand Kit');
     expect(provider.contexts[0]?.prompt.user).toContain('"primary": "#FF5A36"');
     expect(provider.contexts[0]?.prompt.user).toContain(
@@ -301,7 +303,7 @@ describe('GenerationRunner', () => {
     expect(events.map((event) => event.phase)).toContain('repairing');
     const repairPrompt = provider.contexts[1]?.prompt;
     expect(repairPrompt?.templateId).toBe('presentation-repair');
-    expect(repairPrompt?.templateVersion).toBe(2);
+    expect(repairPrompt?.templateVersion).toBe(4);
     expect(repairPrompt?.user).toContain('# Correction required');
     expect(repairPrompt?.user).toContain('{"komas": 3}');
     expect(repairPrompt?.user).toContain('<<<UNTRUSTED_DATA>>>');
@@ -441,4 +443,47 @@ describe('GenerationRunner', () => {
     }
     expect(provider.contexts).toHaveLength(0);
   });
+});
+
+describe('optional run deadlines', () => {
+  it.each(['finish', 'cancel'] as const)(
+    'runs beyond fifteen minutes and can %s',
+    async (action) => {
+      vi.useFakeTimers();
+      try {
+        const runner = new GenerationRunner({
+          registry: new ProviderRegistry([new MockAgentProvider({ delayMs: 30 * 60 * 1000 })]),
+        });
+        const pending = runner.execute({
+          executionId: 'long',
+          providerId: 'mock',
+          request: buildRequest(),
+        });
+        await vi.advanceTimersByTimeAsync(16 * 60 * 1000);
+        expect(runner.isRunning('long')).toBe(true);
+        if (action === 'cancel') {
+          expect(runner.cancel('long')).toBe(true);
+          expect((await pending).status).toBe('cancelled');
+        } else {
+          await vi.advanceTimersByTimeAsync(14 * 60 * 1000);
+          expect((await pending).status).toBe('succeeded');
+        }
+        expect(runner.isRunning('long')).toBe(false);
+        expect(vi.getTimerCount()).toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+
+  it.each([NaN, Infinity, 0, -1, 2_147_483_648])(
+    'rejects unsafe opt-in timer %s',
+    async (timeoutMs) => {
+      const { run, provider } = setup([valid]);
+      const result = await run({ timeoutMs });
+      expect(result.status).toBe('failed');
+      if (result.status === 'failed') expect(result.error.code).toBe('invalidRequest');
+      expect(provider.contexts).toHaveLength(0);
+    },
+  );
 });

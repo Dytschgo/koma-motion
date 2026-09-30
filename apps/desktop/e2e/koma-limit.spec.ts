@@ -1,95 +1,89 @@
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { MAX_KOMAS, komaProjectSchema } from '@koma-motion/core';
+import { komaProjectSchema } from '@koma-motion/core';
 import { buildKoma, buildProject } from '@koma-motion/core/testing';
 import { expect, test } from '@playwright/test';
 import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
 
 let running: RunningApplication;
-
 test.beforeEach(async () => {
   running = await launchApplication();
 });
-
 test.afterEach(async () => {
   await running.close();
 });
 
-test('a full project stays saveable and add becomes available after undo', async () => {
-  test.setTimeout(120_000);
-  const { application, directory, problems, window } = running;
-  const filePath = join(directory, 'full.koma');
-  const project = buildProject({
-    presentation: {
-      ...buildProject().presentation,
-      komas: Array.from({ length: MAX_KOMAS }, (_, index) =>
-        buildKoma({
-          id: `koma-${String(index + 1)}`,
-          title: `Koma ${String(index + 1)}`,
-          elements: [],
-        }),
-      ),
-    },
+for (const count of [250, 1000]) {
+  test(`${String(count)} Komas support add, copy, reorder, undo, save and reopen`, async () => {
+    test.setTimeout(120_000);
+    const { application, directory, problems, window } = running;
+    const filePath = join(directory, 'large.koma');
+    const project = buildProject({
+      presentation: {
+        ...buildProject().presentation,
+        komas: Array.from({ length: count }, (_, index) =>
+          buildKoma({ id: `koma-${String(index + 1)}`, title: `Koma ${String(index + 1)}` }),
+        ),
+      },
+    });
+    await writeFile(filePath, JSON.stringify(project), 'utf8');
+    await answerOpenDialog(application, filePath);
+    const timings: Record<string, number> = {};
+    let started = performance.now();
+    await window.getByRole('button', { name: 'Open a project' }).click();
+    const komas = window
+      .getByRole('list', { name: 'Komas' })
+      .getByRole('button', { name: /^Koma \d+:/ });
+    await expect(komas).toHaveCount(count);
+    timings.openMs = performance.now() - started;
+    const add = window.getByRole('button', { name: 'Add Koma' });
+    await expect(add).toBeEnabled();
+    started = performance.now();
+    await komas.last().click();
+    await expect(komas.last()).toHaveAttribute('aria-current', 'true');
+    timings.selectLastMs = performance.now() - started;
+    started = performance.now();
+    await add.click();
+    await expect(komas).toHaveCount(count + 1);
+    timings.copyMs = performance.now() - started;
+    await window.getByRole('button', { name: 'Move Koma up', exact: true }).click();
+    await expect(komas.nth(count - 1)).toHaveAttribute('aria-current', 'true');
+    await window.getByRole('button', { name: 'Undo', exact: true }).click();
+    await window.getByRole('button', { name: 'Undo', exact: true }).click();
+    await expect(komas).toHaveCount(count);
+    await window.getByRole('button', { name: 'Redo', exact: true }).click();
+    await expect(komas).toHaveCount(count + 1);
+    started = performance.now();
+    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(window.getByText('All changes saved')).toBeVisible();
+    timings.saveMs = performance.now() - started;
+    const saved = komaProjectSchema.parse(JSON.parse(await readFile(filePath, 'utf8')));
+    expect(saved.presentation.komas).toHaveLength(count + 1);
+    expect(saved.presentation.komas.at(-1)?.elements).toHaveLength(2);
+    await window.getByRole('button', { name: 'New', exact: true }).click();
+    await answerOpenDialog(application, filePath);
+    await window.getByRole('button', { name: 'Open', exact: true }).click();
+    await expect(komas).toHaveCount(count + 1);
+    await expect(add).toBeEnabled();
+    await window.getByRole('spinbutton', { name: 'Komas', exact: true }).fill('30');
+    await expect(window.getByRole('spinbutton', { name: 'Komas', exact: true })).toHaveValue('30');
+    const brief = 'Detailed request. '.repeat(300);
+    await window.getByLabel('Your request').fill(brief);
+    await expect(window.getByLabel('Your request')).toHaveValue(brief);
+    await window.getByRole('button', { name: 'Settings', exact: true }).click();
+    const deadline = window.getByRole('checkbox', { name: 'Stop generation after a time limit' });
+    await expect(deadline).not.toBeChecked();
+    await deadline.check();
+    await window.getByLabel('Time limit in seconds').fill('7200');
+    await expect(window.getByLabel('Time limit in seconds')).toHaveValue('7200');
+    await deadline.uncheck();
+    await window.getByRole('button', { name: 'Done', exact: true }).click();
+    await window.screenshot({ path: test.info().outputPath('large-project.png') });
+    await test.info().attach('timings', {
+      body: JSON.stringify(timings, null, 2),
+      contentType: 'application/json',
+    });
+    console.log(`${String(count)}-Koma presentation timings:`, timings);
+    expect(problems).toEqual([]);
   });
-  expect(komaProjectSchema.safeParse(project).success).toBe(true);
-  await writeFile(filePath, JSON.stringify(project), 'utf8');
-
-  await answerOpenDialog(application, filePath);
-  await window.getByRole('button', { name: 'Open a project' }).click();
-  const komas = window
-    .getByRole('list', { name: 'Komas' })
-    .getByRole('button', { name: /^Koma \d+:/ });
-  await expect(komas).toHaveCount(MAX_KOMAS);
-  const add = window.getByRole('button', { name: 'Add Koma' });
-  await expect(add).toBeDisabled();
-  await expect(add).toHaveAttribute('aria-describedby', 'koma-limit-message');
-  await expect(window.locator('#koma-limit-message')).toHaveText(
-    `A project can have up to ${String(MAX_KOMAS)} Komas. Delete one to add another.`,
-  );
-  await window.screenshot({ path: test.info().outputPath('koma-limit.png') });
-
-  await window.getByLabel('Project name').fill('Full project saved');
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(window.getByText('All changes saved')).toBeVisible();
-  const saved: unknown = JSON.parse(await readFile(filePath, 'utf8'));
-  const parsed = komaProjectSchema.parse(saved);
-  expect(parsed.presentation.komas).toHaveLength(MAX_KOMAS);
-  expect(parsed.name).toBe('Full project saved');
-
-  await window.getByRole('button', { name: 'New', exact: true }).click();
-  await answerOpenDialog(application, filePath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
-  await expect(komas).toHaveCount(MAX_KOMAS);
-  await expect(add).toBeDisabled();
-
-  await window.getByRole('button', { name: 'Koma 1: Koma 1' }).click();
-  await window.getByRole('button', { name: 'Delete Koma', exact: true }).click();
-  await window.getByRole('dialog').getByRole('button', { name: 'Delete Koma' }).click();
-  await expect(komas).toHaveCount(MAX_KOMAS - 1);
-  await expect(add).toBeEnabled();
-  await window.getByRole('button', { name: 'Undo' }).click();
-  await expect(komas).toHaveCount(MAX_KOMAS);
-  await expect(add).toBeDisabled();
-  await window.getByRole('button', { name: 'Redo' }).click();
-  await expect(komas).toHaveCount(MAX_KOMAS - 1);
-  await expect(add).toBeEnabled();
-  await add.click();
-  await expect(komas).toHaveCount(MAX_KOMAS);
-  await expect(add).toBeDisabled();
-  await window.getByRole('button', { name: 'Undo' }).click();
-  await expect(komas).toHaveCount(MAX_KOMAS - 1);
-  await expect(add).toBeEnabled();
-  await window.getByRole('button', { name: 'Redo' }).click();
-  await expect(komas).toHaveCount(MAX_KOMAS);
-  await expect(add).toBeDisabled();
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(window.getByText('All changes saved')).toBeVisible();
-  const updated = komaProjectSchema.parse(JSON.parse(await readFile(filePath, 'utf8')));
-  expect(updated.presentation.komas).toHaveLength(MAX_KOMAS);
-  await window.getByRole('button', { name: 'New', exact: true }).click();
-  await answerOpenDialog(application, filePath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
-  await expect(komas).toHaveCount(MAX_KOMAS);
-  await expect(add).toBeDisabled();
-  expect(problems).toEqual([]);
-});
+}

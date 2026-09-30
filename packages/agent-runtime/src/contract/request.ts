@@ -1,6 +1,9 @@
 import { brandKitContextSchema, toBrandKitContext } from '@koma-motion/brand-kit';
 import {
   aspectRatioSchema,
+  exceedsUtf8ByteLength,
+  MAX_ELEMENTS_PER_KOMA,
+  MAX_ELEMENT_TEXT_LENGTH,
   easingSchema,
   EASINGS,
   getCanvasSize,
@@ -10,6 +13,7 @@ import {
   TRANSITION_STRATEGIES,
   transitionOperationSchema,
   transitionStrategySchema,
+  systemInstructionsSchema,
   type KomaProject,
 } from '@koma-motion/core';
 import { z } from 'zod';
@@ -22,15 +26,22 @@ export const AGENT_ELEMENT_TYPES = ['text', 'shape', 'image'] as const;
 export const agentElementTypeSchema = z.enum(AGENT_ELEMENT_TYPES);
 export type AgentElementType = z.infer<typeof agentElementTypeSchema>;
 
-export const MAX_USER_REQUEST_LENGTH = 4000;
-export const MAX_REQUESTED_KOMAS = 12;
-export const MAX_AGENT_ELEMENTS_PER_KOMA = 40;
-export const MAX_AGENT_TEXT_LENGTH = 600;
+/** IPC/prompt memory safety boundary; not a writing-length product rule. */
+export const MAX_USER_REQUEST_BYTES = 1024 * 1024;
+export const userRequestSchema = z
+  .string()
+  .refine(
+    (text) => !exceedsUtf8ByteLength(text, MAX_USER_REQUEST_BYTES),
+    'The request exceeds the 1 MiB input safety boundary. Reduce the pasted material and try again. Your text has been kept.',
+  )
+  .pipe(z.string().trim().min(1));
+export const MAX_AGENT_ELEMENTS_PER_KOMA = MAX_ELEMENTS_PER_KOMA;
+export const MAX_AGENT_TEXT_LENGTH = MAX_ELEMENT_TEXT_LENGTH;
 
 export const generationConstraintsSchema = z.object({
-  maxKomas: z.number().int().min(1).max(MAX_REQUESTED_KOMAS),
+  maxKomas: z.number().int().min(1).nullable(),
   maxElementsPerKoma: z.number().int().min(1).max(MAX_AGENT_ELEMENTS_PER_KOMA),
-  maxTextLength: z.number().int().min(1).max(5000),
+  maxTextLength: z.number().int().min(1).max(MAX_AGENT_TEXT_LENGTH),
 });
 
 /** A compact description of the presentation that already exists in the project. */
@@ -56,11 +67,12 @@ export const existingPresentationContextSchema = z.object({
 });
 
 export const presentationGenerationRequestSchema = z.object({
-  userRequest: z.string().trim().min(1).max(MAX_USER_REQUEST_LENGTH),
+  userRequest: userRequestSchema,
+  systemInstructions: systemInstructionsSchema.default(''),
   objective: z.string().max(2000).nullable(),
   audience: z.string().max(1000).nullable(),
   brandKit: brandKitContextSchema,
-  requestedKomaCount: z.number().int().min(1).max(MAX_REQUESTED_KOMAS).nullable(),
+  requestedKomaCount: z.number().int().min(1).nullable(),
   existingPresentation: existingPresentationContextSchema.nullable(),
   canvas: z.object({
     aspectRatio: aspectRatioSchema,
@@ -82,10 +94,10 @@ export type PresentationGenerationRequest = z.infer<typeof presentationGeneratio
 
 /** What a person enters in the chat panel. */
 export const generationInputSchema = z.object({
-  userRequest: z.string().trim().min(1).max(MAX_USER_REQUEST_LENGTH),
+  userRequest: userRequestSchema,
   objective: z.string().max(2000).nullable(),
   audience: z.string().max(1000).nullable(),
-  requestedKomaCount: z.number().int().min(1).max(MAX_REQUESTED_KOMAS).nullable(),
+  requestedKomaCount: z.number().int().min(1).nullable(),
 });
 export type GenerationInput = z.infer<typeof generationInputSchema>;
 
@@ -126,6 +138,7 @@ export function buildGenerationRequest(
     .map((asset) => ({ id: asset.id, name: asset.name }));
   return {
     userRequest: input.userRequest.trim(),
+    systemInstructions: project.systemInstructions,
     objective: input.objective,
     audience: input.audience,
     brandKit: toBrandKitContext(project.brandKit, project.assets),
@@ -138,7 +151,7 @@ export function buildGenerationRequest(
     allowedEasings: [...EASINGS],
     availableAssets,
     constraints: {
-      maxKomas: MAX_REQUESTED_KOMAS,
+      maxKomas: null,
       maxElementsPerKoma: MAX_AGENT_ELEMENTS_PER_KOMA,
       maxTextLength: MAX_AGENT_TEXT_LENGTH,
     },

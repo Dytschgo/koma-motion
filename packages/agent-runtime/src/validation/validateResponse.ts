@@ -146,7 +146,7 @@ function checkSemantics(
   const issues: ResponseIssue[] = [];
   const { constraints } = request;
 
-  if (response.komas.length > constraints.maxKomas) {
+  if (constraints.maxKomas !== null && response.komas.length > constraints.maxKomas) {
     issues.push({
       code: 'limitExceeded',
       path: 'komas',

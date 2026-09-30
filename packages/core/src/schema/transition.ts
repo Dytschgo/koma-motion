@@ -73,7 +73,7 @@ export const komaTransitionSchema = z.object({
   /** Duration in milliseconds. */
   duration: z.number().int().min(MIN_TRANSITION_DURATION_MS).max(MAX_TRANSITION_DURATION_MS),
   easing: easingSchema,
-  elementTransitions: z.array(elementTransitionSchema).max(2000),
+  elementTransitions: z.array(elementTransitionSchema).max(16_000),
   /** Concise, visible reason for the choreography. Never private model reasoning. */
   rationale: z.string().max(1000),
 });

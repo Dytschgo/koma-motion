@@ -6,7 +6,7 @@ import type {
   ShapeElement,
   TextElement,
 } from '@koma-motion/core';
-import type { CSSProperties, KeyboardEvent, ReactElement } from 'react';
+import type { CSSProperties, KeyboardEvent, PointerEvent, ReactElement } from 'react';
 import type { AssetResolver } from './assets';
 
 const JUSTIFY_BY_VERTICAL_ALIGN = {
@@ -240,6 +240,11 @@ export interface ElementViewProps {
   readonly outlineWidth: number;
   /** When given, the element can be selected with pointer and keyboard. */
   readonly onSelect?: ((elementId: string) => void) | undefined;
+  readonly onManipulate?:
+    ((event: PointerEvent<HTMLDivElement>, element: KomaElement) => void) | undefined;
+  readonly onEditText?: (() => void) | undefined;
+  readonly onElementKeyDown?:
+    ((event: KeyboardEvent<HTMLDivElement>, element: KomaElement) => void) | undefined;
 }
 
 export function ElementView({
@@ -248,9 +253,14 @@ export function ElementView({
   selected,
   outlineWidth,
   onSelect,
+  onManipulate,
+  onEditText,
+  onElementKeyDown,
 }: ElementViewProps): ReactElement {
   const interactive = onSelect !== undefined;
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    onElementKeyDown?.(event, element);
+    if (event.defaultPrevented) return;
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
       onSelect?.(element.id);
@@ -264,10 +274,13 @@ export function ElementView({
       data-selected={selected ? 'true' : undefined}
       style={{
         ...getBoxStyle(element),
-        cursor: interactive ? 'pointer' : undefined,
-        outline: selected
-          ? `${String(outlineWidth)}px solid var(--koma-selection, #FF5A36)`
-          : undefined,
+        cursor: interactive ? (element.locked ? 'pointer' : 'move') : undefined,
+        userSelect: interactive ? 'none' : undefined,
+        touchAction: interactive ? 'none' : undefined,
+        outline:
+          interactive && selected
+            ? `${String(outlineWidth)}px solid var(--koma-selection, #FF5A36)`
+            : undefined,
         outlineOffset: selected ? outlineWidth * 2 : undefined,
       }}
       {...(interactive
@@ -278,8 +291,12 @@ export function ElementView({
             'aria-pressed': selected,
             onPointerDown: (event) => {
               event.stopPropagation();
+              if (event.button !== 0) return;
+              event.currentTarget.focus({ preventScroll: true });
               onSelect(element.id);
+              onManipulate?.(event, element);
             },
+            onDoubleClick: onEditText,
             onKeyDown: handleKeyDown,
           }
         : {})}

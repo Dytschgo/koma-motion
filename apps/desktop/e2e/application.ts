@@ -3,7 +3,10 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
 
-const APPLICATION_DIRECTORY = resolve(import.meta.dirname, '..');
+// A copied build keeps parallel development rebuilds from deleting a test's renderer files.
+const APPLICATION_DIRECTORY = resolve(
+  process.env['KOMA_E2E_APPLICATION_DIRECTORY'] ?? resolve(import.meta.dirname, '..'),
+);
 
 export interface RunningApplication {
   readonly application: ElectronApplication;

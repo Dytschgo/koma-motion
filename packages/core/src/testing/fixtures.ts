@@ -115,7 +115,8 @@ export function buildProject(overrides: Partial<KomaProject> = {}): KomaProject 
     brandKit: buildBrandKit(),
     presentation: buildPresentation(),
     assets: [],
-    agentConfiguration: { selectedProviderId: 'mock', timeoutSeconds: 300, providers: {} },
+    agentConfiguration: { selectedProviderId: 'mock', timeoutSeconds: null, providers: {} },
+    systemInstructions: '',
     generationHistory: [],
     ...overrides,
   };

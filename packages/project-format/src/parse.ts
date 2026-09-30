@@ -93,6 +93,7 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
   if (migrated.value.migratedFrom !== null) {
     warnings.push(
       `The project was upgraded from format version ${String(migrated.value.migratedFrom)}. Saving stores it in the current format.`,
+      'Generation now runs until completion or cancellation. The old automatic time limit was disabled; you can enable an optional timer in Settings.',
     );
   }
   for (const path of findDroppedFields(migrated.value.document, validated.data)) {

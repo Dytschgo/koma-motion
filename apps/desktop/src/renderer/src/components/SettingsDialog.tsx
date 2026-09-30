@@ -13,6 +13,7 @@ import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { Button, Field, Modal, NumberInput, TextInput } from './ui';
 import { UpdateControl } from './UpdateControl';
+import { useInstructionSettings } from './InstructionSettings';
 
 const REPOSITORY_URL = 'https://github.com/Dytschgo/koma-motion';
 
@@ -81,6 +82,7 @@ export function SettingsDialog({
   const providers = useAgentStore((state) => state.providers);
   const apply = useProjectStore((state) => state.apply);
   const [info, setInfo] = useState<ApplicationInfo | null>(null);
+  const instructions = useInstructionSettings(project, open);
 
   useEffect(() => {
     if (!open || info !== null) {
@@ -117,6 +119,7 @@ export function SettingsDialog({
       }
     >
       <div className="flex flex-col gap-6">
+        {instructions}
         <UpdateControl />
 
         <section className="flex flex-col gap-3">
@@ -127,30 +130,51 @@ export function SettingsDialog({
             </p>
           ) : (
             <>
-              <Field
-                label="Time limit in seconds"
-                hint={`A provider that takes longer is stopped. Between ${String(MIN_AGENT_TIMEOUT_SECONDS)} and ${String(MAX_AGENT_TIMEOUT_SECONDS)} seconds.`}
-              >
-                {(ids) => (
-                  <NumberInput
-                    {...ids}
-                    className="w-28"
-                    value={project.agentConfiguration.timeoutSeconds}
-                    minimum={MIN_AGENT_TIMEOUT_SECONDS}
-                    maximum={MAX_AGENT_TIMEOUT_SECONDS}
-                    precision={0}
-                    onValue={(seconds) => {
-                      apply(
-                        changeAgentConfiguration({
-                          ...project.agentConfiguration,
-                          timeoutSeconds: Math.round(seconds),
-                        }),
-                        { coalesceKey: 'agent-timeout' },
-                      );
-                    }}
-                  />
-                )}
-              </Field>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={project.agentConfiguration.timeoutSeconds !== null}
+                  onChange={(event) =>
+                    apply(
+                      changeAgentConfiguration({
+                        ...project.agentConfiguration,
+                        timeoutSeconds: event.target.checked ? 3600 : null,
+                      }),
+                    )
+                  }
+                />
+                Stop generation after a time limit
+              </label>
+              <p className="text-sm text-ink-400">
+                Off by default. Agents run until they finish or you cancel. A provider may have its
+                own limits.
+              </p>
+              {project.agentConfiguration.timeoutSeconds !== null && (
+                <Field
+                  label="Time limit in seconds"
+                  hint="Optional safety timer. Disable it for runs of any duration."
+                >
+                  {(ids) => (
+                    <NumberInput
+                      {...ids}
+                      className="w-28"
+                      value={project.agentConfiguration.timeoutSeconds ?? 3600}
+                      minimum={MIN_AGENT_TIMEOUT_SECONDS}
+                      maximum={MAX_AGENT_TIMEOUT_SECONDS}
+                      precision={0}
+                      onValue={(seconds) => {
+                        apply(
+                          changeAgentConfiguration({
+                            ...project.agentConfiguration,
+                            timeoutSeconds: Math.round(seconds),
+                          }),
+                          { coalesceKey: 'agent-timeout' },
+                        );
+                      }}
+                    />
+                  )}
+                </Field>
+              )}
               {providers
                 .filter((provider) => provider.metadata.supportsModelSelection)
                 .map((provider) => (

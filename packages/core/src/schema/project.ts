@@ -16,7 +16,13 @@ export {
 } from './limits';
 
 export const PROJECT_FORMAT = 'koma-motion-project';
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 3;
+
+/** UTF-16 code units, matching JavaScript/editor length. Reject rather than truncate. */
+export const MAX_SYSTEM_INSTRUCTIONS_LENGTH = 8000;
+export const systemInstructionsSchema = z.string().max(MAX_SYSTEM_INSTRUCTIONS_LENGTH, {
+  message: `Use at most ${String(MAX_SYSTEM_INSTRUCTIONS_LENGTH)} characters for instructions. Your text has been kept.`,
+});
 
 export const GENERATION_STATUSES = ['succeeded', 'failed', 'cancelled', 'timedOut'] as const;
 export const generationStatusSchema = z.enum(GENERATION_STATUSES);
@@ -34,11 +40,18 @@ export const modelNameSchema = z
   .regex(/^[A-Za-z0-9][A-Za-z0-9._:[\]-]{0,79}$/, 'Model name contains unsupported characters');
 
 export const MIN_AGENT_TIMEOUT_SECONDS = 10;
-export const MAX_AGENT_TIMEOUT_SECONDS = 900;
+/** Largest whole-second delay supported by a signed 32-bit JavaScript timer. */
+export const MAX_AGENT_TIMEOUT_SECONDS = Math.floor(2_147_483_647 / 1000);
 
 export const agentConfigurationSchema = z.object({
   selectedProviderId: providerIdSchema,
-  timeoutSeconds: z.number().int().min(MIN_AGENT_TIMEOUT_SECONDS).max(MAX_AGENT_TIMEOUT_SECONDS),
+  /** null means run until completion or cancellation. */
+  timeoutSeconds: z
+    .number()
+    .int()
+    .min(MIN_AGENT_TIMEOUT_SECONDS)
+    .max(MAX_AGENT_TIMEOUT_SECONDS)
+    .nullable(),
   providers: z.record(
     providerIdSchema,
     z.object({
@@ -53,7 +66,7 @@ export const generationHistoryEntrySchema = z.object({
   id: idSchema,
   createdAt: timestampSchema,
   providerId: providerIdSchema,
-  userRequest: z.string().max(4000),
+  userRequest: z.string(),
   status: generationStatusSchema,
   summary: z.string().max(2000),
   warnings: z.array(z.string().max(1000)).max(100),
@@ -78,6 +91,7 @@ const projectShape = {
   presentation: presentationSchema,
   assets: z.array(assetReferenceSchema).max(MAX_PROJECT_ASSETS),
   agentConfiguration: agentConfigurationSchema,
+  systemInstructions: systemInstructionsSchema.default(''),
   generationHistory: z.array(generationHistoryEntrySchema).max(MAX_HISTORY_ENTRIES),
 };
 

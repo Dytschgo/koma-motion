@@ -116,7 +116,7 @@ describe('extractStructuredOutput', () => {
 });
 
 describe('resolveProviderOutput', () => {
-  const oversizedLength = 622_112;
+  const oversizedLength = MAX_AGENT_OUTPUT_LENGTH + 1;
 
   function oversizedValue(): { readonly note: string } {
     return { note: 'x'.repeat(oversizedLength - '{"note":""}'.length) };
@@ -128,7 +128,7 @@ describe('resolveProviderOutput', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe('outputTooLarge');
-      expect(result.error.message).toContain(String(oversizedLength));
+      expect(result.error.message).toContain('8 MiB');
     }
   });
 
@@ -139,7 +139,7 @@ describe('resolveProviderOutput', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe('outputTooLarge');
-      expect(result.error.message).toContain(String(oversizedLength));
+      expect(result.error.message).toContain('8 MiB');
     }
   });
 

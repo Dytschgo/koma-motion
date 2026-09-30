@@ -1,3 +1,5 @@
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { modelNameSchema } from '@koma-motion/core';
 import { agentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
@@ -17,73 +19,87 @@ import {
 } from './cliEnvironment';
 import { redactDiagnostics } from './redact';
 
-export const CLAUDE_CODE_PROVIDER_ID = 'claude-code';
-const EXECUTABLE_NAME = 'claude';
+export const GROK_PROVIDER_ID = 'grok';
+const EXECUTABLE_NAME = 'grok';
+const PROMPT_FILE_NAME = 'prompt.txt';
 
 /**
- * Arguments of the non-interactive invocation. The complete invocation was
- * exercised through Electron with Claude Code 2.1.285 on Windows on
- * 30 September 2026, using the CLI's default model and existing sign-in.
- * See docs/AGENT_PROVIDERS.md for earlier runs and platform limits.
+ * Arguments of the non-interactive invocation. Help was read from Grok 1.0.44
+ * on Windows on 30 September 2026 (`grok --help`). The same argument list,
+ * with a one-field schema, was run once on that installation and returned
+ * JSON. See docs/AGENT_PROVIDERS.md.
  *
- * `--bare` is not passed. Its help text says auth is strictly
- * `ANTHROPIC_API_KEY` or `apiKeyHelper` via `--settings`, and OAuth and the
- * keychain are never read. That would drop the existing sign-in.
+ * Grok does not read a prompt from standard input. The request is written to
+ * a file Koma Motion creates in the empty temporary directory, and only that
+ * path is an argument.
  *
- * - `--print` answers once and exits.
- * - `--output-format json` wraps the answer in one JSON envelope.
- * - `--tools ""` names no tools.
- * - `--strict-mcp-config` without `--mcp-config` loads no MCP servers.
- * - `--disable-slash-commands` disables skills.
- * - `--permission-prompts none` denies anything that would ask for permission.
- * - `--no-session-persistence` keeps the conversation out of the session history.
- * - `--safe-mode` disables customizations. Admin-managed settings still apply.
- * - `--restricted` removes built-in tools that run commands or code, and
- *   WebFetch, unless `--tools` names them.
- * - `--no-chrome` disables Claude in Chrome.
+ * - `--prompt-file` runs one turn and exits.
+ * - `--output-format json` prints one JSON object.
+ * - `--json-schema` constrains that object. It implies JSON output.
+ * - `--verbatim` sends the prompt file as written.
+ * - `--tools ""` allowlists no built-in tools.
+ * - `--disable-web-search` removes web search and web fetch.
+ * - `--no-subagents` disables subagent spawning.
+ * - `--no-plan` disables plan mode.
+ * - `--permission-mode dontAsk` does not prompt. Read-only tools that remain
+ *   available can still run.
+ * - `--sandbox strict` is the profile named by the installed sandbox guide.
+ *   That guide lists enforcement for Linux and macOS. This Windows run
+ *   accepted the flag and printed no sandbox error.
+ * - `--cwd` is the empty temporary directory.
+ *
+ * `--no-auto-update` is accepted by this binary and described in the
+ * installed headless guide, but it is not listed in `grok --help`, so it is
+ * not passed. Standard error is redirected, which that guide treats as
+ * non-interactive for update checks.
  */
-const FIXED_ARGUMENTS = [
-  '--print',
-  '--output-format',
-  'json',
-  '--input-format',
-  'text',
-  '--tools',
-  '',
-  '--strict-mcp-config',
-  '--disable-slash-commands',
-  '--permission-prompts',
-  'none',
-  '--no-session-persistence',
-  '--safe-mode',
-  '--restricted',
-  '--no-chrome',
-] as const;
-
-export function buildClaudeCodeArguments(options: {
+export function buildGrokArguments(options: {
+  readonly promptFile: string;
+  readonly workingDirectory: string;
   readonly systemPrompt: string;
   readonly responseJsonSchema: string;
   readonly model: string | null;
 }): string[] {
   const model = options.model === null ? [] : ['--model', modelNameSchema.parse(options.model)];
   return [
-    ...FIXED_ARGUMENTS,
-    ...model,
-    '--system-prompt',
-    options.systemPrompt,
+    '--prompt-file',
+    options.promptFile,
+    '--output-format',
+    'json',
     '--json-schema',
     options.responseJsonSchema,
+    '--verbatim',
+    '--tools',
+    '',
+    '--disable-web-search',
+    '--no-subagents',
+    '--no-plan',
+    '--permission-mode',
+    'dontAsk',
+    '--sandbox',
+    'strict',
+    '--cwd',
+    options.workingDirectory,
+    ...model,
+    '--system-prompt-override',
+    options.systemPrompt,
   ];
 }
 
-interface ClaudeEnvelope {
+interface GrokEnvelope {
   readonly isError: boolean;
   readonly result: string;
   readonly structuredOutput: unknown;
 }
 
-/** Reads the JSON envelope printed by `--output-format json`. */
-export function parseClaudeEnvelope(standardOutput: string): ClaudeEnvelope | null {
+/**
+ * Reads the JSON object printed by `--output-format json`.
+ *
+ * On Grok 1.0.44 the constrained answer is `structuredOutput` and the same
+ * JSON is also in `text`. `thought` is ignored. A failure object is
+ * `{ "type": "error", "message": "..." }`.
+ */
+export function parseGrokEnvelope(standardOutput: string): GrokEnvelope | null {
   let envelope: unknown;
   try {
     envelope = JSON.parse(standardOutput);
@@ -94,25 +110,34 @@ export function parseClaudeEnvelope(standardOutput: string): ClaudeEnvelope | nu
     return null;
   }
   const record: Readonly<Record<string, unknown>> = { ...envelope };
-  if (record['type'] !== 'result') {
+  if (record['type'] === 'error') {
+    return {
+      isError: true,
+      result: typeof record['message'] === 'string' ? record['message'] : '',
+      structuredOutput: undefined,
+    };
+  }
+  const text = record['text'];
+  const structuredOutput = record['structuredOutput'];
+  if (typeof text !== 'string' && structuredOutput === undefined) {
     return null;
   }
   return {
-    isError: record['is_error'] === true,
-    result: typeof record['result'] === 'string' ? record['result'] : '',
-    structuredOutput: record['structured_output'],
+    isError: false,
+    result: typeof text === 'string' ? text : '',
+    structuredOutput,
   };
 }
 
-/** Generates presentations with a locally installed Claude Code CLI. */
-export class ClaudeCodeProvider implements AgentProvider {
-  readonly id = CLAUDE_CODE_PROVIDER_ID;
-  readonly displayName = 'Claude Code';
+/** Generates presentations with a locally installed Grok CLI. */
+export class GrokCliProvider implements AgentProvider {
+  readonly id = GROK_PROVIDER_ID;
+  readonly displayName = 'Grok';
   readonly metadata: ProviderMetadata = {
-    id: CLAUDE_CODE_PROVIDER_ID,
+    id: GROK_PROVIDER_ID,
     displayName: this.displayName,
     description:
-      'Uses the Claude Code CLI installed on this computer and its existing sign-in. Requests are sent to Anthropic.',
+      'Uses the Grok CLI installed on this computer and its existing sign-in. Your request, project instructions, Brand Kit, a text summary of existing Komas, and asset names are sent to xAI.',
     kind: 'cli',
     usesExternalService: true,
     supportsModelSelection: true,
@@ -130,7 +155,8 @@ export class ClaudeCodeProvider implements AgentProvider {
       providerId: this.id,
       displayName: this.displayName,
       executableName: EXECUTABLE_NAME,
-      installationHint: 'Install Claude Code and sign in, then check again.',
+      installationHint:
+        'Install Grok from https://x.ai/cli and sign in with grok login, then check again.',
       environment: this.#environment,
     });
   }
@@ -150,19 +176,23 @@ export class ClaudeCodeProvider implements AgentProvider {
 
     const workingDirectory = await this.#environment.createWorkingDirectory();
     try {
+      const promptFile = join(workingDirectory, PROMPT_FILE_NAME);
+      await writeFile(promptFile, context.prompt.user, 'utf8');
       context.reportProgress(
         context.attempt === 1
-          ? 'Claude Code is designing the Komas. This can take a few minutes'
-          : 'Claude Code is correcting its response',
+          ? 'Grok is designing the Komas. This can take a few minutes'
+          : 'Grok is correcting its response',
       );
       const outcome = await this.#environment.runProcess({
         executable,
-        arguments: buildClaudeCodeArguments({
+        arguments: buildGrokArguments({
+          promptFile,
+          workingDirectory,
           systemPrompt: context.prompt.system,
           responseJsonSchema: JSON.stringify(context.prompt.responseJsonSchema),
           model: context.model,
         }),
-        input: context.prompt.user,
+        input: '',
         workingDirectory,
         signal: context.signal,
         maxOutputBytes: MAX_CLI_OUTPUT_BYTES,
@@ -178,7 +208,7 @@ export class ClaudeCodeProvider implements AgentProvider {
         if (failure !== null)
           return { ok: false, error: agentError(failure.code, failure.message), details };
       }
-      const envelope = parseClaudeEnvelope(outcome.standardOutput);
+      const envelope = parseGrokEnvelope(outcome.standardOutput);
       if (envelope?.isError === true) {
         const reason = redactDiagnostics(envelope.result, 300);
         return {
@@ -195,20 +225,16 @@ export class ClaudeCodeProvider implements AgentProvider {
         return { ok: false, error: agentError(failure.code, failure.message), details };
       }
       if (envelope === null) {
-        // Not the expected envelope: hand the text to validation as it is.
         return { ok: true, output: { rawText: outcome.standardOutput }, details };
       }
       const hasStructuredOutput =
-        typeof envelope.structuredOutput === 'object' && envelope.structuredOutput !== null;
+        typeof envelope.structuredOutput === 'object' &&
+        envelope.structuredOutput !== null &&
+        !Array.isArray(envelope.structuredOutput);
       return {
         ok: true,
         output: hasStructuredOutput
-          ? {
-              // The text is kept as Claude wrote it, so the runtime can see
-              // when it disagrees with the structured output.
-              rawText: envelope.result,
-              structured: envelope.structuredOutput,
-            }
+          ? { rawText: envelope.result, structured: envelope.structuredOutput }
           : { rawText: envelope.result },
         details,
       };

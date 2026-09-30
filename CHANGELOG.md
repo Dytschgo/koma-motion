@@ -6,7 +6,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 Until version 1.0.0, any release may contain breaking changes, including
 changes to the project format.
 
+## Larger presentations and optional generation deadlines
+
+- Removed the 12-Koma generation and 200-Koma project caps across contracts,
+  prompts, editing, and files; replaced the count dropdown with numeric input.
+- Replaced short request, generated-element and text restrictions with documented
+  memory/rendering budgets; retained bounded, validated output and file handling.
+- Made generation deadlines optional and disabled by default. Format 3 upgrades
+  legacy projects and disables their automatic deadline; cancellation remains available.
+- Added large-deck pipeline, save/reopen, migration, timer, and safety-boundary tests.
+
 ## [Unreleased]
+
+### Added
+
+- Grok CLI provider. Detection and generation were verified on Windows with
+  Grok 1.0.44. The CLI keeps its own sign-in. Koma Motion does not store an
+  API key.
 
 ## [0.1.0] - 2026-09-29
 

@@ -23,7 +23,8 @@ import {
   resolvePreviewTransition,
   useSelectedKoma,
 } from '../lib/selectors';
-import { changeTransition } from '../state/commands';
+import { chooseKomaImage } from '../lib/projectActions';
+import { changeElement, changeTransition } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon, WarningIcon } from './icons';
@@ -36,6 +37,7 @@ const REDUCED_MOTION_DURATION_MS = 400;
 
 export function Workspace({ project }: { readonly project: KomaProject }): ReactElement {
   const { presentation } = project;
+  const sessionId = useProjectStore((state) => state.sessionId);
   const apply = useProjectStore((state) => state.apply);
   const selectedElementId = useUiStore((state) => state.selectedElementId);
   const selectElement = useUiStore((state) => state.selectElement);
@@ -189,6 +191,25 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
         </div>
       )}
 
+      <div className="flex flex-none items-center gap-3 border-b border-desk-600 px-3 py-1.5">
+        <Button
+          compact
+          disabled={koma === null || preview !== null}
+          onClick={() => {
+            if (koma) void chooseKomaImage(koma.id);
+          }}
+        >
+          Add image
+        </Button>
+        <p className="text-sm text-ink-400">
+          Drag to move | Corners to resize | Enter to edit text | Esc to cancel
+        </p>
+        {preview !== null && (
+          <Button compact onClick={stopPreview}>
+            Stop preview
+          </Button>
+        )}
+      </div>
       <div
         ref={attachArea}
         className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto"
@@ -205,6 +226,12 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           scale > 0 && (
             <div className="shadow-[0_12px_48px_rgb(0_0_0/0.5)]">
               <KomaStage
+                key={`${String(sessionId)}:${koma?.id ?? ''}:${String(preview !== null)}`}
+                onCommitElement={
+                  preview !== null || koma === null
+                    ? undefined
+                    : (element) => apply(changeElement(koma.id, element))
+                }
                 frame={frame}
                 canvasSize={canvasSize}
                 scale={scale}
@@ -214,8 +241,8 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
                     ? `Preview of the transition from ${stageContext.from.title} to ${stageContext.to.title}`
                     : `Koma ${String(komaIndex + 1)}: ${koma?.title ?? ''}`
                 }
-                selectedElementId={previewing ? null : selectedElementId}
-                onSelectElement={previewing ? undefined : selectElement}
+                selectedElementId={preview !== null ? null : selectedElementId}
+                onSelectElement={preview !== null ? undefined : selectElement}
               />
             </div>
           )
