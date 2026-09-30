@@ -57,6 +57,13 @@ const EMPTY_BRAND_KIT_RAW_DRAFT: BrandKitRawDraft = {};
  */
 export type WorkspaceView = 'canvas' | 'brandKit';
 
+/**
+ * The context the Inspector shows. Selection moves it: an element opens
+ * `element`, clearing the selection returns to `koma`, and a preview opens
+ * `motion`. The person can switch at any time.
+ */
+export type InspectorTab = 'element' | 'koma' | 'motion';
+
 /** The part of the Brand Kit panel that is shown. */
 export type BrandKitTab = 'project' | 'library';
 
@@ -91,6 +98,7 @@ export interface PreviewIdentity {
 interface UiState {
   readonly view: WorkspaceView;
   readonly brandKitTab: BrandKitTab;
+  readonly inspectorTab: InspectorTab;
   readonly selectedKomaId: string | null;
   readonly selectedElementId: string | null;
   /** `null` fits the canvas into the workspace. */
@@ -108,6 +116,7 @@ interface UiState {
 
   readonly setView: (view: WorkspaceView) => void;
   readonly setBrandKitTab: (tab: BrandKitTab) => void;
+  readonly setInspectorTab: (tab: InspectorTab) => void;
   readonly selectKoma: (komaId: string | null) => void;
   readonly selectElement: (elementId: string | null) => void;
   readonly setZoom: (zoom: number | null) => void;
@@ -143,6 +152,7 @@ const initialChatPreferences = loadChatPreferences();
 export const useUiStore = create<UiState>((set, get) => ({
   view: 'canvas',
   brandKitTab: 'project',
+  inspectorTab: 'koma',
   selectedKomaId: null,
   selectedElementId: null,
   zoom: null,
@@ -160,12 +170,27 @@ export const useUiStore = create<UiState>((set, get) => ({
   setBrandKitTab(brandKitTab) {
     set({ brandKitTab });
   },
+  setInspectorTab(inspectorTab) {
+    set({ inspectorTab });
+  },
   selectKoma(selectedKomaId) {
-    set({ selectedKomaId, selectedElementId: null, preview: null });
+    set((state) => ({
+      selectedKomaId,
+      selectedElementId: null,
+      preview: null,
+      inspectorTab: state.inspectorTab === 'element' ? 'koma' : state.inspectorTab,
+    }));
   },
   selectElement(selectedElementId) {
     // Selecting an element asks for its properties, so the inspector replaces the Brand Kit.
-    set(selectedElementId === null ? { selectedElementId } : { selectedElementId, view: 'canvas' });
+    set((state) =>
+      selectedElementId === null
+        ? {
+            selectedElementId,
+            inspectorTab: state.inspectorTab === 'element' ? 'koma' : state.inspectorTab,
+          }
+        : { selectedElementId, view: 'canvas', inspectorTab: 'element' },
+    );
   },
   setZoom(zoom) {
     set({ zoom: zoom === null ? null : clampZoom(zoom) });
@@ -212,6 +237,7 @@ export const useUiStore = create<UiState>((set, get) => ({
         token: nextToken++,
       },
       selectedElementId: null,
+      inspectorTab: 'motion',
     });
   },
   stopPreview() {
@@ -230,6 +256,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       confirmation: null,
       view: 'canvas',
       brandKitTab: 'project',
+      inspectorTab: 'koma',
       selectedKomaId: null,
       selectedElementId: null,
       zoom: null,

@@ -42,6 +42,7 @@ import {
   syncTransitions,
   type TransitionSuggestion,
 } from '@koma-motion/motion-engine';
+import { restackElements, type StackMove } from '../lib/layers';
 
 export type ProjectCommand = ((project: KomaProject, idGenerator: IdGenerator) => KomaProject) & {
   /** Visual endpoints for PR 3. These commands do not regenerate stored motion. */
@@ -190,6 +191,28 @@ export const importImage = (
     return { ...project, presentation, assets };
   });
 
+/** Moves an element in the stacking order of its Koma. Stored motion is left alone, as for other visual edits. */
+export const restackElement = (
+  komaId: string,
+  elementId: string,
+  move: StackMove,
+): ProjectCommand =>
+  visualCommand(komaId, (project) => {
+    const koma = findKoma(project.presentation, komaId);
+    if (!koma) return project;
+    const elements = restackElements(koma.elements, elementId, move);
+    if (elements === koma.elements) return project;
+    return {
+      ...project,
+      presentation: {
+        ...project.presentation,
+        komas: project.presentation.komas.map((item) =>
+          item.id === komaId ? { ...item, elements: [...elements] } : item,
+        ),
+      },
+    };
+  });
+
 export const deleteElement = (komaId: string, elementId: string): ProjectCommand =>
   changeKomas((presentation) => removeElement(presentation, komaId, elementId));
 
@@ -254,6 +277,50 @@ export const regenerateTransitionMotion =
     transitions[index] = built.value.transition;
     return { ...project, presentation: { ...presentation, transitions } };
   };
+
+/**
+ * Works out the element motion of a transition again from its two Komas, for
+ * motion that no longer matches them. Duration, strategy, easing and
+ * rationale are kept. A pair that cannot be diffed is left unchanged.
+ */
+export const recalculateTransition =
+  (transitionId: string): ProjectCommand =>
+  (project) => {
+    const presentation = rebuildTransition(project.presentation, transitionId);
+    return presentation === null ? project : { ...project, presentation };
+  };
+
+/** Whether `recalculateTransition` would change the stored motion. */
+export function canRecalculateTransition(
+  presentation: Presentation,
+  transitionId: string,
+): boolean {
+  return rebuildTransition(presentation, transitionId) !== null;
+}
+
+function rebuildTransition(presentation: Presentation, transitionId: string): Presentation | null {
+  const existing = presentation.transitions.find((item) => item.id === transitionId);
+  const fromIndex = presentation.komas.findIndex((koma) => koma.id === existing?.fromKomaId);
+  const from = presentation.komas[fromIndex];
+  const to = presentation.komas[fromIndex + 1];
+  if (existing === undefined || from === undefined || to?.id !== existing.toKomaId) {
+    return null;
+  }
+  const built = buildTransition({ id: existing.id, from, to, suggestion: existing });
+  if (
+    !built.ok ||
+    JSON.stringify(built.value.transition.elementTransitions) ===
+      JSON.stringify(existing.elementTransitions)
+  ) {
+    return null;
+  }
+  return {
+    ...presentation,
+    transitions: presentation.transitions.map((item) =>
+      item === existing ? built.value.transition : item,
+    ),
+  };
+}
 
 /** Replaces the presentation with a generated one and records the generation. */
 export const applyGeneration =
