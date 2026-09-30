@@ -201,8 +201,9 @@ Save the resulting editable project as a `.koma` file.
 | Claude Code CLI | Claude Code, installed and signed in | tested on Windows with Claude Code 2.1.285     |
 | Codex CLI       | Codex CLI, installed and signed in   | experimental, generation has never been tested |
 
-Providers that use an agent CLI send your request and your Brand Kit to the
-online service of that CLI. The application says so before you generate.
+Providers that use an agent CLI send your request, your Brand Kit, a text
+summary of existing Komas, and asset names to the online service of that CLI.
+The application says so before you generate.
 Koma Motion stores no API keys.
 
 All agent output is treated as untrusted data: it is limited in size,

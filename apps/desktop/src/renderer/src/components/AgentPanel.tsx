@@ -83,6 +83,16 @@ function Entry({
       </li>
     );
   }
+  if (entry.kind === 'notApplied') {
+    return (
+      <li className="max-w-[80%] rounded-lg rounded-bl-sm border border-desk-600 px-3 py-2 select-text">
+        <p className="text-sm text-ink-400">{entry.providerName}</p>
+        <p className="font-semibold">Generated Komas were not applied</p>
+        <p>{entry.text}</p>
+        <p className="mt-2 text-sm text-ink-400">Your edits remain in the presentation.</p>
+      </li>
+    );
+  }
   const { error, diagnostics } = entry;
   const lastAttempt = diagnostics.attempts.at(-1);
   return (
@@ -249,7 +259,7 @@ export function AgentPanel({ project }: { readonly project: KomaProject }): Reac
                 <p>
                   {selectedId === 'mock'
                     ? 'Try the built-in three-Koma demo to see how Koma Motion works. Your Brand Kit colours are applied.'
-                    : 'Describe the presentation you want. The Brand Kit of this project is sent along with your request.'}
+                    : 'Describe the presentation you want. Your request includes the Brand Kit, a text summary of existing Komas, and asset names.'}
                 </p>
                 <Button
                   variant="outline"
@@ -289,13 +299,15 @@ export function AgentPanel({ project }: { readonly project: KomaProject }): Reac
                     {execution.cancelRequested ? 'Stopping' : (latestStatus?.message ?? 'Starting')}
                   </p>
                 </div>
-                <Button
-                  variant="outline"
-                  disabled={execution.cancelRequested}
-                  onClick={() => void cancelGeneration()}
-                >
-                  Cancel
-                </Button>
+                {latestStatus?.phase !== 'succeeded' && (
+                  <Button
+                    variant="outline"
+                    disabled={execution.cancelRequested}
+                    onClick={() => void cancelGeneration()}
+                  >
+                    Cancel
+                  </Button>
+                )}
               </div>
             )}
             <div ref={logEnd} />
@@ -374,8 +386,8 @@ export function AgentPanel({ project }: { readonly project: KomaProject }): Reac
             )}
             {selected?.metadata.usesExternalService === true && (
               <p className="text-sm text-ink-400">
-                {selected.metadata.displayName} sends your request and Brand Kit to an online
-                service.
+                {selected.metadata.displayName} sends your request, Brand Kit, a text summary of
+                existing Komas, and asset names to an online service.
               </p>
             )}
             {project.presentation.komas.length > 0 && (

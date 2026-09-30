@@ -168,7 +168,9 @@ export const useUiStore = create<UiState>((set, get) => ({
     );
   },
   reset() {
+    get().confirmation?.resolve(false);
     set({
+      confirmation: null,
       view: 'canvas',
       selectedKomaId: null,
       selectedElementId: null,

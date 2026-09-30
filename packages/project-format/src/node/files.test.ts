@@ -38,6 +38,80 @@ afterEach(async () => {
 });
 
 describe('project files', () => {
+  it('refuses a stale save and preserves the file changed by another writer', async () => {
+    const filePath = join(directory, 'shared.koma');
+    await writeProjectFile(filePath, buildProject({ name: 'Original' }));
+    const loaded = await readProjectFile(filePath);
+    if (!loaded.ok) throw new Error('Expected the original project to load');
+    await writeProjectFile(filePath, buildProject({ name: 'External edit' }));
+    const external = await readFile(filePath);
+
+    const saved = await writeProjectFile(filePath, buildProject({ name: 'Stale edit' }), {
+      expectedRevision: loaded.value.fileRevision,
+    });
+
+    expect(saved).toMatchObject({ ok: false, error: { code: 'fileChangedExternally' } });
+    expect(await readFile(filePath)).toEqual(external);
+    expect(await readdir(directory)).toEqual(['shared.koma']);
+  });
+
+  it('refuses to recreate a file removed after it was opened', async () => {
+    const filePath = join(directory, 'removed.koma');
+    const first = await writeProjectFile(filePath, buildProject());
+    if (!first.ok) throw new Error('Expected the initial save to succeed');
+    await rm(filePath);
+
+    const saved = await writeProjectFile(filePath, buildProject(), {
+      expectedRevision: first.value.fileRevision,
+    });
+
+    expect(saved).toMatchObject({ ok: false, error: { code: 'fileChangedExternally' } });
+    expect(await readdir(directory)).toEqual([]);
+  });
+
+  it('advances the revision after a save so consecutive saves remain possible', async () => {
+    const filePath = join(directory, 'story.koma');
+    const first = await writeProjectFile(filePath, buildProject());
+    if (!first.ok) throw new Error('Expected the initial save to succeed');
+    const second = await writeProjectFile(filePath, buildProject({ name: 'Second' }), {
+      expectedRevision: first.value.fileRevision,
+    });
+    if (!second.ok) throw new Error('Expected the second save to succeed');
+    expect(second.value.fileRevision).not.toBe(first.value.fileRevision);
+    const loaded = await readProjectFile(filePath);
+    expect(loaded).toMatchObject({ ok: true, value: { fileRevision: second.value.fileRevision } });
+    const third = await writeProjectFile(filePath, buildProject({ name: 'Third' }), {
+      expectedRevision: second.value.fileRevision,
+    });
+    expect(third.ok).toBe(true);
+  });
+
+  it('detects byte changes even when the parsed document is unchanged', async () => {
+    const filePath = join(directory, 'reformatted.koma');
+    const first = await writeProjectFile(filePath, buildProject());
+    if (!first.ok) throw new Error('Expected the initial save to succeed');
+    await writeFile(filePath, JSON.stringify(buildProject()));
+    const changed = await readFile(filePath);
+    const saved = await writeProjectFile(filePath, buildProject(), {
+      expectedRevision: first.value.fileRevision,
+    });
+    expect(saved).toMatchObject({ ok: false, error: { code: 'fileChangedExternally' } });
+    expect(await readFile(filePath)).toEqual(changed);
+  });
+
+  it('cleans the staged write when the final replacement check rejects it', async () => {
+    const filePath = join(directory, 'story.koma');
+    await writeFile(filePath, 'Original');
+    await expect(
+      writeFileAtomic(filePath, 'Local edit', async () => {
+        await writeFile(filePath, 'External edit');
+        throw new Error('Replacement rejected');
+      }),
+    ).rejects.toThrow('Replacement rejected');
+    expect(await readFile(filePath, 'utf8')).toBe('External edit');
+    expect(await readdir(directory)).toEqual(['story.koma']);
+  });
+
   it('saves and reopens a project without losing content', async () => {
     const filePath = join(directory, 'story.koma');
     const project = buildProject();

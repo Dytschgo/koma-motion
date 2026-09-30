@@ -28,6 +28,12 @@ export type ConversationEntry =
     }
   | {
       readonly id: number;
+      readonly kind: 'notApplied';
+      readonly providerName: string;
+      readonly text: string;
+    }
+  | {
+      readonly id: number;
       readonly kind: 'failure';
       readonly providerName: string;
       readonly status: 'failed' | 'cancelled' | 'timedOut';

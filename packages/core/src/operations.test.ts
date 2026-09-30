@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { createRandomIdGenerator, createSeededIdGenerator, hashString, idSchema } from './ids';
 import { duplicateKoma, insertKoma, moveKoma, removeKoma, replaceElement } from './operations';
-import { presentationSchema } from './schema/presentation';
+import { MAX_KOMAS, presentationSchema } from './schema/presentation';
 import { buildKoma, buildPresentation, buildShape } from './testing/fixtures';
 
 describe('id generators', () => {
@@ -57,6 +57,16 @@ describe('document operations', () => {
     const result = insertKoma(presentation, buildKoma({ id: 'b' }), 'a');
     expect(result.komas.map((koma) => koma.id)).toEqual(['a', 'b', 'c']);
     expect(presentationSchema.safeParse(result).success).toBe(true);
+  });
+
+  it('keeps a full presentation unchanged when another Koma is inserted', () => {
+    const presentation = buildPresentation({
+      komas: Array.from({ length: MAX_KOMAS }, (_, index) =>
+        buildKoma({ id: `koma-${String(index + 1)}`, elements: [] }),
+      ),
+    });
+    expect(presentationSchema.safeParse(presentation).success).toBe(true);
+    expect(insertKoma(presentation, buildKoma({ id: 'extra' }), 'koma-1')).toBe(presentation);
   });
 
   it('removes a Koma together with its transitions', () => {
