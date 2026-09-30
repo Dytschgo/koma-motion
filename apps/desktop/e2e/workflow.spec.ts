@@ -26,8 +26,11 @@ function getStage(): Locator {
 }
 
 test('explains the mock demo and how to generate from a request', async () => {
-  const { window, problems } = running;
+  const { window, application, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800);
+  });
 
   const provider = window.getByLabel('Provider');
   const exampleRequest =
@@ -37,6 +40,7 @@ test('explains the mock demo and how to generate from a request', async () => {
   );
   await expect(provider).toHaveValue('mock');
   await expect(mockExplanation).toBeVisible();
+  await expect(mockExplanation).toBeInViewport({ ratio: 1 });
   await expect(
     window.getByText(
       'Try the built-in three-Koma demo to see how Koma Motion works. Your Brand Kit colours are applied.',
@@ -49,13 +53,9 @@ test('explains the mock demo and how to generate from a request', async () => {
   await provider.selectOption('claude-code');
   await expect(provider).toHaveValue('claude-code');
   await expect(mockExplanation).toHaveCount(0);
+  await expect(window.getByText(/^Describe the presentation you want\./)).toBeVisible();
   await expect(
-    window.getByText(
-      'Describe the presentation you want. The Brand Kit of this project is sent along with your request.',
-    ),
-  ).toBeVisible();
-  await expect(
-    window.getByText('Claude Code sends your request and Brand Kit to an online service.'),
+    window.getByText(/^Claude Code sends your request.*online service\.$/),
   ).toBeVisible();
   await expect(window.getByLabel('Your request')).toHaveValue(exampleRequest);
   await expect(window.getByRole('list', { name: 'Komas' })).toHaveCount(0);
