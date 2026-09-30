@@ -199,6 +199,13 @@ Applying a saved kit copies its settings and logo into the open project; you
 can undo it, and the project file stays self-contained. A library file that
 cannot be read is reported and never overwritten.
 
+The library can also **Create Brand Kit from deck** using a local PPTX or PDF
+and the connected Claude Code Opus model. PPTX previews require LibreOffice;
+PDF processing is bundled. Inspect the selected slide previews and privacy
+disclosure before sending, then review and edit the proposal before saving a
+new library entry. The current project is unchanged until you apply the kit.
+See [formats, privacy, limits and platform coverage](docs/BRAND_KIT_FROM_DECK.md).
+
 ## Motion model
 
 - Komas are laid out on a fixed logical canvas of 1920 x 1080 units (16:9) or

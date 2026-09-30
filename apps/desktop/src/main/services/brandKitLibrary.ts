@@ -48,6 +48,7 @@ type StartNewResponse = IpcResponse<'koma:brand-kits:start-new'>;
 export interface BrandKitContent {
   readonly brandKit: BrandKit;
   readonly logo: BrandKitLogoData | null;
+  readonly provenance?: SavedBrandKit['provenance'];
 }
 
 export interface BrandKitLibrary {
@@ -350,6 +351,10 @@ export function createBrandKitLibrary(
         await write(kits, stored.unreadable);
         return await toState({ ...stored, kits }, kitId);
       } catch (error) {
+        // A failed library write may follow a successful new-logo write.
+        // Re-read authoritative references before collecting that orphan.
+        const unchanged = await read();
+        if (unchanged.status === 'ready') await collectLogos(unchanged.kits, unchanged.unreadable);
         return {
           status: 'failed',
           message:
@@ -379,7 +384,7 @@ export function createBrandKitLibrary(
   return {
     list: () => serial(async () => toState(await read(), null)),
 
-    create: ({ name, brandKit, logo }) =>
+    create: ({ name, brandKit, logo, provenance }) =>
       change(async ({ kits }) => {
         ensureRoom(kits);
         const timestamp = now().toISOString();
@@ -390,6 +395,7 @@ export function createBrandKitLibrary(
           updatedAt: timestamp,
           brandKit: toLibraryBrandKit(brandKit),
           logo: logo === null ? null : await storeLogo(logo),
+          ...(provenance === undefined ? {} : { provenance }),
         };
         return { kits: [kit, ...kits], kitId: kit.id };
       }),

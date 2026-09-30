@@ -1,5 +1,15 @@
 # Agent providers
 
+## Visual Brand Kit analysis
+
+The Brand Kit library has a separate deck-analysis request path. It uses the
+registered Claude Code provider with `--model opus` and inline PNG content
+blocks over `stream-json` stdin. It does not call presentation generation,
+send the current project, or grant file/shell/network tools. Structured output
+uses JSON Schema Draft 7, which the installed Claude Code 2.1.285 accepts;
+the default Zod 2020-12 dialect was rejected in the live compatibility check.
+See [Brand Kit from deck](BRAND_KIT_FROM_DECK.md) for the data flow and limits.
+
 Koma Motion does not run AI models. It orchestrates agent programs that are
 installed on the computer of the user and turns their structured output into
 Komas.

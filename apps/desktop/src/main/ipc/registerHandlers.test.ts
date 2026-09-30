@@ -26,6 +26,7 @@ const dialogs = vi.hoisted(() => ({
 
 vi.mock('electron', () => ({
   app: {
+    on: vi.fn(),
     getVersion: () => '0.0.0-test',
     getPath: () => templateLocation.directory,
     isPackaged: true,

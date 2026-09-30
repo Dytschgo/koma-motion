@@ -16,6 +16,12 @@ import {
   type CliEnvironment,
 } from './cliEnvironment';
 import { redactDiagnostics } from './redact';
+import { analyzeBrandKitWithClaude } from './claudeBrandKitAnalysis';
+import type {
+  BrandKitAnalysisContext,
+  BrandKitAnalysisRequest,
+  BrandKitAnalysisResponse,
+} from '../contract/brandKitAnalysis';
 
 export const CLAUDE_CODE_PROVIDER_ID = 'claude-code';
 const EXECUTABLE_NAME = 'claude';
@@ -133,6 +139,13 @@ export class ClaudeCodeProvider implements AgentProvider {
       installationHint: 'Install Claude Code and sign in, then check again.',
       environment: this.#environment,
     });
+  }
+
+  analyzeBrandKit(
+    request: BrandKitAnalysisRequest,
+    context: BrandKitAnalysisContext,
+  ): Promise<BrandKitAnalysisResponse> {
+    return analyzeBrandKitWithClaude(this.#environment, request, context);
   }
 
   async generatePresentation(

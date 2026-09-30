@@ -42,6 +42,9 @@ For a changed implementation, also run the repository's format, lint, typecheck,
 
 ## Feature paths
 
+- [Brand Kit from deck](deck-brand-kit.md): local PPTX/PDF preparation, disclosure,
+  isolated review, library save, logo confirmation, cancellation, and optional live Opus analysis.
+
 - [Brand Kit drafts](brand-kit.md): character-by-character input, independent validation, navigation, undo, and project replacement.
 - [Preview controls](preview.md): transition identity, scrubbing, document edits, duration, and reduced motion at supported window sizes.
 - [Persisted motion](persisted-motion.md): warnings, blocked interpolation, stacking, and unchanged source files.

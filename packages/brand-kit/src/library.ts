@@ -58,6 +58,22 @@ export const savedBrandKitLogoSchema = z.object({
 /** A Brand Kit outside a project: there is no asset for `logoAssetId` to refer to. */
 export const libraryBrandKitSchema = brandKitSchema.extend({ logoAssetId: z.null() });
 
+export const deckProvenanceSchema = z
+  .object({
+    fileName: z
+      .string()
+      .min(1)
+      .max(120)
+      .regex(/^[^/\\:]+$/)
+      .refine((value) => [...value].every((character) => character.charCodeAt(0) >= 32)),
+    analyzedAt: timestampSchema,
+    provider: z.enum(['claude-code', 'mock']),
+    model: z.string().max(120),
+    analyzedSlides: z.array(z.number().int().min(1).max(200)).min(1).max(20),
+    totalSlides: z.number().int().min(1).max(200),
+  })
+  .strict();
+
 export const savedBrandKitSchema = z.object({
   id: idSchema,
   name: savedBrandKitNameSchema,
@@ -65,6 +81,7 @@ export const savedBrandKitSchema = z.object({
   updatedAt: timestampSchema,
   brandKit: libraryBrandKitSchema,
   logo: savedBrandKitLogoSchema.nullable(),
+  provenance: deckProvenanceSchema.optional(),
 });
 
 export type SavedBrandKitLogo = z.infer<typeof savedBrandKitLogoSchema>;

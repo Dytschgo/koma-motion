@@ -33,6 +33,12 @@ import {
 import { z } from 'zod';
 import { updateChannelSchema, updateStatusSchema } from './updates';
 import {
+  deckSessionIdSchema,
+  deckProgressSchema,
+  preparedDeckSchema,
+  deckProposalSchema,
+} from './deckAnalysis';
+import {
   instructionTemplateActionSchema,
   instructionTemplateLibrarySchema,
 } from './instructionTemplates';
@@ -108,6 +114,50 @@ const brandKitContent = {
 };
 
 export const ipcContract = {
+  'koma:deck:capabilities': {
+    request: empty,
+    response: z.object({ allowMock: z.boolean(), claude: providerDetectionResultSchema }),
+  },
+  'koma:deck:prepare': {
+    request: z.object({ sessionId: deckSessionIdSchema }).strict(),
+    response: z.discriminatedUnion('status', [
+      z.object({ status: z.literal('prepared'), deck: preparedDeckSchema }),
+      cancelled,
+      failure,
+    ]),
+  },
+  'koma:deck:analyze': {
+    request: z
+      .object({
+        sessionId: deckSessionIdSchema,
+        provider: z.enum(['claude-code', 'mock']),
+        consent: z.literal(true),
+      })
+      .strict(),
+    response: z.discriminatedUnion('status', [
+      deckProposalSchema.extend({ status: z.literal('proposed') }),
+      cancelled,
+      failure,
+    ]),
+  },
+  'koma:deck:cancel': {
+    request: z.object({ sessionId: deckSessionIdSchema }).strict(),
+    response: empty,
+  },
+  'koma:deck:save': {
+    request: z
+      .object({
+        sessionId: deckSessionIdSchema,
+        name: savedBrandKitNameSchema,
+        brandKit: brandKitSchema,
+        logoCandidateId: z
+          .string()
+          .regex(/^logo-[a-f0-9]{32}$/)
+          .nullable(),
+      })
+      .strict(),
+    response: brandKitLibraryState,
+  },
   'koma:instruction-templates:list': {
     request: empty,
     response: z.discriminatedUnion('status', [
@@ -297,6 +347,7 @@ export const IPC_CHANNELS = Object.keys(ipcContract) as readonly string[] as rea
 
 /** Events sent from the main process to the renderer. */
 export const ipcEvents = {
+  'koma:deck:progress': deckProgressSchema,
   'koma:providers:status': executionStatusEventSchema,
   /** The window is about to close and the user chose to save first. */
   'koma:app:save-and-close': empty,
