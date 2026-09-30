@@ -139,7 +139,8 @@ test('keeps the canvas and the chat usable in a narrow window', async () => {
   await window.getByRole('button', { name: 'Use the example request' }).click();
   const generate = window.getByRole('button', { name: 'Generate Komas' });
   await generate.scrollIntoViewIfNeeded();
-  await expect(generate).toBeInViewport({ ratio: 1 });
+  // Nearly 1: a fractional device scale factor can clip part of a pixel.
+  await expect(generate).toBeInViewport({ ratio: 0.95 });
   await generate.click();
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
 
