@@ -15,6 +15,7 @@ import {
   answerOpenDialog,
   answerSaveDialog,
   launchApplication,
+  showInspector,
   type RunningApplication,
 } from './application';
 
@@ -59,6 +60,7 @@ async function openFixture(): Promise<void> {
   await expect(
     running.window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]'),
   ).toBeVisible();
+  await showInspector(running.window);
 }
 
 test('moves, resizes, cancels and edits text with one undo per committed gesture', async () => {
