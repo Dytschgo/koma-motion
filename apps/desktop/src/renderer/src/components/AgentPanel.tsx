@@ -20,8 +20,8 @@ import { useAgentStore, type ConversationEntry, type DetectedProvider } from '..
 import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
-import { CheckIcon, ChevronIcon, WarningIcon } from './icons';
-import { Button, Field, IconButton, Select, TextArea, TextInput } from './ui';
+import { CheckIcon, ChevronIcon, RefreshIcon, SettingsIcon, WarningIcon } from './icons';
+import { Button, Field, Help, IconButton, Select, TextArea, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
   'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
@@ -53,9 +53,8 @@ function Availability({ provider }: { readonly provider: DetectedProvider }): Re
       className={`flex items-center gap-1.5 text-sm ${available ? 'text-signal-ok' : 'text-signal-warn'}`}
     >
       {available ? <CheckIcon size={14} /> : <WarningIcon size={14} />}
-      <span>
-        {available ? 'Available' : 'Not available'}: {provider.detection.message}
-      </span>
+      <span>{available ? 'Ready' : 'Not available'}</span>
+      <Help label="Provider details">{provider.detection.message}</Help>
     </p>
   );
 }
@@ -392,12 +391,17 @@ export function AgentPanel({
         <div className="flex flex-none flex-col gap-2 border-b border-desk-600 p-3">
           <div className="flex items-center gap-2">
             <h2 className="min-w-0 flex-1 text-base font-semibold">Agent</h2>
-            <Button
+            <IconButton
+              label="Check again"
               disabled={detection === 'running' || running}
               onClick={() => void detectProviders()}
             >
-              Check again
-            </Button>
+              <RefreshIcon />
+            </IconButton>
+            <Help label="About the chat">
+              Describe your presentation, then generate. Hide the chat to see the Inspector in a
+              narrow window.
+            </Help>
             <IconButton
               label="Hide the chat"
               aria-expanded={open}
@@ -409,11 +413,6 @@ export function AgentPanel({
               <ChevronIcon direction="right" />
             </IconButton>
           </div>
-          {layout.replacesInspector && (
-            <p className="text-sm text-ink-400">
-              The window is narrow: hide the chat to see the Inspector.
-            </p>
-          )}
         </div>
 
         <div
@@ -425,8 +424,8 @@ export function AgentPanel({
             <div className="m-auto max-w-lg text-center text-ink-300">
               <p>
                 {selectedId === 'mock'
-                  ? 'Try the built-in three-Koma demo to see how Koma Motion works. Your Brand Kit colours are applied.'
-                  : 'Describe the presentation you want. Your request includes the Brand Kit, a text summary of existing Komas, and asset names.'}
+                  ? 'Try the three-Koma demo.'
+                  : 'What would you like to present?'}
               </p>
               <Button
                 variant="outline"
@@ -480,7 +479,7 @@ export function AgentPanel({
         </div>
 
         <form
-          className="@container flex flex-none flex-col gap-2 border-t border-desk-600 p-3"
+          className="@container flex min-h-0 shrink flex-col gap-2 overflow-y-auto border-t border-desk-600 p-3"
           onSubmit={(event) => {
             event.preventDefault();
             submit(request);
@@ -488,11 +487,16 @@ export function AgentPanel({
         >
           <div className="flex items-center justify-between gap-2 text-sm">
             <span className="text-ink-400">
-              {project.systemInstructions.trim() === ''
-                ? 'No project instructions'
-                : 'Project instructions active'}
+              {project.systemInstructions.trim() === '' ? 'Instructions' : 'Instructions active'}
             </span>
-            <Button onClick={() => setSettingsOpen(true)}>Instructions &amp; templates</Button>
+            <div className="flex items-center gap-1">
+              <Help label="About project instructions">
+                Instructions apply to each request. Edit them or reuse a saved template.
+              </Help>
+              <IconButton label="Instructions & templates" onClick={() => setSettingsOpen(true)}>
+                <SettingsIcon />
+              </IconButton>
+            </div>
           </div>
           <Field label="Your request" error={requestError}>
             {(ids) => (
@@ -578,12 +582,6 @@ export function AgentPanel({
                 </Select>
               )}
             </Field>
-            <p className="text-sm text-ink-400">
-              {project.agentConfiguration.timeoutSeconds === null
-                ? 'Generation runs until completion or cancellation. No automatic time limit.'
-                : `Generation stops after ${String(project.agentConfiguration.timeoutSeconds)} seconds unless it finishes or you cancel first.`}{' '}
-              Change the time limit in Settings.
-            </p>
             <Field
               label="Komas"
               className="w-34"
@@ -620,6 +618,15 @@ export function AgentPanel({
               )}
             </Field>
           </div>
+          <div className="flex items-center justify-between gap-2">
+            {detection === 'done' && selected !== undefined && <Availability provider={selected} />}
+            <Help label="Generation settings">
+              {project.agentConfiguration.timeoutSeconds === null
+                ? 'No time limit. Cancel generation at any time.'
+                : `Stops after ${String(project.agentConfiguration.timeoutSeconds)} seconds. You can cancel earlier.`}{' '}
+              Change the time limit in Settings.
+            </Help>
+          </div>
           {detection === 'running' && (
             <p role="status" className="text-sm text-ink-400">
               Checking providers
@@ -630,7 +637,6 @@ export function AgentPanel({
               Error: the providers could not be checked.
             </p>
           )}
-          {detection === 'done' && selected !== undefined && <Availability provider={selected} />}
           <Button
             type="submit"
             variant="primary"
@@ -642,21 +648,22 @@ export function AgentPanel({
             Generate Komas
           </Button>
           {selectedId === 'mock' && (
-            <p className="text-sm text-ink-400">
-              Mock always creates the same three-Koma demo, whatever you ask. To generate from your
-              request, choose an installed agent above.
-            </p>
+            <div className="flex items-center justify-center gap-1 text-sm text-ink-400">
+              <span>Demo only · 3 Komas</span>
+              <Help label="About the demo">
+                The mock provider creates the same demo for every request, using your Brand Kit
+                colours. Choose an installed agent for your own content.
+              </Help>
+            </div>
           )}
           {selected?.metadata.usesExternalService === true && (
             <p className="text-sm text-ink-400">
-              {selected.metadata.displayName} sends your request, project instructions, Brand Kit, a
-              text summary of existing Komas, and asset names to an online service.
+              {selected.metadata.displayName} sends your request, instructions, Brand Kit, Koma text
+              and asset names online.
             </p>
           )}
           {project.presentation.komas.length > 0 && (
-            <p className="text-sm text-ink-400">
-              Generating replaces the current Komas. You can undo it.
-            </p>
+            <p className="text-sm text-ink-400">Replaces current Komas. Undo is available.</p>
           )}
         </form>
       </div>

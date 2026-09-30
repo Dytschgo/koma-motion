@@ -337,7 +337,7 @@ test('reports out-of-date motion and recalculates it as one undoable step', asyn
   await motionTab.click();
   const status = window.getByRole('status', { name: 'Motion status' });
   await expect(status).toContainText('Motion is out of date');
-  await expect(status).toContainText('the preview cuts');
+  await expect(status).toContainText('Recalculate motion to preview again');
   await expect(window.getByRole('button', { name: 'Preview this transition' })).toHaveCount(0);
   await expect(window.getByRole('heading', { name: 'Stored effects (out of date)' })).toBeVisible();
   await capture(window, testInfo, 'inspector-motion-stale.png');

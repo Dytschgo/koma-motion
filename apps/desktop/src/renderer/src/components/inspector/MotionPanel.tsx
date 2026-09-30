@@ -78,10 +78,7 @@ export function MotionStatusBanner({
         </Button>
       )}
       {!ready && !health.canRecalculate && status.health !== 'partial' && (
-        <p className="text-sm text-ink-400">
-          The motion cannot be recalculated from these Komas. Undo the last change, or ask the chat
-          to generate the Komas again.
-        </p>
+        <p className="text-sm text-ink-400">Check the Komas for errors, or undo the last edit.</p>
       )}
     </div>
   );

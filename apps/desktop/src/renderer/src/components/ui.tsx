@@ -135,6 +135,20 @@ export function Help({
   const [position, setPosition] = useState({ top: 0, left: 0 });
   const open = !dismissed && (hovered || focused || pinned);
 
+  useEffect(() => {
+    if (!open) return;
+    const dismissOnEscape = (event: KeyboardEvent): void => {
+      if (event.key !== 'Escape') return;
+      event.stopPropagation();
+      setPinned(false);
+      setFocused(false);
+      setHovered(false);
+      setDismissed(true);
+    };
+    document.addEventListener('keydown', dismissOnEscape, true);
+    return () => document.removeEventListener('keydown', dismissOnEscape, true);
+  }, [open]);
+
   useLayoutEffect(() => {
     if (!open) return;
     const updatePosition = (): void => {

@@ -29,6 +29,14 @@ changes to the project format.
   that transition from the current Komas. A result is discarded if either Koma
   changed in the meantime. The Koma strip marks such in-betweens.
 
+- Layers in the Inspector: every element of the Koma, frontmost first, with
+  its type, name and whether it is hidden, locked or off the canvas. Select
+  covered and hidden elements, show or hide and lock them, filter long lists,
+  and bring elements forward or send them backward.
+- Recalculate motion: a transition whose Komas changed after its motion was
+  worked out is marked as out of date and can be rebuilt as one undoable
+  step. Its duration, strategy, easing and rationale are kept.
+
 ### Changed
 
 - The chat composer puts the provider, its model and the number of Komas
@@ -42,15 +50,6 @@ changes to the project format.
   `validateTransition` for them.
 - `AgentProvider` has a second method, `generateTransition`, and
   `GenerationRunner` a second entry point, `executeTransition`.
-- Layers in the Inspector: every element of the Koma, frontmost first, with
-  its type, name and whether it is hidden, locked or off the canvas. Select
-  covered and hidden elements, show or hide and lock them, filter long lists,
-  and bring elements forward or send them backward.
-- Recalculate motion: a transition whose Komas changed after its motion was
-  worked out is marked as out of date and can be rebuilt as one undoable
-  step. Its duration, strategy, easing and rationale are kept.
-
-### Changed
 
 - The Inspector shows one context at a time: the selected element, the Koma
   or its motion. Selecting on the canvas opens the element; a preview opens

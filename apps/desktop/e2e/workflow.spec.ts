@@ -36,20 +36,14 @@ test('explains the mock demo and how to generate from a request', async () => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800);
   });
 
-  const provider = window.getByLabel('Provider');
+  const provider = window.getByLabel('Provider', { exact: true });
   const exampleRequest =
     'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
-  const mockExplanation = window.getByText(
-    'Mock always creates the same three-Koma demo, whatever you ask. To generate from your request, choose an installed agent above.',
-  );
+  const mockExplanation = window.getByText('Demo only · 3 Komas');
   await expect(provider).toHaveValue('mock');
   await expect(mockExplanation).toBeVisible();
   await expect(mockExplanation).toBeInViewport({ ratio: 1 });
-  await expect(
-    window.getByText(
-      'Try the built-in three-Koma demo to see how Koma Motion works. Your Brand Kit colours are applied.',
-    ),
-  ).toBeVisible();
+  await expect(window.getByText('Try the three-Koma demo.')).toBeVisible();
 
   await window.getByRole('button', { name: 'Use the example request' }).click();
   await expect(window.getByLabel('Your request')).toHaveValue(exampleRequest);
@@ -57,10 +51,8 @@ test('explains the mock demo and how to generate from a request', async () => {
   await provider.selectOption('claude-code');
   await expect(provider).toHaveValue('claude-code');
   await expect(mockExplanation).toHaveCount(0);
-  await expect(window.getByText(/^Describe the presentation you want\./)).toBeVisible();
-  await expect(
-    window.getByText(/^Claude Code sends your request.*online service\.$/),
-  ).toBeVisible();
+  await expect(window.getByText('What would you like to present?')).toBeVisible();
+  await expect(window.getByText(/^Claude Code sends your request.*online\.$/)).toBeVisible();
   await expect(window.getByLabel('Your request')).toHaveValue(exampleRequest);
   await expect(window.getByRole('list', { name: 'Komas' })).toHaveCount(0);
   expect(problems).toEqual([]);
@@ -105,11 +97,11 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   });
 
   await test.step('select the mock provider', async () => {
-    const provider = window.getByLabel('Provider');
+    const provider = window.getByLabel('Provider', { exact: true });
     await provider.selectOption('mock');
     await expect(provider).toHaveValue('mock');
-    await expect(window.getByText(/Available: Built in/)).toBeVisible();
-    await expect(window.getByText(/Mock always creates the same three-Koma demo/)).toBeVisible();
+    await expect(window.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
+    await expect(window.getByText('Demo only · 3 Komas')).toBeVisible();
   });
 
   await test.step('submit a generation request and receive three Komas', async () => {

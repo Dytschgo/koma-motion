@@ -34,13 +34,14 @@ export function collectHealthIssues(
     });
   for (const transition of project.presentation.transitions) {
     const index = project.presentation.komas.findIndex((koma) => koma.id === transition.fromKomaId);
-    for (const message of new Set(
-      validateTransition(transition, project.presentation).map((issue) => issue.message),
+    for (const [message, issue] of new Map(
+      validateTransition(transition, project.presentation).map((issue) => [issue.message, issue]),
     )) {
+      const partial = issue.code === 'unsupportedOperation';
       issues.push({
         id: `motion:${transition.id}:${message}`,
-        severity: 'blocked',
-        message: `Motion from Koma ${String(index + 1)}: ${message} Interpolation is limited; the real endpoint frames remain available.`,
+        severity: partial ? 'info' : 'blocked',
+        message: `Motion from Koma ${String(index + 1)}: ${message} ${partial ? 'This effect is skipped; supported motion can still play.' : 'Interpolation is blocked; the real endpoint frames remain available.'}`,
       });
     }
   }

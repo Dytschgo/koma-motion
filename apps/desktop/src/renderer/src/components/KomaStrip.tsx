@@ -256,9 +256,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
 
       <div className="min-h-0 flex-1 overflow-y-auto p-2">
         {komas.length === 0 ? (
-          <p className="px-2 py-6 text-ink-400">
-            No Komas yet. Describe your presentation in the chat, or add an empty Koma.
-          </p>
+          <p className="px-2 py-6 text-ink-400">Your Komas will appear here.</p>
         ) : (
           <ol aria-label="Komas" className="flex flex-col">
             {komas.map((koma, index) => {

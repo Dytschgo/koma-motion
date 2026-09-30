@@ -166,18 +166,18 @@ test('Save current format writes version 3; optional generation timing stays in 
   );
   await health().getByRole('button', { name: 'Close', exact: true }).click();
   await showChat(running.window);
+  await running.window.getByRole('button', { name: 'Generation settings', exact: true }).focus();
   await expect(
-    running.window.getByText(
-      'Generation runs until completion or cancellation. No automatic time limit.',
-      { exact: false },
-    ),
+    running.window.getByText('No time limit. Cancel generation at any time.', { exact: false }),
   ).toBeVisible();
   await running.window.getByRole('button', { name: 'Settings', exact: true }).click();
   const settings = running.window.getByRole('dialog', { name: 'Settings', exact: true });
   await settings.getByLabel('Stop generation after a time limit', { exact: true }).check();
   await settings.getByLabel('Time limit in seconds', { exact: true }).fill('45');
   await settings.getByRole('button', { name: 'Done' }).click();
-  await expect(running.window.getByText(/Generation stops after 45 seconds/)).toBeVisible();
+  await running.window.getByRole('button', { name: 'Generation settings', exact: true }).focus();
+  await expect(running.window.getByRole('tooltip')).toContainText('Stops after 45 seconds');
+  await running.window.keyboard.press('Escape');
   await showHealth();
   await expect(health()).toContainText('No project issues found');
   expect(running.problems).toEqual([]);

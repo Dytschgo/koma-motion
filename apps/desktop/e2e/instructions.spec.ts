@@ -101,10 +101,10 @@ test('saves project instructions and reuses app templates with undo and redo', a
   await window.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(window.getByText('Unsaved changes', { exact: true })).toBeVisible();
   await window.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(window.getByText('No project instructions', { exact: true })).toBeVisible();
+  await expect(window.getByText('Instructions', { exact: true })).toBeVisible();
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   await window.getByRole('button', { name: 'Redo', exact: true }).click();
-  await expect(window.getByText('Project instructions active', { exact: true })).toBeVisible();
+  await expect(window.getByText('Instructions active', { exact: true })).toBeVisible();
   const second = join(directory, 'applied.koma');
   await answerSaveDialog(application, second);
   await window.getByRole('button', { name: 'Save', exact: true }).click();

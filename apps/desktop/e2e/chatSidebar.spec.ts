@@ -55,9 +55,7 @@ test('prompts beside the canvas, collapses, reopens and resizes the chat', async
   await expect(generate).toBeInViewport({ ratio: 1 });
   await generate.click();
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
-  await expect(
-    window.getByText('Generating replaces the current Komas. You can undo it.'),
-  ).toBeVisible();
+  await expect(window.getByText('Replaces current Komas. Undo is available.')).toBeVisible();
 
   // Resize with the keyboard.
   const initialWidth = Number(await divider.getAttribute('aria-valuenow'));
@@ -132,7 +130,9 @@ test('keeps the canvas and the chat usable in a narrow window', async () => {
 
   // The chat takes the column of the Inspector instead of covering the canvas.
   await expect(inspector).toBeHidden();
-  await expect(window.getByText(/The window is narrow/)).toBeVisible();
+  await window.getByRole('button', { name: 'About the chat', exact: true }).focus();
+  await expect(window.getByRole('tooltip')).toContainText('Hide the chat to see the Inspector');
+  await window.keyboard.press('Escape');
   const viewport = await window.evaluate(() => innerWidth);
   const canvasBox = await getBox(canvas);
   const chatBox = await getBox(chat);

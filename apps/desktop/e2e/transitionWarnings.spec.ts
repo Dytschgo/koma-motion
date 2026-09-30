@@ -282,7 +282,7 @@ test('fits the warning and its actions into a narrow window', async () => {
   expect(problems).toEqual([]);
 });
 
-test('keeps other project warnings in the Inspector', async () => {
+test('keeps asset recovery in Project health and motion recovery beside the canvas', async () => {
   const { window, problems } = running;
   const base = staleProject();
   const [start, end] = base.presentation.komas;
@@ -292,13 +292,23 @@ test('keeps other project warnings in the Inspector', async () => {
     brandKit: { ...base.brandKit, logoAssetId: 'asset-gone' },
   });
   await expect(warning(window)).toBeVisible();
-  await showInspector(window);
-  const inspector = window.getByRole('complementary', { name: 'Inspector' });
-  await expect(inspector.getByRole('heading', { name: 'Warnings (1)' })).toBeVisible();
-  await expect(inspector).toContainText('The Brand Kit logo refers to asset "asset-gone"');
-  // The Inspector only points to the transition warning.
-  await expect(inspector).toContainText(
-    'This transition cannot play. The warning above the preview controls explains why and lets you regenerate it.',
+  await window.getByRole('button', { name: /^Project health/ }).click();
+  const health = window.getByRole('dialog', { name: 'Project health', exact: true });
+  await expect(health).toContainText(
+    'The Brand Kit logo image is unavailable (asset "asset-gone").',
   );
+  await expect(health.getByRole('button', { name: 'Replace logo' })).toBeVisible();
+  await health.getByRole('button', { name: 'Close', exact: true }).click();
+  await showInspector(window);
+  await window.getByRole('tab', { name: /^Motion/ }).click();
+  await expect(
+    window.getByRole('button', { name: 'Recalculate motion', exact: true }),
+  ).toBeVisible();
+  await window.getByRole('button', { name: 'Recalculate motion', exact: true }).click();
+  await expect(warning(window)).toHaveCount(0);
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
+  await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(warning(window)).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
   expect(problems).toEqual([]);
 });

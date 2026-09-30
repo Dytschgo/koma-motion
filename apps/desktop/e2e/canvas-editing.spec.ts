@@ -392,7 +392,13 @@ test('commits on Tab, another selection, stage background and preview focus exit
   await text.click();
   await text.press('Enter');
   await editor.fill('Preview copy');
-  await window.getByLabel('Position in the transition').focus();
+  // Earlier text edits make stored motion stale. Leaving the draft must
+  // commit it, then local recalculation makes playback available again.
+  await window.getByRole('tab', { name: /^Motion/ }).click();
+  await expect(editor).toHaveCount(0);
+  await expect(window.getByLabel('Position in the transition')).toBeDisabled();
+  await window.getByRole('button', { name: 'Recalculate motion', exact: true }).click();
+  await expect(window.getByLabel('Position in the transition')).toBeEnabled();
   await window.getByLabel('Position in the transition').fill('500');
   await expect(editor).toHaveCount(0);
   await expect(stage.getByRole('button')).toHaveCount(0);

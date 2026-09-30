@@ -13,10 +13,10 @@ test('explains existing content sent by external providers before generation', a
     await answerOpenDialog(application, filePath);
     await window.getByRole('button', { name: 'Open a project' }).click();
     await expect(window.getByLabel('Project name')).toHaveValue('Fixture project');
-    const provider = window.getByLabel('Provider');
+    const provider = window.getByLabel('Provider', { exact: true });
     await provider.selectOption('claude-code');
     const disclosure = window.getByText(
-      'Claude Code sends your request, project instructions, Brand Kit, a text summary of existing Komas, and asset names to an online service.',
+      'Claude Code sends your request, instructions, Brand Kit, Koma text and asset names online.',
       { exact: true },
     );
     await expect(disclosure).toBeVisible();

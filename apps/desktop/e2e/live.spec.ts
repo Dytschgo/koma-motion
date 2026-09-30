@@ -41,8 +41,8 @@ test('generates a presentation with Claude Code', async () => {
     }
     await window.getByRole('button', { name: 'Done' }).click();
 
-    await window.getByLabel('Provider').selectOption('claude-code');
-    await expect(window.getByText(/^Available: Version/)).toBeVisible();
+    await window.getByLabel('Provider', { exact: true }).selectOption('claude-code');
+    await expect(window.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
 
     await window.getByRole('spinbutton', { name: 'Komas', exact: true }).fill('3');
     await window.getByLabel('Your request').fill(REQUEST);

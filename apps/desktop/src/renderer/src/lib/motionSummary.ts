@@ -101,8 +101,7 @@ export function getMotionStatus(issues: readonly MotionIssue[]): MotionStatus {
     return {
       health: 'stale',
       title: 'Motion is out of date',
-      detail:
-        'The Komas changed after this motion was worked out. Until it is recalculated, the preview cuts from one Koma to the next.',
+      detail: 'The Komas changed. Recalculate motion to preview again.',
     };
   }
   const unsupported = issues.filter((issue) => issue.code === 'unsupportedOperation').length;
@@ -110,8 +109,7 @@ export function getMotionStatus(issues: readonly MotionIssue[]): MotionStatus {
     return {
       health: 'blocked',
       title: 'Motion cannot be played',
-      detail:
-        'The stored motion does not fit these Komas. The preview cuts from one Koma to the next.',
+      detail: 'Preview is unavailable until this motion is repaired.',
     };
   }
   if (unsupported > 0) {

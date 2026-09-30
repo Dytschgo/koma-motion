@@ -25,9 +25,9 @@ import { changeElement, changeTransition } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { useTransitionRegenerationStore } from '../state/transitionRegenerationStore';
 import { useUiStore } from '../state/uiStore';
-import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
+import { ImageIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
 import { TransitionIssuePanel } from './TransitionIssuePanel';
-import { Button, IconButton, NumberInput } from './ui';
+import { Button, Help, IconButton, NumberInput } from './ui';
 
 const CANVAS_PADDING = 32;
 const ZOOM_STEP = 1.25;
@@ -215,18 +215,18 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   return (
     <section aria-label="Canvas" className="flex min-h-0 min-w-0 flex-1 flex-col bg-desk-950">
       <div className="flex flex-none items-center gap-3 border-b border-desk-600 px-3 py-1.5">
-        <Button
-          compact
+        <IconButton
+          label="Add image"
           disabled={koma === null || preview !== null}
           onClick={() => {
             if (koma) void chooseKomaImage(koma.id);
           }}
         >
-          Add image
-        </Button>
-        <p className="text-sm text-ink-400">
-          Drag to move | Corners to resize | Enter to edit text | Esc to cancel
-        </p>
+          <ImageIcon />
+        </IconButton>
+        <Help label="Canvas shortcuts">
+          Drag to move. Drag corners to resize. Enter edits text; Esc cancels.
+        </Help>
         {preview !== null && (
           <Button compact onClick={stopPreview}>
             Stop preview
@@ -239,11 +239,8 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
       >
         {frame === null ? (
           <div className="max-w-md px-6 text-center">
-            <p className="text-xl font-semibold">This presentation has no Komas yet</p>
-            <p className="mt-2 text-ink-300">
-              Describe what you want to present in the chat. The provider creates the Komas and Koma
-              Motion works out the motion between them.
-            </p>
+            <p className="text-xl font-semibold">Start your presentation</p>
+            <p className="mt-2 text-ink-300">Describe it in the chat, or add a Koma.</p>
             {!chatOpen && (
               <Button
                 variant="outline"
@@ -383,7 +380,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           </IconButton>
 
           {transportContext === null ? (
-            <p className="ml-3 text-ink-400">Add a second Koma to see motion between two Komas.</p>
+            <p className="ml-3 text-ink-400">Add another Koma for motion.</p>
           ) : (
             <>
               <p className="sr-only flex-none text-ink-300 @min-[36rem]:not-sr-only @min-[36rem]:mx-3">
