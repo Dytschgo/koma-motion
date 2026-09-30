@@ -30,6 +30,8 @@ export function getApplicationEnvironment(): Record<string, string> {
       environment[name] = value;
     }
   }
+  // Lets the window keep its full size on a small screen (see window.ts).
+  environment['KOMA_E2E'] = '1';
   return environment;
 }
 
@@ -44,7 +46,8 @@ export async function launchApplication(
   const userData = `--user-data-dir=${join(directory, 'user-data')}`;
   // CI machines have small screens, and a window never grows beyond its
   // screen. At half the device scale factor the screen holds the full
-  // 1480 x 920 window, so every test sees the same layout. Documentation
+  // 1480 x 920 window on Windows; on macOS, KOMA_E2E lets the window grow
+  // beyond the screen. Every test sees the same layout. Documentation
   // screenshots keep the real scale.
   const scale = process.env['KOMA_SCREENSHOTS'] === '1' ? [] : ['--force-device-scale-factor=0.5'];
   const application = await electron.launch(
@@ -62,11 +65,6 @@ export async function launchApplication(
         },
   );
   const window = await application.firstWindow();
-  // macOS ignores the scale factor above and fits a new window to its screen,
-  // but an explicit resize afterwards keeps the size that was asked for.
-  await application.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0]?.setSize(1480, 920);
-  });
   const problems: string[] = [];
   window.on('pageerror', (error) => problems.push(`Page error: ${error.message}`));
   window.on('console', (message) => {

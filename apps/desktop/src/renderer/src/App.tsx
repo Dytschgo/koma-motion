@@ -101,7 +101,7 @@ function useApplicationEvents(): void {
  * beside it and the chat on the right. When the window has no room for the
  * canvas, the side panel and the chat side by side, the open chat takes the
  * place of the Inspector, and the Brand Kit and the chat take turns: opening
- * one collapses the other.
+ * one collapses the other, and closing the Brand Kit brings the chat back.
  */
 function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
   const view = useUiStore((state) => state.view);
@@ -117,16 +117,26 @@ function ProjectLayout({ project }: { readonly project: KomaProject }): ReactEle
   const crowded = chatOpen && brandKitOpen && chatLayout.replacesInspector;
 
   const previous = useRef({ chatOpen, brandKitOpen });
+  // The chat was collapsed to make room for the Brand Kit and comes back after it.
+  const collapsedForBrandKit = useRef(false);
   useEffect(() => {
     const chatJustOpened = !previous.current.chatOpen;
     previous.current = { chatOpen, brandKitOpen };
-    if (!crowded) {
+    const ui = useUiStore.getState();
+    if (crowded) {
+      collapsedForBrandKit.current = !chatJustOpened;
+      if (chatJustOpened) {
+        ui.setView('canvas');
+      } else {
+        ui.setAgentPanelOpen(false);
+      }
       return;
     }
-    if (chatJustOpened) {
-      useUiStore.getState().setView('canvas');
-    } else {
-      useUiStore.getState().setAgentPanelOpen(false);
+    if (!brandKitOpen && collapsedForBrandKit.current) {
+      collapsedForBrandKit.current = false;
+      if (!chatOpen) {
+        ui.setAgentPanelOpen(true);
+      }
     }
   }, [crowded, chatOpen, brandKitOpen]);
 
