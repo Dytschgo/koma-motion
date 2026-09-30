@@ -10,6 +10,18 @@ function createExecutionId(): string {
   return `execution-${crypto.randomUUID()}`;
 }
 
+/** Another action can replace a confirmation opened by an earlier action. */
+function waitForConfirmationToClose(): Promise<void> {
+  return new Promise((resolve) => {
+    const unsubscribe = useUiStore.subscribe((state) => {
+      if (state.confirmation === null) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+}
+
 export async function detectProviders(): Promise<void> {
   const agent = useAgentStore.getState();
   agent.setDetection('running');
@@ -24,8 +36,9 @@ export async function detectProviders(): Promise<void> {
 /**
  * Sends a request to the selected provider and applies the result.
  *
- * A successful result replaces the presentation in one undoable step. When
- * generation fails, the presentation stays exactly as it was.
+ * A successful result replaces an unchanged presentation in one undoable step.
+ * If the presentation changes while generation runs, the user chooses whether
+ * to replace those edits. A failed result leaves the presentation untouched.
  */
 export async function generate(input: GenerationInput): Promise<void> {
   const project = selectProject(useProjectStore.getState());
@@ -35,6 +48,7 @@ export async function generate(input: GenerationInput): Promise<void> {
     return;
   }
   const providerId = project.agentConfiguration.selectedProviderId;
+  const presentationAtStart = project.presentation;
   const providerName =
     agent.providers.find((provider) => provider.metadata.id === providerId)?.metadata.displayName ??
     providerId;
@@ -56,9 +70,51 @@ export async function generate(input: GenerationInput): Promise<void> {
     if (!stillThisProject()) {
       return;
     }
-    const projects = useProjectStore.getState();
     if (outcome.status === 'succeeded') {
-      projects.apply(applyGeneration(outcome.presentation, outcome.historyEntry));
+      let currentPresentation = selectProject(useProjectStore.getState())?.presentation;
+      while (currentPresentation !== presentationAtStart) {
+        const presentationAtPrompt = currentPresentation;
+        useAgentStore.getState().addStatus({
+          executionId,
+          phase: 'succeeded',
+          message: 'Generation complete. Waiting for your decision',
+          timestamp: new Date().toISOString(),
+        });
+        const replace = await useUiStore.getState().confirm({
+          title: 'Replace your edited Komas?',
+          message:
+            'Generation is complete, but you edited the Komas while it was running. Replacing them discards those edits. Keep editing discards the generated Komas.',
+          confirmLabel: 'Replace Komas',
+          cancelLabel: 'Keep editing',
+          destructive: true,
+        });
+        if (!stillThisProject()) {
+          return;
+        }
+        if (!replace) {
+          // A different confirmation displaced ours. Let that action finish,
+          // then offer this completed proposal again if this project remains.
+          if (useUiStore.getState().confirmation !== null) {
+            await waitForConfirmationToClose();
+            if (!stillThisProject()) {
+              return;
+            }
+            currentPresentation = selectProject(useProjectStore.getState())?.presentation;
+            continue;
+          }
+          useAgentStore.getState().addEntry({
+            kind: 'notApplied',
+            providerName,
+            text: outcome.historyEntry.summary,
+          });
+          return;
+        }
+        currentPresentation = selectProject(useProjectStore.getState())?.presentation;
+        if (currentPresentation === presentationAtPrompt) {
+          break;
+        }
+      }
+      useProjectStore.getState().apply(applyGeneration(outcome.presentation, outcome.historyEntry));
       useUiStore.getState().selectKoma(outcome.presentation.komas[0]?.id ?? null);
       useAgentStore.getState().addEntry({
         kind: 'result',
@@ -67,7 +123,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         warnings: outcome.warnings,
       });
     } else {
-      projects.apply(recordGeneration(outcome.historyEntry));
+      useProjectStore.getState().apply(recordGeneration(outcome.historyEntry));
       useAgentStore.getState().addEntry({
         kind: 'failure',
         providerName,

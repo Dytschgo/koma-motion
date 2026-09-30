@@ -2,7 +2,7 @@ import type { AssetReference, GenerationHistoryEntry, Presentation } from '@koma
 import { buildPresentation, buildProject, FIXTURE_TIMESTAMP } from '@koma-motion/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentStore } from '../state/agentStore';
-import { renameProject } from '../state/commands';
+import { changeKomaDetails, renameProject } from '../state/commands';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { generate } from './agentActions';
@@ -197,6 +197,228 @@ describe('asynchronous project ownership', () => {
       true,
     );
     expect(useAgentStore.getState().execution).toBeNull();
+  });
+
+  it('asks before replacing Komas edited while generation ran, then applies the accepted result', async () => {
+    useProjectStore.getState().load(buildProject(), null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') return execution.promise;
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Introduce the motion engine',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore.getState().apply(changeKomaDetails('koma-1', { title: 'My edit' }));
+    execution.resolve(succeeded(buildPresentation({ title: 'Generated for A' })));
+    await vi.waitFor(() =>
+      expect(useUiStore.getState().confirmation?.title).toBe('Replace your edited Komas?'),
+    );
+
+    expect(selectProject(useProjectStore.getState())?.presentation.komas[0]?.title).toBe('My edit');
+    expect(useAgentStore.getState().conversation.some((entry) => entry.kind === 'result')).toBe(
+      false,
+    );
+    useUiStore.getState().answerConfirmation(true);
+    await pending;
+
+    expect(selectProject(useProjectStore.getState())?.presentation.title).toBe('Generated for A');
+    expect(selectProject(useProjectStore.getState())?.generationHistory).toHaveLength(1);
+    useProjectStore.getState().undo();
+    expect(selectProject(useProjectStore.getState())?.presentation.komas[0]?.title).toBe('My edit');
+    expect(useAgentStore.getState().execution).toBeNull();
+  });
+
+  it('keeps edits and reports that a completed generation was not applied', async () => {
+    useProjectStore.getState().load(buildProject(), null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') return execution.promise;
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Introduce the motion engine',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore.getState().apply(changeKomaDetails('koma-1', { title: 'My edit' }));
+    execution.resolve(succeeded(buildPresentation({ title: 'Generated for A' })));
+    await vi.waitFor(() => expect(useUiStore.getState().confirmation).not.toBeNull());
+    useUiStore.getState().answerConfirmation(false);
+    await pending;
+
+    expect(selectProject(useProjectStore.getState())?.presentation.komas[0]?.title).toBe('My edit');
+    expect(selectProject(useProjectStore.getState())?.generationHistory).toHaveLength(0);
+    expect(useAgentStore.getState().conversation.at(-1)).toMatchObject({
+      kind: 'notApplied',
+      text: 'Three frames',
+    });
+    expect(useAgentStore.getState().execution).toBeNull();
+  });
+
+  it('does not prompt when only project metadata changed during generation', async () => {
+    useProjectStore.getState().load(buildProject(), null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') return execution.promise;
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Introduce the motion engine',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore.getState().apply(renameProject('New name'));
+    execution.resolve(succeeded(buildPresentation({ title: 'Generated for A' })));
+    await pending;
+
+    expect(useUiStore.getState().confirmation).toBeNull();
+    expect(selectProject(useProjectStore.getState())?.name).toBe('New name');
+    expect(selectProject(useProjectStore.getState())?.presentation.title).toBe('Generated for A');
+  });
+
+  it('dismisses a pending replacement decision when the project changes', async () => {
+    useProjectStore.getState().load(buildProject(), null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') return execution.promise;
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Introduce the motion engine',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore.getState().apply(changeKomaDetails('koma-1', { title: 'My edit' }));
+    execution.resolve(succeeded(buildPresentation({ title: 'Generated for A' })));
+    await vi.waitFor(() => expect(useUiStore.getState().confirmation).not.toBeNull());
+    useProjectStore.getState().load(buildProject({ name: 'Project B' }), null);
+    useUiStore.getState().reset();
+    await pending;
+
+    expect(useUiStore.getState().confirmation).toBeNull();
+    expect(selectProject(useProjectStore.getState())?.name).toBe('Project B');
+    expect(selectProject(useProjectStore.getState())?.generationHistory).toHaveLength(0);
+    expect(useAgentStore.getState().conversation.some((entry) => entry.kind === 'notApplied')).toBe(
+      false,
+    );
+  });
+
+  it('asks again if the presentation changes while the replacement decision is open', async () => {
+    useProjectStore.getState().load(buildProject(), null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') return execution.promise;
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Introduce the motion engine',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore.getState().apply(changeKomaDetails('koma-1', { title: 'First edit' }));
+    execution.resolve(succeeded(buildPresentation({ title: 'Generated for A' })));
+    await vi.waitFor(() => expect(useUiStore.getState().confirmation).not.toBeNull());
+    const firstDecision = useUiStore.getState().confirmation;
+    useProjectStore.getState().apply(changeKomaDetails('koma-1', { title: 'Second edit' }));
+    useUiStore.getState().answerConfirmation(true);
+    await vi.waitFor(() => expect(useUiStore.getState().confirmation).not.toBe(firstDecision));
+    expect(useUiStore.getState().confirmation).not.toBeNull();
+    expect(selectProject(useProjectStore.getState())?.presentation.komas[0]?.title).toBe(
+      'Second edit',
+    );
+    useUiStore.getState().answerConfirmation(false);
+    await pending;
+    expect(selectProject(useProjectStore.getState())?.presentation.komas[0]?.title).toBe(
+      'Second edit',
+    );
+  });
+
+  it('offers the completed proposal again when another confirmation interrupts it', async () => {
+    useProjectStore.getState().load(buildProject(), null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') return execution.promise;
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Introduce the motion engine',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore.getState().apply(changeKomaDetails('koma-1', { title: 'My edit' }));
+    execution.resolve(succeeded(buildPresentation({ title: 'Generated for A' })));
+    await vi.waitFor(() => expect(useUiStore.getState().confirmation).not.toBeNull());
+
+    const otherDecision = useUiStore.getState().confirm({
+      title: 'Another action?',
+      message: 'Another action needs a decision.',
+      confirmLabel: 'Continue',
+      cancelLabel: 'Stay',
+      destructive: false,
+    });
+    await vi.waitFor(() =>
+      expect(useUiStore.getState().confirmation?.title).toBe('Another action?'),
+    );
+    useUiStore.getState().answerConfirmation(false);
+    await otherDecision;
+    await vi.waitFor(() =>
+      expect(useUiStore.getState().confirmation?.title).toBe('Replace your edited Komas?'),
+    );
+
+    expect(selectProject(useProjectStore.getState())?.presentation.komas[0]?.title).toBe('My edit');
+    useUiStore.getState().answerConfirmation(false);
+    await pending;
+    expect(useAgentStore.getState().conversation.at(-1)?.kind).toBe('notApplied');
+  });
+
+  it('preserves edits made while a generation that fails was running', async () => {
+    useProjectStore.getState().load(buildProject(), null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') return execution.promise;
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Introduce the motion engine',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore.getState().apply(changeKomaDetails('koma-1', { title: 'My edit' }));
+    execution.resolve({
+      status: 'failed',
+      historyEntry: { ...generationEntry, status: 'failed' },
+      error: { code: 'internalError', message: 'Provider failed', issues: [] },
+      diagnostics: {
+        providerId: 'mock',
+        startedAt: FIXTURE_TIMESTAMP,
+        finishedAt: FIXTURE_TIMESTAMP,
+        durationMs: 0,
+        promptTemplate: '',
+        attempts: [],
+      },
+    });
+    await pending;
+
+    expect(selectProject(useProjectStore.getState())?.presentation.komas[0]?.title).toBe('My edit');
+    expect(selectProject(useProjectStore.getState())?.generationHistory[0]?.status).toBe('failed');
+    expect(useUiStore.getState().confirmation).toBeNull();
   });
 
   it('does not give the replacement project the file of a delayed save', async () => {
