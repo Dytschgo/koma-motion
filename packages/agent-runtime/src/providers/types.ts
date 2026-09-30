@@ -4,6 +4,11 @@ import { agentErrorSchema, type AgentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
 import type { TransitionRegenerationRequest } from '../contract/transition';
 import type { AgentPrompt } from '../prompts/presentationGeneration';
+import type {
+  BrandKitAnalysisContext,
+  BrandKitAnalysisRequest,
+  BrandKitAnalysisResponse,
+} from '../contract/brandKitAnalysis';
 
 export const providerMetadataSchema = z.object({
   id: providerIdSchema,
@@ -137,6 +142,12 @@ export interface AgentProvider {
   readonly metadata: ProviderMetadata;
 
   detect(): Promise<ProviderDetectionResult>;
+
+  /** Optional dedicated visual analysis capability. Never generates or changes a presentation. */
+  analyzeBrandKit?(
+    request: BrandKitAnalysisRequest,
+    context: BrandKitAnalysisContext,
+  ): Promise<BrandKitAnalysisResponse>;
 
   generatePresentation(
     request: PresentationGenerationRequest,

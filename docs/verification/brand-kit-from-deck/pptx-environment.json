@@ -1,0 +1,14 @@
+{
+  "bounds": {
+    "x": 1180,
+    "y": 572,
+    "width": 1480,
+    "height": 920
+  },
+  "rendering": {
+    "width": 1448,
+    "height": 842,
+    "devicePixelRatio": 0.5,
+    "reducedMotion": false
+  }
+}

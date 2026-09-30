@@ -6,7 +6,8 @@ import {
 import { GenerationRunner, MockAgentProvider, ProviderRegistry } from '@koma-motion/agent-runtime';
 import { createRandomIdGenerator } from '@koma-motion/core';
 import { createExporters } from '@koma-motion/exporters';
-import { app, ipcMain, type BrowserWindow } from 'electron';
+import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
+import { DeckAnalysisService } from '../services/deckAnalysis';
 import {
   ipcContract,
   ipcEvents,
@@ -99,7 +100,49 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     });
   };
 
+  const decks = new DeckAnalysisService({
+    registry,
+    library: context.brandKits,
+    allowMock: !app.isPackaged,
+    progress: (event) => send('koma:deck:progress', event),
+    select: async () => {
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Create Brand Kit from deck',
+        filters: [{ name: 'Presentation decks', extensions: ['pptx', 'pdf'] }],
+        properties: ['openFile'],
+      });
+      return result.canceled ? null : (result.filePaths[0] ?? null);
+    },
+  });
+  let shuttingDown = false;
+  let shutdownComplete = false;
+  const beforeQuit = (event: Electron.Event): void => {
+    if (shutdownComplete) return;
+    event.preventDefault();
+    if (shuttingDown) return;
+    shuttingDown = true;
+    void decks.cancel().finally(() => {
+      shutdownComplete = true;
+      app.quit();
+    });
+  };
+  app.on('before-quit', beforeQuit);
+  handle('koma:deck:capabilities', async () => ({
+    allowMock: !app.isPackaged,
+    claude: await registry.get('claude-code')!.detect(),
+  }));
+  handle('koma:deck:prepare', ({ sessionId }) => decks.prepare(sessionId));
+  handle('koma:deck:analyze', ({ sessionId, provider }) => decks.analyze(sessionId, provider));
+  handle('koma:deck:cancel', async ({ sessionId }) => {
+    await decks.cancel(sessionId);
+    return {};
+  });
+  handle('koma:deck:save', ({ sessionId, name, brandKit, logoCandidateId }) =>
+    decks.save(sessionId, name, brandKit, logoCandidateId),
+  );
+
   handle('koma:project:create', ({ name }) => {
+    void decks.cancel();
     runner.cancelAll();
     const response = createNewProject(session, name, new Date());
     context.projectStateChanged();
@@ -109,6 +152,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   handle('koma:project:open', async () => {
     const response = await openProject(window, session);
     if (response.status === 'opened') {
+      void decks.cancel();
       runner.cancelAll();
     }
     context.projectStateChanged();
@@ -274,6 +318,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
 
   return {
     dispose() {
+      void decks.cancel();
       runner.cancelAll();
       for (const channel of Object.keys(ipcContract)) {
         ipcMain.removeHandler(channel);

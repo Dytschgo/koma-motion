@@ -48,8 +48,8 @@ export function registerAppScheme(): void {
 }
 
 /** Serves the renderer bundle, and nothing else, through the application protocol. */
-export function serveApp(rendererDirectory: string): void {
-  protocol.handle(APP_SCHEME, async (request) => {
+export function serveApp(rendererDirectory: string, target: Electron.Protocol = protocol): void {
+  target.handle(APP_SCHEME, async (request) => {
     const file = request.method === 'GET' ? resolveAppFile(request.url, rendererDirectory) : null;
     if (file === null) {
       return new Response('Not found', { status: 404 });

@@ -17,6 +17,8 @@ import { selectSavedKits, useBrandKitLibraryStore } from '../state/brandKitLibra
 import { useUiStore } from '../state/uiStore';
 import { CheckIcon, PlusIcon, TrashIcon, WarningIcon } from './icons';
 import { Button, TextInput } from './ui';
+import { DeckBrandKit } from './DeckBrandKit';
+import { useProjectStore } from '../state/projectStore';
 
 /**
  * SHA-256 of the project's logo, computed in the window with Web Crypto.
@@ -272,6 +274,13 @@ function KitItem({
               </span>
             )}
             {inUse && <span className="sr-only">Used by this project.</span>}
+            {kit.provenance && (
+              <span>
+                From {kit.provenance.fileName} ·{' '}
+                {new Date(kit.provenance.analyzedAt).toLocaleDateString()} ·{' '}
+                {kit.provenance.analyzedSlides.length}/{kit.provenance.totalSlides} slides
+              </span>
+            )}
           </span>
         </button>
 
@@ -336,6 +345,8 @@ function KitItem({
 
 /** Saved Brand Kits of this computer. Changes here are not part of the project history. */
 export function BrandKitLibraryView({ project }: { readonly project: KomaProject }): ReactElement {
+  const [deckOpen, setDeckOpen] = useState(false);
+  const projectSession = useProjectStore((state) => state.sessionId);
   const library = useBrandKitLibraryStore((state) => state.library);
   const busy = useBrandKitLibraryStore((state) => state.busy);
   const selectedKitId = useBrandKitLibraryStore((state) => state.selectedKitId);
@@ -386,6 +397,9 @@ export function BrandKitLibraryView({ project }: { readonly project: KomaProject
         any project. Applying one changes this project and can be undone.
       </p>
       <div className="flex flex-wrap gap-2">
+        <Button variant="outline" disabled={busy} onClick={() => setDeckOpen(true)}>
+          Create Brand Kit from deck
+        </Button>
         <Button variant="primary" disabled={busy} onClick={() => void saveProjectBrandKit()}>
           Save current as new kit
         </Button>
@@ -398,6 +412,8 @@ export function BrandKitLibraryView({ project }: { readonly project: KomaProject
           New blank kit
         </Button>
       </div>
+
+      {deckOpen && <DeckBrandKit key={projectSession} onClose={() => setDeckOpen(false)} />}
 
       {library.unreadableCount > 0 && (
         <p role="alert" className="flex items-start gap-2 text-sm text-signal-warn">
