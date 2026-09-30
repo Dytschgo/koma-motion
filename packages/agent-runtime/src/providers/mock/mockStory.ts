@@ -1,6 +1,10 @@
 import { pickReadableColour } from '@koma-motion/core';
 import type { PresentationGenerationRequest } from '../../contract/request';
 import type { AgentElement, AgentKoma, AgentPresentationResponse } from '../../contract/response';
+import type {
+  AgentTransitionSettings,
+  TransitionRegenerationRequest,
+} from '../../contract/transition';
 
 /**
  * The demonstration story of the mock provider: three Komas that show what
@@ -347,5 +351,44 @@ export function buildMockResponse(
     visualRationale:
       'One accent-coloured circle carries the story, so the eye follows a single object through all three Komas. Supporting components use the secondary colour and step back when they are not the subject.',
     warnings,
+  };
+}
+
+function countObjects(count: number, singular: string, plural: string): string {
+  return `${String(count)} ${count === 1 ? `object ${singular}` : `objects ${plural}`}`;
+}
+
+/**
+ * Settings for one regenerated transition. They depend on the request only:
+ * the same Komas always give the same answer. The current timing is kept and
+ * the rationale describes what the Komas call for now.
+ */
+export function buildMockTransitionSettings(
+  request: TransitionRegenerationRequest,
+): AgentTransitionSettings {
+  const operations = request.motion.map((entry) => entry.operations);
+  const entering = operations.filter((list) => list.includes('fadeIn')).length;
+  const exiting = operations.filter((list) => list.includes('fadeOut')).length;
+  const changing = operations.filter((list) =>
+    list.some(
+      (operation) => operation !== 'hold' && operation !== 'fadeIn' && operation !== 'fadeOut',
+    ),
+  ).length;
+  const parts = [
+    changing > 0 ? countObjects(changing, 'changes', 'change') : '',
+    entering > 0 ? countObjects(entering, 'enters', 'enter') : '',
+    exiting > 0 ? countObjects(exiting, 'leaves', 'leave') : '',
+  ].filter(Boolean);
+  return {
+    strategy: request.current.strategy,
+    durationMs: Math.min(
+      request.durationRangeMs.max,
+      Math.max(request.durationRangeMs.min, request.current.durationMs),
+    ),
+    easing: request.current.easing,
+    rationale:
+      `Redone for the current Komas "${request.source.title}" and "${request.target.title}": ${
+        parts.length === 0 ? 'every object holds its place' : parts.join(', ')
+      }.`.slice(0, 1000),
   };
 }

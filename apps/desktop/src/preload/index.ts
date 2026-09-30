@@ -28,6 +28,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
   'koma:brand-kits:start-new',
   'koma:providers:detect',
   'koma:providers:execute',
+  'koma:providers:regenerate-transition',
   'koma:providers:cancel',
   'koma:app:set-unsaved-changes',
   'koma:app:confirm-close',

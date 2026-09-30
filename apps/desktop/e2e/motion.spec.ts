@@ -116,7 +116,7 @@ test('keeps source stacking in the middle of a valid transition', async () => {
   expect(problems).toEqual([]);
 });
 
-test('shows a warning and the real position for a false element reference', async () => {
+test('blocks a false element reference until the transition is regenerated', async () => {
   const { window, directory, problems } = running;
   const source = buildShape({
     id: 'shape-1',
@@ -154,30 +154,39 @@ test('shows a warning and the real position for a false element reference', asyn
 
   await openProject(window, filePath);
   await expect(window.getByLabel('Project name')).toHaveValue('False reference');
-  await expect(
-    window.getByRole('alert').filter({ hasText: 'missing-shape' }).first(),
-  ).toBeVisible();
+  const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
+  await expect(warning).toContainText('The stored motion is damaged.');
+  await warning.getByRole('button', { name: 'Details' }).click();
+  await expect(warning).toContainText('missing-shape');
 
+  // Damaged motion is not played and cannot be scrubbed.
+  const position = window.getByLabel('Position in the transition');
+  await expect(position).toBeDisabled();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
+
+  // Regenerating rebuilds the motion from the Komas, not from the false reference.
+  await warning.getByRole('button', { name: 'Regenerate transition' }).click();
+  await expect(warning).toHaveCount(0);
+  // Measured once the warning is gone: the canvas grows into its space.
   const atRest = await getStage().locator('[data-persistent-id="marker"]').boundingBox();
   if (atRest === null) {
     throw new Error('The marker is not on the canvas');
   }
-
-  await window.getByLabel('Position in the transition').fill('500');
+  await position.fill('500');
   await expect(getStage()).toHaveAttribute('aria-label', /^Preview of the transition/);
   const middle = await getStage().locator('[data-persistent-id="marker"]').boundingBox();
   if (middle === null) {
     throw new Error('The marker left the canvas');
   }
-  expect(Math.abs(middle.x - atRest.x)).toBeLessThan(2);
+  expect(middle.x).toBeGreaterThan(atRest.x + 30);
   expect(Math.abs(middle.y - atRest.y)).toBeLessThan(2);
 
-  await window.getByLabel('Position in the transition').fill('1000');
+  await position.fill('1000');
   const end = await getStage().locator('[data-persistent-id="marker"]').boundingBox();
   if (end === null) {
     throw new Error('The marker is missing at the end of the transition');
   }
-  expect(end.x).toBeGreaterThan(atRest.x + 30);
+  expect(end.x).toBeGreaterThan(middle.x + 30);
   expect(await readFile(filePath, 'utf8')).toBe(text);
   expect(problems).toEqual([]);
 });

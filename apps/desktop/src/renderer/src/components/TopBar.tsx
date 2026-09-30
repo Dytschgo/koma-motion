@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { createNewProject, openProject, saveProject, saveProjectAs } from '../lib/projectActions';
-import { useCurrentTransition } from '../lib/selectors';
+import { getTransitionContext, useCurrentTransition } from '../lib/selectors';
+import { assessTransition } from '../lib/transitionIssues';
 import {
   selectCanRedo,
   selectCanUndo,
@@ -25,6 +26,16 @@ export function TopBar(): ReactElement {
   const startPreview = useUiStore((state) => state.startPreview);
   const setSettingsOpen = useUiStore((state) => state.setSettingsOpen);
   const transition = useCurrentTransition();
+  const presentation = useProjectStore((state) => selectProject(state)?.presentation ?? null);
+  const context =
+    transition === null || presentation === null
+      ? null
+      : getTransitionContext(presentation, transition.id);
+  // The warning next to the preview controls explains why.
+  const blocked =
+    presentation !== null &&
+    context !== null &&
+    assessTransition(presentation, context.transition, context.from, context.to)?.blocked === true;
   const update = useUpdateStore((state) => state.status);
   const nightly = update !== null && isNightlyVersion(update.currentVersion);
   const updateReady =
@@ -99,9 +110,14 @@ export function TopBar(): ReactElement {
       <Button
         variant="outline"
         icon={<PlayIcon size={14} />}
-        disabled={transition === null}
+        disabled={transition === null || blocked}
+        title={
+          blocked
+            ? 'This transition cannot play. See the warning above the preview controls.'
+            : undefined
+        }
         onClick={() => {
-          if (transition !== null) {
+          if (transition !== null && !blocked) {
             startPreview(transition.id);
           }
         }}

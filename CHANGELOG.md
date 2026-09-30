@@ -22,13 +22,29 @@ changes to the project format.
   replace images in place.
 - Project instructions, sent with every generation request, and reusable
   instruction templates stored by the application.
+- A transition that cannot play is explained in one warning between the canvas
+  and the preview controls. It names both Komas and the reason, links to both
+  Komas, and for stale or damaged motion offers **Regenerate transition**,
+  which asks the selected provider and model for new timing and rebuilds only
+  that transition from the current Komas. A result is discarded if either Koma
+  changed in the meantime. The Koma strip marks such in-betweens.
 
 ### Changed
 
+<<<<<<< HEAD
 - The chat composer puts the provider, its model and the number of Komas
   side by side. The Koma count starts at 5 and offers Auto. The model list
   shows Default and the model id configured for the provider. The Audience
   field was removed: the agent infers the audience from the request.
+=======
+- Play, Restart, the position control and Preview are disabled for a
+  transition that cannot play, instead of holding the source Koma.
+- Transition problems are no longer listed as load warnings or repeated in
+  the Inspector. `parseProject` no longer adds them to its `warnings`; use
+  `validateTransition` for them.
+- `AgentProvider` has a second method, `generateTransition`, and
+  `GenerationRunner` a second entry point, `executeTransition`.
+>>>>>>> origin/feat/transition-warning-recovery
 - The Brand Kit opens in a panel beside the canvas instead of replacing it,
   so the Komas and the transition controls stay available.
 - Only one Koma Motion runs per data folder. Starting it again brings the

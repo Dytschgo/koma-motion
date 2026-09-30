@@ -24,11 +24,15 @@ import {
 import {
   assetReferenceSchema,
   brandKitSchema,
+  easingSchema,
   idSchema,
+  MAX_TRANSITION_DURATION_MS,
+  MIN_TRANSITION_DURATION_MS,
   generationHistoryEntrySchema,
   komaProjectSchema,
   presentationSchema,
   providerIdSchema,
+  transitionStrategySchema,
 } from '@koma-motion/core';
 import { z } from 'zod';
 import { updateChannelSchema, updateStatusSchema } from './updates';
@@ -69,6 +73,31 @@ const generationOutcome = z.discriminatedUnion('status', [
     status: z.enum(['failed', 'cancelled', 'timedOut']),
     error: agentErrorSchema,
     historyEntry: generationHistoryEntrySchema,
+    diagnostics: executionDiagnosticsSchema,
+  }),
+]);
+
+/**
+ * New settings for one transition, validated in the main process. The
+ * renderer rebuilds the element operations from the Komas itself.
+ */
+const transitionRegenerationOutcome = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('succeeded'),
+    transitionId: idSchema,
+    settings: z.object({
+      strategy: transitionStrategySchema,
+      duration: z.number().min(MIN_TRANSITION_DURATION_MS).max(MAX_TRANSITION_DURATION_MS),
+      easing: easingSchema,
+      rationale: z.string().max(1000),
+    }),
+    warnings: z.array(z.string()),
+    diagnostics: executionDiagnosticsSchema,
+  }),
+  z.object({
+    status: z.enum(['failed', 'cancelled', 'timedOut']),
+    transitionId: idSchema,
+    error: agentErrorSchema,
     diagnostics: executionDiagnosticsSchema,
   }),
 ]);
@@ -240,6 +269,17 @@ export const ipcContract = {
       .strict(),
     response: generationOutcome,
   },
+  'koma:providers:regenerate-transition': {
+    request: z
+      .object({
+        executionId: executionIdSchema,
+        providerId: providerIdSchema,
+        project: komaProjectSchema,
+        transitionId: idSchema,
+      })
+      .strict(),
+    response: transitionRegenerationOutcome,
+  },
   'koma:providers:cancel': {
     request: z.object({ executionId: executionIdSchema }).strict(),
     response: z.object({ cancelled: z.boolean() }),
@@ -308,6 +348,7 @@ export type IpcEventChannel = keyof typeof ipcEvents;
 export type IpcEventPayload<C extends IpcEventChannel> = z.output<(typeof ipcEvents)[C]>;
 
 export type GenerationOutcome = z.output<typeof generationOutcome>;
+export type TransitionRegenerationOutcome = z.output<typeof transitionRegenerationOutcome>;
 export type ProjectFileInfo = z.output<typeof fileInfo>;
 export type BrandKitLibraryState = z.output<typeof brandKitLibraryState>;
 export type SavedBrandKitSummary = z.output<typeof savedBrandKitSummary>;

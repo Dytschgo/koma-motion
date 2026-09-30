@@ -151,6 +151,42 @@ export function validateTransition(
   return unsupported;
 }
 
+/**
+ * The persistent ids of the objects whose stored operations differ from the
+ * operations the current Komas call for, in the order of the Komas. Empty
+ * when the Komas cannot be compared or nothing differs.
+ */
+export function findOutdatedObjects(transition: TransitionLike, from: Koma, to: Koma): string[] {
+  const expected = diffKomas(from, to);
+  if (!expected.ok) {
+    return [];
+  }
+  const group = (operations: readonly ElementTransitionLike[]): Map<string, unknown[]> => {
+    const grouped = new Map<string, unknown[]>();
+    for (const operation of operations) {
+      grouped.set(operation.persistentId, [
+        ...(grouped.get(operation.persistentId) ?? []),
+        operation,
+      ]);
+    }
+    return grouped;
+  };
+  const stored = group(
+    transition.elementTransitions.filter((operation) => isSupportedOperation(operation.operation)),
+  );
+  const current = group(expected.value.elementTransitions);
+  const ordered = [
+    ...new Set([
+      ...from.elements.map((element) => element.persistentId),
+      ...to.elements.map((element) => element.persistentId),
+      ...stored.keys(),
+    ]),
+  ];
+  return ordered.filter(
+    (persistentId) => !isDeepEqual(stored.get(persistentId), current.get(persistentId)),
+  );
+}
+
 type Operations = TransitionLike['elementTransitions'];
 
 /**

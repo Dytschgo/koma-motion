@@ -23,6 +23,7 @@ import {
 } from './lib/projectActions';
 import { useAgentStore } from './state/agentStore';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from './state/projectStore';
+import { useTransitionRegenerationStore } from './state/transitionRegenerationStore';
 import { useUiStore } from './state/uiStore';
 
 function isEditingText(target: EventTarget | null): boolean {
@@ -45,6 +46,7 @@ function useApplicationEvents(): void {
     void detectProviders();
     const unsubscribeStatus = subscribe('koma:providers:status', (event) => {
       useAgentStore.getState().addStatus(event);
+      useTransitionRegenerationStore.getState().progress(event.executionId, event.message);
     });
     const unsubscribeClose = subscribe('koma:app:save-and-close', () => {
       void saveAndClose();

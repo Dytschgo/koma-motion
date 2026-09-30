@@ -275,6 +275,12 @@ Warnings do not prevent a project from opening:
 
 Missing assets are drawn as a placeholder that is labelled as a missing image.
 
+A transition that cannot play is not a load warning. The file opens with the
+stored motion unchanged. The application checks every transition against its
+Komas while the project is edited and explains a transition that cannot play
+next to the preview controls, where it can be regenerated. See
+[Motion model](MOTION_MODEL.md#transitions-that-cannot-play).
+
 ## Schema versions and migration
 
 `schemaVersion` is a whole number that increases with every change that an
