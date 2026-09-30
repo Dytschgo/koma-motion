@@ -1,8 +1,19 @@
-import type { AssetReference, GenerationHistoryEntry, Presentation } from '@koma-motion/core';
-import { buildPresentation, buildProject, FIXTURE_TIMESTAMP } from '@koma-motion/core/testing';
+import {
+  type AssetReference,
+  type GenerationHistoryEntry,
+  type ImageElement,
+  type Presentation,
+} from '@koma-motion/core';
+import {
+  buildKoma,
+  buildPresentation,
+  buildProject,
+  buildShape,
+  FIXTURE_TIMESTAMP,
+} from '@koma-motion/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentStore } from '../state/agentStore';
-import { changeKomaDetails, renameProject } from '../state/commands';
+import { changeKomaDetails, changeLogo, renameProject } from '../state/commands';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { generate } from './agentActions';
@@ -48,6 +59,40 @@ const logo: AssetReference = {
   metadata: {},
   embeddedData: null,
 };
+
+const availableLogo: AssetReference = {
+  ...logo,
+  embeddedData: { encoding: 'base64', data: 'aGVsbG8=' },
+};
+
+function imagePresentation(grouped = false): Presentation {
+  const image: ImageElement = {
+    ...buildShape(),
+    id: 'element-image',
+    persistentId: 'image',
+    type: 'image',
+    name: 'Generated logo',
+    content: { assetId: logo.id, altText: 'Logo' },
+    style: { fit: 'contain', cornerRadius: 0 },
+  };
+  return buildPresentation({
+    title: 'Generated image',
+    komas: [
+      buildKoma({
+        elements: grouped
+          ? [
+              {
+                ...buildShape(),
+                type: 'group',
+                content: { referenceSize: { width: 200, height: 200 }, children: [image] },
+                style: {},
+              },
+            ]
+          : [image],
+      }),
+    ],
+  });
+}
 
 function resetStores(): void {
   useProjectStore.setState({
@@ -419,6 +464,143 @@ describe('asynchronous project ownership', () => {
     expect(selectProject(useProjectStore.getState())?.presentation.komas[0]?.title).toBe('My edit');
     expect(selectProject(useProjectStore.getState())?.generationHistory[0]?.status).toBe('failed');
     expect(useUiStore.getState().confirmation).toBeNull();
+  });
+
+  it('refuses a delayed image proposal after its logo asset is replaced', async () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: logo.id },
+      assets: [availableLogo],
+    });
+    useProjectStore.getState().load(project, null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') {
+        return execution.promise;
+      }
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Use the logo as an image',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore
+      .getState()
+      .apply(changeLogo({ ...availableLogo, id: 'logo-2', projectPath: 'assets/logo-2.png' }));
+    const edited = selectProject(useProjectStore.getState());
+    execution.resolve(succeeded(imagePresentation()));
+    await pending;
+
+    expect(selectProject(useProjectStore.getState())).toBe(edited);
+    expect(edited?.presentation).toBe(project.presentation);
+    expect(edited?.assets.map((asset) => asset.id)).toEqual(['logo-2']);
+    expect(edited?.generationHistory).toEqual([]);
+    expect(useAgentStore.getState().conversation.some((entry) => entry.kind === 'result')).toBe(
+      false,
+    );
+    const failure = useAgentStore.getState().conversation.at(-1);
+    expect(failure?.kind).toBe('failure');
+    if (failure?.kind === 'failure') {
+      expect(failure.status).toBe('failed');
+      expect(failure.error.code).toBe('invalidResponse');
+      expect(failure.error.message).toMatch(/Generate again/);
+      expect(failure.error.issues).toEqual([
+        expect.objectContaining({
+          code: 'invalidReference',
+          path: 'komas[0].elements[0].content.assetId',
+        }),
+      ]);
+    }
+  });
+
+  it.each(['removed', 'without bytes'] as const)(
+    'checks grouped images when their asset is %s before applying a proposal',
+    async (change) => {
+      const project = buildProject({
+        brandKit: { ...buildProject().brandKit, logoAssetId: logo.id },
+        assets: [availableLogo],
+      });
+      useProjectStore.getState().load(project, null);
+      const execution = defer<unknown>();
+      mockChannels((channel) => {
+        if (channel === 'koma:providers:execute') {
+          return execution.promise;
+        }
+        throw new Error(`Unexpected channel ${channel}`);
+      });
+
+      const pending = generate({
+        userRequest: 'Use the logo inside a group',
+        objective: null,
+        audience: null,
+        requestedKomaCount: null,
+      });
+      if (change === 'removed') {
+        useProjectStore.getState().apply(changeLogo(null));
+      } else {
+        useProjectStore.getState().apply((current) => ({
+          ...current,
+          assets: [{ ...availableLogo, embeddedData: null }],
+        }));
+      }
+      const edited = selectProject(useProjectStore.getState());
+      execution.resolve(succeeded(imagePresentation(true)));
+      await pending;
+
+      expect(selectProject(useProjectStore.getState())).toBe(edited);
+      const failure = useAgentStore.getState().conversation.at(-1);
+      expect(failure?.kind).toBe('failure');
+      if (failure?.kind === 'failure') {
+        expect(failure.error.issues).toEqual([
+          expect.objectContaining({
+            code: 'invalidReference',
+            path: 'komas[0].elements[0].content.children[0].content.assetId',
+          }),
+        ]);
+      }
+    },
+  );
+
+  it('accepts a proposal when unrelated edits leave referenced images available', async () => {
+    const project = buildProject({ assets: [availableLogo] });
+    useProjectStore.getState().load(project, null);
+    const execution = defer<unknown>();
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute') {
+        return execution.promise;
+      }
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+
+    const pending = generate({
+      userRequest: 'Use the logo as an image',
+      objective: null,
+      audience: null,
+      requestedKomaCount: null,
+    });
+    useProjectStore.getState().apply((current) => ({
+      ...current,
+      name: 'Edited while generating',
+      assets: [
+        {
+          ...availableLogo,
+          name: 'Updated asset name',
+          embeddedData: { encoding: 'base64', data: 'bmV3' },
+        },
+        { ...availableLogo, id: 'other-asset', projectPath: 'assets/other.png' },
+      ],
+    }));
+    execution.resolve(succeeded(imagePresentation()));
+    await pending;
+
+    const updated = selectProject(useProjectStore.getState());
+    expect(updated?.name).toBe('Edited while generating');
+    expect(updated?.assets).toHaveLength(2);
+    expect(updated?.presentation.title).toBe('Generated image');
+    expect(updated?.generationHistory).toEqual([generationEntry]);
+    expect(useAgentStore.getState().conversation.at(-1)?.kind).toBe('result');
   });
 
   it('does not give the replacement project the file of a delayed save', async () => {

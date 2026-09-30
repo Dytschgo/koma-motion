@@ -1,5 +1,6 @@
 /** Provider detection and generation: the steps between the chat panel and the main process. */
-import type { GenerationInput } from '@koma-motion/agent-runtime';
+import { agentError, type GenerationInput, type ResponseIssue } from '@koma-motion/agent-runtime';
+import type { KomaProject, Presentation } from '@koma-motion/core';
 import { useAgentStore } from '../state/agentStore';
 import { applyGeneration, recordGeneration } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
@@ -20,6 +21,38 @@ function waitForConfirmationToClose(): Promise<void> {
       }
     });
   });
+}
+
+/** A proposal may outlive an asset edit, so check its images against the live project. */
+function unavailableImageIssues(presentation: Presentation, project: KomaProject): ResponseIssue[] {
+  const available = new Set(
+    project.assets.filter((asset) => asset.embeddedData !== null).map((asset) => asset.id),
+  );
+  const issues: ResponseIssue[] = [];
+  presentation.komas.forEach((koma, komaIndex) => {
+    koma.elements.forEach((element, elementIndex) => {
+      const path = `komas[${String(komaIndex)}].elements[${String(elementIndex)}]`;
+      if (element.type === 'image' && !available.has(element.content.assetId)) {
+        issues.push({
+          code: 'invalidReference',
+          path: `${path}.content.assetId`,
+          message: `The image asset "${element.content.assetId}" is no longer available.`,
+        });
+      }
+      if (element.type === 'group') {
+        element.content.children.forEach((child, childIndex) => {
+          if (child.type === 'image' && !available.has(child.content.assetId)) {
+            issues.push({
+              code: 'invalidReference',
+              path: `${path}.content.children[${String(childIndex)}].content.assetId`,
+              message: `The image asset "${child.content.assetId}" is no longer available.`,
+            });
+          }
+        });
+      }
+    });
+  });
+  return issues;
 }
 
 export async function detectProviders(): Promise<void> {
@@ -113,6 +146,26 @@ export async function generate(input: GenerationInput): Promise<void> {
         if (currentPresentation === presentationAtPrompt) {
           break;
         }
+      }
+      const currentProject = selectProject(useProjectStore.getState());
+      if (currentProject === null) {
+        return;
+      }
+      const issues = unavailableImageIssues(outcome.presentation, currentProject);
+      if (issues.length > 0) {
+        useAgentStore.getState().addEntry({
+          kind: 'failure',
+          providerName,
+          status: 'failed',
+          error: agentError(
+            'invalidResponse',
+            'The generated Komas use images that are no longer available in this project. Generate again with the current assets.',
+            issues,
+          ),
+          diagnostics: outcome.diagnostics,
+          request: input.userRequest,
+        });
+        return;
       }
       useProjectStore.getState().apply(applyGeneration(outcome.presentation, outcome.historyEntry));
       useUiStore.getState().selectKoma(outcome.presentation.komas[0]?.id ?? null);
