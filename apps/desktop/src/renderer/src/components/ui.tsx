@@ -151,10 +151,28 @@ export function Help({
 
   useLayoutEffect(() => {
     if (!open) return;
+    const dismissHidden = (): void => {
+      if (leaveTimer.current !== null) clearTimeout(leaveTimer.current);
+      setPinned(false);
+      setFocused(false);
+      setHovered(false);
+      setDismissed(true);
+    };
     const updatePosition = (): void => {
-      const bounds = trigger.current?.getBoundingClientRect();
+      const button = trigger.current;
       const panel = tooltip.current;
-      if (bounds === undefined || panel === null) return;
+      if (button === null || panel === null) return;
+      const bounds = button.getBoundingClientRect();
+      if (
+        !button.isConnected ||
+        button.getClientRects().length === 0 ||
+        bounds.width === 0 ||
+        bounds.height === 0 ||
+        getComputedStyle(button).visibility !== 'visible'
+      ) {
+        dismissHidden();
+        return;
+      }
       const { width, height } = panel.getBoundingClientRect();
       const left = Math.max(16, Math.min(bounds.right - width, window.innerWidth - width - 16));
       const top =
@@ -164,9 +182,13 @@ export function Help({
       setPosition({ top, left });
     };
     updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    if (trigger.current !== null) observer.observe(trigger.current);
+    if (tooltip.current !== null) observer.observe(tooltip.current);
     window.addEventListener('resize', updatePosition);
     window.addEventListener('scroll', updatePosition, true);
     return () => {
+      observer.disconnect();
       window.removeEventListener('resize', updatePosition);
       window.removeEventListener('scroll', updatePosition, true);
     };
