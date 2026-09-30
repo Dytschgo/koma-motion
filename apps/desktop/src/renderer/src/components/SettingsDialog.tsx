@@ -241,7 +241,7 @@ function ProvidersPage({
       }
     >
       {detection === 'failed' && (
-        <p role="alert" className="mb-2 text-pencil-red">
+        <p role="alert" className="mb-2 text-motion">
           Error: the providers could not be checked.
         </p>
       )}

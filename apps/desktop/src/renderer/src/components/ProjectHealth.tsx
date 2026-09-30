@@ -75,7 +75,7 @@ function HealthContents(): ReactElement {
     const result = feedback[issue.id];
     const descriptionId = `health-message-${String(issues.indexOf(issue))}`;
     return (
-      <li key={issue.id} className="min-w-0 rounded-lg border border-desk-600 p-3">
+      <li key={issue.id} className="min-w-0 rounded-lg border border-line p-3">
         <p id={descriptionId} className="wrap-anywhere whitespace-pre-wrap select-text">
           {issue.message}
         </p>
@@ -182,8 +182,8 @@ function HealthContents(): ReactElement {
         project.
       </p>
       {failure && (
-        <section aria-label="Open recovery" className="rounded-lg border border-pencil-red p-3">
-          <h3 className="font-semibold text-pencil-red">Opening blocked</h3>
+        <section aria-label="Open recovery" className="rounded-lg border border-motion p-3">
+          <h3 className="font-semibold text-motion">Opening blocked</h3>
           <p className="mt-2">{failure.message}</p>
           {project && (
             <p className="mt-2 text-sm text-ink-300">
@@ -223,7 +223,7 @@ function HealthContents(): ReactElement {
         return (
           <section key={severity} aria-label={title}>
             <h3
-              className={`mb-2 font-semibold ${severity === 'info' ? 'text-pencil-blue' : 'text-signal-warn'}`}
+              className={`mb-2 font-semibold ${severity === 'info' ? 'text-accent' : 'text-signal-warn'}`}
             >
               {title} ({group.length})
             </h3>
@@ -231,7 +231,7 @@ function HealthContents(): ReactElement {
           </section>
         );
       })}
-      <div role="status" aria-live="polite" aria-atomic="true" className="text-sm text-pencil-blue">
+      <div role="status" aria-live="polite" aria-atomic="true" className="text-sm text-accent">
         {resolved.map(([id, result]) => (
           <p key={id} className="mb-2">
             {result.message}
@@ -280,11 +280,22 @@ export function ProjectHealthButton(): ReactElement {
   return (
     <Button
       id="project-health-trigger"
-      variant="outline"
+      variant="quiet"
       aria-haspopup="dialog"
+      className={count > 0 ? 'text-signal-warn hover:text-signal-warn' : undefined}
       onClick={() => useHealthStore.getState().setOpen(true)}
     >
-      Project health{count > 0 ? ` (${String(count)})` : ''}
+      <span
+        aria-hidden="true"
+        className={`size-1.5 rounded-full ${count > 0 ? 'bg-signal-warn' : 'bg-signal-ok/70'}`}
+      />
+      Project health
+      {count > 0 && ' '}
+      {count > 0 && (
+        <span className="rounded-full bg-signal-warn/15 px-1.5 text-xs font-semibold tabular-nums">
+          ({String(count)})
+        </span>
+      )}
     </Button>
   );
 }

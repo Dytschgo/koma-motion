@@ -96,7 +96,7 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
   return (
     <aside
       aria-label="Inspector"
-      className="flex w-[304px] flex-none flex-col border-l border-desk-600 bg-desk-800"
+      className="flex w-[304px] flex-none flex-col border-l border-line bg-surface-1"
     >
       {koma === null ? (
         <p className="p-4 text-ink-400">Select a Koma to see its details.</p>
@@ -107,7 +107,7 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
               ref={tabs}
               role="tablist"
               aria-label="Inspector context"
-              className="grid grid-cols-3 gap-0.5 rounded-lg border border-desk-600 bg-desk-900 p-0.5"
+              className="grid grid-cols-3 gap-0.5 rounded-control border border-line bg-surface-0 p-0.5"
             >
               {TABS.map((item, position) => {
                 const selected = item.id === tab;
@@ -130,8 +130,8 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
                     tabIndex={selected ? 0 : -1}
                     className={`relative flex h-7 items-center justify-center gap-1.5 rounded-md text-sm ${
                       selected
-                        ? 'bg-desk-700 font-semibold text-pencil-blue'
-                        : 'text-ink-300 hover:bg-desk-700 hover:text-ink-100'
+                        ? 'bg-surface-3 font-semibold text-ink-100 shadow-raised'
+                        : 'text-ink-400 hover:bg-surface-2 hover:text-ink-100'
                     }`}
                     onClick={() => {
                       setTab(item.id);
@@ -155,7 +155,7 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
             role="tabpanel"
             id={`${id}-panel`}
             aria-labelledby={`${id}-${tab}-tab`}
-            className="min-h-0 flex-1 overflow-y-auto border-t border-desk-600"
+            className="min-h-0 flex-1 overflow-y-auto border-t border-line"
           >
             {tab === 'motion' ? (
               <MotionPanel

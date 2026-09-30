@@ -46,7 +46,7 @@ export function BrandPreview({
     <div
       role="img"
       aria-label="Preview of the Brand Kit"
-      className="@container relative aspect-video w-full overflow-hidden rounded-lg border border-desk-600"
+      className="@container relative aspect-video w-full overflow-hidden rounded-lg border border-line"
       style={{ background: colours.background, color: colours.text }}
     >
       <div className="absolute inset-0 flex flex-col justify-between p-[7%]">
@@ -275,7 +275,7 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
                     <div className="flex items-center gap-2">
                       <span
                         aria-hidden="true"
-                        className="size-8 flex-none rounded-md border border-desk-500"
+                        className="size-8 flex-none rounded-md border border-line-strong"
                         style={{ background: parsed.ok ? parsed.value : 'transparent' }}
                       />
                       <TextInput

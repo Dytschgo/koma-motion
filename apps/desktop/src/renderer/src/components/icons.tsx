@@ -279,10 +279,10 @@ export function KomaMark({ size = 22 }: IconProps): ReactElement {
         height="13"
         rx="2.5"
         fill="none"
-        stroke="var(--color-pencil-blue)"
+        stroke="var(--color-accent)"
         strokeWidth="1.75"
       />
-      <rect x="7" y="7" width="13" height="13" rx="2.5" fill="var(--color-pencil-red)" />
+      <rect x="7" y="7" width="13" height="13" rx="2.5" fill="var(--color-motion)" />
     </svg>
   );
 }

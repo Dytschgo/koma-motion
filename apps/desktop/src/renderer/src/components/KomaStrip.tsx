@@ -64,7 +64,7 @@ function InBetween({
         <button
           type="button"
           aria-label={`Transition from Koma ${String(from)} to Koma ${String(to)}: ${assessment.label.toLowerCase()}. It cannot play. Show the problem`}
-          className="my-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-signal-warn/40 px-2 py-1 text-left text-sm text-signal-warn hover:bg-desk-700"
+          className="my-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-signal-warn/40 px-2 py-1 text-left text-sm text-signal-warn hover:bg-surface-3"
           onClick={() => {
             setView('canvas');
             selectKoma(fromKoma.id);
@@ -82,15 +82,15 @@ function InBetween({
     <li className="flex items-stretch gap-2 pl-[18px]">
       <span
         aria-hidden="true"
-        className={`w-px flex-none ${active ? 'bg-pencil-red' : 'bg-desk-500'}`}
+        className={`w-px flex-none ${active ? 'bg-motion' : 'bg-line-strong'}`}
       />
       <button
         type="button"
         aria-label={`Preview the transition from Koma ${String(from)} to Koma ${String(to)}`}
         className={`my-1 flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors ${
           active
-            ? 'bg-pencil-red-deep text-ink-100'
-            : 'text-ink-400 hover:bg-desk-700 hover:text-ink-100'
+            ? 'bg-motion-deep text-ink-100'
+            : 'text-ink-400 hover:bg-surface-3 hover:text-ink-100'
         }`}
         onClick={() => {
           startPreview(transition.id);
@@ -153,12 +153,14 @@ function KomaItem({
 
   return (
     <li>
-      <div className={`rounded-lg p-1.5 ${selected ? 'bg-pencil-blue-deep' : 'hover:bg-desk-700'}`}>
+      <div
+        className={`rounded-card p-1.5 transition-colors ${selected ? 'bg-accent-deep/45 shadow-[inset_0_0_0_1px_rgb(124_196_232/0.35)]' : 'hover:bg-surface-2'}`}
+      >
         <div className="relative flex items-start gap-2">
           <span
             aria-hidden="true"
             className={`w-5 flex-none pt-0.5 text-right text-sm tabular-nums ${
-              selected ? 'font-semibold text-pencil-blue' : 'text-ink-400'
+              selected ? 'font-semibold text-accent' : 'text-ink-400'
             }`}
           >
             {number}
@@ -166,7 +168,7 @@ function KomaItem({
           <div aria-hidden="true" className="flex min-w-0 flex-col gap-1">
             <div
               className={`overflow-hidden rounded-sm outline outline-1 ${
-                selected ? 'outline-pencil-blue' : 'outline-desk-600'
+                selected ? 'outline-accent' : 'outline-line'
               }`}
             >
               <KomaStage
@@ -232,10 +234,10 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
   return (
     <aside
       aria-label="Project"
-      className="flex w-[244px] flex-none flex-col border-r border-desk-600 bg-desk-800"
+      className="flex w-[244px] flex-none flex-col border-r border-line bg-surface-1"
     >
-      <div className="border-b border-desk-600 p-3">
-        <label htmlFor="project-name" className="mb-1 block text-sm text-ink-300">
+      <div className="border-b border-line p-3">
+        <label htmlFor="project-name" className="eyebrow mb-1.5 block">
           Project name
         </label>
         <TextInput
@@ -248,7 +250,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
           }}
         />
         {project.name.trim() === '' && (
-          <p role="alert" className="mt-1 text-sm text-pencil-red">
+          <p role="alert" className="mt-1 text-sm text-motion">
             Error: A project needs a name before it can be saved.
           </p>
         )}
@@ -298,7 +300,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
         )}
       </div>
 
-      <div className="flex flex-col gap-1 border-t border-desk-600 p-2">
+      <div className="flex flex-col gap-1 border-t border-line p-2">
         <Button
           variant="outline"
           icon={<PlusIcon size={14} />}
@@ -317,7 +319,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
         >
           <span
             aria-hidden="true"
-            className="flex overflow-hidden rounded-sm outline outline-1 outline-desk-500"
+            className="flex overflow-hidden rounded-sm outline outline-1 outline-line-strong"
           >
             {[
               project.brandKit.colours.primary,

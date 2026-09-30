@@ -27,13 +27,13 @@ function withDefaultWidth(className: string | undefined): string {
 
 const BUTTON_VARIANTS = {
   primary:
-    'border border-[#a4dcf5] bg-pencil-blue text-desk-950 font-semibold shadow-[0_1px_0_rgb(255_255_255/0.18)_inset,0_2px_10px_rgb(14_87_123/0.2)] hover:bg-[#a4d8f0] disabled:border-desk-600 disabled:bg-desk-600 disabled:text-ink-400 disabled:shadow-none',
+    'bg-accent text-surface-0 font-semibold shadow-raised hover:bg-accent-hover disabled:bg-surface-3 disabled:text-ink-400 disabled:shadow-none',
   quiet:
-    'text-ink-300 hover:bg-desk-700 hover:text-ink-100 disabled:text-desk-500 disabled:hover:bg-transparent',
+    'text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:text-line-strong disabled:hover:bg-transparent',
   outline:
-    'border border-desk-500 bg-desk-800/70 text-ink-100 shadow-[0_1px_0_rgb(255_255_255/0.04)_inset] hover:border-pencil-blue/60 hover:bg-desk-700 disabled:border-desk-600 disabled:bg-transparent disabled:text-desk-500 disabled:shadow-none disabled:hover:bg-transparent',
+    'border border-line-strong bg-surface-2 text-ink-100 shadow-raised hover:border-ink-400/60 hover:bg-surface-3 disabled:border-line disabled:bg-transparent disabled:text-line-strong disabled:shadow-none disabled:hover:bg-transparent',
   danger:
-    'border border-[#f58d7c] bg-pencil-red text-desk-950 font-semibold hover:bg-[#f48673] disabled:border-desk-600 disabled:bg-desk-600 disabled:text-ink-400',
+    'bg-motion text-surface-0 font-semibold shadow-raised hover:bg-[#f48673] disabled:bg-surface-3 disabled:text-ink-400 disabled:shadow-none',
 } as const;
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -59,10 +59,10 @@ export function Button({
     <button
       type={type}
       className={join(
-        'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md whitespace-nowrap',
-        'transition-[background-color,border-color,color,box-shadow] duration-150 disabled:cursor-not-allowed',
+        'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-control whitespace-nowrap',
+        'transition-[background-color,border-color,color,box-shadow] duration-150 ease-standard disabled:cursor-not-allowed',
         compact ? 'px-2' : 'px-3.5',
-        active ? 'bg-desk-700 text-pencil-blue' : BUTTON_VARIANTS[variant],
+        active ? 'bg-surface-3 text-accent' : BUTTON_VARIANTS[variant],
         className,
       )}
       {...rest}
@@ -82,8 +82,8 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 const ICON_BUTTON_TONES = {
-  default: 'text-ink-300 hover:bg-desk-700 hover:text-ink-100',
-  motion: 'bg-pencil-red-deep text-pencil-red hover:bg-pencil-red hover:text-desk-950',
+  default: 'text-ink-300 hover:bg-surface-3 hover:text-ink-100',
+  motion: 'bg-motion-deep text-motion hover:bg-motion hover:text-surface-0',
 } as const;
 
 export function IconButton({
@@ -101,10 +101,10 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={join(
-        'inline-flex size-9 flex-none items-center justify-center rounded-md transition-[background-color,color] duration-150',
-        'disabled:cursor-not-allowed disabled:bg-transparent disabled:text-desk-500',
-        'disabled:hover:bg-transparent disabled:hover:text-desk-500',
-        active ? 'bg-desk-700 text-pencil-blue' : ICON_BUTTON_TONES[tone],
+        'inline-flex size-9 flex-none items-center justify-center rounded-control transition-[background-color,color] duration-150 ease-standard',
+        'disabled:cursor-not-allowed disabled:bg-transparent disabled:text-line-strong',
+        'disabled:hover:bg-transparent disabled:hover:text-line-strong',
+        active ? 'bg-surface-3 text-accent' : ICON_BUTTON_TONES[tone],
         className,
       )}
       {...rest}
@@ -228,7 +228,7 @@ export function Help({
         aria-describedby={open ? id : undefined}
         aria-expanded={open}
         className={join(
-          'inline-flex size-6 flex-none items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-desk-700 hover:text-pencil-blue focus:text-pencil-blue',
+          'inline-flex size-6 flex-none items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-surface-3 hover:text-accent focus:text-accent',
           className,
         )}
         onPointerEnter={(event) => {
@@ -278,7 +278,7 @@ export function Help({
             ref={tooltip}
             id={id}
             role="tooltip"
-            className="fixed z-[100] max-h-[min(12rem,calc(100vh-32px))] w-[min(280px,calc(100vw-32px))] overflow-y-auto rounded-lg border border-desk-500 bg-desk-700 px-3 py-2 text-sm leading-relaxed text-ink-100 shadow-[0_12px_32px_rgb(0_0_0/0.38)]"
+            className="fixed z-[100] max-h-[min(12rem,calc(100vh-32px))] w-[min(280px,calc(100vw-32px))] overflow-y-auto rounded-card border border-line-strong bg-surface-3 px-3 py-2 text-sm leading-relaxed text-ink-100 shadow-popover"
             style={{ top: position.top, left: position.left }}
             onPointerEnter={() => {
               if (leaveTimer.current !== null) clearTimeout(leaveTimer.current);
@@ -295,10 +295,10 @@ export function Help({
 }
 
 const CONTROL =
-  'rounded-md border border-desk-500 bg-desk-950/80 px-2.5 text-ink-100 shadow-[0_1px_2px_rgb(0_0_0/0.18)_inset] placeholder:text-ink-400 ' +
-  'transition-[border-color,background-color,box-shadow] duration-150 hover:border-ink-400 focus:border-pencil-blue focus:bg-desk-900 ' +
-  'disabled:cursor-not-allowed disabled:border-desk-600 disabled:bg-desk-900 disabled:text-ink-400 disabled:hover:border-desk-600 ' +
-  'aria-invalid:border-pencil-red';
+  'rounded-control border border-line-strong bg-surface-0 px-2.5 text-ink-100 shadow-[0_1px_2px_rgb(0_0_0/0.2)_inset] placeholder:text-ink-400 ' +
+  'transition-[border-color,background-color,box-shadow] duration-150 ease-standard hover:border-ink-400/70 focus:border-accent focus:shadow-[0_0_0_3px_rgb(124_196_232/0.16)] ' +
+  'disabled:cursor-not-allowed disabled:border-line disabled:bg-surface-1 disabled:text-ink-400 disabled:hover:border-line ' +
+  'aria-invalid:border-motion';
 
 export interface FieldProps {
   readonly label: string;
@@ -331,7 +331,7 @@ export function Field({ label, error, hint, className, children }: FieldProps): 
         <p
           id={messageId}
           role={error === undefined ? undefined : 'alert'}
-          className={join('text-sm', error === undefined ? 'text-ink-400' : 'text-pencil-red')}
+          className={join('text-sm', error === undefined ? 'text-ink-400' : 'text-motion')}
         >
           {error !== undefined && 'Error: '}
           {message}

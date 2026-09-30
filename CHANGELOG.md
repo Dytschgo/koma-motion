@@ -44,6 +44,11 @@ changes to the project format.
 
 ### Changed
 
+- A consistent visual system across the application: flat panels on one
+  surface level with 44-pixel headers, a quieter top bar with the file name
+  and save state in one chip, segmented tabs in the Inspector and the Brand
+  Kit, a dot-grid desk under the canvas, and shared radius, shadow and focus
+  styles. Decorative gradients were removed.
 - The chat header no longer has the two help buttons. A time limit, when one
   is set, is shown under the composer; it is changed under Settings,
   Generation.
