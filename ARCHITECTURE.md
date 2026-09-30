@@ -278,6 +278,7 @@ sure that the channel list of the preload script equals the contract.
 | selection, view, zoom    | `uiStore`                       | no                     |
 | preview                  | `uiStore` and the playback hook | no                     |
 | agent executions, chat   | `agentStore`                    | no                     |
+| chat sidebar width, open | `uiStore`, window local storage | no                     |
 | unfinished editor input  | component state                 | no                     |
 
 Changes to the document are commands: pure functions from a project to a

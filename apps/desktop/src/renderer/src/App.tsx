@@ -1,3 +1,5 @@
+import type { KomaProject } from '@koma-motion/core';
+import { useElementSize } from '@koma-motion/renderer';
 import { useEffect, type ReactElement } from 'react';
 import { AgentPanel } from './components/AgentPanel';
 import { BrandKitEditor } from './components/BrandKitEditor';
@@ -10,6 +12,7 @@ import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
 import { detectProviders } from './lib/agentActions';
 import { invoke, subscribe } from './lib/api';
+import { getChatLayout, INSPECTOR_WIDTH } from './lib/chatLayout';
 import { followUpdates } from './lib/updateActions';
 import {
   createNewProject,
@@ -93,34 +96,53 @@ function useApplicationEvents(): void {
   }, []);
 }
 
+/**
+ * Komas on the left, the canvas in the middle, the chat on the right. When the
+ * window has no room for the canvas, the Inspector and the chat side by side,
+ * the open chat takes the place of the Inspector.
+ */
+function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
+  const view = useUiStore((state) => state.view);
+  const chatOpen = useUiStore((state) => state.agentPanelOpen);
+  const chatWidth = useUiStore((state) => state.agentPanelWidth);
+  const [attachArea, area] = useElementSize<HTMLDivElement>();
+  const chatLayout = getChatLayout({
+    available: area.width,
+    preferred: chatWidth,
+    inspector: view === 'canvas' ? INSPECTOR_WIDTH : 0,
+  });
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <KomaStrip project={project} />
+      <div ref={attachArea} className="flex min-h-0 min-w-0 flex-1">
+        <main className="flex min-h-0 min-w-0 flex-1">
+          {view === 'brandKit' ? (
+            <BrandKitEditor project={project} />
+          ) : (
+            <>
+              <Workspace project={project} />
+              {/* Hidden, not removed, so that the Inspector keeps its state. */}
+              <div className="contents" hidden={chatOpen && chatLayout.replacesInspector}>
+                <Inspector project={project} />
+              </div>
+            </>
+          )}
+        </main>
+        <AgentPanel project={project} layout={chatLayout} />
+      </div>
+    </div>
+  );
+}
+
 export function App(): ReactElement {
   const project = useProjectStore(selectProject);
-  const view = useUiStore((state) => state.view);
   useApplicationEvents();
 
   return (
     <div className="flex h-full flex-col">
       <TopBar />
-      {project === null ? (
-        <Welcome />
-      ) : (
-        <div className="flex min-h-0 flex-1">
-          <KomaStrip project={project} />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <main className="flex min-h-0 flex-1">
-              {view === 'brandKit' ? (
-                <BrandKitEditor project={project} />
-              ) : (
-                <>
-                  <Workspace project={project} />
-                  <Inspector project={project} />
-                </>
-              )}
-            </main>
-            <AgentPanel project={project} />
-          </div>
-        </div>
-      )}
+      {project === null ? <Welcome /> : <ProjectLayout project={project} />}
       <SettingsDialog project={project} />
       <ConfirmDialog />
       <Notices />

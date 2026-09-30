@@ -96,7 +96,8 @@ Everything in this list is implemented and covered by automated tests.
 - Create a project, open a project, save and save as (`.koma` files).
 - Edit a Brand Kit with colours, fonts, a logo and descriptions, with a live
   preview and readability checks.
-- Describe a presentation in the chat and choose a provider.
+- Describe a presentation in the chat and choose a provider. The chat is a
+  sidebar beside the canvas that can be resized and collapsed.
 - Generate three Komas with the built-in mock provider, without network and
   without an API key.
 - Generate Komas with Claude Code. Tested on Windows.

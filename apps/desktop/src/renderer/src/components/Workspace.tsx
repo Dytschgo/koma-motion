@@ -45,6 +45,8 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const stopPreview = useUiStore((state) => state.stopPreview);
   const zoom = useUiStore((state) => state.zoom);
   const setZoom = useUiStore((state) => state.setZoom);
+  const chatOpen = useUiStore((state) => state.agentPanelOpen);
+  const setChatOpen = useUiStore((state) => state.setAgentPanelOpen);
 
   const koma = useSelectedKoma();
   // The stage follows only a preview whose recorded ends are still valid.
@@ -197,9 +199,20 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           <div className="max-w-md px-6 text-center">
             <p className="text-xl font-semibold">This presentation has no Komas yet</p>
             <p className="mt-2 text-ink-300">
-              Describe what you want to present in the chat below. The provider creates the Komas
-              and Koma Motion works out the motion between them.
+              Describe what you want to present in the chat. The provider creates the Komas and Koma
+              Motion works out the motion between them.
             </p>
+            {!chatOpen && (
+              <Button
+                variant="outline"
+                className="mt-4"
+                onClick={() => {
+                  setChatOpen(true);
+                }}
+              >
+                Open the chat
+              </Button>
+            )}
           </div>
         ) : (
           scale > 0 && (
@@ -270,85 +283,91 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
       <div
         role="group"
         aria-label="Transition preview"
-        className="flex h-14 flex-none items-center gap-1 border-t border-desk-600 bg-desk-800 px-3"
+        // A container, so that the labels give way before the position control
+        // when the canvas is narrow.
+        className="@container flex-none border-t border-desk-600 bg-desk-800"
       >
-        <IconButton
-          label="Previous Koma"
-          disabled={previousKoma === undefined}
-          onClick={() => {
-            selectKoma(previousKoma?.id ?? null);
-          }}
-        >
-          <PreviousIcon />
-        </IconButton>
-        <IconButton
-          label={playback.status === 'playing' ? 'Pause' : 'Play'}
-          disabled={transportContext === null}
-          tone="motion"
-          onClick={togglePlayback}
-        >
-          {playback.status === 'playing' ? <PauseIcon /> : <PlayIcon />}
-        </IconButton>
-        <IconButton label="Restart" disabled={transportContext === null} onClick={restartPreview}>
-          <RestartIcon />
-        </IconButton>
-        <IconButton
-          label="Next Koma"
-          disabled={nextKoma === undefined}
-          onClick={() => {
-            selectKoma(nextKoma?.id ?? null);
-          }}
-        >
-          <NextIcon />
-        </IconButton>
+        <div className="flex h-14 items-center gap-1 px-3">
+          <IconButton
+            label="Previous Koma"
+            disabled={previousKoma === undefined}
+            onClick={() => {
+              selectKoma(previousKoma?.id ?? null);
+            }}
+          >
+            <PreviousIcon />
+          </IconButton>
+          <IconButton
+            label={playback.status === 'playing' ? 'Pause' : 'Play'}
+            disabled={transportContext === null}
+            tone="motion"
+            onClick={togglePlayback}
+          >
+            {playback.status === 'playing' ? <PauseIcon /> : <PlayIcon />}
+          </IconButton>
+          <IconButton label="Restart" disabled={transportContext === null} onClick={restartPreview}>
+            <RestartIcon />
+          </IconButton>
+          <IconButton
+            label="Next Koma"
+            disabled={nextKoma === undefined}
+            onClick={() => {
+              selectKoma(nextKoma?.id ?? null);
+            }}
+          >
+            <NextIcon />
+          </IconButton>
 
-        {transportContext === null ? (
-          <p className="ml-3 text-ink-400">Add a second Koma to see motion between two Komas.</p>
-        ) : (
-          <>
-            <p className="mx-3 flex-none text-ink-300">
-              Koma {transportContext.fromIndex + 1} to Koma {transportContext.fromIndex + 2}
-            </p>
-            <input
-              type="range"
-              className="scrubber min-w-24 flex-1"
-              min={0}
-              max={1000}
-              value={Math.round((previewing ? playback.progress : 0) * 1000)}
-              aria-label="Position in the transition"
-              aria-valuetext={`${String(progressPercent)} percent`}
-              style={{ '--progress': `${String(progressPercent)}%` } as CSSProperties}
-              onChange={(event) => {
-                const position = Number(event.target.value) / 1000;
-                if (stageContext?.transition.id === transportContext.transition.id) {
-                  seek(position);
-                } else {
-                  pendingPosition.current = position;
-                  startPreview(transportContext.transition.id);
-                }
-              }}
-            />
-            <label className="ml-3 flex flex-none items-center gap-2 text-ink-300">
-              Duration
-              <NumberInput
-                className="w-16"
-                value={transportContext.transition.duration / 1000}
-                minimum={0.1}
-                maximum={10}
-                aria-label="Transition duration in seconds"
-                onValue={(seconds) => {
-                  apply(
-                    changeTransition(transportContext.transition.id, { duration: seconds * 1000 }),
-                    {
-                      coalesceKey: `transition-duration:${transportContext.transition.id}`,
-                    },
-                  );
+          {transportContext === null ? (
+            <p className="ml-3 text-ink-400">Add a second Koma to see motion between two Komas.</p>
+          ) : (
+            <>
+              <p className="sr-only flex-none text-ink-300 @min-[36rem]:not-sr-only @min-[36rem]:mx-3">
+                Koma {transportContext.fromIndex + 1} to Koma {transportContext.fromIndex + 2}
+              </p>
+              <input
+                type="range"
+                className="scrubber min-w-24 flex-1"
+                min={0}
+                max={1000}
+                value={Math.round((previewing ? playback.progress : 0) * 1000)}
+                aria-label="Position in the transition"
+                aria-valuetext={`${String(progressPercent)} percent`}
+                style={{ '--progress': `${String(progressPercent)}%` } as CSSProperties}
+                onChange={(event) => {
+                  const position = Number(event.target.value) / 1000;
+                  if (stageContext?.transition.id === transportContext.transition.id) {
+                    seek(position);
+                  } else {
+                    pendingPosition.current = position;
+                    startPreview(transportContext.transition.id);
+                  }
                 }}
               />
-              <span aria-hidden="true">s</span>
-            </label>
-          </>
-        )}
+              <label className="ml-3 flex flex-none items-center gap-2 text-ink-300">
+                <span className="sr-only @min-[30rem]:not-sr-only">Duration</span>
+                <NumberInput
+                  className="w-16"
+                  value={transportContext.transition.duration / 1000}
+                  minimum={0.1}
+                  maximum={10}
+                  aria-label="Transition duration in seconds"
+                  onValue={(seconds) => {
+                    apply(
+                      changeTransition(transportContext.transition.id, {
+                        duration: seconds * 1000,
+                      }),
+                      {
+                        coalesceKey: `transition-duration:${transportContext.transition.id}`,
+                      },
+                    );
+                  }}
+                />
+                <span aria-hidden="true">s</span>
+              </label>
+            </>
+          )}
+        </div>
       </div>
     </section>
   );

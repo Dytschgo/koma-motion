@@ -134,12 +134,19 @@ export const DownloadIcon = (props: IconProps): ReactElement => (
   </Icon>
 );
 
+const CHEVRON_PATHS = {
+  up: 'm4 10 4-4 4 4',
+  down: 'm4 6 4 4 4-4',
+  left: 'm10 4-4 4 4 4',
+  right: 'm6 4 4 4-4 4',
+} as const;
+
 export const ChevronIcon = ({
   size,
   direction,
-}: IconProps & { readonly direction: 'up' | 'down' }): ReactElement => (
+}: IconProps & { readonly direction: keyof typeof CHEVRON_PATHS }): ReactElement => (
   <Icon {...(size === undefined ? {} : { size })}>
-    <path d={direction === 'down' ? 'm4 6 4 4 4-4' : 'm4 10 4-4 4 4'} />
+    <path d={CHEVRON_PATHS[direction]} />
   </Icon>
 );
 

@@ -5,11 +5,11 @@ import {
   useRef,
   useState,
   type ButtonHTMLAttributes,
+  type ComponentPropsWithRef,
   type InputHTMLAttributes,
   type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
-  type TextareaHTMLAttributes,
 } from 'react';
 
 function join(...classes: readonly (string | false | undefined)[]): string {
@@ -170,7 +170,7 @@ export function TextArea({
   className,
   rows = 3,
   ...rest
-}: TextareaHTMLAttributes<HTMLTextAreaElement>): ReactElement {
+}: ComponentPropsWithRef<'textarea'>): ReactElement {
   return (
     <textarea
       rows={rows}
