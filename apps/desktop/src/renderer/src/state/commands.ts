@@ -32,14 +32,22 @@ import { normaliseDuration, syncTransitions } from '@koma-motion/motion-engine';
 
 export type ProjectCommand = (project: KomaProject, idGenerator: IdGenerator) => KomaProject;
 
-/** Changes the Komas and recomputes the transitions that are affected. */
-function changeKomas(update: (presentation: Presentation) => Presentation): ProjectCommand {
+/** Changes the Komas and recomputes transitions when their visual content may change. */
+function changeKomas(
+  update: (presentation: Presentation) => Presentation,
+  affectsMotion = true,
+): ProjectCommand {
   return (project, idGenerator) => {
     const updated = update(project.presentation);
     if (updated === project.presentation) {
       return project;
     }
-    return { ...project, presentation: syncTransitions(updated, idGenerator).presentation };
+    return {
+      ...project,
+      presentation: affectsMotion
+        ? syncTransitions(updated, idGenerator, project.presentation).presentation
+        : updated,
+    };
   };
 }
 
@@ -62,7 +70,11 @@ export const changeAgentConfiguration =
   (project) => ({ ...project, agentConfiguration });
 
 export const changeKomaDetails = (komaId: string, patch: KomaDetailsPatch): ProjectCommand =>
-  changeKomas((presentation) => updateKomaDetails(presentation, komaId, patch));
+  // Titles, purpose and notes do not enter the element diff or stored motion.
+  changeKomas(
+    (presentation) => updateKomaDetails(presentation, komaId, patch),
+    patch.background !== undefined,
+  );
 
 export const changeElement = (komaId: string, element: KomaElement): ProjectCommand =>
   changeKomas((presentation) => replaceElement(presentation, komaId, element));
