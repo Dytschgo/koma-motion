@@ -145,7 +145,10 @@ jobs:
           set -euo pipefail
           version="$(node scripts/release-channel.mjs nightly-version "$(node -p "require('./package.json').version")" "$(date -u +%Y%m%d)" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
           rm -rf release
-          pnpm exec electron-builder ${{ matrix.builder }} --publish never             --config.extraMetadata.version="$version"             --config.publish.channel=nightly             --config.publish.releaseType=prerelease
+          pnpm exec electron-builder ${{ matrix.builder }} --publish never \
+            --config.extraMetadata.version="$version" \
+            --config.publish.channel=nightly \
+            --config.publish.releaseType=prerelease
           ls release
           test -f release/nightly${{ matrix.platform == 'macos' && '-mac' || '' }}.yml
           KOMA_EXPECT_VERSION="$version" node scripts/verify-packaged.mjs ${{ matrix.platform }}
