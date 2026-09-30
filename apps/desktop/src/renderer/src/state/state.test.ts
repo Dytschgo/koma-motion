@@ -1,5 +1,10 @@
 import { editBrandKitField, pruneBrandKitRawDraft } from '@koma-motion/brand-kit';
-import { createSeededIdGenerator, komaProjectSchema, type KomaProject } from '@koma-motion/core';
+import {
+  MAX_KOMAS,
+  createSeededIdGenerator,
+  komaProjectSchema,
+  type KomaProject,
+} from '@koma-motion/core';
 import { buildKoma, buildProject, buildShape, buildText } from '@koma-motion/core/testing';
 import { validateTransition } from '@koma-motion/motion-engine';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -184,6 +189,24 @@ describe('document commands', () => {
     const project = run(empty, addKoma(null));
     expect(project.presentation.komas).toHaveLength(1);
     expect(project.presentation.komas[0]?.background.colour).toBe(base.brandKit.colours.background);
+  });
+
+  it('does not create an undoable change when adding at the Koma limit', () => {
+    const full = buildProject({
+      presentation: {
+        ...base.presentation,
+        komas: Array.from({ length: MAX_KOMAS }, (_, index) =>
+          buildKoma({ id: `koma-${String(index + 1)}`, elements: [] }),
+        ),
+      },
+    });
+    expect(komaProjectSchema.safeParse(full).success).toBe(true);
+    const generator = createSeededIdGenerator('limit');
+    const nextId = createSeededIdGenerator('limit').next('koma');
+    expect(addKoma('koma-1')(full, generator)).toBe(full);
+    expect(generator.next('koma')).toBe(nextId);
+    const history = createHistory(full);
+    expect(commit(history, addKoma('koma-1')(full, generator), { time: 0 })).toBe(history);
   });
 
   it('recomputes the motion when an element changes', () => {
