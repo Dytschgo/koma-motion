@@ -12,6 +12,7 @@ import {
   FIXTURE_TIMESTAMP,
 } from '@koma-motion/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { IpcResponse } from '../../../shared/ipc';
 import { useAgentStore } from '../state/agentStore';
 import { changeKomaDetails, changeLogo, renameProject } from '../state/commands';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from '../state/projectStore';
@@ -822,12 +823,21 @@ describe('asynchronous project ownership', () => {
   });
 });
 
-function succeeded(presentation: Presentation): unknown {
+function succeeded(presentation: Presentation): IpcResponse<'koma:providers:execute'> {
   return {
     status: 'succeeded',
     presentation,
     historyEntry: generationEntry,
     warnings: [],
+    repaired: false,
+    diagnostics: {
+      providerId: 'mock',
+      startedAt: FIXTURE_TIMESTAMP,
+      finishedAt: FIXTURE_TIMESTAMP,
+      durationMs: 0,
+      promptTemplate: '',
+      attempts: [],
+    },
   };
 }
 
@@ -880,10 +890,11 @@ describe('combined generation confirmation and asset selection', () => {
     expect(useAgentStore.getState().conversation.some((entry) => entry.kind === 'result')).toBe(
       false,
     );
-    expect(useAgentStore.getState().conversation.at(-1)).toMatchObject({
-      kind: 'failure',
-      error: { code: 'invalidResponse', message: expect.stringContaining('current assets') },
-    });
+    const failure = useAgentStore.getState().conversation.at(-1);
+    if (failure?.kind !== 'failure') throw new Error('Expected an asset conflict failure');
+    expect(failure.error.code).toBe('invalidResponse');
+    expect(failure.error.message).toContain('current assets');
+    expect(failure.diagnostics).toMatchObject({ providerId: 'mock', attempts: [] });
     expect(useAgentStore.getState().execution).toBeNull();
   });
 });
