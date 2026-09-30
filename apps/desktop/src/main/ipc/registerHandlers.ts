@@ -18,6 +18,7 @@ import {
 } from '../../shared/ipc';
 import { isTrustedSender } from '../security';
 import type { BrandKitLibrary } from '../services/brandKitLibrary';
+import { createOutputBatcher } from '../services/outputBatcher';
 import { generatePresentation, regenerateTransition } from '../services/generation';
 import { selectLogo } from '../services/logo';
 import { InstructionTemplateLibrary } from '../services/instructionTemplates';
@@ -229,20 +230,31 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     return provider.listModels(listing.signal);
   });
 
-  handle('koma:providers:execute', ({ executionId, providerId, project, input }) =>
-    generatePresentation({
-      runner,
-      executionId,
-      providerId,
-      project,
-      input,
-      idGenerator,
-      now: () => new Date(),
-      onStatus: (status) => {
-        send('koma:providers:status', status);
-      },
-    }),
-  );
+  handle('koma:providers:execute', async ({ executionId, providerId, project, input }) => {
+    const output = createOutputBatcher((event) => {
+      send('koma:providers:output', event);
+    });
+    try {
+      return await generatePresentation({
+        runner,
+        executionId,
+        providerId,
+        project,
+        input,
+        idGenerator,
+        now: () => new Date(),
+        onStatus: (status) => {
+          // Output written before a phase change is shown before that phase.
+          output.flush();
+          send('koma:providers:status', status);
+        },
+        onOutput: output.push,
+      });
+    } finally {
+      // Nothing is sent after the outcome: the window ignores late output anyway.
+      output.close();
+    }
+  });
 
   handle(
     'koma:providers:regenerate-transition',

@@ -30,9 +30,11 @@ import type {
   AttemptDiagnostics,
   ExecutionDiagnostics,
   ExecutionPhase,
+  ExecutionOutputEvent,
   ExecutionStatusEvent,
   ProviderExecutionResult,
 } from '../providers/types';
+import { MAX_OUTPUT_EVENT_LENGTH } from '../providers/types';
 import { resolveProviderOutput } from '../validation/extract';
 import { validateAgentResponse } from '../validation/validateResponse';
 import { validateTransitionResponse } from '../validation/validateTransitionResponse';
@@ -50,6 +52,8 @@ interface Execution<Request> {
   readonly timeoutMs?: number | null;
   readonly model?: string | null;
   readonly onStatus?: (event: ExecutionStatusEvent) => void;
+  /** Receives text the provider writes for the user, as it arrives. */
+  readonly onOutput?: (event: ExecutionOutputEvent) => void;
 }
 
 export type GenerationExecution = Execution<PresentationGenerationRequest>;
@@ -408,6 +412,17 @@ export class GenerationRunner {
           signal,
           reportProgress: (message) => {
             report(attempt === 1 ? 'generating' : 'repairing', message);
+          },
+          reportOutput: (text) => {
+            // Output that arrives after a stop belongs to no visible run.
+            if (running.stopReason !== null || execution.onOutput === undefined) return;
+            for (let start = 0; start < text.length; start += MAX_OUTPUT_EVENT_LENGTH) {
+              execution.onOutput({
+                executionId: execution.executionId,
+                attempt,
+                text: text.slice(start, start + MAX_OUTPUT_EVENT_LENGTH),
+              });
+            }
           },
         }),
         signal,

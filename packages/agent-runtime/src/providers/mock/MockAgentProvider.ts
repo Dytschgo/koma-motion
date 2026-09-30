@@ -26,6 +26,20 @@ const PROGRESS_STEPS = [
 ] as const;
 const TRANSITION_PROGRESS_STEPS = ['Comparing the two Komas', 'Choosing the choreography'] as const;
 
+/**
+ * Text the mock provider streams while it pretends to work, one sentence per
+ * progress step. It lets the chat show streamed output without an AI service.
+ */
+const DEMO_NARRATION = [
+  'Demo narration from the mock provider. ',
+  'It outlines three Komas: the connected system, the motion engine, and the editable result. ',
+  'Then it picks a staged transition between each pair.',
+] as const;
+const TRANSITION_NARRATION = [
+  'Demo narration from the mock provider. ',
+  'It keeps the timing of this transition staged.',
+] as const;
+
 export interface MockAgentProviderOptions {
   /**
    * Time the provider pretends to work, in milliseconds. It exists so that
@@ -98,6 +112,7 @@ export class MockAgentProvider implements AgentProvider {
     defaultModel: null,
     modelCatalog: { source: 'none', models: [], note: 'The mock provider has no models.' },
     acceptsCustomModel: false,
+    streamsOutput: true,
   };
 
   readonly #delayMs: number;
@@ -122,27 +137,30 @@ export class MockAgentProvider implements AgentProvider {
     request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
-    return this.#answer(PROGRESS_STEPS, context, () => buildMockResponse(request));
+    return this.#answer(PROGRESS_STEPS, DEMO_NARRATION, context, () => buildMockResponse(request));
   }
 
   async generateTransition(
     request: TransitionRegenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
-    return this.#answer(TRANSITION_PROGRESS_STEPS, context, () =>
+    return this.#answer(TRANSITION_PROGRESS_STEPS, TRANSITION_NARRATION, context, () =>
       buildMockTransitionSettings(request),
     );
   }
 
   async #answer(
     steps: readonly string[],
+    narration: readonly string[],
     context: AgentExecutionContext,
     build: () => unknown,
   ): Promise<ProviderExecutionResult> {
     const details = { exitCode: null, errorOutput: '' };
     try {
-      for (const step of steps) {
+      for (const [index, step] of steps.entries()) {
         context.reportProgress(step);
+        const sentence = narration[index];
+        if (sentence !== undefined) context.reportOutput?.(sentence);
         await sleep(this.#delayMs / steps.length, context.signal);
       }
     } catch {

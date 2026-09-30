@@ -2,11 +2,17 @@
 import type {
   AgentError,
   ExecutionDiagnostics,
+  ExecutionOutputEvent,
   ExecutionStatusEvent,
   ProviderModelListing,
 } from '@koma-motion/agent-runtime';
 import { create } from 'zustand';
 import type { IpcResponse } from '../../../shared/ipc';
+import {
+  appendStreamedOutput,
+  EMPTY_STREAMED_OUTPUT,
+  type StreamedOutput,
+} from '../lib/streamedOutput';
 
 export type DetectedProvider = IpcResponse<'koma:providers:detect'>['providers'][number];
 
@@ -16,6 +22,10 @@ export interface RunningExecution {
   readonly providerName: string;
   readonly cancelRequested: boolean;
   readonly events: readonly ExecutionStatusEvent[];
+  /** Whether the provider streams what it writes. Others report phases only. */
+  readonly streams: boolean;
+  /** Text the provider wrote for the user so far, bounded. */
+  readonly output: StreamedOutput;
 }
 
 export type ConversationEntry =
@@ -25,6 +35,8 @@ export type ConversationEntry =
       readonly kind: 'result';
       readonly providerName: string;
       readonly text: string;
+      /** What the provider wrote while it worked, if it streams. */
+      readonly output?: string;
       readonly warnings: readonly string[];
     }
   | {
@@ -32,6 +44,7 @@ export type ConversationEntry =
       readonly kind: 'notApplied';
       readonly providerName: string;
       readonly text: string;
+      readonly output?: string;
     }
   | {
       readonly id: number;
@@ -42,6 +55,7 @@ export type ConversationEntry =
       readonly diagnostics: ExecutionDiagnostics;
       /** The request that failed, so it can be sent again. */
       readonly request: string;
+      readonly output?: string;
     };
 
 type NewEntry = ConversationEntry extends infer Entry
@@ -68,9 +82,11 @@ interface AgentState {
     providers?: readonly DetectedProvider[],
   ) => void;
   readonly startExecution: (
-    execution: Omit<RunningExecution, 'events' | 'cancelRequested'>,
+    execution: Omit<RunningExecution, 'events' | 'cancelRequested' | 'output'>,
   ) => void;
   readonly addStatus: (event: ExecutionStatusEvent) => void;
+  /** Ignored unless the event belongs to the running execution. */
+  readonly addOutput: (event: ExecutionOutputEvent) => void;
   readonly requestCancel: () => void;
   /** Clears the execution only when it is still the one identified by `executionId`. */
   readonly finishExecution: (executionId: string) => void;
@@ -94,12 +110,31 @@ export const useAgentStore = create<AgentState>((set) => ({
     set((state) => ({ detection, providers: providers ?? state.providers }));
   },
   startExecution(execution) {
-    set({ execution: { ...execution, events: [], cancelRequested: false } });
+    set({
+      execution: {
+        ...execution,
+        events: [],
+        cancelRequested: false,
+        output: EMPTY_STREAMED_OUTPUT,
+      },
+    });
   },
   addStatus(event) {
     set((state) =>
       state.execution?.executionId === event.executionId
         ? { execution: { ...state.execution, events: [...state.execution.events, event] } }
+        : state,
+    );
+  },
+  addOutput(event) {
+    set((state) =>
+      state.execution?.executionId === event.executionId
+        ? {
+            execution: {
+              ...state.execution,
+              output: appendStreamedOutput(state.execution.output, event),
+            },
+          }
         : state,
     );
   },

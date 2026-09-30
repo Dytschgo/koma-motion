@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { join } from 'node:path';
+import { StringDecoder } from 'node:string_decoder';
 import type { ResolvedExecutable } from './resolveExecutable';
 
 export const MAX_ARGUMENT_LENGTH = 24_000;
@@ -22,6 +23,13 @@ export interface ProcessSpecification {
    * the child inherits the environment of this process.
    */
   readonly env?: Readonly<Record<string, string>>;
+  /**
+   * Receives standard output as it arrives, decoded as UTF-8. A character
+   * split between two chunks is held back until it is complete. Output
+   * beyond `maxOutputBytes` is not delivered. The complete output is still
+   * collected in the result.
+   */
+  readonly onStandardOutput?: (text: string) => void;
 }
 
 export interface ProcessResult {
@@ -225,7 +233,17 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
     let startError: string | null = null;
     let settled = false;
 
-    const collect = (target: Buffer[]) => (chunk: Buffer) => {
+    const listener = specification.onStandardOutput;
+    const decoder = listener === undefined ? null : new StringDecoder('utf8');
+    const deliver = (text: string): void => {
+      if (listener === undefined || text === '') return;
+      try {
+        listener(text);
+      } catch {
+        // A listener that fails must not stop the process or lose its output.
+      }
+    };
+    const collect = (target: Buffer[], live: boolean) => (chunk: Buffer) => {
       receivedBytes += chunk.length;
       if (receivedBytes > maxOutputBytes) {
         if (!outputLimitExceeded) {
@@ -235,9 +253,10 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
         return;
       }
       target.push(chunk);
+      if (live && decoder !== null) deliver(decoder.write(chunk));
     };
-    stdout.on('data', collect(output));
-    stderr.on('data', collect(errors));
+    stdout.on('data', collect(output, true));
+    stderr.on('data', collect(errors, false));
 
     const onAbort = (): void => {
       aborted = true;
@@ -251,6 +270,7 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
       }
       settled = true;
       signal.removeEventListener('abort', onAbort);
+      if (decoder !== null && !outputLimitExceeded) deliver(decoder.end());
       resolve({
         exitCode,
         standardOutput: Buffer.concat(output).toString('utf8'),

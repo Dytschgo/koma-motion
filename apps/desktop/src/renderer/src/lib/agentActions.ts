@@ -82,13 +82,27 @@ export async function generate(input: GenerationInput): Promise<void> {
   }
   const providerId = project.agentConfiguration.selectedProviderId;
   const presentationAtStart = project.presentation;
-  const providerName =
-    agent.providers.find((provider) => provider.metadata.id === providerId)?.metadata.displayName ??
-    providerId;
+  const metadata = agent.providers.find(
+    (provider) => provider.metadata.id === providerId,
+  )?.metadata;
+  const providerName = metadata?.displayName ?? providerId;
   const executionId = createExecutionId();
 
   agent.addEntry({ kind: 'request', text: input.userRequest });
-  agent.startExecution({ executionId, providerId, providerName });
+  agent.startExecution({
+    executionId,
+    providerId,
+    providerName,
+    streams: metadata?.streamsOutput ?? false,
+  });
+
+  /** The text this run streamed, kept with its outcome in the conversation. */
+  const streamed = (): { output?: string } => {
+    const execution = useAgentStore.getState().execution;
+    return execution?.executionId === executionId && execution.output.text.trim() !== ''
+      ? { output: execution.output.text }
+      : {};
+  };
 
   /** A project switch invalidates this run. Its output must not land in the replacement. */
   const stillThisProject = (): boolean => useProjectStore.getState().sessionId === sessionId;
@@ -136,6 +150,7 @@ export async function generate(input: GenerationInput): Promise<void> {
             continue;
           }
           useAgentStore.getState().addEntry({
+            ...streamed(),
             kind: 'notApplied',
             providerName,
             text: outcome.historyEntry.summary,
@@ -154,6 +169,7 @@ export async function generate(input: GenerationInput): Promise<void> {
       const issues = unavailableImageIssues(outcome.presentation, currentProject);
       if (issues.length > 0) {
         useAgentStore.getState().addEntry({
+          ...streamed(),
           kind: 'failure',
           providerName,
           status: 'failed',
@@ -170,6 +186,7 @@ export async function generate(input: GenerationInput): Promise<void> {
       useProjectStore.getState().apply(applyGeneration(outcome.presentation, outcome.historyEntry));
       useUiStore.getState().selectKoma(outcome.presentation.komas[0]?.id ?? null);
       useAgentStore.getState().addEntry({
+        ...streamed(),
         kind: 'result',
         providerName,
         text: outcome.historyEntry.summary,
@@ -178,6 +195,7 @@ export async function generate(input: GenerationInput): Promise<void> {
     } else {
       useProjectStore.getState().apply(recordGeneration(outcome.historyEntry));
       useAgentStore.getState().addEntry({
+        ...streamed(),
         kind: 'failure',
         providerName,
         status: outcome.status,
@@ -191,6 +209,7 @@ export async function generate(input: GenerationInput): Promise<void> {
       return;
     }
     useAgentStore.getState().addEntry({
+      ...streamed(),
       kind: 'failure',
       providerName,
       status: 'failed',
