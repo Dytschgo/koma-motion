@@ -111,6 +111,16 @@
 }
 
 @layer components {
+  .chat-conversation {
+    background:
+      radial-gradient(ellipse 80% 48% at 50% 0%, rgb(38 52 65 / 0.13), transparent 100%),
+      var(--color-desk-950);
+  }
+
+  .chat-composer-box {
+    box-shadow: 0 2px 12px rgb(0 0 0 / 0.16);
+  }
+
   .studio-topbar {
     background: linear-gradient(180deg, #232831 0%, var(--color-desk-800) 100%);
     box-shadow: 0 1px 0 rgb(255 255 255 / 0.025) inset;
