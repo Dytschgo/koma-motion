@@ -1,13 +1,9 @@
-import {
-  MAX_ELEMENT_TEXT_LENGTH,
-  type KomaElement,
-  type Position,
-  type Size,
-} from '@koma-motion/core';
+import type { KomaElement, Position, Size } from '@koma-motion/core';
 import type { Frame } from '@koma-motion/motion-engine';
 import { useRef, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AssetResolver } from './assets';
 import { ElementView, getBoxStyle } from './ElementView';
+import { CanvasTextEditor } from './CanvasTextEditor';
 import {
   containsPointer,
   moveElement,
@@ -61,9 +57,7 @@ export function KomaStage({
   const stage = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
   const [draft, setDraft] = useState<{ source: Frame; element: KomaElement } | null>(null);
-  const [textDraft, setTextDraft] = useState<{ source: Frame; id: string; text: string } | null>(
-    null,
-  );
+  const [textDraft, setTextDraft] = useState<{ source: Frame; id: string } | null>(null);
   const interactive = onSelectElement !== undefined;
   const editable = interactive && onCommitElement !== undefined;
   const selected = frame.layers.find((layer) => layer.element.id === selectedElementId)?.element;
@@ -71,6 +65,8 @@ export function KomaStage({
     editable && textDraft?.source === frame && textDraft.id === selectedElementId
       ? textDraft
       : null;
+  // Invalidate the session permanently; selecting the old element again must not revive it.
+  if (textDraft !== null && textEditing === null) setTextDraft(null);
   const shown =
     editable && draft?.source === frame && draft.element.id === selectedElementId
       ? draft.element
@@ -93,19 +89,12 @@ export function KomaStage({
     if (editable && selected?.type === 'text' && !selected.locked) {
       gesture.current = null;
       setDraft(null);
-      setTextDraft({ source: frame, id: selected.id, text: selected.content.text });
+      setTextDraft({ source: frame, id: selected.id });
     }
   };
-  const commitText = (): void => {
-    if (
-      textEditing !== null &&
-      selected?.type === 'text' &&
-      textEditing.text !== selected.content.text
-    ) {
-      onCommitElement?.({ ...selected, content: { text: textEditing.text } });
-    }
+  const closeText = (focus: boolean): void => {
     setTextDraft(null);
-    restoreFocus();
+    if (focus) restoreFocus();
   };
   const begin = (
     event: PointerEvent<HTMLElement>,
@@ -242,6 +231,7 @@ export function KomaStage({
             element={shown?.id === layer.element.id ? shown : layer.element}
             resolveAsset={resolveAsset}
             selected={interactive && layer.element.id === selectedElementId}
+            editingText={textEditing?.id === layer.element.id}
             outlineWidth={scale > 0 ? 2 / scale : 2}
             onSelect={onSelectElement}
             onManipulate={begin}
@@ -277,7 +267,7 @@ export function KomaStage({
           />
         ))}
       </div>
-      {editable && shown && !shown.locked && (
+      {editable && shown && !shown.locked && !textEditing && (
         <div
           style={{
             ...getBoxStyle(shown),
@@ -290,89 +280,54 @@ export function KomaStage({
             pointerEvents: 'none',
           }}
         >
-          {textEditing && shown.type === 'text' ? (
-            <textarea
-              aria-label={`Edit text: ${shown.name}`}
-              autoFocus
-              maxLength={MAX_ELEMENT_TEXT_LENGTH}
-              value={textEditing.text}
-              onChange={(event) => setTextDraft({ ...textEditing, text: event.target.value })}
-              onPointerDown={(event) => event.stopPropagation()}
-              onKeyDown={(event) => {
-                if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
-                  event.preventDefault();
-                  commitText();
-                }
-              }}
+          {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
+            <button
+              key={corner}
+              type="button"
+              aria-label={`Resize ${shown.name} ${corner}`}
+              // Pointer only: the keyboard sets the size in the Inspector.
+              tabIndex={-1}
+              title="Drag to resize. Width and height are also in the Inspector."
+              onPointerDown={(event) => begin(event, shown, corner)}
               style={{
-                width: '100%',
-                height: '100%',
-                minHeight: 32,
-                boxSizing: 'border-box',
-                resize: 'none',
-                pointerEvents: 'auto',
-                background: frame.background.colour,
-                color: shown.style.colour,
-                fontFamily: shown.style.fontFamily,
-                fontSize: shown.style.fontSize * scale,
-                fontWeight: shown.style.fontWeight,
-                lineHeight: shown.style.lineHeight,
-                textAlign: shown.style.textAlign,
-                border: '2px solid #FF5A36',
+                position: 'absolute',
+                width: 12,
+                height: 12,
                 padding: 0,
+                border: '2px solid #FF5A36',
+                background: '#fff',
+                pointerEvents: 'auto',
+                touchAction: 'none',
+                left: corner.endsWith('w') ? 0 : undefined,
+                right: corner.endsWith('e') ? 0 : undefined,
+                top: corner.startsWith('n') ? 0 : undefined,
+                bottom: corner.startsWith('s') ? 0 : undefined,
+                cursor: corner === 'nw' || corner === 'se' ? 'nwse-resize' : 'nesw-resize',
               }}
             />
-          ) : (
-            (['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
-              <button
-                key={corner}
-                type="button"
-                aria-label={`Resize ${shown.name} ${corner}`}
-                // Pointer only: the keyboard sets the size in the Inspector.
-                tabIndex={-1}
-                title="Drag to resize. Width and height are also in the Inspector."
-                onPointerDown={(event) => begin(event, shown, corner)}
-                style={{
-                  position: 'absolute',
-                  width: 12,
-                  height: 12,
-                  padding: 0,
-                  border: '2px solid #FF5A36',
-                  background: '#fff',
-                  pointerEvents: 'auto',
-                  touchAction: 'none',
-                  left: corner.endsWith('w') ? 0 : undefined,
-                  right: corner.endsWith('e') ? 0 : undefined,
-                  top: corner.startsWith('n') ? 0 : undefined,
-                  bottom: corner.startsWith('s') ? 0 : undefined,
-                  cursor: corner === 'nw' || corner === 'se' ? 'nwse-resize' : 'nesw-resize',
-                }}
-              />
-            ))
-          )}
+          ))}
         </div>
       )}
-      {editable && selected?.type === 'text' && !selected.locked && (
+      {textEditing && selected?.type === 'text' && onCommitElement && (
+        <CanvasTextEditor
+          element={selected}
+          canvasSize={canvasSize}
+          scale={scale}
+          background={frame.background.colour}
+          onCommit={onCommitElement}
+          onClose={closeText}
+        />
+      )}
+      {editable && selected?.type === 'text' && !selected.locked && !textEditing && (
         <div
           role="group"
           aria-label="Canvas text editing"
           onPointerDown={(event) => event.stopPropagation()}
           style={{ position: 'absolute', right: 8, top: 8, zIndex: 20002, display: 'flex', gap: 6 }}
         >
-          {textEditing ? (
-            <>
-              <button type="button" style={controlStyle} onClick={commitText}>
-                Apply text
-              </button>
-              <button type="button" style={controlStyle} onClick={cancel}>
-                Cancel text edit
-              </button>
-            </>
-          ) : (
-            <button type="button" style={controlStyle} onClick={editText}>
-              Edit text
-            </button>
-          )}
+          <button type="button" style={controlStyle} onClick={editText}>
+            Edit text
+          </button>
         </div>
       )}
     </div>

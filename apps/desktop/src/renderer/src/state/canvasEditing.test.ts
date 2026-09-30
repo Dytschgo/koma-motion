@@ -1,6 +1,7 @@
 import { createSeededIdGenerator, type AssetReference } from '@koma-motion/core';
 import { buildKoma, buildPresentation, buildProject, buildText } from '@koma-motion/core/testing';
 import { describe, expect, it } from 'vitest';
+import { syncTransitions, validateTransition } from '@koma-motion/motion-engine';
 import { changeElement, importImage } from './commands';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from './projectStore';
 
@@ -19,6 +20,35 @@ const koma = buildKoma({ id: 'koma-1', elements: [text] });
 const base = buildProject({ presentation: buildPresentation({ komas: [koma], transitions: [] }) });
 
 describe('canvas document commands', () => {
+  it('commits text in one undo step and keeps stale motion detectable through redo', () => {
+    const nextKoma = buildKoma({ id: 'koma-2', elements: [{ ...text, id: 'text-2' }] });
+    const project = {
+      ...base,
+      presentation: syncTransitions(
+        buildPresentation({ komas: [koma, nextKoma], transitions: [] }),
+        ids(),
+      ).presentation,
+    };
+    const transition = project.presentation.transitions[0];
+    if (!transition) throw new Error('Expected transition');
+    const store = useProjectStore;
+    store.getState().load(project, null);
+    store.getState().apply(changeElement(koma.id, { ...text, content: { text: 'First\nSecond' } }));
+    const changed = selectProject(store.getState());
+    if (!changed) throw new Error('Expected project');
+    expect(store.getState().history?.past).toHaveLength(1);
+    expect(selectHasUnsavedChanges(store.getState())).toBe(true);
+    expect(changed.presentation.transitions).toBe(project.presentation.transitions);
+    expect(
+      validateTransition(transition, changed.presentation).map((issue) => issue.code),
+    ).toContain('staleTransition');
+    store.getState().undo();
+    expect(selectProject(store.getState())).toBe(project);
+    expect(selectHasUnsavedChanges(store.getState())).toBe(false);
+    expect(validateTransition(transition, project.presentation)).toEqual([]);
+    store.getState().redo();
+    expect(selectProject(store.getState())).toBe(changed);
+  });
   it('preserves identity and stored motion, ignores missing and unchanged elements', () => {
     const command = changeElement(koma.id, {
       ...text,
