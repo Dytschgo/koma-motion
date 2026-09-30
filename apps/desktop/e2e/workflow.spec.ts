@@ -8,6 +8,7 @@ import {
   answerOpenDialog,
   answerSaveDialog,
   launchApplication,
+  showInspector,
   type RunningApplication,
 } from './application';
 
@@ -129,6 +130,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   });
 
   await test.step('select the second Koma and inspect an element', async () => {
+    await showInspector(window);
     await window.getByRole('button', { name: 'Koma 2: The motion engine' }).click();
     await expect(window.getByRole('heading', { name: 'Koma 2' })).toBeVisible();
     await expect(window.getByLabel('Title', { exact: true })).toHaveValue('The motion engine');
@@ -245,6 +247,7 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
   });
 
   await test.step('changing an element keeps stored motion until explicitly regenerated', async () => {
+    await showInspector(window);
     await window
       .getByRole('region', { name: 'Canvas' })
       .getByRole('button', { name: 'Motion engine (shape)' })
