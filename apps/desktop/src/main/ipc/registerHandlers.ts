@@ -12,6 +12,7 @@ import {
   type IpcResponse,
 } from '../../shared/ipc';
 import { isTrustedSender } from '../security';
+import type { BrandKitLibrary } from '../services/brandKitLibrary';
 import { generatePresentation } from '../services/generation';
 import { selectLogo } from '../services/logo';
 import {
@@ -29,6 +30,8 @@ export interface WindowContext {
   readonly window: BrowserWindow;
   readonly session: ProjectSession;
   readonly updates: UpdateService;
+  /** Saved Brand Kits of this computer, shared by every project. */
+  readonly brandKits: BrandKitLibrary;
   /** Closes the window without asking about unsaved changes again. */
   closeConfirmed(): void;
   /** Called when the unsaved state or the file of the project changes. */
@@ -116,6 +119,18 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   });
 
   handle('koma:brand-kit:select-logo', () => selectLogo(window));
+
+  const { brandKits } = context;
+  handle('koma:brand-kits:list', () => brandKits.list());
+  handle('koma:brand-kits:create', (request) => brandKits.create(request));
+  handle('koma:brand-kits:update', ({ id, brandKit, logo }) =>
+    brandKits.update(id, { brandKit, logo }),
+  );
+  handle('koma:brand-kits:rename', ({ id, name }) => brandKits.rename(id, name));
+  handle('koma:brand-kits:duplicate', ({ id }) => brandKits.duplicate(id));
+  handle('koma:brand-kits:delete', ({ id }) => brandKits.remove(id));
+  handle('koma:brand-kits:load', ({ id }) => brandKits.load(id));
+  handle('koma:brand-kits:start-new', () => brandKits.startNew());
 
   handle('koma:providers:detect', async () => ({ providers: await registry.detectAll() }));
 

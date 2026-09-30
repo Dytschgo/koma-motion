@@ -17,7 +17,14 @@ export interface BrandKitDraftState {
 
 const EMPTY_BRAND_KIT_RAW_DRAFT: BrandKitRawDraft = {};
 
+/**
+ * What the panel beside the canvas shows: the inspector or the Brand Kit.
+ * The canvas and its controls stay visible either way.
+ */
 export type WorkspaceView = 'canvas' | 'brandKit';
+
+/** The part of the Brand Kit panel that is shown. */
+export type BrandKitTab = 'project' | 'library';
 
 export interface ConfirmationRequest {
   readonly title: string;
@@ -49,6 +56,7 @@ export interface PreviewIdentity {
 
 interface UiState {
   readonly view: WorkspaceView;
+  readonly brandKitTab: BrandKitTab;
   readonly selectedKomaId: string | null;
   readonly selectedElementId: string | null;
   /** `null` fits the canvas into the workspace. */
@@ -62,6 +70,7 @@ interface UiState {
   readonly brandKitDraft: BrandKitDraftState | null;
 
   readonly setView: (view: WorkspaceView) => void;
+  readonly setBrandKitTab: (tab: BrandKitTab) => void;
   readonly selectKoma: (komaId: string | null) => void;
   readonly selectElement: (elementId: string | null) => void;
   readonly setZoom: (zoom: number | null) => void;
@@ -93,6 +102,7 @@ let nextToken = 1;
 
 export const useUiStore = create<UiState>((set, get) => ({
   view: 'canvas',
+  brandKitTab: 'project',
   selectedKomaId: null,
   selectedElementId: null,
   zoom: null,
@@ -104,13 +114,17 @@ export const useUiStore = create<UiState>((set, get) => ({
   brandKitDraft: null,
 
   setView(view) {
-    set({ view, preview: null });
+    set({ view });
+  },
+  setBrandKitTab(brandKitTab) {
+    set({ brandKitTab });
   },
   selectKoma(selectedKomaId) {
-    set({ selectedKomaId, selectedElementId: null, preview: null, view: 'canvas' });
+    set({ selectedKomaId, selectedElementId: null, preview: null });
   },
   selectElement(selectedElementId) {
-    set({ selectedElementId });
+    // Selecting an element asks for its properties, so the inspector replaces the Brand Kit.
+    set(selectedElementId === null ? { selectedElementId } : { selectedElementId, view: 'canvas' });
   },
   setZoom(zoom) {
     set({ zoom: zoom === null ? null : clampZoom(zoom) });
@@ -153,7 +167,6 @@ export const useUiStore = create<UiState>((set, get) => ({
         toKomaId: transition.toKomaId,
         token: nextToken++,
       },
-      view: 'canvas',
       selectedElementId: null,
     });
   },
@@ -172,6 +185,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({
       confirmation: null,
       view: 'canvas',
+      brandKitTab: 'project',
       selectedKomaId: null,
       selectedElementId: null,
       zoom: null,

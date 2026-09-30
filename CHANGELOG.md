@@ -8,6 +8,22 @@ changes to the project format.
 
 ## [Unreleased]
 
+### Added
+
+- Brand Kit library: save the Brand Kit of a project, logo included, create a
+  blank kit, rename, duplicate, update and delete saved kits, and apply one to
+  any project. The library is stored in the data folder of the application,
+  outside project files. Applying a kit is undoable and marks the project as
+  changed.
+
+### Changed
+
+- The Brand Kit opens in a panel beside the canvas instead of replacing it,
+  so the Komas and the transition controls stay available.
+- Only one Koma Motion runs per data folder. Starting it again brings the
+  open window to the front, so two processes can no longer overwrite each
+  other's saved Brand Kits.
+
 ## [0.1.0] - 2026-09-29
 
 The first release: a vertical slice of the desktop application from the chat

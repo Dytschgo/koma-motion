@@ -42,7 +42,7 @@ function harbourProjectText(): string {
 async function openBrandKit(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create a project' }).click();
   await expect(page.getByLabel('Project name')).toHaveValue('Untitled project');
-  await page.getByRole('button', { name: 'Brand Kit' }).click();
+  await page.getByRole('button', { name: 'Brand Kit', exact: true }).click();
   await expect(page.getByLabel('Brand name')).toBeVisible();
 }
 
@@ -107,9 +107,9 @@ test('keeps an invalid colour without dropping the other Brand Kit edits', async
     'Acme Corp',
   );
 
-  await window.getByRole('button', { name: 'Back to the canvas' }).click();
+  await window.getByRole('button', { name: 'Close panel' }).click();
   await expect(window.getByRole('region', { name: 'Canvas' })).toBeVisible();
-  await window.getByRole('button', { name: 'Brand Kit' }).click();
+  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
 
   await expect(window.getByLabel('Primary colour')).toHaveValue('nope');
   await expect(window.getByLabel('Brand name')).toHaveValue('Acme Corp');
@@ -156,7 +156,7 @@ test('does not apply a Brand Kit draft to another project', async () => {
   await window.getByRole('button', { name: 'Discard changes' }).click();
 
   await expect(window.getByLabel('Project name')).toHaveValue('Harbour project');
-  await window.getByRole('button', { name: 'Brand Kit' }).click();
+  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
   await expect(window.getByLabel('Brand name')).toHaveValue('Harbour Studio');
   await expect(window.getByLabel('Primary colour')).toHaveValue('#112233');
   await expect(window.getByLabel('Secondary colour')).toHaveValue('#445566');

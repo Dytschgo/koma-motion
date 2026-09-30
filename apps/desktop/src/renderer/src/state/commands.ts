@@ -3,6 +3,7 @@
  * pure functions that combine the operations of the core model with the
  * motion engine, so transitions always match the Komas they connect.
  */
+import { applyBrandKitToProject, type BrandKitLogoData } from '@koma-motion/brand-kit';
 import {
   appendGenerationHistory,
   clearBrandLogo,
@@ -65,6 +66,15 @@ export const changeLogo =
   (asset: AssetReference | null): ProjectCommand =>
   (project) =>
     asset === null ? clearBrandLogo(project) : setBrandLogo(project, asset);
+
+/**
+ * Switches the project to a saved Brand Kit. Its logo becomes an asset of the
+ * project, or reuses an asset with the same image bytes.
+ */
+export const applySavedBrandKit =
+  (brandKit: BrandKit, logo: BrandKitLogoData | null): ProjectCommand =>
+  (project, idGenerator) =>
+    applyBrandKitToProject(project, brandKit, logo, idGenerator);
 
 export const changeAgentConfiguration =
   (agentConfiguration: AgentConfiguration): ProjectCommand =>
