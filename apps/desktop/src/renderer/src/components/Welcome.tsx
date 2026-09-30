@@ -1,6 +1,6 @@
 import type { ReactElement } from 'react';
 import { createNewProject, openProject } from '../lib/projectActions';
-import { Button } from './ui';
+import { Button, Help } from './ui';
 
 /**
  * Three frames of one circle on its way across the screen: the idea of the
@@ -21,7 +21,7 @@ function Sequence(): ReactElement {
             y="1"
             width="122"
             height="94"
-            rx="6"
+            rx="8"
             fill="var(--color-desk-800)"
             stroke="var(--color-desk-500)"
           />
@@ -47,30 +47,30 @@ function Sequence(): ReactElement {
 
 export function Welcome(): ReactElement {
   return (
-    <main className="flex min-h-0 flex-1 items-center justify-center bg-desk-950 p-8">
-      <div className="flex max-w-xl flex-col items-start gap-6">
-        <Sequence />
+    <main className="studio-welcome flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-desk-950 p-8">
+      <div className="flex w-full max-w-2xl flex-col items-start gap-7">
+        <div className="studio-welcome-sequence w-full rounded-2xl border border-desk-600/80 p-7 sm:p-9">
+          <Sequence />
+        </div>
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">
+          <h1 className="max-w-[24ch] text-[2rem] leading-[1.14] font-semibold tracking-[-0.035em] text-ink-100">
             Presentations are frames. Make them move.
           </h1>
-          <p className="mt-2 max-w-[60ch] text-lg text-ink-300">
-            In Koma Motion a frame is called a Koma. Objects keep their identity from one Koma to
-            the next, and the motion between them is part of the presentation.
+          <p className="mt-3 max-w-[60ch] text-lg leading-relaxed text-ink-300">
+            Each frame is a Koma. Motion connects one Koma to the next.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-3">
           <Button variant="primary" onClick={() => void createNewProject()}>
             Create a project
           </Button>
           <Button variant="outline" onClick={() => void openProject()}>
             Open a project
           </Button>
+          <Help label="About Koma Motion project files">
+            Koma Motion is an early prototype. Projects are stored on your computer as .koma files.
+          </Help>
         </div>
-        <p className="text-sm text-ink-400">
-          Koma Motion is an early-stage prototype. Projects are stored on your computer as .koma
-          files.
-        </p>
       </div>
     </main>
   );
