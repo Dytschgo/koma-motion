@@ -42,16 +42,21 @@ export async function launchApplication(
 ): Promise<RunningApplication> {
   const directory = await mkdtemp(join(tmpdir(), 'koma-motion-e2e-'));
   const userData = `--user-data-dir=${join(directory, 'user-data')}`;
+  // CI machines have small screens, and a window never grows beyond its
+  // screen. At half the device scale factor the screen holds the full
+  // 1480 x 920 window, so every test sees the same layout. Documentation
+  // screenshots keep the real scale.
+  const scale = process.env['KOMA_SCREENSHOTS'] === '1' ? [] : ['--force-device-scale-factor=0.5'];
   const application = await electron.launch(
     options.executablePath === undefined
       ? {
-          args: [APPLICATION_DIRECTORY, userData],
+          args: [APPLICATION_DIRECTORY, userData, ...scale],
           cwd: APPLICATION_DIRECTORY,
           env: getApplicationEnvironment(),
         }
       : {
           executablePath: options.executablePath,
-          args: [userData],
+          args: [userData, ...scale],
           // A packaged application must not use the network during a test.
           env: { ...getApplicationEnvironment(), KOMA_SMOKE: '1' },
         },
