@@ -13,6 +13,7 @@ import {
   generationInputSchema,
   providerDetectionResultSchema,
   providerMetadataSchema,
+  providerModelListingSchema,
 } from '@koma-motion/agent-runtime';
 import {
   brandKitLogoDataSchema,
@@ -310,6 +311,11 @@ export const ipcContract = {
         z.object({ metadata: providerMetadataSchema, detection: providerDetectionResultSchema }),
       ),
     }),
+  },
+  /** Asks a provider's CLI which models the signed-in account can use. */
+  'koma:providers:list-models': {
+    request: z.object({ providerId: providerIdSchema }).strict(),
+    response: providerModelListingSchema,
   },
   'koma:providers:execute': {
     request: z

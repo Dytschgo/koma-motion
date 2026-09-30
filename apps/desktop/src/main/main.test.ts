@@ -16,7 +16,7 @@ import {
   ProviderRegistry,
   type ExecutionStatusEvent,
 } from '@koma-motion/agent-runtime';
-import { ScriptedProvider } from '@koma-motion/agent-runtime/testing';
+import { buildResponse, ScriptedProvider } from '@koma-motion/agent-runtime/testing';
 import {
   assetReferenceSchema,
   createSeededIdGenerator,
@@ -378,6 +378,31 @@ describe('generatePresentation', () => {
       expect(outcome.error.code).toBe('noStructuredOutput');
       expect(outcome.historyEntry.status).toBe('failed');
       expect(outcome.diagnostics.attempts).toHaveLength(2);
+    }
+  });
+
+  it('passes the model chosen for the provider in the project, or none for the default', async () => {
+    const answer = JSON.stringify(buildResponse());
+    for (const model of ['claude-opus-5-5', null]) {
+      const provider = new ScriptedProvider([answer]);
+      const base = buildProject();
+      await generatePresentation({
+        runner: new GenerationRunner({ registry: new ProviderRegistry([provider]), now }),
+        executionId: 'execution-1',
+        providerId: provider.id,
+        project: {
+          ...base,
+          agentConfiguration: {
+            ...base.agentConfiguration,
+            providers: { [provider.id]: { model }, other: { model: 'not-this-one' } },
+          },
+        },
+        input,
+        idGenerator: createSeededIdGenerator('history'),
+        now,
+        onStatus: () => undefined,
+      });
+      expect(provider.contexts[0]?.model).toBe(model);
     }
   });
 

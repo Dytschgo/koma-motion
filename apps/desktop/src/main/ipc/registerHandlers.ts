@@ -219,6 +219,16 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
 
   handle('koma:providers:detect', async () => ({ providers: await registry.detectAll() }));
 
+  // Listing starts a short CLI run. It is stopped when the window goes away.
+  const listing = new AbortController();
+  handle('koma:providers:list-models', async ({ providerId }) => {
+    const provider = registry.get(providerId);
+    if (provider?.listModels === undefined) {
+      return { status: 'unsupported' as const };
+    }
+    return provider.listModels(listing.signal);
+  });
+
   handle('koma:providers:execute', ({ executionId, providerId, project, input }) =>
     generatePresentation({
       runner,
@@ -320,6 +330,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     dispose() {
       void decks.cancel();
       runner.cancelAll();
+      listing.abort();
       for (const channel of Object.keys(ipcContract)) {
         ipcMain.removeHandler(channel);
       }

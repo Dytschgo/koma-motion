@@ -10,6 +10,10 @@ changes to the project format.
 
 ### Added
 
+- Model selection in the chat composer: the provider and the model are two
+  controls, and the footer names the model the next run uses. Claude Code
+  offers its aliases and model names, Grok lists the models of your sign-in on
+  request, and any provider that accepts one takes a validated model id.
 - Settings is organised into categories. **This project** holds the
   instructions, the time limit and the models, which are saved in the .koma
   file and can be undone. **Koma Motion** holds templates, providers, updates

@@ -129,6 +129,29 @@ like a generation. The model is the one configured for the selected provider.
 | no metadata                                   | `metadata` describes the provider     | The interface shows whether a provider sends data to an online service and whether it supports model selection.         |
 | the provider builds its own prompt            | the prompt is rendered by the runtime | Prompts are versioned in one place and are the same for every provider.                                                 |
 
+## Model selection
+
+The model is chosen per provider and stored in the project
+(`agentConfiguration.providers[id].model`); `null` leaves the choice to the
+provider. The chat composer shows the provider and the model as two separate
+controls and names the model the next run uses before it starts. Settings,
+Generation offers the same choice for every provider.
+
+Where the choices come from is part of the provider metadata
+(`modelCatalog`):
+
+| Provider    | Source    | Choices                                                                                                                                                                                                                                                      |
+| ----------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claude Code | `curated` | The aliases `fable`, `opus`, `sonnet` and `haiku` and the model names `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-4-5-20251001`. Claude Code cannot list the models of a sign-in, so the list is not read from the account. |
+| Grok        | `cli`     | On request, `grok models` lists the models of the signed-in account (`koma:providers:list-models`). The list is kept for the session only. A chosen model that is not in the list is marked before the run.                                                  |
+| Codex       | `none`    | Codex has no list command. A model id can be entered.                                                                                                                                                                                                        |
+| Mock        | `none`    | No model choice.                                                                                                                                                                                                                                             |
+
+A typed model id must match the restricted model pattern before it is stored
+or passed as `--model`. When Claude Code answers that a chosen model does not
+exist or is not available to the sign-in, the failure names the model and
+suggests another model or the default.
+
 ## Provider detection
 
 `detect()` reports one of three states:

@@ -53,7 +53,7 @@ test('explains the mock demo and how to generate from a request', async () => {
   await expect(mockExplanation).toHaveCount(0);
   await expect(window.getByText('What would you like to present?')).toBeVisible();
   await expect(window.getByText(/^Claude Code sends your request.*online\.$/)).toBeVisible();
-  await window.getByRole('button', { name: 'Provider and model', exact: true }).click();
+  await window.getByRole('button', { name: 'Provider', exact: true }).click();
   await expect(providerChoices).toHaveCount(0);
   await window.getByRole('button', { name: 'Use the example request' }).click();
   await expect(window.getByLabel('Your request')).toHaveValue(exampleRequest);
@@ -106,7 +106,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     await expect(provider).toHaveValue('mock');
     await expect(providerChoices.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
     await expect(providerChoices.getByText('Demo only · 3 Komas')).toBeVisible();
-    await window.getByRole('button', { name: 'Provider and model' }).click();
+    await window.getByRole('button', { name: 'Provider', exact: true }).click();
   });
 
   await test.step('submit a generation request and receive three Komas', async () => {

@@ -1,7 +1,6 @@
 import {
   MAX_AGENT_TIMEOUT_SECONDS,
   MIN_AGENT_TIMEOUT_SECONDS,
-  modelNameSchema,
   type KomaProject,
 } from '@koma-motion/core';
 import { useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
@@ -43,8 +42,8 @@ import {
   SettingRow,
   SettingsCard,
   Switch,
-  TextInput,
 } from './ui';
+import { ModelPicker } from './ModelPicker';
 import { UpdateControl } from './UpdateControl';
 
 const REPOSITORY_URL = 'https://github.com/Dytschgo/koma-motion';
@@ -73,59 +72,6 @@ function ScopeBadge({ scope }: { readonly scope: SettingsScope }): ReactElement 
     >
       {SETTINGS_SCOPES[scope].badge}
     </span>
-  );
-}
-
-function ModelField({
-  project,
-  providerId,
-  providerName,
-}: {
-  readonly project: KomaProject;
-  readonly providerId: string;
-  readonly providerName: string;
-}): ReactElement {
-  const apply = useProjectStore((state) => state.apply);
-  const stored = project.agentConfiguration.providers[providerId]?.model ?? null;
-  const [draft, setDraft] = useState<string | null>(null);
-  const text = draft ?? stored ?? '';
-  const valid = text.trim() === '' || modelNameSchema.safeParse(text.trim()).success;
-
-  return (
-    <Field
-      label={`Model for ${providerName}`}
-      hint="Leave empty to use the default model of the provider."
-      error={valid ? undefined : 'Use letters, digits and . _ : - only, without spaces.'}
-    >
-      {(ids) => (
-        <TextInput
-          {...ids}
-          value={text}
-          spellCheck={false}
-          placeholder="Default"
-          onChange={(event) => {
-            const next = event.target.value;
-            setDraft(next);
-            const model = next.trim();
-            if (model === '' || modelNameSchema.safeParse(model).success) {
-              apply(
-                changeAgentConfiguration({
-                  ...project.agentConfiguration,
-                  providers: {
-                    ...project.agentConfiguration.providers,
-                    [providerId]: { model: model === '' ? null : model },
-                  },
-                }),
-                { coalesceKey: `model:${providerId}` },
-              );
-            }
-          }}
-          onBlur={() => {
-            setDraft(null);
-          }}
-        />
-      )}
-    </Field>
   );
 }
 
@@ -201,13 +147,13 @@ function GenerationPage({
         {selectable.length === 0 ? (
           <p className="text-ink-400">Checking which providers can choose a model…</p>
         ) : (
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-5 divide-y divide-line [&>*:not(:first-child)]:pt-5">
             {selectable.map((provider) => (
-              <ModelField
+              <ModelPicker
                 key={provider.metadata.id}
                 project={project}
-                providerId={provider.metadata.id}
-                providerName={provider.metadata.displayName}
+                provider={provider}
+                label={`Model for ${provider.metadata.displayName}`}
               />
             ))}
           </div>
