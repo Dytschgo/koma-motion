@@ -3,7 +3,12 @@ import {
   CodexCliProvider,
   GrokCliProvider,
 } from '@koma-motion/agent-runtime/node';
-import { GenerationRunner, MockAgentProvider, ProviderRegistry } from '@koma-motion/agent-runtime';
+import {
+  GenerationRunner,
+  MockAgentProvider,
+  ProviderRegistry,
+  type MockAgentProviderOptions,
+} from '@koma-motion/agent-runtime';
 import { createRandomIdGenerator } from '@koma-motion/core';
 import { createExporters } from '@koma-motion/exporters';
 import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
@@ -64,6 +69,19 @@ function getPlatform(): IpcResponse<'koma:app:get-info'>['platform'] {
 }
 
 /**
+ * Test settings of the mock provider for builds that are not packaged:
+ * `KOMA_MOCK_DELAY_MS` (0 to 60000) and `KOMA_MOCK_OUTCOME=invalid`. A
+ * packaged application ignores them.
+ */
+export function readMockOptions(environment: NodeJS.ProcessEnv): MockAgentProviderOptions {
+  const delay = Number(environment['KOMA_MOCK_DELAY_MS']);
+  return {
+    ...(Number.isSafeInteger(delay) && delay >= 0 && delay <= 60_000 ? { delayMs: delay } : {}),
+    ...(environment['KOMA_MOCK_OUTCOME'] === 'invalid' ? { outcome: 'invalid' as const } : {}),
+  };
+}
+
+/**
  * Registers the handlers of every channel in the contract. Requests from
  * unexpected senders and requests that do not match their schema are rejected
  * before a handler runs.
@@ -71,7 +89,7 @@ function getPlatform(): IpcResponse<'koma:app:get-info'>['platform'] {
 export function registerHandlers(context: WindowContext): { dispose(): void } {
   const { window, session } = context;
   const registry = new ProviderRegistry([
-    new MockAgentProvider(),
+    new MockAgentProvider(app.isPackaged ? {} : readMockOptions(process.env)),
     new ClaudeCodeProvider(),
     new CodexCliProvider(),
     new GrokCliProvider(),

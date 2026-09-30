@@ -50,7 +50,7 @@ function detachGeneration(): void {
     return;
   }
   const { executionId } = execution;
-  useAgentStore.getState().finishExecution(executionId);
+  useAgentStore.getState().finishExecution(executionId, 'cancelled');
   void invoke('koma:providers:cancel', { executionId }).catch(() => undefined);
 }
 

@@ -225,6 +225,13 @@
     }
   }
 
+  /* In forced colours the pixel character is hidden; the phase stays as text. */
+  @media (forced-colors: active) {
+    .pixel-sprite {
+      display: none;
+    }
+  }
+
   .studio-select {
     appearance: none;
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23b9c0cc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");

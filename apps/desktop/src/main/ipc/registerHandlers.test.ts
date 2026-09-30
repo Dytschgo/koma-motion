@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_URL } from '../securityPolicy';
 import { createBrandKitLibrary } from '../services/brandKitLibrary';
 import { createProjectSession } from '../services/projectFiles';
-import { registerHandlers } from './registerHandlers';
+import { readMockOptions, registerHandlers } from './registerHandlers';
 
 const ipcHandlers = vi.hoisted(
   () => new Map<string, (event: IpcMainInvokeEvent, payload: unknown) => Promise<unknown>>(),
@@ -265,3 +265,17 @@ function openHandlers(brandKitDirectory = join(tmpdir(), 'koma-unused-brand-kits
     },
   };
 }
+
+describe('mock provider test settings', () => {
+  it('reads a bounded delay and the invalid outcome, and ignores anything else', () => {
+    expect(readMockOptions({})).toEqual({});
+    expect(readMockOptions({ KOMA_MOCK_DELAY_MS: '2500', KOMA_MOCK_OUTCOME: 'invalid' })).toEqual({
+      delayMs: 2500,
+      outcome: 'invalid',
+    });
+    for (const delay of ['-1', '60001', '1.5', 'soon']) {
+      expect(readMockOptions({ KOMA_MOCK_DELAY_MS: delay })).toEqual({});
+    }
+    expect(readMockOptions({ KOMA_MOCK_OUTCOME: 'crash' })).toEqual({});
+  });
+});

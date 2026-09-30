@@ -152,6 +152,24 @@ or passed as `--model`. When Claude Code answers that a chosen model does not
 exist or is not available to the sign-in, the failure names the model and
 suggests another model or the default.
 
+## Run activity and monitor
+
+The chat shows each generation with a small pixel character, the elapsed
+time, the latest status message and the streamed text. The character has one
+pose for each phase Koma Motion observes from status events: starting,
+generating, validating, repairing, completed, failed and cancelled. It does
+not claim to know internal steps of a model. With reduced motion it shows the
+still pose of the phase, and in forced colours it is hidden; the phase remains
+as text. A finished run stays in the chat, with how it ended and its duration,
+until the next run or another project.
+
+**Open run monitor** opens a larger view of the same run: phase, elapsed time,
+attempt, run id, a timeline of status messages and the streamed text, with a
+Cancel button. It reads the same state as the chat and starts no process and
+no request. It is not an attached terminal: Claude Code runs in print mode
+without a saved session, and `claude attach` only opens sessions started with
+`claude --bg`.
+
 ## Provider detection
 
 `detect()` reports one of three states:
@@ -735,6 +753,12 @@ application can be used with it.
   another number was requested.
 - It pretends to work for 1.2 seconds and reports three progress messages, so
   that progress and cancellation can be seen.
+- It streams one demo sentence per progress message, so streamed output can be
+  seen and tested.
+- In builds that are not packaged, `KOMA_MOCK_DELAY_MS` (0 to 60000) changes
+  how long it works, and `KOMA_MOCK_OUTCOME=invalid` makes every answer fail
+  validation, so the repair attempt and a failed run can be tested. A packaged
+  application ignores both.
 - Its output passes through the same validation as the output of every other
   provider.
 - To regenerate a transition, it keeps the current strategy, duration and
