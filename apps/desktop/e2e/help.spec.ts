@@ -1,6 +1,5 @@
-import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { answerSaveDialog, launchApplication } from './application';
+import { launchApplication } from './application';
 
 test('opens secondary guidance by hover, keyboard and click without clipping', async () => {
   const running = await launchApplication();
@@ -10,11 +9,11 @@ test('opens secondary guidance by hover, keyboard and click without clipping', a
     await application.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
     });
-    const help = window.getByRole('button', { name: 'Generation settings', exact: true });
+    const help = window.getByRole('button', { name: 'Canvas shortcuts', exact: true });
     const tooltip = window.getByRole('tooltip');
     await expect(tooltip).toHaveCount(0);
     await help.hover();
-    await expect(tooltip).toContainText('No time limit');
+    await expect(tooltip).toContainText('Enter edits text');
     await tooltip.hover();
     await expect(tooltip).toBeVisible();
     const box = await tooltip.boundingBox();
@@ -37,7 +36,7 @@ test('opens secondary guidance by hover, keyboard and click without clipping', a
     await expect(tooltip).toBeVisible();
     await window.getByLabel('Your request').click();
     await expect(tooltip).toHaveCount(0);
-    await window.getByRole('button', { name: 'Canvas shortcuts', exact: true }).click();
+    await help.click();
     await expect(tooltip).toContainText('Enter edits text');
     expect(running.problems).toEqual([]);
   } finally {
@@ -45,31 +44,21 @@ test('opens secondary guidance by hover, keyboard and click without clipping', a
   }
 });
 
-test('closes chat help when Brand Kit hides its trigger', async () => {
+test('closes help when its trigger leaves the screen', async () => {
   const running = await launchApplication();
-  const { window, application } = running;
+  const { window } = running;
   try {
-    await application.evaluate(({ BrowserWindow }) => {
-      BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
-    });
-    await window.getByRole('button', { name: 'Create a project' }).click();
-    const help = window.getByRole('button', { name: 'About the chat' });
+    const help = window.getByRole('button', { name: 'About Koma Motion project files' });
     const tooltip = window.getByRole('tooltip');
     await help.focus();
     await help.press('Enter');
-    await expect(tooltip).toContainText('Hide the chat');
+    await expect(tooltip).toBeVisible();
 
-    const brandKit = window.getByRole('button', { name: 'Brand Kit', exact: true });
-    await brandKit.focus();
-    await brandKit.press('Enter');
-    await expect(window.getByRole('button', { name: 'Show the chat' })).toBeVisible();
-    await expect(tooltip).toHaveCount(0);
-    await answerSaveDialog(application, join(running.directory, 'hidden-help.koma'));
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
-    await expect(window.getByText('All changes saved')).toBeVisible();
-
-    await window.getByRole('button', { name: 'Show the chat' }).click();
-    await expect(help).toBeVisible();
+    // Creating a project replaces the welcome screen that holds the trigger.
+    const create = window.getByRole('button', { name: 'Create a project' });
+    await create.focus();
+    await create.press('Enter');
+    await expect(help).toHaveCount(0);
     await expect(tooltip).toHaveCount(0);
     expect(running.problems).toEqual([]);
   } finally {

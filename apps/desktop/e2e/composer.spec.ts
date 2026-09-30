@@ -2,7 +2,12 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { komaProjectSchema } from '@koma-motion/core';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { answerSaveDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerSaveDialog,
+  launchApplication,
+  type RunningApplication,
+  openSettingsPage,
+} from './application';
 import {
   countTrigger,
   openCountChoices,
@@ -73,7 +78,7 @@ test('chooses provider, model and Komas from the compact footer without an audie
   await expect(choices.getByText(/^Claude Code sends your request.*online\.$/)).toBeVisible();
   await providerTrigger(window).click();
 
-  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  await openSettingsPage(window, 'Generation');
   await window.getByLabel('Model for Claude Code').fill('opus');
   await window.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(providerTrigger(window)).toHaveAttribute(

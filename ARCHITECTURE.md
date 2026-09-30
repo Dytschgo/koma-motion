@@ -284,6 +284,7 @@ sure that the channel list of the preload script equals the contract.
 | project and undo history | `projectStore`                  | the project, yes       |
 | unsaved changes          | derived in `projectStore`       | no                     |
 | selection, view, zoom    | `uiStore`                       | no                     |
+| open Settings page       | `uiStore`                       | no                     |
 | preview                  | `uiStore` and the playback hook | no                     |
 | agent executions, chat   | `agentStore`                    | no                     |
 | chat sidebar width, open | `uiStore`, window local storage | no                     |

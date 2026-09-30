@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchApplication } from './application';
+import { launchApplication, openSettingsPage } from './application';
 
 const root = process.env['KOMA_FOOTER_EVIDENCE_DIR'];
 const phase = process.env['KOMA_FOOTER_PHASE'] ?? 'final';
@@ -34,7 +34,7 @@ for (const width of [1480, 1120] as const) {
         .getByLabel('Provider', { exact: true })
         .selectOption('claude-code');
       await window.getByRole('button', { name: 'Provider and model' }).click();
-      await window.getByRole('button', { name: 'Settings', exact: true }).click();
+      await openSettingsPage(window, 'Generation');
       await window.getByLabel('Model for Claude Code').fill('opus');
       await window.getByRole('button', { name: 'Done', exact: true }).click();
       await chat.screenshot({ path: join(output, `claude-closed-${String(width)}.png`) });

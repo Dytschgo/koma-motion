@@ -33,6 +33,33 @@
   --text-lg: 0.9375rem;
   --text-xl: 1.125rem;
   --text-2xl: 1.5rem;
+
+  /*
+   * Semantic layer. Components name the role of a surface, not its shade, so
+   * elevation reads the same everywhere: the desk is darkest, sheets placed on
+   * it get lighter, and a raised control is lighter still.
+   */
+  --color-surface-0: var(--color-desk-950);
+  --color-surface-1: var(--color-desk-900);
+  --color-surface-2: var(--color-desk-800);
+  --color-surface-3: var(--color-desk-700);
+  --color-line: var(--color-desk-600);
+  --color-line-strong: var(--color-desk-500);
+  --color-accent: var(--color-pencil-blue);
+  --color-accent-deep: var(--color-pencil-blue-deep);
+  --color-accent-hover: #a4d8f0;
+  --color-motion: var(--color-pencil-red);
+  --color-motion-deep: var(--color-pencil-red-deep);
+
+  --radius-control: 0.4375rem;
+  --radius-card: 0.625rem;
+  --radius-dialog: 0.875rem;
+
+  --shadow-raised: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 1px 2px rgb(0 0 0 / 0.24);
+  --shadow-popover: 0 16px 40px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.02);
+  --shadow-dialog: 0 28px 90px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.03);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
 
 @layer base {
@@ -110,7 +137,77 @@
   }
 }
 
+/* Small caps label above a group of controls. */
+@utility eyebrow {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-400);
+}
+
 @layer components {
+  /* A switch is a checkbox with a track; the native control keeps its semantics. */
+  .studio-switch {
+    appearance: none;
+    position: relative;
+    flex: none;
+    width: 2.25rem;
+    height: 1.25rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-line-strong);
+    background: var(--color-surface-0);
+    cursor: pointer;
+    transition:
+      background-color 150ms var(--ease-standard),
+      border-color 150ms var(--ease-standard);
+  }
+
+  .studio-switch::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 0.875rem;
+    height: 0.875rem;
+    border-radius: 999px;
+    background: var(--color-ink-400);
+    transition:
+      transform 150ms var(--ease-standard),
+      background-color 150ms var(--ease-standard);
+  }
+
+  .studio-switch:hover {
+    border-color: var(--color-ink-400);
+  }
+
+  .studio-switch:checked {
+    border-color: var(--color-accent);
+    background: var(--color-accent-deep);
+  }
+
+  .studio-switch:checked::after {
+    transform: translateX(1rem);
+    background: var(--color-accent);
+  }
+
+  .studio-switch:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+
+  @media (forced-colors: active) {
+    .studio-switch {
+      border-color: ButtonText;
+    }
+    .studio-switch::after {
+      background: ButtonText;
+    }
+    .studio-switch:checked::after {
+      background: Highlight;
+    }
+  }
+
   .chat-conversation {
     background:
       radial-gradient(ellipse 80% 48% at 50% 0%, rgb(38 52 65 / 0.13), transparent 100%),

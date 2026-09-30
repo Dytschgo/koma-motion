@@ -48,8 +48,8 @@ export function UpdateControl(): ReactElement {
 
   if (status === null) {
     return (
-      <section className="flex flex-col gap-3">
-        <h3 className="text-lg font-semibold">App updates</h3>
+      <section className="flex flex-col gap-3 rounded-card border border-line bg-surface-1/70 p-4">
+        <h4 className="font-semibold">App updates</h4>
         <p className="text-ink-400">Loading</p>
       </section>
     );
@@ -61,8 +61,11 @@ export function UpdateControl(): ReactElement {
     (status.state === 'available' || status.state === 'not-available');
 
   return (
-    <section className="flex flex-col gap-3" aria-label="App updates">
-      <h3 className="text-lg font-semibold">App updates</h3>
+    <section
+      className="flex flex-col gap-3 rounded-card border border-line bg-surface-1/70 p-4"
+      aria-label="App updates"
+    >
+      <h4 className="font-semibold">App updates</h4>
       <p className="text-ink-300">
         Installed version: <span className="select-text">{status.currentVersion}</span>
       </p>

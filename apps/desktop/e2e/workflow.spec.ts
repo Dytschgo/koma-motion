@@ -10,6 +10,7 @@ import {
   launchApplication,
   showInspector,
   type RunningApplication,
+  openSettingsPage,
 } from './application';
 import { openProviderChoices } from './composerControls';
 
@@ -506,7 +507,7 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
 
 test('does not offer an exporter that does not exist yet', async () => {
   const { window } = running;
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await openSettingsPage(window, 'About');
   await expect(window.getByText('PowerPoint: not available yet')).toBeVisible();
   await expect(window.getByRole('button', { name: /export/i })).toHaveCount(0);
 });

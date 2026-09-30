@@ -145,3 +145,18 @@ export async function showChat(window: Page): Promise<void> {
   }
   await expect(window.getByRole('button', { name: 'Hide the chat' })).toBeVisible();
 }
+
+/**
+ * Opens Settings on one of its categories, for example 'Generation' or
+ * 'Updates'. Settings remembers the last page, so tests name the page they need.
+ */
+export async function openSettingsPage(window: Page, page: string): Promise<void> {
+  const dialog = window.getByRole('dialog', { name: 'Settings', exact: true });
+  if (!(await dialog.isVisible())) {
+    await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  }
+  await dialog
+    .getByRole('navigation', { name: 'Settings categories' })
+    .getByRole('button', { name: page, exact: true })
+    .click();
+}

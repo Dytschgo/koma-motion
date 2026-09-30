@@ -463,26 +463,27 @@ export function PanelHeading({
   );
 }
 
-export interface ModalProps {
-  readonly title: string;
+export interface ModalFrameProps {
   readonly open: boolean;
   readonly onClose: () => void;
+  /** Id of the element that names the dialog. */
+  readonly labelledBy: string;
+  readonly className?: string;
   readonly children: ReactNode;
-  readonly footer?: ReactNode;
-  readonly width?: 'narrow' | 'wide';
 }
 
-/** A modal dialog. Focus stays inside it and Escape closes it. */
-export function Modal({
-  title,
+/**
+ * The native modal dialog without a layout. Focus stays inside it, Escape
+ * closes it and focus returns to the control that opened it.
+ */
+export function ModalFrame({
   open,
   onClose,
+  labelledBy,
+  className,
   children,
-  footer,
-  width = 'narrow',
-}: ModalProps): ReactElement {
+}: ModalFrameProps): ReactElement {
   const reference = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
 
   useEffect(() => {
     const dialog = reference.current;
@@ -499,30 +500,155 @@ export function Modal({
   return (
     <dialog
       ref={reference}
-      aria-labelledby={titleId}
+      aria-labelledby={labelledBy}
       className={join(
-        'm-auto max-h-[85vh] max-w-[calc(100vw-2rem)] rounded-xl border border-desk-600 bg-desk-800 p-0 text-ink-100',
-        'shadow-[0_24px_80px_rgb(0_0_0/0.55)]',
-        width === 'narrow' ? 'w-[440px]' : 'w-[640px]',
+        'm-auto max-h-[85vh] max-w-[calc(100vw-2rem)] rounded-dialog border border-line bg-surface-2 p-0 text-ink-100 shadow-dialog',
+        className,
       )}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
       }}
     >
-      {open && (
-        <div className="flex max-h-[85vh] flex-col">
-          <h2 id={titleId} className="px-6 pt-5 text-xl font-semibold">
+      {open && children}
+    </dialog>
+  );
+}
+
+export interface ModalProps {
+  readonly title: string;
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
+  readonly footer?: ReactNode;
+  readonly width?: 'narrow' | 'wide';
+}
+
+/** A modal dialog with a title, a scrolling body and a footer. */
+export function Modal({
+  title,
+  open,
+  onClose,
+  children,
+  footer,
+  width = 'narrow',
+}: ModalProps): ReactElement {
+  const titleId = useId();
+
+  return (
+    <ModalFrame
+      open={open}
+      onClose={onClose}
+      labelledBy={titleId}
+      className={width === 'narrow' ? 'w-[440px]' : 'w-[640px]'}
+    >
+      <div className="flex max-h-[85vh] flex-col">
+        <h2 id={titleId} className="px-6 pt-5 text-xl font-semibold tracking-tight">
+          {title}
+        </h2>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        {footer !== undefined && (
+          <div className="flex justify-end gap-2 border-t border-line px-6 py-3">{footer}</div>
+        )}
+      </div>
+    </ModalFrame>
+  );
+}
+
+export interface SwitchProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  'type' | 'role' | 'onChange'
+> {
+  readonly checked: boolean;
+  readonly onCheckedChange: (checked: boolean) => void;
+}
+
+/** An on/off control. It is a checkbox with the switch role, so labels and forms work as usual. */
+export function Switch({
+  checked,
+  onCheckedChange,
+  className,
+  ...rest
+}: SwitchProps): ReactElement {
+  return (
+    <input
+      type="checkbox"
+      role="switch"
+      className={join('studio-switch', className)}
+      checked={checked}
+      onChange={(event) => onCheckedChange(event.target.checked)}
+      {...rest}
+    />
+  );
+}
+
+/**
+ * One setting: its name and an explanation on the left, the control on the
+ * right. `children` receives the ids that connect the control with the text.
+ */
+export function SettingRow({
+  label,
+  description,
+  children,
+}: {
+  readonly label: string;
+  readonly description?: ReactNode;
+  readonly children: (ids: { id: string; 'aria-describedby': string | undefined }) => ReactNode;
+}): ReactElement {
+  const id = useId();
+  const descriptionId = `${id}-description`;
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-6 py-3">
+      <div className="min-w-0">
+        <label htmlFor={id} className="block font-medium text-ink-100">
+          {label}
+        </label>
+        {description !== undefined && (
+          <p id={descriptionId} className="mt-0.5 text-sm leading-relaxed text-ink-400">
+            {description}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-none items-center">
+        {children({
+          id,
+          'aria-describedby': description === undefined ? undefined : descriptionId,
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** A titled group of settings on a card. */
+export function SettingsCard({
+  title,
+  description,
+  action,
+  children,
+}: {
+  readonly title: string;
+  readonly description?: ReactNode;
+  readonly action?: ReactNode;
+  readonly children: ReactNode;
+}): ReactElement {
+  const id = useId();
+  return (
+    <section
+      aria-labelledby={id}
+      className="min-w-0 rounded-card border border-line bg-surface-1/70 px-4 pt-3.5 pb-4"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 id={id} className="font-semibold text-ink-100">
             {title}
-          </h2>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
-          {footer !== undefined && (
-            <div className="flex justify-end gap-2 border-t border-desk-600 px-6 py-3">
-              {footer}
-            </div>
+          </h4>
+          {description !== undefined && (
+            <p className="mt-0.5 text-sm leading-relaxed text-ink-400">{description}</p>
           )}
         </div>
-      )}
-    </dialog>
+        {action}
+      </div>
+      <div className="mt-3 min-w-0">{children}</div>
+    </section>
   );
 }

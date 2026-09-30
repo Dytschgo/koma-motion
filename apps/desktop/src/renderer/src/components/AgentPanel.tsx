@@ -311,7 +311,7 @@ export function AgentPanel({
   const open = useUiStore((state) => state.agentPanelOpen);
   const setOpen = useUiStore((state) => state.setAgentPanelOpen);
   const setWidth = useUiStore((state) => state.setAgentPanelWidth);
-  const setSettingsOpen = useUiStore((state) => state.setSettingsOpen);
+  const openSettings = useUiStore((state) => state.openSettings);
 
   const [request, setRequest] = useState('');
   const [komaCount, setKomaCount] = useState(String(DEFAULT_KOMA_COUNT));
@@ -483,17 +483,6 @@ export function AgentPanel({
             >
               <RefreshIcon />
             </IconButton>
-            <Help label="About the chat">
-              Describe your presentation, then generate. Hide the chat to see the Inspector in a
-              narrow window.
-            </Help>
-            <Help label="Generation settings">
-              {project.agentConfiguration.timeoutSeconds === null
-                ? 'No time limit. Cancel generation at any time.'
-                : `Stops after ${String(project.agentConfiguration.timeoutSeconds)} seconds. You can cancel earlier.`}{' '}
-              Change the time limit in Settings. Project instructions apply to every request; edit
-              them or reuse a template from Instructions & templates.
-            </Help>
             <IconButton
               label="Hide the chat"
               aria-expanded={open}
@@ -684,7 +673,7 @@ export function AgentPanel({
                   : 'Instructions active · Instructions & templates'
               }
               className="relative"
-              onClick={() => setSettingsOpen(true)}
+              onClick={() => openSettings('instructions')}
             >
               <SettingsIcon />
               {project.systemInstructions.trim() !== '' && (
@@ -700,6 +689,13 @@ export function AgentPanel({
               </span>
             )}
           </div>
+
+          {project.agentConfiguration.timeoutSeconds !== null && (
+            <p className="px-2 text-xs text-ink-400">
+              Stops after {String(project.agentConfiguration.timeoutSeconds)} seconds. Change the
+              limit under Settings, Generation.
+            </p>
+          )}
 
           {choice === 'provider' && (
             <div

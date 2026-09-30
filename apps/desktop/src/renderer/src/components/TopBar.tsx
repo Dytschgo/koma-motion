@@ -59,7 +59,7 @@ export function TopBar(): ReactElement {
   const undo = useProjectStore((state) => state.undo);
   const redo = useProjectStore((state) => state.redo);
   const startPreview = useUiStore((state) => state.startPreview);
-  const setSettingsOpen = useUiStore((state) => state.setSettingsOpen);
+  const openSettings = useUiStore((state) => state.openSettings);
   const transition = useCurrentTransition();
   const presentation = useProjectStore((state) => selectProject(state)?.presentation ?? null);
   const context =
@@ -144,7 +144,7 @@ export function TopBar(): ReactElement {
           icon={<DownloadIcon size={14} />}
           className="text-pencil-blue"
           onClick={() => {
-            setSettingsOpen(true);
+            openSettings('updates');
           }}
         >
           {update.state === 'downloaded' ? 'Update ready' : 'Update available'}
@@ -171,7 +171,7 @@ export function TopBar(): ReactElement {
       <IconButton
         label="Settings"
         onClick={() => {
-          setSettingsOpen(true);
+          openSettings();
         }}
       >
         <SettingsIcon />

@@ -9,7 +9,12 @@ import { join, resolve } from 'node:path';
 import { komaProjectSchema } from '@koma-motion/core';
 import { expect, test } from '@playwright/test';
 import { openProviderChoices, setKomaCount } from './composerControls';
-import { answerOpenDialog, answerSaveDialog, launchApplication } from './application';
+import {
+  answerOpenDialog,
+  answerSaveDialog,
+  launchApplication,
+  openSettingsPage,
+} from './application';
 
 const provider = process.env['KOMA_LIVE_E2E'] ?? '';
 const model = process.env['KOMA_LIVE_MODEL'] ?? '';
@@ -35,7 +40,8 @@ test('generates a presentation with Claude Code', async () => {
     await window.getByLabel('Project name').fill('Generated with Claude Code');
 
     // Match the application's deadline to the wait below, including repair.
-    await window.getByRole('button', { name: 'Settings' }).click();
+    await openSettingsPage(window, 'Generation');
+    await window.getByLabel('Stop generation after a time limit').check();
     await window.getByLabel('Time limit in seconds').fill('600');
     if (model !== '') {
       await window.getByLabel('Model for Claude Code').fill(model);

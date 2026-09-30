@@ -94,6 +94,45 @@ export const SettingsIcon = (props: IconProps): ReactElement => (
   </Icon>
 );
 
+/** A page of text: project instructions. */
+export const InstructionsIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M3.5 2.5h9v11h-9z" />
+    <path d="M5.5 5.5h5M5.5 8h5M5.5 10.5h3" />
+  </Icon>
+);
+
+/** Frames in sequence: generation. */
+export const GenerationIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M2.5 4.5h6v6h-6z" />
+    <path d="M10.5 6.5h3M10.5 9.5h3M5.5 13.5h8" />
+  </Icon>
+);
+
+/** Stacked sheets: reusable templates. */
+export const TemplatesIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M5 2.5h8.5V11" />
+    <path d="M2.5 5h8.5v8.5H2.5z" />
+  </Icon>
+);
+
+/** A terminal prompt: agents that run on this computer. */
+export const ProviderIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M2 3h12v10H2z" />
+    <path d="m4.5 6.5 2 1.5-2 1.5M8 10h3.5" />
+  </Icon>
+);
+
+export const InfoIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <circle cx="8" cy="8" r="6" />
+    <path d="M8 7.2v3.8M8 5v.1" />
+  </Icon>
+);
+
 export const CloseIcon = (props: IconProps): ReactElement => (
   <Icon {...props}>
     <path d="m4 4 8 8M12 4l-8 8" />

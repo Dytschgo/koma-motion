@@ -8,6 +8,7 @@ import {
   serializeChatPreferences,
   type ChatPreferences,
 } from '../lib/chatLayout';
+import { DEFAULT_SETTINGS_PAGE, type SettingsPageId } from '../lib/settingsPages';
 import { selectProject, useProjectStore } from './projectStore';
 
 /** Key of the chat preferences in the local storage of the window. */
@@ -104,6 +105,8 @@ interface UiState {
   /** `null` fits the canvas into the workspace. */
   readonly zoom: number | null;
   readonly settingsOpen: boolean;
+  /** The page Settings shows. Kept while the window is open, so Settings reopens where it was. */
+  readonly settingsPage: SettingsPageId;
   /** Chat sidebar. Kept across projects and restarts, never in the project. */
   readonly agentPanelOpen: boolean;
   /** The width the user chose for the chat sidebar. */
@@ -121,6 +124,9 @@ interface UiState {
   readonly selectElement: (elementId: string | null) => void;
   readonly setZoom: (zoom: number | null) => void;
   readonly setSettingsOpen: (open: boolean) => void;
+  /** Opens Settings, on `page` when given. */
+  readonly openSettings: (page?: SettingsPageId) => void;
+  readonly setSettingsPage: (page: SettingsPageId) => void;
   readonly setAgentPanelOpen: (open: boolean) => void;
   readonly setAgentPanelWidth: (width: number) => void;
   readonly confirm: (request: Omit<ConfirmationRequest, 'resolve'>) => Promise<boolean>;
@@ -157,6 +163,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   selectedElementId: null,
   zoom: null,
   settingsOpen: false,
+  settingsPage: DEFAULT_SETTINGS_PAGE,
   agentPanelOpen: initialChatPreferences.open,
   agentPanelWidth: initialChatPreferences.width,
   confirmation: null,
@@ -197,6 +204,12 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   setSettingsOpen(settingsOpen) {
     set({ settingsOpen });
+  },
+  openSettings(page) {
+    set((state) => ({ settingsOpen: true, settingsPage: page ?? state.settingsPage }));
+  },
+  setSettingsPage(settingsPage) {
+    set({ settingsPage });
   },
   setAgentPanelOpen(agentPanelOpen) {
     set({ agentPanelOpen });

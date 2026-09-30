@@ -10,6 +10,11 @@ changes to the project format.
 
 ### Added
 
+- Settings is organised into categories. **This project** holds the
+  instructions, the time limit and the models, which are saved in the .koma
+  file and can be undone. **Koma Motion** holds templates, providers, updates
+  and About, which apply to every project. Each page names where its values
+  are stored. Arrow keys, Home and End move between categories.
 - Grok CLI provider. Detection and generation were verified on Windows with
   Grok 1.0.44. The CLI keeps its own sign-in. Koma Motion does not store an
   API key.
@@ -39,6 +44,9 @@ changes to the project format.
 
 ### Changed
 
+- The chat header no longer has the two help buttons. A time limit, when one
+  is set, is shown under the composer; it is changed under Settings,
+  Generation.
 - The chat composer puts the provider, its model and the number of Komas
   side by side. The Koma count starts at 5 and offers Auto. The model list
   shows Default and the model id configured for the provider. The Audience
