@@ -21,11 +21,10 @@ export const CLAUDE_CODE_PROVIDER_ID = 'claude-code';
 const EXECUTABLE_NAME = 'claude';
 
 /**
- * Arguments of the non-interactive invocation. The base flags were checked
- * against the help output and a real run of Claude Code 2.1.283.
- * `--safe-mode`, `--restricted` and `--no-chrome` were taken from
- * `claude --help` on Windows on 29 September 2026 and were not part of that
- * run. See docs/AGENT_PROVIDERS.md.
+ * Arguments of the non-interactive invocation. The complete invocation was
+ * exercised through Electron with Claude Code 2.1.285 on Windows on
+ * 30 September 2026, using the CLI's default model and existing sign-in.
+ * See docs/AGENT_PROVIDERS.md for earlier runs and platform limits.
  *
  * `--bare` is not passed. Its help text says auth is strictly
  * `ANTHROPIC_API_KEY` or `apiKeyHelper` via `--settings`, and OAuth and the

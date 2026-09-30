@@ -30,7 +30,9 @@ What "verified" means here:
 - **Claude Code with the current invocation**, which includes those three
   flags and passes only the allowlisted environment variables, was run once
   through the runtime on the same day and computer. The run produced a valid
-  presentation. It has not been run through the application.
+  presentation. On 30 September 2026, the current invocation was also run
+  through the Electron application on Windows with Claude Code 2.1.285,
+  using its existing sign-in and default model. It produced three Komas.
 - Neither detection nor generation of Claude Code has been tested on macOS.
 - **Codex CLI** detection was tested with Codex CLI 0.157.1 on Windows 11,
   including the resolution of the npm command shim. The arguments for
@@ -551,5 +553,45 @@ KOMA_LIVE_GENERATION=claude-code KOMA_LIVE_MODEL=claude-opus-5-5 \
   pnpm vitest run packages/agent-runtime/src/node/live.test.ts
 
 # One generation with Claude Code through the application.
-KOMA_LIVE_E2E=claude-code KOMA_LIVE_MODEL=claude-opus-5-5 pnpm test:e2e live
+KOMA_LIVE_E2E=claude-code pnpm test:e2e -- live.spec.ts
 ```
+
+Build first with `pnpm build`. Leave `KOMA_LIVE_MODEL` unset to use the CLI's
+default model, or set it to a model your account supports. Installation
+detection checks the executable and version; it does not check sign-in.
+
+The Electron test sends a fictional cafe launch brief. It sets the project's
+time limit to 600 seconds, checks visible generated text in each Koma, edits
+text, undoes and redoes the edit, saves and reopens the edited project, and
+plays both transitions. It also checks for renderer errors. Native Open and
+Save dialogs are stubbed, but the project files are written and read by the
+application.
+
+For observation, the test sets each preview to two seconds in the reopened
+copy without saving that change. Both evidence projects keep their original
+generated transition durations.
+
+It preserves the generated `claude-code.koma`, a separate
+`claude-code-edited.koma`, screenshots and `verification.json` in
+`apps/desktop/test-results/live`. Playwright clears its test-results folder
+on the next run. Set `KOMA_LIVE_OUTPUT_DIR` to a fresh absolute directory
+outside that folder to retain the files across runs. Use a different
+directory for each run; the test uses fixed filenames within it.
+
+On Windows, run this separately from the mock verification workflow:
+
+```powershell
+$env:KOMA_LIVE_E2E = 'claude-code'
+$komaLiveEvidence = Join-Path $env:TEMP ('koma-live-' + [guid]::NewGuid().ToString('N'))
+$env:KOMA_LIVE_OUTPUT_DIR = $komaLiveEvidence
+try {
+  pnpm test:e2e -- live.spec.ts
+} finally {
+  Write-Host "Live generation evidence: $komaLiveEvidence"
+  Remove-Item Env:KOMA_LIVE_E2E, Env:KOMA_LIVE_OUTPUT_DIR -ErrorAction SilentlyContinue
+}
+```
+
+Open `claude-code.koma` in Koma Motion to test the original result. The edited
+copy demonstrates persistence. These are editable Koma projects; PowerPoint
+export is not implemented.
