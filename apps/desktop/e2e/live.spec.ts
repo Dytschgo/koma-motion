@@ -8,6 +8,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { komaProjectSchema } from '@koma-motion/core';
 import { expect, test } from '@playwright/test';
+import { openProviderChoices, setKomaCount } from './composerControls';
 import { answerOpenDialog, answerSaveDialog, launchApplication } from './application';
 
 const provider = process.env['KOMA_LIVE_E2E'] ?? '';
@@ -41,10 +42,12 @@ test('generates a presentation with Claude Code', async () => {
     }
     await window.getByRole('button', { name: 'Done' }).click();
 
-    await window.getByLabel('Provider', { exact: true }).selectOption('claude-code');
-    await expect(window.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
+    const providerChoices = await openProviderChoices(window);
+    await providerChoices.getByLabel('Provider', { exact: true }).selectOption('claude-code');
+    await expect(providerChoices.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
+    await window.getByRole('button', { name: 'Provider and model' }).click();
 
-    await window.getByRole('spinbutton', { name: 'Komas', exact: true }).fill('3');
+    await setKomaCount(window, '3');
     await window.getByLabel('Your request').fill(REQUEST);
     await window.getByRole('button', { name: 'Generate Komas' }).click();
     await expect(window.getByRole('button', { name: 'Cancel' })).toBeVisible();

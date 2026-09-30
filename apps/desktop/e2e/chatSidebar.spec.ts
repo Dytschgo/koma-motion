@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { isWideWindow, launchApplication, type RunningApplication } from './application';
+import { openCountChoices } from './composerControls';
 
 let running: RunningApplication;
 
@@ -55,7 +56,10 @@ test('prompts beside the canvas, collapses, reopens and resizes the chat', async
   await expect(generate).toBeInViewport({ ratio: 1 });
   await generate.click();
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
-  await expect(window.getByText('Replaces current Komas. Undo is available.')).toBeVisible();
+  await expect(
+    (await openCountChoices(window)).getByText('Replaces current Komas. Undo is available.'),
+  ).toBeVisible();
+  await window.keyboard.press('Escape');
 
   // Resize with the keyboard.
   const initialWidth = Number(await divider.getAttribute('aria-valuenow'));
