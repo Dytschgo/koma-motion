@@ -1,5 +1,11 @@
-import type { AssetReference, GenerationHistoryEntry, Presentation } from '@koma-motion/core';
+import {
+  MAX_EMBEDDED_ASSET_CHARACTERS,
+  type AssetReference,
+  type GenerationHistoryEntry,
+  type Presentation,
+} from '@koma-motion/core';
 import { buildPresentation, buildProject, FIXTURE_TIMESTAMP } from '@koma-motion/core/testing';
+import { serialiseProject } from '@koma-motion/project-format';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useAgentStore } from '../state/agentStore';
 import { renameProject } from '../state/commands';
@@ -416,6 +422,33 @@ describe('asynchronous project ownership', () => {
     await chooseProjectLogo();
     expect(selectProject(useProjectStore.getState())?.brandKit.logoAssetId).toBe('logo-1');
   });
+
+  it('refuses a logo that would make the project too large to save', async () => {
+    const data = 'A'.repeat(MAX_EMBEDDED_ASSET_CHARACTERS);
+    const embeddedData = { encoding: 'base64' as const, data };
+    const project = buildProject({
+      assets: Array.from({ length: 23 }, (_, index) => ({
+        ...logo,
+        id: `large-asset-${index}`,
+        projectPath: `assets/large-${index}.png`,
+        embeddedData,
+      })),
+    });
+    expect(serialiseProject(project).ok).toBe(true);
+    useProjectStore.getState().load(project, null);
+    invokeMock.mockResolvedValue({
+      status: 'selected',
+      asset: { ...logo, embeddedData },
+    });
+
+    await chooseProjectLogo();
+
+    expect(selectProject(useProjectStore.getState())).toBe(project);
+    expect(selectHasUnsavedChanges(useProjectStore.getState())).toBe(false);
+    const notice = useUiStore.getState().notices.at(-1);
+    expect(notice?.kind).toBe('error');
+    expect(notice?.message).toMatch(/larger than 64 MB.*Remove an unused image/);
+  }, 20_000);
 });
 
 function succeeded(presentation: Presentation): unknown {

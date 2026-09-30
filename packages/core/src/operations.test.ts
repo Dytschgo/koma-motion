@@ -12,7 +12,7 @@ import {
 import type { AssetReference } from './schema/asset';
 import type { ImageElement } from './schema/element';
 import { presentationSchema } from './schema/presentation';
-import { komaProjectSchema } from './schema/project';
+import { komaProjectSchema, MAX_PROJECT_ASSETS } from './schema/project';
 import { buildKoma, buildPresentation, buildProject, buildShape } from './testing/fixtures';
 
 function imageAsset(id: string): AssetReference {
@@ -136,6 +136,10 @@ describe('document operations', () => {
 describe('Brand Kit logo assets', () => {
   const oldLogo = imageAsset('asset-old-logo');
   const newLogo = imageAsset('asset-new-logo');
+  const fullAssets = [
+    oldLogo,
+    ...Array.from({ length: MAX_PROJECT_ASSETS - 1 }, (_, index) => imageAsset(`asset-${index}`)),
+  ];
 
   it('keeps an old logo used by an image when the logo is replaced', () => {
     const project = buildProject({
@@ -220,6 +224,58 @@ describe('Brand Kit logo assets', () => {
     const updated = setBrandLogo(project, replacement);
 
     expect(updated.assets).toEqual([replacement]);
+    expect(komaProjectSchema.safeParse(updated).success).toBe(true);
+  });
+
+  it('refuses a new logo at the asset limit when an image still needs the old one', () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: oldLogo.id },
+      assets: fullAssets,
+      presentation: buildPresentation({
+        komas: [buildKoma({ elements: [imageElement(oldLogo.id)] })],
+      }),
+    });
+
+    expect(komaProjectSchema.safeParse(project).success).toBe(true);
+    expect(() => setBrandLogo(project, newLogo)).toThrow(
+      `A project can contain up to ${String(MAX_PROJECT_ASSETS)} images`,
+    );
+    expect(project.assets).toBe(fullAssets);
+    expect(project.brandKit.logoAssetId).toBe(oldLogo.id);
+  });
+
+  it('updates the bytes of a referenced same-id asset at the limit without duplication', () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: oldLogo.id },
+      assets: fullAssets,
+      presentation: buildPresentation({
+        komas: [buildKoma({ elements: [imageElement(oldLogo.id)] })],
+      }),
+    });
+    const replacement = {
+      ...oldLogo,
+      embeddedData: { encoding: 'base64' as const, data: 'bmV3' },
+    };
+
+    const updated = setBrandLogo(project, replacement);
+
+    expect(updated.assets).toHaveLength(MAX_PROJECT_ASSETS);
+    expect(updated.assets.filter((asset) => asset.id === oldLogo.id)).toEqual([replacement]);
+    expect(updated.presentation).toBe(project.presentation);
+    expect(komaProjectSchema.safeParse(updated).success).toBe(true);
+  });
+
+  it('allows an unused logo to be replaced at the asset limit', () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: oldLogo.id },
+      assets: fullAssets,
+    });
+
+    const updated = setBrandLogo(project, newLogo);
+
+    expect(updated.assets).toHaveLength(MAX_PROJECT_ASSETS);
+    expect(updated.assets).toContainEqual(newLogo);
+    expect(updated.assets).not.toContainEqual(oldLogo);
     expect(komaProjectSchema.safeParse(updated).success).toBe(true);
   });
 });
