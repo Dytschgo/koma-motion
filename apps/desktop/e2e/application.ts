@@ -1,7 +1,12 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
+import {
+  _electron as electron,
+  expect,
+  type ElectronApplication,
+  type Page,
+} from '@playwright/test';
 
 export const APPLICATION_DIRECTORY = resolve(import.meta.dirname, '..');
 
@@ -27,8 +32,6 @@ export function getApplicationEnvironment(): Record<string, string> {
       environment[name] = value;
     }
   }
-  // Lets the window keep its full size on a small screen (see window.ts).
-  environment['KOMA_E2E'] = '1';
   return environment;
 }
 
@@ -42,10 +45,10 @@ export async function launchApplication(
   const directory = await mkdtemp(join(tmpdir(), 'koma-motion-e2e-'));
   const userData = `--user-data-dir=${join(directory, 'user-data')}`;
   // CI machines have small screens, and a window never grows beyond its
-  // screen. At half the device scale factor the screen holds the full
-  // 1480 x 920 window on Windows; on macOS, KOMA_E2E lets the window grow
-  // beyond the screen. Every test sees the same layout. Documentation
-  // screenshots keep the real scale.
+  // screen. At half the device scale factor a Windows screen holds the full
+  // 1480 x 920 window. macOS keeps its own scale, so its window can be
+  // narrow: see showInspector and showChat. Documentation screenshots keep
+  // the real scale.
   const scale = process.env['KOMA_SCREENSHOTS'] === '1' ? [] : ['--force-device-scale-factor=0.5'];
   const application = await electron.launch(
     options.executablePath === undefined
@@ -110,4 +113,32 @@ export async function answerOpenDialog(
   await application.evaluate(({ dialog }, chosen) => {
     dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [chosen] });
   }, filePath);
+}
+
+/** The window is wide enough for the canvas, the Inspector and the chat side by side. */
+export async function isWideWindow(window: Page): Promise<boolean> {
+  return (await window.evaluate(() => innerWidth)) >= 1400;
+}
+
+/**
+ * Makes the Inspector visible. In a narrow window the open chat takes its
+ * place, so the chat is hidden, as a user would do.
+ */
+export async function showInspector(window: Page): Promise<void> {
+  if (!(await isWideWindow(window))) {
+    const hide = window.getByRole('button', { name: 'Hide the chat' });
+    if (await hide.isVisible()) {
+      await hide.click();
+    }
+  }
+  await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
+}
+
+/** Makes the chat visible again after showInspector. */
+export async function showChat(window: Page): Promise<void> {
+  const show = window.getByRole('button', { name: /^Show the chat/ });
+  if (await show.isVisible()) {
+    await show.click();
+  }
+  await expect(window.getByRole('button', { name: 'Hide the chat' })).toBeVisible();
 }

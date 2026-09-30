@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { launchApplication, type RunningApplication } from './application';
+import { isWideWindow, launchApplication, type RunningApplication } from './application';
 
 let running: RunningApplication;
 
@@ -33,6 +33,10 @@ function getParts(window: Page): {
 
 test('prompts beside the canvas, collapses, reopens and resizes the chat', async () => {
   const { window, problems } = running;
+  test.skip(
+    !(await isWideWindow(window)),
+    'The screen of this machine cannot hold the canvas, the Inspector and the chat side by side.',
+  );
   await window.getByRole('button', { name: 'Create a project' }).click();
   const { chat, canvas, inspector, divider } = getParts(window);
 

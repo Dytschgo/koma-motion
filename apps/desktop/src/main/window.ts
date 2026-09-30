@@ -49,8 +49,6 @@ export function createMainWindow(
     height: 920,
     minWidth: 1120,
     minHeight: 700,
-    // Electron tests ask for the full window on the small screens of CI machines (macOS only).
-    enableLargerThanScreen: process.env['KOMA_E2E'] === '1',
     show: false,
     backgroundColor: WINDOW_BACKGROUND,
     // Packaged builds carry their icon in the executable. This is for development.
