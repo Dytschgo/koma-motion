@@ -1,3 +1,6 @@
+import { MAX_PROJECT_ASSETS, type ImageElement } from '@koma-motion/core';
+import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
+import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type Locator } from '@playwright/test';
@@ -337,6 +340,113 @@ test('adds a logo to the Brand Kit without storing where it came from', async ()
   await answerOpenDialog(application, fakePath);
   await window.getByRole('button', { name: 'Replace the logo' }).click();
   await expect(window.getByRole('alert')).toContainText('not a PNG, JPEG, WebP or GIF image');
+});
+
+test('keeps a canvas image through logo edits and reports the asset limit', async () => {
+  const { window, application, directory, problems } = running;
+  const projectPath = join(directory, 'logo-on-canvas.koma');
+  const replacementPath = join(directory, 'replacement.png');
+  const onePixel =
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  const image: ImageElement = {
+    ...buildShape(),
+    type: 'image',
+    name: 'Original logo image',
+    content: { assetId: 'asset-original-logo', altText: 'Original logo' },
+    style: { fit: 'contain', cornerRadius: 0 },
+  };
+  const project = buildProject({
+    brandKit: { ...buildProject().brandKit, logoAssetId: 'asset-original-logo' },
+    assets: [
+      {
+        id: 'asset-original-logo',
+        type: 'image',
+        name: 'original.png',
+        mediaType: 'image/png',
+        projectPath: 'assets/original.png',
+        metadata: {},
+        embeddedData: { encoding: 'base64', data: onePixel },
+      },
+    ],
+    presentation: buildPresentation({ komas: [buildKoma({ elements: [image] })] }),
+  });
+  const serialised = serialiseProject(project);
+  if (!serialised.ok) {
+    throw new Error(serialised.error.message);
+  }
+  await writeFile(projectPath, serialised.value, 'utf8');
+  await writeFile(replacementPath, Buffer.from(onePixel, 'base64'));
+
+  await answerOpenDialog(application, projectPath);
+  await window.getByRole('button', { name: 'Open a project' }).click();
+  const canvasImage = getStage().getByRole('img', { name: 'Original logo' });
+  await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
+
+  await window.getByRole('button', { name: 'Brand Kit' }).click();
+  await answerOpenDialog(application, replacementPath);
+  await window.getByRole('button', { name: 'Replace the logo' }).click();
+  await expect(window.getByText('replacement.png')).toBeVisible();
+  await window.getByRole('button', { name: 'Back to the canvas' }).click();
+  await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
+
+  await window.getByRole('button', { name: 'Brand Kit' }).click();
+  await window.getByRole('button', { name: 'Remove the logo' }).click();
+  await window.getByRole('button', { name: 'Back to the canvas' }).click();
+  await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
+
+  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(window.getByText('All changes saved')).toBeVisible();
+  const saved = JSON.parse(await readFile(projectPath, 'utf8')) as unknown;
+  expect(saved).toMatchObject({
+    brandKit: { logoAssetId: null },
+    assets: [{ id: 'asset-original-logo', embeddedData: { data: onePixel } }],
+  });
+
+  await window.getByRole('button', { name: 'New', exact: true }).click();
+  await answerOpenDialog(application, projectPath);
+  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
+
+  const originalAsset = project.assets[0];
+  if (originalAsset === undefined) {
+    throw new Error('The fixture logo is missing');
+  }
+  const fullProject = {
+    ...project,
+    assets: [
+      ...project.assets,
+      ...Array.from({ length: MAX_PROJECT_ASSETS - 1 }, (_, index) => ({
+        ...originalAsset,
+        id: `asset-extra-${index}`,
+        projectPath: `assets/extra-${index}.png`,
+      })),
+    ],
+  };
+  const fullText = serialiseProject(fullProject);
+  if (!fullText.ok) {
+    throw new Error(fullText.error.message);
+  }
+  const fullPath = join(directory, 'full-project.koma');
+  await writeFile(fullPath, fullText.value, 'utf8');
+  await answerOpenDialog(application, fullPath);
+  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
+
+  await window.getByRole('button', { name: 'Brand Kit' }).click();
+  await answerOpenDialog(application, replacementPath);
+  await window.getByRole('button', { name: 'Replace the logo' }).click();
+  await expect(window.getByRole('alert')).toContainText(`${String(MAX_PROJECT_ASSETS)} images`);
+  const dismissNotices = window
+    .getByRole('list', { name: 'Messages' })
+    .getByRole('button', { name: 'Dismiss' });
+  while ((await dismissNotices.count()) > 0) {
+    await dismissNotices.first().click();
+  }
+  await window.getByRole('button', { name: 'Back to the canvas' }).click();
+  await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
+  await expect(window.getByText('All changes saved')).toBeVisible();
+  expect(await readFile(fullPath, 'utf8')).toBe(fullText.value);
+  expect(problems).toEqual([]);
 });
 
 test('does not offer an exporter that does not exist yet', async () => {

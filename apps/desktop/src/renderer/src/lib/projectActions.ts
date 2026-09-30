@@ -1,6 +1,7 @@
 /** New, Open, Save and Save As: the steps between the interface and the main process. */
+import { setBrandLogo } from '@koma-motion/core';
+import { serialiseProject } from '@koma-motion/project-format';
 import { useAgentStore } from '../state/agentStore';
-import { changeLogo } from '../state/commands';
 import {
   selectHasUnsavedChanges,
   selectProject,
@@ -186,13 +187,26 @@ export async function chooseProjectLogo(): Promise<void> {
       return;
     }
     if (response.status === 'selected') {
-      useProjectStore.getState().apply(changeLogo(response.asset));
+      const project = selectProject(useProjectStore.getState());
+      if (project === null) {
+        return;
+      }
+      const updated = setBrandLogo(project, response.asset);
+      const serialised = serialiseProject(updated);
+      if (!serialised.ok) {
+        const suggestion =
+          serialised.error.code === 'tooLarge'
+            ? ' Remove an unused image before adding a new logo.'
+            : '';
+        throw new Error(`${serialised.error.message}${suggestion}`);
+      }
+      useProjectStore.getState().apply(() => updated);
     } else if (response.status === 'failed') {
       useUiStore.getState().notify('error', response.message);
     }
-  } catch {
+  } catch (error) {
     if (isCurrentSession(sessionId)) {
-      useUiStore.getState().notify('error', 'The logo could not be added.');
+      reportError('Adding the logo', error);
     }
   }
 }

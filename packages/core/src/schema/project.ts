@@ -60,6 +60,7 @@ export const generationHistoryEntrySchema = z.object({
 });
 
 export const MAX_HISTORY_ENTRIES = 200;
+export const MAX_PROJECT_ASSETS = 500;
 
 /**
  * The root of a `.koma` project. Unknown top-level properties are kept so
@@ -75,7 +76,7 @@ const projectShape = {
   updatedAt: timestampSchema,
   brandKit: brandKitSchema,
   presentation: presentationSchema,
-  assets: z.array(assetReferenceSchema).max(500),
+  assets: z.array(assetReferenceSchema).max(MAX_PROJECT_ASSETS),
   agentConfiguration: agentConfigurationSchema,
   generationHistory: z.array(generationHistoryEntrySchema).max(MAX_HISTORY_ENTRIES),
 };

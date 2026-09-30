@@ -8,10 +8,11 @@
 import type { IdGenerator } from './ids';
 import type { AssetReference } from './schema/asset';
 import type { KomaElement } from './schema/element';
-import type { Koma } from './schema/koma';
+import { flattenElements, type Koma } from './schema/koma';
 import { MAX_KOMAS, type Presentation } from './schema/presentation';
 import {
   MAX_HISTORY_ENTRIES,
+  MAX_PROJECT_ASSETS,
   type GenerationHistoryEntry,
   type KomaProject,
 } from './schema/project';
@@ -186,21 +187,48 @@ export function appendGenerationHistory(
   };
 }
 
-/** Stores `asset` as the brand logo and removes the asset that was the logo before. */
+function isAssetUsedByImage(project: KomaProject, assetId: string | null): boolean {
+  return (
+    assetId !== null &&
+    project.presentation.komas.some((koma) =>
+      flattenElements(koma.elements).some(
+        (element) => element.type === 'image' && element.content.assetId === assetId,
+      ),
+    )
+  );
+}
+
+/** Stores `asset` as the brand logo and removes the old logo unless an image still uses it. */
 export function setBrandLogo(project: KomaProject, asset: AssetReference): KomaProject {
   const previousLogoId = project.brandKit.logoAssetId;
+  const keepPreviousLogo = isAssetUsedByImage(project, previousLogoId);
+  const assets = [
+    ...project.assets.filter(
+      (candidate) =>
+        candidate.id !== asset.id && (candidate.id !== previousLogoId || keepPreviousLogo),
+    ),
+    asset,
+  ];
+  if (assets.length > MAX_PROJECT_ASSETS) {
+    throw new Error(
+      `A project can contain up to ${String(MAX_PROJECT_ASSETS)} images. Remove an unused image before adding a new logo.`,
+    );
+  }
   return {
     ...project,
-    assets: [...project.assets.filter((candidate) => candidate.id !== previousLogoId), asset],
+    assets,
     brandKit: { ...project.brandKit, logoAssetId: asset.id },
   };
 }
 
 export function clearBrandLogo(project: KomaProject): KomaProject {
   const previousLogoId = project.brandKit.logoAssetId;
+  const keepPreviousLogo = isAssetUsedByImage(project, previousLogoId);
   return {
     ...project,
-    assets: project.assets.filter((candidate) => candidate.id !== previousLogoId),
+    assets: project.assets.filter(
+      (candidate) => candidate.id !== previousLogoId || keepPreviousLogo,
+    ),
     brandKit: { ...project.brandKit, logoAssetId: null },
   };
 }
