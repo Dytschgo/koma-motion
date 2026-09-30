@@ -28,6 +28,25 @@ test('capture welcome and studio at wide and narrow sizes', async () => {
       BrowserWindow.getAllWindows()[0]?.setContentSize(size, 920);
     }, width);
     await expect.poll(() => window.evaluate(() => innerWidth)).toBe(width);
+    const stage = window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]');
+    if (name === 'generated') {
+      await expect(stage).toBeVisible();
+      await expect
+        .poll(() =>
+          stage.evaluate((node) => {
+            const box = node.getBoundingClientRect();
+            const area = node.parentElement?.parentElement?.getBoundingClientRect();
+            return (
+              area !== undefined &&
+              box.left >= area.left &&
+              box.right <= area.right &&
+              box.top >= area.top &&
+              box.bottom <= area.bottom
+            );
+          }),
+        )
+        .toBe(true);
+    }
     const dimensions = await window.evaluate(() => ({
       width: innerWidth,
       height: innerHeight,
