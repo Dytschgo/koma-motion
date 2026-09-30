@@ -48,3 +48,10 @@ For a changed implementation, also run the repository's format, lint, typecheck,
 - [Mock project workflow](project-workflow.md): create, generate, edit, save, and reopen.
 
 The focused specs were introduced by separate draft PRs. If a named spec is absent from the checkout, report that prerequisite; do not silently substitute another test or claim the feature was covered.
+
+## Separately requested real generation
+
+[Real Claude Code generation](live-generation.md) is a separate opt-in path
+for an explicit request to use the user's signed-in CLI. It is not part of
+the mock workflow above or ordinary CI. It retains the real generated deck
+and verifies editing, save/reopen, and transition preview.
