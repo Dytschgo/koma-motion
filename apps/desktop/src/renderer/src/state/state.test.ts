@@ -1,5 +1,10 @@
 import { editBrandKitField, pruneBrandKitRawDraft } from '@koma-motion/brand-kit';
-import { createSeededIdGenerator, komaProjectSchema, type KomaProject } from '@koma-motion/core';
+import {
+  MAX_KOMAS,
+  createSeededIdGenerator,
+  komaProjectSchema,
+  type KomaProject,
+} from '@koma-motion/core';
 import { buildKoma, buildProject, buildShape, buildText } from '@koma-motion/core/testing';
 import { validateTransition } from '@koma-motion/motion-engine';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -8,6 +13,7 @@ import {
   applyGeneration,
   changeBrandKit,
   changeElement,
+  changeKomaDetails,
   changeTransition,
   deleteKoma,
   reorderKoma,
@@ -186,6 +192,24 @@ describe('document commands', () => {
     expect(project.presentation.komas[0]?.background.colour).toBe(base.brandKit.colours.background);
   });
 
+  it('does not create an undoable change when adding at the Koma limit', () => {
+    const full = buildProject({
+      presentation: {
+        ...base.presentation,
+        komas: Array.from({ length: MAX_KOMAS }, (_, index) =>
+          buildKoma({ id: `koma-${String(index + 1)}`, elements: [] }),
+        ),
+      },
+    });
+    expect(komaProjectSchema.safeParse(full).success).toBe(true);
+    const generator = createSeededIdGenerator('limit');
+    const nextId = createSeededIdGenerator('limit').next('koma');
+    expect(addKoma('koma-1')(full, generator)).toBe(full);
+    expect(generator.next('koma')).toBe(nextId);
+    const history = createHistory(full);
+    expect(commit(history, addKoma('koma-1')(full, generator), { time: 0 })).toBe(history);
+  });
+
   it('recomputes the motion when an element changes', () => {
     const withSecond = run(base, addKoma('koma-1'));
     const second = withSecond.presentation.komas[1];
@@ -203,6 +227,29 @@ describe('document commands', () => {
       .filter((item) => item.persistentId === 'engine')
       .map((item) => item.operation);
     expect(operations).toEqual(['move']);
+  });
+
+  it('keeps transitions for metadata edits and rebuilds only visual neighbours', () => {
+    const four = run(base, addKoma('koma-1'), addKoma('koma-1'), addKoma('koma-1'));
+    const middle = four.presentation.komas[1];
+    const element = middle?.elements[0];
+    if (middle === undefined || element === undefined) throw new Error('Expected a middle Koma');
+
+    const notes = run(four, changeKomaDetails(middle.id, { speakerNotes: 'Presenter notes' }));
+    const titled = run(
+      notes,
+      changeKomaDetails(middle.id, { title: 'New title', purpose: 'New purpose' }),
+    );
+    expect(notes.presentation.transitions).toBe(four.presentation.transitions);
+    expect(titled.presentation.transitions).toBe(four.presentation.transitions);
+
+    const visual = run(titled, changeElement(middle.id, { ...element, rotation: 45 }));
+    expect(visual.presentation.transitions[0]).not.toBe(titled.presentation.transitions[0]);
+    expect(visual.presentation.transitions[1]).not.toBe(titled.presentation.transitions[1]);
+    expect(visual.presentation.transitions[2]).toBe(titled.presentation.transitions[2]);
+    expect(
+      visual.presentation.transitions[0]?.elementTransitions.map((item) => item.operation),
+    ).toContain('rotate');
   });
 
   it('keeps the settings of a transition when its Komas change', () => {

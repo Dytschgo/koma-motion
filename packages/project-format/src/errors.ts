@@ -10,6 +10,7 @@ export type ProjectFormatErrorCode =
   | 'fileNotReadable'
   | 'fileNotWritable'
   | 'uninspectableTarget'
+  | 'fileChangedExternally'
   | 'wouldOverwriteNewerProject';
 
 export interface ProjectFormatError {

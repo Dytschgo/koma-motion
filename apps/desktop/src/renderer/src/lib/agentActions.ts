@@ -1,5 +1,6 @@
 /** Provider detection and generation: the steps between the chat panel and the main process. */
-import type { GenerationInput } from '@koma-motion/agent-runtime';
+import { agentError, type GenerationInput, type ResponseIssue } from '@koma-motion/agent-runtime';
+import type { KomaProject, Presentation } from '@koma-motion/core';
 import { useAgentStore } from '../state/agentStore';
 import { applyGeneration, recordGeneration } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
@@ -8,6 +9,50 @@ import { invoke } from './api';
 
 function createExecutionId(): string {
   return `execution-${crypto.randomUUID()}`;
+}
+
+/** Another action can replace a confirmation opened by an earlier action. */
+function waitForConfirmationToClose(): Promise<void> {
+  return new Promise((resolve) => {
+    const unsubscribe = useUiStore.subscribe((state) => {
+      if (state.confirmation === null) {
+        unsubscribe();
+        resolve();
+      }
+    });
+  });
+}
+
+/** A proposal may outlive an asset edit, so check its images against the live project. */
+function unavailableImageIssues(presentation: Presentation, project: KomaProject): ResponseIssue[] {
+  const available = new Set(
+    project.assets.filter((asset) => asset.embeddedData !== null).map((asset) => asset.id),
+  );
+  const issues: ResponseIssue[] = [];
+  presentation.komas.forEach((koma, komaIndex) => {
+    koma.elements.forEach((element, elementIndex) => {
+      const path = `komas[${String(komaIndex)}].elements[${String(elementIndex)}]`;
+      if (element.type === 'image' && !available.has(element.content.assetId)) {
+        issues.push({
+          code: 'invalidReference',
+          path: `${path}.content.assetId`,
+          message: `The image asset "${element.content.assetId}" is no longer available.`,
+        });
+      }
+      if (element.type === 'group') {
+        element.content.children.forEach((child, childIndex) => {
+          if (child.type === 'image' && !available.has(child.content.assetId)) {
+            issues.push({
+              code: 'invalidReference',
+              path: `${path}.content.children[${String(childIndex)}].content.assetId`,
+              message: `The image asset "${child.content.assetId}" is no longer available.`,
+            });
+          }
+        });
+      }
+    });
+  });
+  return issues;
 }
 
 export async function detectProviders(): Promise<void> {
@@ -24,8 +69,9 @@ export async function detectProviders(): Promise<void> {
 /**
  * Sends a request to the selected provider and applies the result.
  *
- * A successful result replaces the presentation in one undoable step. When
- * generation fails, the presentation stays exactly as it was.
+ * A successful result replaces an unchanged presentation in one undoable step.
+ * If the presentation changes while generation runs, the user chooses whether
+ * to replace those edits. A failed result leaves the presentation untouched.
  */
 export async function generate(input: GenerationInput): Promise<void> {
   const project = selectProject(useProjectStore.getState());
@@ -35,6 +81,7 @@ export async function generate(input: GenerationInput): Promise<void> {
     return;
   }
   const providerId = project.agentConfiguration.selectedProviderId;
+  const presentationAtStart = project.presentation;
   const providerName =
     agent.providers.find((provider) => provider.metadata.id === providerId)?.metadata.displayName ??
     providerId;
@@ -56,9 +103,71 @@ export async function generate(input: GenerationInput): Promise<void> {
     if (!stillThisProject()) {
       return;
     }
-    const projects = useProjectStore.getState();
     if (outcome.status === 'succeeded') {
-      projects.apply(applyGeneration(outcome.presentation, outcome.historyEntry));
+      let currentPresentation = selectProject(useProjectStore.getState())?.presentation;
+      while (currentPresentation !== presentationAtStart) {
+        const presentationAtPrompt = currentPresentation;
+        useAgentStore.getState().addStatus({
+          executionId,
+          phase: 'succeeded',
+          message: 'Generation complete. Waiting for your decision',
+          timestamp: new Date().toISOString(),
+        });
+        const replace = await useUiStore.getState().confirm({
+          title: 'Replace your edited Komas?',
+          message:
+            'Generation is complete, but you edited the Komas while it was running. Replacing them discards those edits. Keep editing discards the generated Komas.',
+          confirmLabel: 'Replace Komas',
+          cancelLabel: 'Keep editing',
+          destructive: true,
+        });
+        if (!stillThisProject()) {
+          return;
+        }
+        if (!replace) {
+          // A different confirmation displaced ours. Let that action finish,
+          // then offer this completed proposal again if this project remains.
+          if (useUiStore.getState().confirmation !== null) {
+            await waitForConfirmationToClose();
+            if (!stillThisProject()) {
+              return;
+            }
+            currentPresentation = selectProject(useProjectStore.getState())?.presentation;
+            continue;
+          }
+          useAgentStore.getState().addEntry({
+            kind: 'notApplied',
+            providerName,
+            text: outcome.historyEntry.summary,
+          });
+          return;
+        }
+        currentPresentation = selectProject(useProjectStore.getState())?.presentation;
+        if (currentPresentation === presentationAtPrompt) {
+          break;
+        }
+      }
+      const currentProject = selectProject(useProjectStore.getState());
+      if (currentProject === null) {
+        return;
+      }
+      const issues = unavailableImageIssues(outcome.presentation, currentProject);
+      if (issues.length > 0) {
+        useAgentStore.getState().addEntry({
+          kind: 'failure',
+          providerName,
+          status: 'failed',
+          error: agentError(
+            'invalidResponse',
+            'The generated Komas use images that are no longer available in this project. Generate again with the current assets.',
+            issues,
+          ),
+          diagnostics: outcome.diagnostics,
+          request: input.userRequest,
+        });
+        return;
+      }
+      useProjectStore.getState().apply(applyGeneration(outcome.presentation, outcome.historyEntry));
       useUiStore.getState().selectKoma(outcome.presentation.komas[0]?.id ?? null);
       useAgentStore.getState().addEntry({
         kind: 'result',
@@ -67,7 +176,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         warnings: outcome.warnings,
       });
     } else {
-      projects.apply(recordGeneration(outcome.historyEntry));
+      useProjectStore.getState().apply(recordGeneration(outcome.historyEntry));
       useAgentStore.getState().addEntry({
         kind: 'failure',
         providerName,
