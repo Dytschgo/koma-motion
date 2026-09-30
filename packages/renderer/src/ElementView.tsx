@@ -236,6 +236,7 @@ export interface ElementViewProps {
   readonly element: KomaElement;
   readonly resolveAsset: AssetResolver;
   readonly selected: boolean;
+  readonly editingText?: boolean;
   /** Width of the selection outline in logical units. */
   readonly outlineWidth: number;
   /** When given, the element can be selected with pointer and keyboard. */
@@ -251,6 +252,7 @@ export function ElementView({
   element,
   resolveAsset,
   selected,
+  editingText = false,
   outlineWidth,
   onSelect,
   onManipulate,
@@ -301,7 +303,11 @@ export function ElementView({
           }
         : {})}
     >
-      <ElementContent element={element} resolveAsset={resolveAsset} />
+      <div
+        style={{ width: '100%', height: '100%', visibility: editingText ? 'hidden' : undefined }}
+      >
+        <ElementContent element={element} resolveAsset={resolveAsset} />
+      </div>
     </div>
   );
 }

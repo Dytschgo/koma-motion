@@ -1,6 +1,11 @@
 import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
 import { CURRENT_SCHEMA_VERSION } from '@koma-motion/core';
-import { buildTransition, computeFrame, komaToFrame } from '@koma-motion/motion-engine';
+import {
+  buildTransition,
+  computeFrame,
+  komaToFrame,
+  validateTransition,
+} from '@koma-motion/motion-engine';
 import { describe, expect, it } from 'vitest';
 import { migrateToVersion, type Migration } from './migrations';
 import { parseProject } from './parse';
@@ -91,6 +96,13 @@ describe('serialiseProject', () => {
 });
 
 describe('parseProject', () => {
+  it('reports failed post-migration validation without changing the supplied document', () => {
+    const document = { ...buildProject(), schemaVersion: 1, name: '' };
+    const before = JSON.stringify(document);
+    const parsed = parseProject(before);
+    expect(parsed).toMatchObject({ ok: false, error: { code: 'migrationFailed' } });
+    expect(JSON.stringify(document)).toBe(before);
+  });
   it('reports an unplayable stored transition without rewriting the project', () => {
     const source = buildShape({
       id: 'shape-1',
@@ -125,7 +137,13 @@ describe('parseProject', () => {
       return;
     }
 
-    expect(parsed.value.warnings.some((warning) => warning.includes('missing-shape'))).toBe(true);
+    // The problem is reported by motion validation, not as a load warning.
+    expect(parsed.value.warnings.some((warning) => warning.includes('missing-shape'))).toBe(false);
+    expect(
+      validateTransition(invented, parsed.value.project.presentation).some((issue) =>
+        issue.message.includes('missing-shape'),
+      ),
+    ).toBe(true);
     expect(serialise(parsed.value.project)).toBe(text);
     expect(parsed.value.project.presentation.transitions[0]?.elementTransitions).toEqual(
       invented.elementTransitions,
@@ -251,6 +269,26 @@ describe('migrateToVersion', () => {
     if (!result.ok) {
       expect(result.error.code).toBe('unsupportedSchemaVersion');
     }
+  });
+
+  it('returns a recoverable error when a migration throws, without changing its input', () => {
+    const document = { schemaVersion: 1, custom: 'keep' };
+    const result = migrateToVersion(document, 1, 2, [
+      {
+        fromVersion: 1,
+        migrate: () => {
+          throw new Error('Internal implementation detail');
+        },
+      },
+    ]);
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: 'migrationFailed',
+      },
+    });
+    if (!result.ok) expect(result.error.message).toContain('could not be completed');
+    expect(document).toEqual({ schemaVersion: 1, custom: 'keep' });
   });
 });
 

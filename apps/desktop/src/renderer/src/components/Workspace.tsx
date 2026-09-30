@@ -1,9 +1,5 @@
 import { getCanvasSize, type KomaProject } from '@koma-motion/core';
-import {
-  findUnsupportedOperations,
-  komaToFrame,
-  validateTransition,
-} from '@koma-motion/motion-engine';
+import { komaToFrame } from '@koma-motion/motion-engine';
 import {
   createAssetResolver,
   getFitScale,
@@ -24,11 +20,14 @@ import {
   useSelectedKoma,
 } from '../lib/selectors';
 import { chooseKomaImage } from '../lib/projectActions';
+import { assessTransition } from '../lib/transitionIssues';
 import { changeElement, changeTransition } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
+import { useTransitionRegenerationStore } from '../state/transitionRegenerationStore';
 import { useUiStore } from '../state/uiStore';
-import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon, WarningIcon } from './icons';
-import { Button, IconButton, NumberInput } from './ui';
+import { ImageIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
+import { TransitionIssuePanel } from './TransitionIssuePanel';
+import { Button, Help, IconButton, NumberInput } from './ui';
 
 const CANVAS_PADDING = 32;
 const ZOOM_STEP = 1.25;
@@ -110,17 +109,60 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
 
   // The transport and the stage show the same transition whenever a preview
   // is valid, so its issues apply to both.
-  const transportTransition = transportContext?.transition ?? null;
-  const motionIssues = useMemo(() => {
-    if (transportTransition === null) {
-      return [];
+  const assessment =
+    transportContext === null
+      ? null
+      : assessTransition(
+          presentation,
+          transportContext.transition,
+          transportContext.from,
+          transportContext.to,
+        );
+  const transitionBlocked = assessment?.blocked === true;
+  const transportTransitionId = transportContext?.transition.id ?? null;
+
+  // A transition that cannot play is never previewed, whatever started it.
+  useEffect(() => {
+    if (preview !== null && stageContext !== null && transitionBlocked) {
+      reset();
+      stopPreview();
     }
-    const blocking = validateTransition(transportTransition, presentation).filter(
-      (issue) => issue.code !== 'unsupportedOperation',
-    );
-    return [...blocking, ...findUnsupportedOperations(transportTransition)];
-  }, [presentation, transportTransition]);
-  const transitionBlocked = motionIssues.some((issue) => issue.code !== 'unsupportedOperation');
+  }, [preview, stageContext, transitionBlocked, reset, stopPreview]);
+
+  // The outcome of an earlier attempt is forgotten once the transition plays again.
+  const clearRegeneration = useTransitionRegenerationStore((state) => state.clear);
+  const regeneration = useTransitionRegenerationStore((state) =>
+    transportTransitionId === null ? undefined : state.entries[transportTransitionId],
+  );
+  useEffect(() => {
+    if (
+      transportTransitionId !== null &&
+      assessment === null &&
+      regeneration !== undefined &&
+      regeneration.status !== 'running'
+    ) {
+      clearRegeneration(transportTransitionId);
+    }
+  }, [transportTransitionId, assessment, regeneration, clearRegeneration]);
+
+  // When the warning disappears with the control that had the focus, the
+  // focus moves to Play, which is what the fix made available.
+  const hadWarning = useRef(false);
+  const transportRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (assessment !== null) {
+      hadWarning.current = true;
+      return;
+    }
+    if (hadWarning.current) {
+      hadWarning.current = false;
+      if (document.activeElement === null || document.activeElement === document.body) {
+        transportRef.current
+          ?.querySelector<HTMLButtonElement>('button[aria-label="Play"]')
+          ?.focus();
+      }
+    }
+  }, [assessment]);
 
   const previewing = stageContext !== null && playback.status !== 'idle';
   const frame = useMemo(() => {
@@ -172,40 +214,19 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
 
   return (
     <section aria-label="Canvas" className="flex min-h-0 min-w-0 flex-1 flex-col bg-desk-950">
-      {motionIssues.length > 0 && (
-        <div
-          role="alert"
-          className="flex items-start gap-2 border-b border-signal-warn/40 bg-desk-800 px-4 py-2 text-signal-warn"
-        >
-          <span className="mt-0.5 flex-none">
-            <WarningIcon />
-          </span>
-          <div>
-            <p className="font-semibold">
-              Warning: this transition contains operations that cannot be played.
-            </p>
-            <ul>
-              {motionIssues.map((issue, index) => (
-                <li key={index}>{issue.message}</li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-
       <div className="flex flex-none items-center gap-3 border-b border-desk-600 px-3 py-1.5">
-        <Button
-          compact
+        <IconButton
+          label="Add image"
           disabled={koma === null || preview !== null}
           onClick={() => {
             if (koma) void chooseKomaImage(koma.id);
           }}
         >
-          Add image
-        </Button>
-        <p className="text-sm text-ink-400">
-          Drag to move | Corners to resize | Enter to edit text | Esc to cancel
-        </p>
+          <ImageIcon />
+        </IconButton>
+        <Help label="Canvas shortcuts">
+          Drag to move. Drag corners to resize. Enter edits text; Esc cancels.
+        </Help>
         {preview !== null && (
           <Button compact onClick={stopPreview}>
             Stop preview
@@ -218,11 +239,8 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
       >
         {frame === null ? (
           <div className="max-w-md px-6 text-center">
-            <p className="text-xl font-semibold">This presentation has no Komas yet</p>
-            <p className="mt-2 text-ink-300">
-              Describe what you want to present in the chat. The provider creates the Komas and Koma
-              Motion works out the motion between them.
-            </p>
+            <p className="text-xl font-semibold">Start your presentation</p>
+            <p className="mt-2 text-ink-300">Describe it in the chat, or add a Koma.</p>
             {!chatOpen && (
               <Button
                 variant="outline"
@@ -307,7 +325,19 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
         </div>
       </div>
 
+      {assessment !== null && transportContext !== null && (
+        <TransitionIssuePanel
+          key={transportContext.transition.id}
+          transitionId={transportContext.transition.id}
+          from={transportContext.from}
+          to={transportContext.to}
+          fromNumber={transportContext.fromIndex + 1}
+          assessment={assessment}
+        />
+      )}
+
       <div
+        ref={transportRef}
         role="group"
         aria-label="Transition preview"
         // A container, so that the labels give way before the position control
@@ -326,13 +356,17 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           </IconButton>
           <IconButton
             label={playback.status === 'playing' ? 'Pause' : 'Play'}
-            disabled={transportContext === null}
+            disabled={transportContext === null || transitionBlocked}
             tone="motion"
             onClick={togglePlayback}
           >
             {playback.status === 'playing' ? <PauseIcon /> : <PlayIcon />}
           </IconButton>
-          <IconButton label="Restart" disabled={transportContext === null} onClick={restartPreview}>
+          <IconButton
+            label="Restart"
+            disabled={transportContext === null || transitionBlocked}
+            onClick={restartPreview}
+          >
             <RestartIcon />
           </IconButton>
           <IconButton
@@ -346,15 +380,21 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           </IconButton>
 
           {transportContext === null ? (
-            <p className="ml-3 text-ink-400">Add a second Koma to see motion between two Komas.</p>
+            <p className="ml-3 text-ink-400">Add another Koma for motion.</p>
           ) : (
             <>
               <p className="sr-only flex-none text-ink-300 @min-[36rem]:not-sr-only @min-[36rem]:mx-3">
                 Koma {transportContext.fromIndex + 1} to Koma {transportContext.fromIndex + 2}
               </p>
+              {transitionBlocked && (
+                // The disabled controls cannot take the focus, so their reason
+                // is shown next to them.
+                <p className="mx-2 flex-none text-sm text-signal-warn">Cannot play</p>
+              )}
               <input
                 type="range"
-                className="scrubber min-w-24 flex-1"
+                disabled={transitionBlocked}
+                className="scrubber min-w-24 flex-1 disabled:cursor-not-allowed disabled:opacity-50"
                 min={0}
                 max={1000}
                 value={Math.round((previewing ? playback.progress : 0) * 1000)}

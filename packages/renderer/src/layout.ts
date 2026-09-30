@@ -5,6 +5,35 @@ export interface CanvasRect extends Size {
   readonly top: number;
 }
 
+/** Keep even rotated/off-canvas text reachable, preserving its box whenever it fits. */
+export function textEditorBox(element: KomaElement, canvas: Size, scale: number): CanvasRect {
+  const stageWidth = canvas.width * scale;
+  const stageHeight = canvas.height * scale;
+  let width = Math.max(32, element.size.width * scale);
+  let height = Math.max(32, element.size.height * scale);
+  const angle = (element.rotation * Math.PI) / 180;
+  const c = Math.abs(Math.cos(angle));
+  const s = Math.abs(Math.sin(angle));
+  const fit = Math.min(
+    1,
+    stageWidth / (width * c + height * s),
+    stageHeight / (width * s + height * c),
+  );
+  width *= fit;
+  height *= fit;
+  const halfWidth = (width * c + height * s) / 2;
+  const halfHeight = (width * s + height * c) / 2;
+  const centerX = Math.max(
+    halfWidth,
+    Math.min(stageWidth - halfWidth, (element.position.x + element.size.width / 2) * scale),
+  );
+  const centerY = Math.max(
+    halfHeight,
+    Math.min(stageHeight - halfHeight, (element.position.y + element.size.height / 2) * scale),
+  );
+  return { left: centerX - width / 2, top: centerY - height / 2, width, height };
+}
+
 /** Uses the measured viewport rect, including fit, zoom and ancestor transforms. */
 export function pointerToLogical(point: Position, rect: CanvasRect, canvas: Size): Position {
   return {

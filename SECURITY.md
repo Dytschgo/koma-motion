@@ -129,6 +129,26 @@ by itself, and it does so for updates only.
 
 ## Known limitations
 
+### Deck analysis
+
+PPTX/PDF Brand Kit analysis uses a dedicated validated IPC and provider path.
+Deck content is untrusted data. PPTX archives are bounded and inspected for
+unsafe entries, expansion, CRC errors, XML entities, active content and
+external relationships before an isolated LibreOffice process converts them.
+The original is read only. LibreOffice uses an isolated profile with macros
+disabled and receives no provider API keys. PDF.js runs in a disposable
+sandboxed renderer under the existing CSP, with no network or filesystem API.
+The prepared previews are never interpreted as HTML or executable code.
+
+After disclosure and an explicit Send action, only selected extracted text,
+PNG slide previews and validated logo candidates are passed inline to Claude
+Code. Agent output cannot select a file or executable; it can reference only
+app-owned logo IDs. Library save is separate from project application.
+Normal cancellation, failure and shutdown clean temporary data. Forced OS
+termination and hard filesystem quotas are outside this guarantee; the
+converter's storage budget is monitored rather than enforced by an OS quota.
+See [the complete limits and privacy behavior](docs/BRAND_KIT_FROM_DECK.md).
+
 - **The installers are not signed with a certificate and not notarised.**
   The checks above protect against damaged and mixed-up files. They do not
   protect against someone who can publish releases in the repository or

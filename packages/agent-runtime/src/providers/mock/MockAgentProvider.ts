@@ -1,5 +1,12 @@
 import { agentError } from '../../contract/errors';
+import { createDefaultBrandKit } from '@koma-motion/brand-kit';
+import type {
+  BrandKitAnalysisContext,
+  BrandKitAnalysisRequest,
+  BrandKitAnalysisResponse,
+} from '../../contract/brandKitAnalysis';
 import type { PresentationGenerationRequest } from '../../contract/request';
+import type { TransitionRegenerationRequest } from '../../contract/transition';
 import type {
   AgentExecutionContext,
   AgentProvider,
@@ -7,7 +14,7 @@ import type {
   ProviderExecutionResult,
   ProviderMetadata,
 } from '../types';
-import { buildMockResponse } from './mockStory';
+import { buildMockResponse, buildMockTransitionSettings } from './mockStory';
 
 export const MOCK_PROVIDER_ID = 'mock';
 export const MOCK_PROVIDER_VERSION = '1.0.0';
@@ -17,6 +24,7 @@ const PROGRESS_STEPS = [
   'Composing the Komas',
   'Choosing the choreography',
 ] as const;
+const TRANSITION_PROGRESS_STEPS = ['Comparing the two Komas', 'Choosing the choreography'] as const;
 
 export interface MockAgentProviderOptions {
   /**
@@ -51,6 +59,32 @@ function sleep(durationMs: number, signal: AbortSignal): Promise<void> {
  * answers with the same demonstration story for the same request.
  */
 export class MockAgentProvider implements AgentProvider {
+  async analyzeBrandKit(
+    request: BrandKitAnalysisRequest,
+    context: BrandKitAnalysisContext,
+  ): Promise<BrandKitAnalysisResponse> {
+    await sleep(this.#delayMs, context.signal);
+    context.signal.throwIfAborted();
+    return {
+      brandKit: {
+        ...createDefaultBrandKit(),
+        name: 'Mock deck brand',
+        logoAssetId: null,
+        referenceNotes:
+          'Demonstration proposal only. Colours and fonts are safe defaults, not inferred from the deck.',
+      },
+      logoCandidateId: request.logoCandidates[0]?.id ?? null,
+      evidence: [
+        {
+          field: 'visualStyle',
+          confidence: 'low',
+          slides: [request.slides[0]?.number ?? 1],
+          observation: 'Mock analysis fixture; no visual inference was performed.',
+        },
+      ],
+      warnings: ['Mock provider: this is a local demonstration, not visual analysis.'],
+    };
+  }
   readonly id = MOCK_PROVIDER_ID;
   readonly displayName = 'Mock provider';
   readonly metadata: ProviderMetadata = {
@@ -86,11 +120,28 @@ export class MockAgentProvider implements AgentProvider {
     request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
+    return this.#answer(PROGRESS_STEPS, context, () => buildMockResponse(request));
+  }
+
+  async generateTransition(
+    request: TransitionRegenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult> {
+    return this.#answer(TRANSITION_PROGRESS_STEPS, context, () =>
+      buildMockTransitionSettings(request),
+    );
+  }
+
+  async #answer(
+    steps: readonly string[],
+    context: AgentExecutionContext,
+    build: () => unknown,
+  ): Promise<ProviderExecutionResult> {
     const details = { exitCode: null, errorOutput: '' };
     try {
-      for (const step of PROGRESS_STEPS) {
+      for (const step of steps) {
         context.reportProgress(step);
-        await sleep(this.#delayMs / PROGRESS_STEPS.length, context.signal);
+        await sleep(this.#delayMs / steps.length, context.signal);
       }
     } catch {
       return {
@@ -101,7 +152,7 @@ export class MockAgentProvider implements AgentProvider {
     }
     return {
       ok: true,
-      output: { rawText: JSON.stringify(buildMockResponse(request)) },
+      output: { rawText: JSON.stringify(build()) },
       details,
     };
   }

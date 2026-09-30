@@ -10,6 +10,11 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 const API_KEY = 'komaMotion';
 
 const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
+  'koma:deck:capabilities',
+  'koma:deck:prepare',
+  'koma:deck:analyze',
+  'koma:deck:cancel',
+  'koma:deck:save',
   'koma:instruction-templates:list',
   'koma:instruction-templates:change',
   'koma:project:create',
@@ -28,6 +33,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
   'koma:brand-kits:start-new',
   'koma:providers:detect',
   'koma:providers:execute',
+  'koma:providers:regenerate-transition',
   'koma:providers:cancel',
   'koma:app:set-unsaved-changes',
   'koma:app:confirm-close',
@@ -40,6 +46,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
 ]);
 
 const EVENT_CHANNELS: ReadonlySet<string> = new Set([
+  'koma:deck:progress',
   'koma:providers:status',
   'koma:app:save-and-close',
   'koma:updates:status',

@@ -2,6 +2,7 @@ import { buildProject } from '@koma-motion/core/testing';
 import { agentError } from '../contract/errors';
 import { buildGenerationRequest, type PresentationGenerationRequest } from '../contract/request';
 import type { AgentPresentationResponse } from '../contract/response';
+import type { TransitionRegenerationRequest } from '../contract/transition';
 import { buildMockResponse } from '../providers/mock/mockStory';
 import type {
   AgentExecutionContext,
@@ -45,6 +46,8 @@ export class ScriptedProvider implements AgentProvider {
   readonly displayName = 'Scripted provider';
   readonly metadata;
   readonly contexts: AgentExecutionContext[] = [];
+  /** Which method answered each attempt. */
+  readonly tasks: ('presentation' | 'transition')[] = [];
   detection: ProviderDetectionResult;
 
   readonly #answers: ScriptedAnswer[];
@@ -78,6 +81,19 @@ export class ScriptedProvider implements AgentProvider {
     _request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
+    this.tasks.push('presentation');
+    return this.#answer(context);
+  }
+
+  generateTransition(
+    _request: TransitionRegenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult> {
+    this.tasks.push('transition');
+    return this.#answer(context);
+  }
+
+  #answer(context: AgentExecutionContext): Promise<ProviderExecutionResult> {
     this.contexts.push(context);
     const details = { exitCode: 0, errorOutput: '' };
     const answer = this.#answers.shift();

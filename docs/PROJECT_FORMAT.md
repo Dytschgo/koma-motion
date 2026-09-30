@@ -274,6 +274,14 @@ Warnings do not prevent a project from opening:
 - the project was migrated from an older version.
 
 Missing assets are drawn as a placeholder that is labelled as a missing image.
+The [Project health panel](PROJECT_HEALTH.md) groups these problems separately
+from upgrade information and offers targeted image and logo repairs.
+
+A transition that cannot play is not a load warning. The file opens with the
+stored motion unchanged. The application checks every transition against its
+Komas while the project is edited and explains a transition that cannot play
+next to the preview controls, where it can be regenerated. See
+[Motion model](MOTION_MODEL.md#transitions-that-cannot-play).
 
 ## Schema versions and migration
 
@@ -291,8 +299,8 @@ to an existing file, it reads the schema version of that file and refuses to
 save if it is newer than its own. "Save as" with another name remains
 possible.
 
-There are no migrations yet because version 1 is the first version. To change
-the schema:
+The current format is version 3, with migrations registered for versions 1
+and 2. To change the schema:
 
 1. Increase `CURRENT_SCHEMA_VERSION` in `packages/core/src/schema/project.ts`.
 2. Add a migration from the previous version to

@@ -1,0 +1,56 @@
+Review Brand Kit proposal
+
+Create a reusable library entry. Your current project stays unchanged. You can apply the saved kit afterward.
+
+northstar.pdf
+
+Analyzed slides: 1, 2, 3 of 3.
+
+No reliable reusable logo was extracted. The proposed kit will have no logo.
+
+Claude Code · Opus · 30/09/2026, 15:43:57
+
+No logo candidate IDs were supplied. The recurring amber square plus 'NORTHSTAR' wordmark looks like a logo but wasn't selected.
+
+Fonts couldn't be identified from the images, so Arial is used as a safe default.
+
+Hex colours are estimated from rendered images and may differ slightly from the official brand values.
+
+No photography or illustrations appeared, so preferred imagery is left empty.
+
+Evidence and confidence
+colours · high confidence · Slides 1, 2, 3: Solid dark navy background on every slide, with an amber square and rectangle and a teal circle recurring in identical positions. Slide 2 text describes the palette as navy, amber and teal.
+colours · high confidence · Slides 1, 2, 3: All headline, subtitle and wordmark text is white on navy.
+typography · low confidence · Slides 1, 2, 3: Headlines use a bold sans-serif and subtitles a regular-weight sans-serif. The exact fonts can't be identified, so Arial is used as the default.
+name · high confidence · Slides 1: Slide 1 title reads 'Northstar Studio', and the 'NORTHSTAR' wordmark appears on all slides.
+tone · medium confidence · Slides 1, 2, 3: Short, direct statements: 'Clear thinking. Confident design.', 'Designed for people', and 'direct language'.
+visualStyle · high confidence · Slides 1, 2, 3: Consistent minimal layout with generous spacing, left-aligned text and flat geometric shapes. Slide 3 text mentions 'Simple geometry, generous space'.
+iconStyle · medium confidence · Slides 1, 2, 3: Only flat solid geometric shapes appear; there are no icons, outlines or gradients.
+logo · medium confidence · Slides 1, 2, 3: An amber square next to the uppercase 'NORTHSTAR' text in the top-left looks like a recurring logo lockup, but no logo candidate IDs were supplied.
+Library name
+Brand name
+
+Northstar Studio
+
+Body text uses the body font and the text colour on the background colour.
+
+Primary colour
+Secondary colour
+Accent colour
+Background colour
+Text colour
+Heading font
+Body font
+Tone
+Visual style
+Icon style
+Preferred imagery
+Reference notes
+Preferred topics (one per line)
+Logo
+ No logo
+
+No reliable logo was identified. The kit can be saved without one.
+
+Close
+Save new Brand Kit

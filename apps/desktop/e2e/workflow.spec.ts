@@ -36,20 +36,14 @@ test('explains the mock demo and how to generate from a request', async () => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800);
   });
 
-  const provider = window.getByLabel('Provider');
+  const provider = window.getByLabel('Provider', { exact: true });
   const exampleRequest =
     'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
-  const mockExplanation = window.getByText(
-    'Mock always creates the same three-Koma demo, whatever you ask. To generate from your request, choose an installed agent above.',
-  );
+  const mockExplanation = window.getByText('Demo only · 3 Komas');
   await expect(provider).toHaveValue('mock');
   await expect(mockExplanation).toBeVisible();
   await expect(mockExplanation).toBeInViewport({ ratio: 1 });
-  await expect(
-    window.getByText(
-      'Try the built-in three-Koma demo to see how Koma Motion works. Your Brand Kit colours are applied.',
-    ),
-  ).toBeVisible();
+  await expect(window.getByText('Try the three-Koma demo.')).toBeVisible();
 
   await window.getByRole('button', { name: 'Use the example request' }).click();
   await expect(window.getByLabel('Your request')).toHaveValue(exampleRequest);
@@ -57,10 +51,8 @@ test('explains the mock demo and how to generate from a request', async () => {
   await provider.selectOption('claude-code');
   await expect(provider).toHaveValue('claude-code');
   await expect(mockExplanation).toHaveCount(0);
-  await expect(window.getByText(/^Describe the presentation you want\./)).toBeVisible();
-  await expect(
-    window.getByText(/^Claude Code sends your request.*online service\.$/),
-  ).toBeVisible();
+  await expect(window.getByText('What would you like to present?')).toBeVisible();
+  await expect(window.getByText(/^Claude Code sends your request.*online\.$/)).toBeVisible();
   await expect(window.getByLabel('Your request')).toHaveValue(exampleRequest);
   await expect(window.getByRole('list', { name: 'Komas' })).toHaveCount(0);
   expect(problems).toEqual([]);
@@ -105,11 +97,11 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   });
 
   await test.step('select the mock provider', async () => {
-    const provider = window.getByLabel('Provider');
+    const provider = window.getByLabel('Provider', { exact: true });
     await provider.selectOption('mock');
     await expect(provider).toHaveValue('mock');
-    await expect(window.getByText(/Available: Built in/)).toBeVisible();
-    await expect(window.getByText(/Mock always creates the same three-Koma demo/)).toBeVisible();
+    await expect(window.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
+    await expect(window.getByText('Demo only · 3 Komas')).toBeVisible();
   });
 
   await test.step('submit a generation request and receive three Komas', async () => {
@@ -137,6 +129,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
 
     await getStage().getByRole('button', { name: 'Motion engine (shape)' }).click();
     await expect(window.getByRole('heading', { name: 'Selected element' })).toBeVisible();
+    await window.getByRole('button', { name: /^Details/ }).click();
     await expect(window.getByText('motion-engine', { exact: true })).toBeVisible();
     await expect(window.getByLabel('Width')).toHaveValue('400');
   });
@@ -246,16 +239,34 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
     ).toContainText('0 changes');
   });
 
-  await test.step('changing an element keeps stored motion until explicitly regenerated', async () => {
+  await test.step('a changed element marks its transitions until they are regenerated', async () => {
     await showInspector(window);
     await window
       .getByRole('region', { name: 'Canvas' })
       .getByRole('button', { name: 'Motion engine (shape)' })
       .click();
     await window.getByLabel('X', { exact: true }).fill('300');
+    // The stored motion no longer matches, so the in-between is marked and not played.
+    const stale = window.getByRole('button', {
+      name: 'Transition from Koma 1 to Koma 2: out of date. It cannot play. Show the problem',
+    });
+    await expect(stale).toBeVisible();
+    await expect(window.getByLabel('X', { exact: true })).toHaveValue('300');
+
+    await stale.click();
+    const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
+    await expect(warning).toContainText('no longer matches "Motion engine"');
+    await warning.getByRole('button', { name: 'Regenerate transition' }).click();
+    await expect(warning).toHaveCount(0);
     await expect(
       window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
-    ).toContainText('0 changes');
+    ).toContainText('1 change');
+    // Regeneration keeps the edited Koma.
+    await window.getByRole('button', { name: 'Koma 2: Koma 4' }).click();
+    await window
+      .getByRole('region', { name: 'Canvas' })
+      .getByRole('button', { name: 'Motion engine (shape)' })
+      .click();
     await expect(window.getByLabel('X', { exact: true })).toHaveValue('300');
   });
 
@@ -508,8 +519,12 @@ test('explains why a file cannot be opened', async () => {
   await answerOpenDialog(application, filePath);
   await window.getByRole('button', { name: 'Open a project' }).click();
 
-  await expect(window.getByRole('alert')).toContainText('format version 99');
-  await expect(window.getByRole('alert')).toContainText('Update Koma Motion');
+  const health = window.getByRole('dialog', { name: 'Project health' });
+  await expect(health).toContainText('The original file was not changed');
+  await health.getByText('Inspect diagnostics', { exact: true }).click();
+  await expect(health).toContainText('format version 99');
+  await expect(health).toContainText('Update Koma Motion');
+  await health.getByRole('button', { name: 'Close', exact: true }).click();
   await expect(window.getByRole('heading', { name: /Presentations are frames/ })).toBeVisible();
 });
 

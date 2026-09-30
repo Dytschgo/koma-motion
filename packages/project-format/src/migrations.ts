@@ -71,7 +71,16 @@ export function migrateToVersion(
         ),
       );
     }
-    current = { ...migration.migrate(current), schemaVersion: version + 1 };
+    try {
+      current = { ...migration.migrate(current), schemaVersion: version + 1 };
+    } catch {
+      return err(
+        projectFormatError(
+          'migrationFailed',
+          `The upgrade from format version ${String(version)} to ${String(version + 1)} could not be completed.`,
+        ),
+      );
+    }
   }
   return ok({ document: current, migratedFrom: fromVersion });
 }

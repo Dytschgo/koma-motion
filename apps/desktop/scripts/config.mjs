@@ -55,6 +55,10 @@ export function preloadConfig(mode) {
   return nodeBundle('preload', 'src/preload/index.ts', mode);
 }
 
+export function deckPreloadConfig(mode) {
+  return nodeBundle('deck-preload', 'src/preload/deckRender.ts', mode);
+}
+
 export function rendererConfig(mode) {
   return {
     configFile: false,
@@ -71,6 +75,12 @@ export function rendererConfig(mode) {
       sourcemap: mode === 'development',
       // Images are embedded in projects, never in the application bundle.
       assetsInlineLimit: 0,
+      rolldownOptions: {
+        input: {
+          main: resolve(root, 'src/renderer/index.html'),
+          deck: resolve(root, 'src/renderer/deck-render.html'),
+        },
+      },
     },
   };
 }

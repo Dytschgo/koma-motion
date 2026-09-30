@@ -1,8 +1,51 @@
 import { buildShape } from '@koma-motion/core/testing';
 import { describe, expect, it } from 'vitest';
-import { containsPointer, moveElement, pointerToLogical, resizeElement } from './layout';
+import {
+  containsPointer,
+  moveElement,
+  pointerToLogical,
+  resizeElement,
+  textEditorBox,
+} from './layout';
 
 describe('canvas editing geometry', () => {
+  it.each([0.1, 0.5, 1, 4])(
+    'keeps rotated and off-stage editors inside the stage at scale %s',
+    (scale) => {
+      const canvas = { width: 1920, height: 1080 };
+      for (const rotation of [0, 45, 90, 175]) {
+        for (const position of [
+          { x: -500, y: -500 },
+          { x: 1900, y: 1000 },
+        ]) {
+          const element = buildShape({ position, rotation, size: { width: 2500, height: 1200 } });
+          const box = textEditorBox(element, canvas, scale);
+          const angle = (rotation * Math.PI) / 180;
+          const halfWidth =
+            (box.width * Math.abs(Math.cos(angle)) + box.height * Math.abs(Math.sin(angle))) / 2;
+          const halfHeight =
+            (box.width * Math.abs(Math.sin(angle)) + box.height * Math.abs(Math.cos(angle))) / 2;
+          expect(box.left + box.width / 2 - halfWidth).toBeGreaterThanOrEqual(-0.001);
+          expect(box.top + box.height / 2 - halfHeight).toBeGreaterThanOrEqual(-0.001);
+          expect(box.left + box.width / 2 + halfWidth).toBeLessThanOrEqual(
+            canvas.width * scale + 0.001,
+          );
+          expect(box.top + box.height / 2 + halfHeight).toBeLessThanOrEqual(
+            canvas.height * scale + 0.001,
+          );
+        }
+      }
+    },
+  );
+
+  it('preserves the text box when it already fits', () => {
+    expect(textEditorBox(buildShape(), { width: 1920, height: 1080 }, 0.5)).toEqual({
+      left: 50,
+      top: 50,
+      width: 100,
+      height: 100,
+    });
+  });
   it.each([0.2, 0.5, 1, 2])(
     'maps viewport coordinates at scale %s including scroll offsets',
     (scale) => {

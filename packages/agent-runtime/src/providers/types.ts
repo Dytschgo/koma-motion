@@ -2,7 +2,13 @@ import { modelNameSchema, providerIdSchema } from '@koma-motion/core';
 import { z } from 'zod';
 import { agentErrorSchema, type AgentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
+import type { TransitionRegenerationRequest } from '../contract/transition';
 import type { AgentPrompt } from '../prompts/presentationGeneration';
+import type {
+  BrandKitAnalysisContext,
+  BrandKitAnalysisRequest,
+  BrandKitAnalysisResponse,
+} from '../contract/brandKitAnalysis';
 
 export const providerMetadataSchema = z.object({
   id: providerIdSchema,
@@ -137,8 +143,23 @@ export interface AgentProvider {
 
   detect(): Promise<ProviderDetectionResult>;
 
+  /** Optional dedicated visual analysis capability. Never generates or changes a presentation. */
+  analyzeBrandKit?(
+    request: BrandKitAnalysisRequest,
+    context: BrandKitAnalysisContext,
+  ): Promise<BrandKitAnalysisResponse>;
+
   generatePresentation(
     request: PresentationGenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult>;
+
+  /**
+   * Proposes new settings for one transition. The output is validated like
+   * presentation output, against the transition contract in the prompt.
+   */
+  generateTransition(
+    request: TransitionRegenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult>;
 }

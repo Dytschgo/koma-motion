@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { err, ok, modelNameSchema, type Result } from '@koma-motion/core';
 import { agentError, type AgentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
+import type { TransitionRegenerationRequest } from '../contract/transition';
 import type {
   AgentExecutionContext,
   AgentProvider,
@@ -153,10 +154,32 @@ export class CodexCliProvider implements AgentProvider {
     });
   }
 
-  async generatePresentation(
+  generatePresentation(
     _request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
+    return this.#run(
+      context,
+      context.attempt === 1
+        ? 'Codex is designing the Komas. This can take a few minutes'
+        : 'Codex is correcting its response',
+    );
+  }
+
+  /** The CLI only sees the rendered prompt, so a transition runs like a presentation. */
+  generateTransition(
+    _request: TransitionRegenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult> {
+    return this.#run(
+      context,
+      context.attempt === 1
+        ? 'Codex is choosing the motion of one transition'
+        : 'Codex is correcting its response',
+    );
+  }
+
+  async #run(context: AgentExecutionContext, progress: string): Promise<ProviderExecutionResult> {
     const executable = await this.#environment.resolveExecutable(EXECUTABLE_NAME);
     if (executable === null) {
       return {
@@ -173,11 +196,7 @@ export class CodexCliProvider implements AgentProvider {
         JSON.stringify(context.prompt.responseJsonSchema),
         'utf8',
       );
-      context.reportProgress(
-        context.attempt === 1
-          ? 'Codex is designing the Komas. This can take a few minutes'
-          : 'Codex is correcting its response',
-      );
+      context.reportProgress(progress);
       const outcome = await this.#environment.runProcess({
         executable,
         arguments: buildCodexArguments({ workingDirectory, model: context.model }),

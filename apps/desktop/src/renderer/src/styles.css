@@ -29,7 +29,7 @@
 
   --text-xs: 0.6875rem;
   --text-sm: 0.75rem;
-  --text-base: 0.8125rem;
+  --text-base: 0.875rem;
   --text-lg: 0.9375rem;
   --text-xl: 1.125rem;
   --text-2xl: 1.5rem;
@@ -111,6 +111,31 @@
 }
 
 @layer components {
+  .studio-topbar {
+    background: linear-gradient(180deg, #232831 0%, var(--color-desk-800) 100%);
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.025) inset;
+  }
+
+  .studio-welcome {
+    background:
+      radial-gradient(ellipse 42% 46% at 50% 39%, rgb(36 76 99 / 0.16), transparent 100%),
+      var(--color-desk-950);
+  }
+
+  .studio-welcome-sequence {
+    background: linear-gradient(145deg, rgb(37 45 56 / 0.83), rgb(23 28 35 / 0.55));
+    box-shadow:
+      0 18px 60px rgb(0 0 0 / 0.18),
+      0 1px 0 rgb(255 255 255 / 0.05) inset;
+  }
+
+  .studio-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23b9c0cc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+  }
+
   /* The progress control of the transition preview. */
   .scrubber {
     appearance: none;

@@ -3,7 +3,12 @@
  * unsaved changes. Temporary interface state lives in `uiStore`, the state of
  * agent executions in `agentStore`.
  */
-import { createRandomIdGenerator, type KomaProject } from '@koma-motion/core';
+import {
+  collectProjectWarnings,
+  createRandomIdGenerator,
+  type KomaProject,
+} from '@koma-motion/core';
+import { validateTransition } from '@koma-motion/motion-engine';
 import { create } from 'zustand';
 import type { ProjectFileInfo } from '../../../shared/ipc';
 import type { ProjectCommand } from './commands';
@@ -24,6 +29,7 @@ interface ProjectState {
   readonly savedProject: KomaProject | null;
   /** Warnings reported when the project was opened. */
   readonly loadWarnings: readonly string[];
+  readonly migratedFrom: number | null;
   /**
    * Identity of the project open in this window. It changes when that project
    * is replaced, so a result from the previous project can be recognised.
@@ -38,6 +44,7 @@ interface ProjectState {
     project: KomaProject,
     file: ProjectFileInfo | null,
     warnings?: readonly string[],
+    migratedFrom?: number | null,
   ) => void;
   /**
    * Reserves a serial for a save of the project that is open now.
@@ -66,16 +73,33 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   file: null,
   savedProject: null,
   loadWarnings: [],
+  migratedFrom: null,
   sessionId: 0,
   nextSaveSerial: 1,
   appliedSaveSerial: 0,
 
-  load(project, file, warnings = []) {
+  load(project, file, warnings = [], migratedFrom = null) {
+    // Live issues are recalculated from the document, never retained as stale load messages.
+    const live = new Set([
+      ...collectProjectWarnings(project).map((warning) => warning.message),
+      ...project.presentation.transitions.flatMap((transition) =>
+        validateTransition(transition, project.presentation).map((issue) => issue.message),
+      ),
+    ]);
     set((state) => ({
       history: createHistory(project),
       file,
       savedProject: project,
-      loadWarnings: warnings,
+      loadWarnings: [
+        ...new Set(
+          warnings.filter(
+            (warning) =>
+              !live.has(warning) &&
+              !warning.startsWith('The project was upgraded from format version '),
+          ),
+        ),
+      ],
+      migratedFrom,
       sessionId: state.sessionId + 1,
       appliedSaveSerial: 0,
     }));
@@ -100,7 +124,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       ) {
         return state;
       }
-      const accepted = { file, appliedSaveSerial: claim.serial };
+      const accepted = { file, appliedSaveSerial: claim.serial, migratedFrom: null };
       if (state.history.present !== sent) {
         // The document changed while it was being saved: it still has unsaved changes.
         return { ...accepted, savedProject: sent };
@@ -153,7 +177,8 @@ export const selectProject = (state: ProjectState): KomaProject | null =>
   state.history?.present ?? null;
 
 export const selectHasUnsavedChanges = (state: ProjectState): boolean =>
-  state.history !== null && state.history.present !== state.savedProject;
+  state.history !== null &&
+  (state.history.present !== state.savedProject || state.migratedFrom !== null);
 
 export const selectCanUndo = (state: ProjectState): boolean =>
   state.history !== null && canUndo(state.history);

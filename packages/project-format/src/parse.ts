@@ -1,5 +1,6 @@
 import {
   collectProjectWarnings,
+  CURRENT_SCHEMA_VERSION,
   describeIssues,
   err,
   exceedsUtf8ByteLength,
@@ -12,7 +13,6 @@ import {
   type KomaProject,
   type Result,
 } from '@koma-motion/core';
-import { validateTransition } from '@koma-motion/motion-engine';
 import { isProjectTooLarge, projectFormatError, type ProjectFormatError } from './errors';
 import { migrateToVersion, type RawProject } from './migrations';
 import { findDroppedFields } from './unknownFields';
@@ -82,8 +82,8 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
     }
     return err(
       projectFormatError(
-        'invalidProject',
-        `The project contains invalid data:\n${describeIssues(issues)}`,
+        migrated.value.migratedFrom === null ? 'invalidProject' : 'migrationFailed',
+        `${migrated.value.migratedFrom === null ? 'The project contains invalid data' : 'The upgraded project could not be validated'}:\n${describeIssues(issues)}`,
         issues,
       ),
     );
@@ -92,8 +92,7 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
   const warnings: string[] = [];
   if (migrated.value.migratedFrom !== null) {
     warnings.push(
-      `The project was upgraded from format version ${String(migrated.value.migratedFrom)}. Saving stores it in the current format.`,
-      'Generation now runs until completion or cancellation. The old automatic time limit was disabled; you can enable an optional timer in Settings.',
+      `The project was upgraded from format version ${String(migrated.value.migratedFrom)} to ${String(CURRENT_SCHEMA_VERSION)}. Saving writes the current format.`,
     );
   }
   for (const path of findDroppedFields(migrated.value.document, validated.data)) {
@@ -104,11 +103,9 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
   for (const warning of collectProjectWarnings(validated.data)) {
     warnings.push(warning.message);
   }
-  for (const transition of validated.data.presentation.transitions) {
-    for (const issue of validateTransition(transition, validated.data.presentation)) {
-      warnings.push(issue.message);
-    }
-  }
+  // Transitions that cannot play are not load warnings. Whether a transition
+  // plays depends on the document as it is edited, so the application checks
+  // it continuously and explains it next to the preview controls.
 
   return ok({
     project: validated.data,

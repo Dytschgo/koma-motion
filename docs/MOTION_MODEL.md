@@ -212,6 +212,43 @@ The renderer draws frames. It has no knowledge of how they were computed, and
 the motion model does not depend on an animation library: the preview uses
 `requestAnimationFrame` to advance the progress.
 
+### Transitions that cannot play
+
+A transition is checked against its two Komas whenever the document changes.
+Moving, resizing or recolouring an object on the canvas keeps the stored
+motion, so after such an edit the transitions on both sides of that Koma no
+longer match and cannot play. The same holds for damaged motion in a file.
+
+The application then:
+
+- disables Play, Restart, the position control and Preview for that
+  transition, and says "Cannot play" next to them,
+- marks the in-between in the Koma strip ("Out of date" or "Cannot play");
+  selecting it shows the explanation instead of a preview,
+- shows one warning between the canvas and the preview controls. It names
+  the source and destination Komas, gives the reason (for a stale transition,
+  the objects whose motion no longer matches) and offers what helps.
+
+What helps depends on the issue (`getMotionIssueRemedy`):
+
+| Issue                                                                        | What the warning offers                                           |
+| ---------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| stale motion, a false element reference, duplicate or conflicting operations | **Regenerate transition**, and links to both Komas                |
+| a Koma that is not valid, for example two objects with one persistent id     | no fix: the Koma has to be corrected by hand; links to both Komas |
+| an operation this version does not know                                      | no fix: the rest plays; a later version is needed for that part   |
+
+Regeneration asks the selected provider and model for new timing and a
+rationale, rebuilds the operations from the Komas as they are and replaces
+only that transition, as one undoable step. If either Koma, or the settings
+of the transition, changed while the provider worked, the result is discarded
+and the warning says so. A failure, a cancellation or an invalid answer
+leaves the transition and all edits unchanged and offers a retry. See
+[Agent providers](AGENT_PROVIDERS.md#transition-regeneration).
+
+The Inspector points to this warning instead of repeating it. Transition
+problems are not load warnings: the Inspector's warnings list keeps showing
+project problems such as missing assets.
+
 ### Reduced motion
 
 When the operating system asks for reduced motion, the preview does not move

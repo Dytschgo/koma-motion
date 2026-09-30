@@ -21,8 +21,8 @@ function positionSlider(page: Page): Locator {
 
 async function createGeneratedProject(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create a project' }).click();
-  await page.getByLabel('Provider').selectOption('mock');
-  await expect(page.getByLabel('Provider')).toHaveValue('mock');
+  await page.getByLabel('Provider', { exact: true }).selectOption('mock');
+  await expect(page.getByLabel('Provider', { exact: true })).toHaveValue('mock');
   await page.getByRole('button', { name: 'Use the example request' }).click();
   await page.getByRole('button', { name: 'Generate Komas' }).click();
   await expect(

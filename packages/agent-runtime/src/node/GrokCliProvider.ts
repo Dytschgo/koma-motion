@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { modelNameSchema } from '@koma-motion/core';
 import { agentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
+import type { TransitionRegenerationRequest } from '../contract/transition';
 import type {
   AgentExecutionContext,
   AgentProvider,
@@ -161,10 +162,32 @@ export class GrokCliProvider implements AgentProvider {
     });
   }
 
-  async generatePresentation(
+  generatePresentation(
     _request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
+    return this.#run(
+      context,
+      context.attempt === 1
+        ? 'Grok is designing the Komas. This can take a few minutes'
+        : 'Grok is correcting its response',
+    );
+  }
+
+  /** The CLI only sees the rendered prompt, so a transition runs like a presentation. */
+  generateTransition(
+    _request: TransitionRegenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult> {
+    return this.#run(
+      context,
+      context.attempt === 1
+        ? 'Grok is choosing the motion of one transition'
+        : 'Grok is correcting its response',
+    );
+  }
+
+  async #run(context: AgentExecutionContext, progress: string): Promise<ProviderExecutionResult> {
     const executable = await this.#environment.resolveExecutable(EXECUTABLE_NAME);
     if (executable === null) {
       return {
@@ -178,11 +201,7 @@ export class GrokCliProvider implements AgentProvider {
     try {
       const promptFile = join(workingDirectory, PROMPT_FILE_NAME);
       await writeFile(promptFile, context.prompt.user, 'utf8');
-      context.reportProgress(
-        context.attempt === 1
-          ? 'Grok is designing the Komas. This can take a few minutes'
-          : 'Grok is correcting its response',
-      );
+      context.reportProgress(progress);
       const outcome = await this.#environment.runProcess({
         executable,
         arguments: buildGrokArguments({

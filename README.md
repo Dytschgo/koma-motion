@@ -99,7 +99,9 @@ Everything in this list is implemented and covered by automated tests.
 - Save Brand Kits, logo included, to a library on this computer and apply
   them to any project. Applying a kit can be undone.
 - Describe a presentation in the chat and choose a provider. The chat is a
-  sidebar beside the canvas that can be resized and collapsed.
+  sidebar beside the canvas that can be resized and collapsed. Beside the
+  request, choose the model of the provider and the number of Komas (5 at
+  first, or Auto to let the agent decide).
 - Generate three Komas with the built-in mock provider, without network and
   without an API key.
 - Generate Komas with Claude Code or Grok. Tested on Windows.
@@ -198,6 +200,13 @@ saved kit keeps working after the project it came from is closed or deleted.
 Applying a saved kit copies its settings and logo into the open project; you
 can undo it, and the project file stays self-contained. A library file that
 cannot be read is reported and never overwritten.
+
+The library can also **Create Brand Kit from deck** using a local PPTX or PDF
+and the connected Claude Code Opus model. PPTX previews require LibreOffice;
+PDF processing is bundled. Inspect the selected slide previews and privacy
+disclosure before sending, then review and edit the proposal before saving a
+new library entry. The current project is unchanged until you apply the kit.
+See [formats, privacy, limits and platform coverage](docs/BRAND_KIT_FROM_DECK.md).
 
 ## Motion model
 

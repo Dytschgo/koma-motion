@@ -8,6 +8,7 @@ import { KomaStrip } from './components/KomaStrip';
 import { ConfirmDialog, Notices } from './components/Overlays';
 import { SettingsDialog } from './components/SettingsDialog';
 import { TopBar } from './components/TopBar';
+import { ProjectHealth } from './components/ProjectHealth';
 import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
 import { detectProviders } from './lib/agentActions';
@@ -23,6 +24,7 @@ import {
 } from './lib/projectActions';
 import { useAgentStore } from './state/agentStore';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from './state/projectStore';
+import { useTransitionRegenerationStore } from './state/transitionRegenerationStore';
 import { useUiStore } from './state/uiStore';
 
 function isEditingText(target: EventTarget | null): boolean {
@@ -45,6 +47,7 @@ function useApplicationEvents(): void {
     void detectProviders();
     const unsubscribeStatus = subscribe('koma:providers:status', (event) => {
       useAgentStore.getState().addStatus(event);
+      useTransitionRegenerationStore.getState().progress(event.executionId, event.message);
     });
     const unsubscribeClose = subscribe('koma:app:save-and-close', () => {
       void saveAndClose();
@@ -173,6 +176,7 @@ export function App(): ReactElement {
       {project === null ? <Welcome /> : <ProjectLayout project={project} />}
       <SettingsDialog project={project} />
       <ConfirmDialog />
+      <ProjectHealth />
       <Notices />
     </div>
   );

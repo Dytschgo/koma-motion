@@ -42,13 +42,18 @@ For a changed implementation, also run the repository's format, lint, typecheck,
 
 ## Feature paths
 
+- [Brand Kit from deck](deck-brand-kit.md): local PPTX/PDF preparation, disclosure,
+  isolated review, library save, logo confirmation, cancellation, and optional live Opus analysis.
+
 - [Brand Kit drafts](brand-kit.md): character-by-character input, independent validation, navigation, undo, and project replacement.
 - [Preview controls](preview.md): transition identity, scrubbing, document edits, duration, and reduced motion at supported window sizes.
 - [Persisted motion](persisted-motion.md): warnings, blocked interpolation, stacking, and unchanged source files.
 - [Mock project workflow](project-workflow.md): create, generate, edit, save, and reopen.
 - [External file conflicts](file-conflicts.md): refuse a stale save and keep local edits in a copy.
+- [Project health and recovery](../../../../docs/PROJECT_HEALTH.md): format upgrades, failed opens, targeted asset repairs, dismissal, and keyboard access.
+- [Composer, canvas, Inspector and motion](studio.md): integrated editing and recovery paths.
 
-The focused specs were introduced by separate draft PRs. If a named spec is absent from the checkout, report that prerequisite; do not silently substitute another test or claim the feature was covered.
+If a named spec is absent from the checkout, report that prerequisite; do not silently substitute another test or claim the feature was covered.
 
 ## Separately requested real generation
 

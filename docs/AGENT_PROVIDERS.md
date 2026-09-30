@@ -1,5 +1,15 @@
 # Agent providers
 
+## Visual Brand Kit analysis
+
+The Brand Kit library has a separate deck-analysis request path. It uses the
+registered Claude Code provider with `--model opus` and inline PNG content
+blocks over `stream-json` stdin. It does not call presentation generation,
+send the current project, or grant file/shell/network tools. Structured output
+uses JSON Schema Draft 7, which the installed Claude Code 2.1.285 accepts;
+the default Zod 2020-12 dialect was rejected in the live compatibility check.
+See [Brand Kit from deck](BRAND_KIT_FROM_DECK.md) for the data flow and limits.
+
 Koma Motion does not run AI models. It orchestrates agent programs that are
 installed on the computer of the user and turns their structured output into
 Komas.
@@ -68,11 +78,47 @@ interface AgentProvider {
     request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult>;
+
+  generateTransition(
+    request: TransitionRegenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult>;
 }
 ```
 
 `AgentExecutionContext` contains the execution id, the attempt number, the
 rendered prompt, the model, an `AbortSignal` and a function to report progress.
+
+`generateTransition` regenerates one transition whose Komas changed after its
+motion was made. The CLI providers only see the rendered prompt, so both
+methods start the same process; only the prompt, the response schema and the
+progress message differ. `GenerationRunner.executeTransition` runs it with
+the same detection, cancellation, timeout, validation and single repair
+attempt as a presentation.
+
+### Transition regeneration
+
+The request (`TransitionRegenerationRequest`,
+`packages/agent-runtime/src/contract/transition.ts`) describes the two Komas
+(position, title, purpose and a summary of their elements), the operations
+the application derived from them, the current settings, the allowed
+strategies and easings, the duration range and the project instructions. It
+is built from the project as it is when the user asks, and only for a
+transition between two neighbouring Komas that can be compared.
+
+The response contains four values: `strategy`, `durationMs` (100 to
+10,000), `easing` and a non-empty `rationale`. The provider cannot change
+the Komas or the element operations: the renderer rebuilds the operations
+from the current Komas with `buildTransition` and replaces only that
+transition. It applies the answer only when neither Koma and none of the
+transition's settings changed while the provider worked, compared by content
+fingerprints (`fingerprintKoma`). Otherwise the answer is discarded and the
+transition stays marked as out of date.
+
+IPC channel: `koma:providers:regenerate-transition`, request
+`{ executionId, providerId, project, transitionId }`. It is cancelled with
+`koma:providers:cancel` and reports progress with `koma:providers:status`,
+like a generation. The model is the one configured for the selected provider.
 
 ### Differences to the originally proposed interface
 
@@ -190,7 +236,8 @@ Agents answer with data. Koma Motion does not parse prose.
 
 `PresentationGenerationRequest` contains:
 
-- the request of the user, objective and audience,
+- the request of the user, objective and audience (the chat sends neither
+  objective nor audience; the agent infers them from the request),
 - the Brand Kit as structured data, without image data,
 - the requested number of Komas,
 - a summary of the existing presentation, when there is one,
@@ -346,6 +393,13 @@ part of the user interface and not part of a provider.
 | `presentation-repair`     | 2       | the correction of a rejected response                 |
 | `presentation-generation` | 1       | retained previous wording; the runner does not use it |
 | `presentation-repair`     | 1       | retained previous wording; the runner does not use it |
+| `transition-regeneration` | 1       | new settings for one transition                       |
+| `transition-repair`       | 1       | the correction of a rejected transition response      |
+
+The transition templates are in
+`packages/agent-runtime/src/prompts/transitionRegeneration.ts`. All project
+data in them, including titles, element names and text, is wrapped as
+untrusted data.
 
 Every template renders three parts:
 
@@ -628,6 +682,9 @@ application can be used with it.
   that progress and cancellation can be seen.
 - Its output passes through the same validation as the output of every other
   provider.
+- To regenerate a transition, it keeps the current strategy, duration and
+  easing and writes a rationale that counts the objects that change, enter
+  and leave. It pretends to work for 1.2 seconds as well.
 
 The story:
 

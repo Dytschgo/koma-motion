@@ -1,4 +1,5 @@
-import { basename, extname } from 'node:path';
+import { basename, extname, resolve } from 'node:path';
+import { stat } from 'node:fs/promises';
 import { createDefaultBrandKit } from '@koma-motion/brand-kit';
 import { createProject, createRandomIdGenerator, type KomaProject } from '@koma-motion/core';
 import { PROJECT_FILE_EXTENSION, touchProject } from '@koma-motion/project-format';
@@ -121,7 +122,17 @@ export async function openProject(
   }
   const loaded = await readProjectFile(filePath);
   if (!loaded.ok) {
-    return { status: 'failed', message: loaded.error.message };
+    const reason =
+      loaded.error.code === 'migrationFailed'
+        ? 'Its format upgrade failed.'
+        : loaded.error.code === 'invalidProject'
+          ? 'Some project data could not be validated.'
+          : loaded.error.message;
+    return {
+      status: 'failed',
+      message: `This project could not be opened. ${reason} The original file was not changed. Try opening it again, restore a backup, or inspect the diagnostics.`,
+      diagnostics: `${loaded.error.code}: ${loaded.error.message}`,
+    };
   }
   replaceOpenProject(session);
   session.filePath = filePath;
@@ -131,6 +142,7 @@ export async function openProject(
     project: loaded.value.project,
     file: toFileInfo(filePath),
     warnings: [...loaded.value.warnings],
+    migratedFrom: loaded.value.migratedFrom,
   };
 }
 
@@ -187,10 +199,14 @@ export async function saveProjectAs(
   project: KomaProject,
   now: Date,
   sessionId = session.sessionId,
+  preserveOriginal = false,
 ): Promise<IpcResponse<'koma:project:save-as'>> {
+  const sourcePath = session.filePath;
   const selection = await dialog.showSaveDialog(window, {
-    title: 'Save project as',
-    defaultPath: session.filePath ?? `${toSafeFileName(project.name)}.${PROJECT_FILE_EXTENSION}`,
+    title: preserveOriginal ? 'Save a project copy' : 'Save project as',
+    defaultPath: preserveOriginal
+      ? `${toSafeFileName(project.name)} copy.${PROJECT_FILE_EXTENSION}`
+      : (session.filePath ?? `${toSafeFileName(project.name)}.${PROJECT_FILE_EXTENSION}`),
     filters: FILE_FILTERS,
     properties: ['showOverwriteConfirmation', 'createDirectory'],
   });
@@ -201,7 +217,27 @@ export async function saveProjectAs(
   if (session.sessionId !== sessionId) {
     return { status: 'cancelled' };
   }
-  return writeTo(withProjectExtension(selection.filePath), project, session, now, sessionId);
+  const chosenPath = withProjectExtension(selection.filePath);
+  const normalise = (path: string): string =>
+    process.platform === 'win32' ? resolve(path).toLowerCase() : resolve(path);
+  let sameSource = sourcePath !== null && normalise(chosenPath) === normalise(sourcePath);
+  if (preserveOriginal && sourcePath !== null && !sameSource) {
+    // Native selection can name the source through a symlink, hard link or case alias.
+    const [source, chosen] = await Promise.all([
+      stat(sourcePath).catch(() => null),
+      stat(chosenPath).catch(() => null),
+    ]);
+    sameSource =
+      source !== null && chosen !== null && source.dev === chosen.dev && source.ino === chosen.ino;
+  }
+  if (preserveOriginal && sameSource) {
+    return {
+      status: 'failed',
+      message: 'Choose a different name for the copy. The original project was not overwritten.',
+    };
+  }
+  if (session.sessionId !== sessionId) return { status: 'cancelled' };
+  return writeTo(chosenPath, project, session, now, sessionId);
 }
 
 export async function saveProject(

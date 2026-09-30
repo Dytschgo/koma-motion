@@ -3,14 +3,29 @@ import {
   presentationGenerationRequestSchema,
   type PresentationGenerationRequest,
 } from '../contract/request';
-import { getResponseJsonSchema, type AgentPresentationResponse } from '../contract/response';
+import {
+  getResponseJsonSchema,
+  type AgentPresentationResponse,
+  type JsonSchema,
+} from '../contract/response';
+import {
+  getTransitionResponseJsonSchema,
+  transitionRegenerationRequestSchema,
+  type AgentTransitionSettings,
+  type TransitionRegenerationRequest,
+} from '../contract/transition';
 import {
   presentationGenerationPromptV4,
   presentationRepairPromptV4,
   type AgentPrompt,
 } from '../prompts/presentationGeneration';
+import {
+  transitionRegenerationPromptV1,
+  transitionRepairPromptV1,
+} from '../prompts/transitionRegeneration';
 import type { ProviderRegistry } from '../providers/registry';
 import type {
+  AgentExecutionContext,
   AgentProvider,
   AttemptDiagnostics,
   ExecutionDiagnostics,
@@ -20,6 +35,7 @@ import type {
 } from '../providers/types';
 import { resolveProviderOutput } from '../validation/extract';
 import { validateAgentResponse } from '../validation/validateResponse';
+import { validateTransitionResponse } from '../validation/validateTransitionResponse';
 
 export const DEFAULT_TIMEOUT_MS = null;
 /** Node timers overflow above this value; reject invalid opt-in deadlines. */
@@ -27,21 +43,24 @@ export const MAX_TIMEOUT_MS = 2_147_483_647;
 /** One generation attempt plus at most one repair attempt. */
 export const MAX_ATTEMPTS = 2;
 
-export interface GenerationExecution {
+interface Execution<Request> {
   readonly executionId: string;
   readonly providerId: string;
-  readonly request: PresentationGenerationRequest;
+  readonly request: Request;
   readonly timeoutMs?: number | null;
   readonly model?: string | null;
   readonly onStatus?: (event: ExecutionStatusEvent) => void;
 }
 
-export type PresentationGenerationResult =
+export type GenerationExecution = Execution<PresentationGenerationRequest>;
+export type TransitionRegenerationExecution = Execution<TransitionRegenerationRequest>;
+
+type ExecutionResult<Response> =
   | {
       readonly status: 'succeeded';
       readonly executionId: string;
       readonly providerId: string;
-      readonly response: AgentPresentationResponse;
+      readonly response: Response;
       /** Sentences that can be shown to the user as they are. */
       readonly warnings: readonly string[];
       /** Whether the response was only accepted after the repair attempt. */
@@ -55,6 +74,91 @@ export type PresentationGenerationResult =
       readonly error: AgentError;
       readonly diagnostics: ExecutionDiagnostics;
     };
+
+export type PresentationGenerationResult = ExecutionResult<AgentPresentationResponse>;
+export type TransitionRegenerationResult = ExecutionResult<AgentTransitionSettings>;
+
+interface RequestIssue {
+  readonly path: readonly PropertyKey[];
+  readonly message: string;
+}
+
+/**
+ * What differs between the kinds of work a provider does: the request
+ * contract, the prompts, the provider method and the response validation.
+ * Detection, cancellation, timeouts and the single repair attempt are shared.
+ */
+interface Task<Request, Response> {
+  readonly parseRequest: (
+    value: unknown,
+  ) =>
+    | { readonly success: true; readonly data: Request }
+    | { readonly success: false; readonly issues: readonly RequestIssue[] };
+  readonly responseJsonSchema: () => JsonSchema;
+  readonly render: (request: Request, responseJsonSchema: JsonSchema) => AgentPrompt;
+  readonly renderRepair: (input: {
+    readonly request: Request;
+    readonly responseJsonSchema: JsonSchema;
+    readonly previousOutput: string;
+    readonly issues: AgentError['issues'];
+    readonly problem: string;
+  }) => AgentPrompt;
+  readonly invoke: (
+    provider: AgentProvider,
+    request: Request,
+    context: AgentExecutionContext,
+  ) => Promise<ProviderExecutionResult>;
+  readonly validate: (
+    output: unknown,
+    request: Request,
+  ) =>
+    | {
+        readonly ok: true;
+        readonly value: { readonly response: Response; readonly warnings: readonly string[] };
+      }
+    | { readonly ok: false; readonly error: AgentError };
+}
+
+function parseWith<Request>(schema: {
+  safeParse(
+    value: unknown,
+  ): { success: true; data: Request } | { success: false; error: { issues: RequestIssue[] } };
+}): Task<Request, unknown>['parseRequest'] {
+  return (value) => {
+    const parsed = schema.safeParse(value);
+    return parsed.success
+      ? { success: true, data: parsed.data }
+      : { success: false, issues: parsed.error.issues };
+  };
+}
+
+const PRESENTATION_TASK: Task<PresentationGenerationRequest, AgentPresentationResponse> = {
+  parseRequest: parseWith(presentationGenerationRequestSchema),
+  responseJsonSchema: getResponseJsonSchema,
+  render: (request, responseJsonSchema) =>
+    presentationGenerationPromptV4.render({ request, responseJsonSchema }),
+  renderRepair: (input) => presentationRepairPromptV4.render(input),
+  invoke: (provider, request, context) => provider.generatePresentation(request, context),
+  validate: validateAgentResponse,
+};
+
+const TRANSITION_TASK: Task<TransitionRegenerationRequest, AgentTransitionSettings> = {
+  parseRequest: parseWith(transitionRegenerationRequestSchema),
+  responseJsonSchema: getTransitionResponseJsonSchema,
+  render: (request, responseJsonSchema) =>
+    transitionRegenerationPromptV1.render({ request, responseJsonSchema }),
+  renderRepair: (input) => transitionRepairPromptV1.render(input),
+  invoke: (provider, request, context) => provider.generateTransition(request, context),
+  validate: (output, request) => {
+    const validated = validateTransitionResponse(output, request);
+    return validated.ok
+      ? {
+          ok: true,
+          value: { response: validated.value.settings, warnings: validated.value.warnings },
+        }
+      : validated;
+  },
+};
 
 type StopReason = 'cancelled' | 'timedOut';
 
@@ -132,7 +236,21 @@ export class GenerationRunner {
     }
   }
 
-  async execute(execution: GenerationExecution): Promise<PresentationGenerationResult> {
+  execute(execution: GenerationExecution): Promise<PresentationGenerationResult> {
+    return this.#execute(execution, PRESENTATION_TASK);
+  }
+
+  /** Asks a provider for new settings of one transition. Nothing is applied here. */
+  executeTransition(
+    execution: TransitionRegenerationExecution,
+  ): Promise<TransitionRegenerationResult> {
+    return this.#execute(execution, TRANSITION_TASK);
+  }
+
+  async #execute<Request, Response>(
+    execution: Execution<Request>,
+    task: Task<Request, Response>,
+  ): Promise<ExecutionResult<Response>> {
     const { executionId, providerId } = execution;
     const timeoutMs = execution.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     const startedAt = this.#now();
@@ -158,7 +276,7 @@ export class GenerationRunner {
         attempts,
       };
     };
-    const fail = (error: AgentError): PresentationGenerationResult => {
+    const fail = (error: AgentError): ExecutionResult<Response> => {
       const status =
         error.code === 'cancelled'
           ? 'cancelled'
@@ -185,15 +303,15 @@ export class GenerationRunner {
       );
     }
     report('preparing', 'Preparing the request');
-    const request = presentationGenerationRequestSchema.safeParse(execution.request);
+    const request = task.parseRequest(execution.request);
     if (!request.success) {
       return fail(
         agentError(
           'invalidRequest',
           'The request could not be sent because it is not valid.',
-          request.error.issues.map((issue) => ({
+          request.issues.map((issue) => ({
             code: 'schema',
-            path: issue.path.join('.'),
+            path: issue.path.map(String).join('.'),
             message: issue.message,
           })),
         ),
@@ -216,7 +334,7 @@ export class GenerationRunner {
           }, timeoutMs);
 
     try {
-      return await this.#run(provider, request.data, execution, running, {
+      return await this.#run(provider, request.data, execution, task, running, {
         attempts,
         report,
         fail,
@@ -237,20 +355,21 @@ export class GenerationRunner {
     }
   }
 
-  async #run(
+  async #run<Request, Response>(
     provider: AgentProvider,
-    request: PresentationGenerationRequest,
-    execution: GenerationExecution,
+    request: Request,
+    execution: Execution<Request>,
+    task: Task<Request, Response>,
     running: RunningExecution,
     tools: {
       readonly attempts: AttemptDiagnostics[];
       readonly report: (phase: ExecutionPhase, message: string) => void;
-      readonly fail: (error: AgentError) => PresentationGenerationResult;
+      readonly fail: (error: AgentError) => ExecutionResult<Response>;
       readonly diagnostics: () => ExecutionDiagnostics;
       readonly timeoutMs: number | null;
       readonly setPromptTemplate: (value: string) => void;
     },
-  ): Promise<PresentationGenerationResult> {
+  ): Promise<ExecutionResult<Response>> {
     const { attempts, report, fail, timeoutMs } = tools;
     const { signal } = running.controller;
     const stopped = (): AgentError | null =>
@@ -265,11 +384,8 @@ export class GenerationRunner {
       return fail(agentError('providerUnavailable', detection.message));
     }
 
-    const responseJsonSchema = getResponseJsonSchema();
-    let prompt: AgentPrompt = presentationGenerationPromptV4.render({
-      request,
-      responseJsonSchema,
-    });
+    const responseJsonSchema = task.responseJsonSchema();
+    let prompt: AgentPrompt = task.render(request, responseJsonSchema);
     tools.setPromptTemplate(`${prompt.templateId}@${String(prompt.templateVersion)}`);
     let lastError = agentError('internalError', 'The provider was not started.');
 
@@ -284,7 +400,7 @@ export class GenerationRunner {
 
       const attemptStartedAt = this.#now().getTime();
       const result: ProviderExecutionResult | null = await untilAborted(
-        provider.generatePresentation(request, {
+        task.invoke(provider, request, {
           executionId: execution.executionId,
           attempt,
           prompt,
@@ -325,7 +441,7 @@ export class GenerationRunner {
       report('validating', 'Checking the response');
       const { rawText } = result.output;
       const resolved = resolveProviderOutput(result.output);
-      const validated = resolved.ok ? validateAgentResponse(resolved.value, request) : resolved;
+      const validated = resolved.ok ? task.validate(resolved.value, request) : resolved;
 
       if (validated.ok) {
         record('completed', rawText.length, result.details);
@@ -346,7 +462,7 @@ export class GenerationRunner {
       if (validated.error.code === 'outputTooLarge') {
         break;
       }
-      prompt = presentationRepairPromptV4.render({
+      prompt = task.renderRepair({
         request,
         responseJsonSchema,
         previousOutput: rawText,
