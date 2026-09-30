@@ -97,7 +97,7 @@ describe('project file session', () => {
   it('uses the latest local revision for queued saves of the same file', async () => {
     const filePath = join(sep, 'projects', 'shared.koma');
     session.filePath = filePath;
-    session.fileBaseline = { filePath, revision: 'opened-revision' };
+    session.fileRevisions.set(filePath, 'opened-revision');
     const held = holdWrites();
     const first = saveProject(window, session, buildProject({ name: 'First' }), now);
     const second = saveProject(window, session, buildProject({ name: 'Second' }), now);
@@ -109,19 +109,55 @@ describe('project file session', () => {
     expect(writeFile.mock.calls[1]?.[2]).toEqual({ expectedRevision: 'saved-First' });
     held[1]?.release();
     await second;
-    expect(session.fileBaseline?.revision).toBe('saved-Second');
+    expect(session.fileRevisions.get(filePath)).toBe('saved-Second');
   });
 
   it('preserves the file baseline when a save fails', async () => {
     const filePath = join(sep, 'projects', 'shared.koma');
     session.filePath = filePath;
-    session.fileBaseline = { filePath, revision: 'opened-revision' };
+    session.fileRevisions.set(filePath, 'opened-revision');
     const held = holdWrites();
     const pending = saveProject(window, session, buildProject(), now);
     await flush();
     held[0]?.fail();
     await pending;
-    expect(session.fileBaseline).toEqual({ filePath, revision: 'opened-revision' });
+    expect(session.fileRevisions.get(filePath)).toBe('opened-revision');
+  });
+
+  it('checks the revision established by an overlapping Save as to the same new path', async () => {
+    const filePath = join(sep, 'projects', 'new.koma');
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath });
+    const held = holdWrites();
+    const first = saveProjectAs(window, session, buildProject({ name: 'First' }), now);
+    const second = saveProjectAs(window, session, buildProject({ name: 'Second' }), now);
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+    expect(writeFile.mock.calls[0]?.[2]).toEqual({});
+    held[0]?.release();
+    await vi.waitFor(() => expect(held).toHaveLength(2));
+    expect(writeFile.mock.calls[1]?.[2]).toEqual({ expectedRevision: 'saved-First' });
+    held[1]?.fail();
+    await first;
+    await expect(second).resolves.toMatchObject({ status: 'failed' });
+    expect(session.fileRevisions.get(filePath)).toBe('saved-First');
+    expect(session.filePath).toBe(filePath);
+  });
+
+  it('keeps old queued revisions separate from a replacement project', async () => {
+    const filePath = join(sep, 'projects', 'shared.koma');
+    session.filePath = filePath;
+    session.fileRevisions.set(filePath, 'opened-revision');
+    const held = holdWrites();
+    const first = saveProject(window, session, buildProject({ name: 'First' }), now);
+    const second = saveProject(window, session, buildProject({ name: 'Second' }), now);
+    await vi.waitFor(() => expect(held).toHaveLength(1));
+    createNewProject(session, 'Replacement', now);
+    held[0]?.release();
+    await vi.waitFor(() => expect(held).toHaveLength(2));
+    expect(writeFile.mock.calls[1]?.[2]).toEqual({ expectedRevision: 'saved-First' });
+    held[1]?.release();
+    await Promise.all([first, second]);
+    expect(session.filePath).toBeNull();
+    expect(session.fileRevisions.size).toBe(0);
   });
 
   it('does not adopt a path chosen after the project was replaced', async () => {
