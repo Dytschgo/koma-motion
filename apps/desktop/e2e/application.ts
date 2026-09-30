@@ -59,6 +59,11 @@ export async function launchApplication(
         },
   );
   const window = await application.firstWindow();
+  // macOS ignores the scale factor above and fits a new window to its screen,
+  // but an explicit resize afterwards keeps the size that was asked for.
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setSize(1480, 920);
+  });
   const problems: string[] = [];
   window.on('pageerror', (error) => problems.push(`Page error: ${error.message}`));
   window.on('console', (message) => {
