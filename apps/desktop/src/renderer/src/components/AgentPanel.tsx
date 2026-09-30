@@ -20,8 +20,16 @@ import { useAgentStore, type ConversationEntry, type DetectedProvider } from '..
 import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
-import { CheckIcon, ChevronIcon, RefreshIcon, SettingsIcon, WarningIcon } from './icons';
-import { Button, Field, Help, IconButton, Select, TextArea, TextInput } from './ui';
+import {
+  CheckIcon,
+  ChevronIcon,
+  KomaMark,
+  RefreshIcon,
+  SendIcon,
+  SettingsIcon,
+  WarningIcon,
+} from './icons';
+import { Button, Help, IconButton, Select, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
   'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
@@ -50,10 +58,10 @@ function Availability({ provider }: { readonly provider: DetectedProvider }): Re
   return (
     <p
       role="status"
-      className={`flex items-center gap-1.5 text-sm ${available ? 'text-signal-ok' : 'text-signal-warn'}`}
+      className={`flex items-center gap-0.5 ${available ? 'text-signal-ok' : 'text-signal-warn'}`}
     >
       {available ? <CheckIcon size={14} /> : <WarningIcon size={14} />}
-      <span>{available ? 'Ready' : 'Not available'}</span>
+      <span className="sr-only">{available ? 'Ready' : 'Not available'}</span>
       <Help label="Provider details">{provider.detection.message}</Help>
     </p>
   );
@@ -68,39 +76,73 @@ function Entry({
 }): ReactElement {
   if (entry.kind === 'request') {
     return (
-      <li className="ml-auto max-w-[90%] rounded-lg rounded-br-sm bg-desk-700 px-3 py-2 wrap-break-word select-text">
-        <span className="sr-only">You asked: </span>
-        {entry.text}
+      <li className="ml-auto flex max-w-full items-start justify-end gap-2 wrap-break-word select-text">
+        <div className="max-w-[calc(100%-2rem)] whitespace-pre-wrap rounded-2xl rounded-tr-sm border border-desk-600/70 bg-desk-700 px-3.5 py-2.5 text-ink-100">
+          <span className="sr-only">You asked: </span>
+          {entry.text}
+        </div>
+        <span
+          aria-hidden="true"
+          className="flex size-6 flex-none items-center justify-center rounded-full border border-desk-500 bg-desk-800 text-ink-300"
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+          >
+            <circle cx="8" cy="5" r="2.2" />
+            <path d="M3.5 13c.3-2.3 2-3.5 4.5-3.5s4.2 1.2 4.5 3.5" />
+          </svg>
+        </span>
       </li>
     );
   }
   if (entry.kind === 'result') {
     return (
-      <li className="max-w-[90%] rounded-lg rounded-bl-sm border border-desk-600 px-3 py-2 wrap-break-word select-text">
-        <p className="text-sm text-ink-400">{entry.providerName}</p>
-        <p>{entry.text}</p>
-        {entry.warnings.length > 0 && (
-          <ul className="mt-2 flex flex-col gap-1 text-sm text-signal-warn">
-            {entry.warnings.map((warning, index) => (
-              <li key={index} className="flex gap-2">
-                <span className="flex-none">
-                  <WarningIcon size={14} />
-                </span>
-                Warning: {warning}
-              </li>
-            ))}
-          </ul>
-        )}
+      <li className="flex max-w-full items-start gap-2.5 wrap-break-word select-text">
+        <span
+          aria-hidden="true"
+          className="flex size-6 flex-none items-center justify-center rounded-full border border-desk-600 bg-desk-800"
+        >
+          <KomaMark size={15} />
+        </span>
+        <div className="min-w-0 flex-1 pt-0.5">
+          <p className="mb-1 text-xs font-medium text-ink-400">{entry.providerName}</p>
+          <p className="whitespace-pre-wrap leading-relaxed">{entry.text}</p>
+          {entry.warnings.length > 0 && (
+            <ul className="mt-2 flex flex-col gap-1 text-sm text-signal-warn">
+              {entry.warnings.map((warning, index) => (
+                <li key={index} className="flex gap-2">
+                  <span className="flex-none">
+                    <WarningIcon size={14} />
+                  </span>
+                  Warning: {warning}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </li>
     );
   }
   if (entry.kind === 'notApplied') {
     return (
-      <li className="max-w-[90%] rounded-lg rounded-bl-sm border border-desk-600 px-3 py-2 wrap-break-word select-text">
-        <p className="text-sm text-ink-400">{entry.providerName}</p>
-        <p className="font-semibold">Generated Komas were not applied</p>
-        <p>{entry.text}</p>
-        <p className="mt-2 text-sm text-ink-400">Your edits remain in the presentation.</p>
+      <li className="flex max-w-full items-start gap-2.5 wrap-break-word select-text">
+        <span
+          aria-hidden="true"
+          className="flex size-6 flex-none items-center justify-center rounded-full border border-desk-600 bg-desk-800"
+        >
+          <KomaMark size={15} />
+        </span>
+        <div className="min-w-0 flex-1 pt-0.5">
+          <p className="mb-1 text-xs text-ink-400">{entry.providerName}</p>
+          <p className="font-semibold">Generated Komas were not applied</p>
+          <p>{entry.text}</p>
+          <p className="mt-2 text-sm text-ink-400">Your edits remain in the presentation.</p>
+        </div>
       </li>
     );
   }
@@ -109,7 +151,7 @@ function Entry({
   return (
     <li
       role="alert"
-      className="max-w-[90%] rounded-lg rounded-bl-sm border border-pencil-red/60 px-3 py-2 wrap-break-word select-text"
+      className="max-w-full rounded-lg border-l-2 border-pencil-red/70 py-1 pl-3 wrap-break-word select-text"
     >
       <p className="text-sm text-ink-400">{entry.providerName}</p>
       <p className="font-semibold text-pencil-red">{FAILURE_TITLES[entry.status]}</p>
@@ -284,6 +326,12 @@ export function AgentPanel({
       ? undefined
       : requestValidation.error.issues[0]?.message;
   const bodyId = useId();
+  const requestId = useId();
+  const requestErrorId = useId();
+  const providerId = useId();
+  const modelId = useId();
+  const countId = useId();
+  const countErrorId = useId();
   const section = useRef<HTMLElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const requestField = useRef<HTMLTextAreaElement>(null);
@@ -301,6 +349,8 @@ export function AgentPanel({
   );
   const running = execution !== null;
   const trimmed = request.trim();
+  const canSubmit =
+    trimmed !== '' && requestValidation.success && validCount && !running && available;
   const latestStatus = execution?.events.at(-1);
 
   useEffect(() => {
@@ -350,7 +400,7 @@ export function AgentPanel({
     <section
       ref={section}
       aria-label="Agent chat"
-      className="relative flex min-h-0 flex-none flex-col border-l border-desk-600 bg-desk-800"
+      className="relative flex min-h-0 flex-none flex-col border-l border-desk-600 bg-desk-950"
       style={open ? { width: layout.width } : undefined}
     >
       {open ? (
@@ -376,7 +426,7 @@ export function AgentPanel({
         >
           <ChevronIcon direction="left" />
           <span aria-hidden="true" className="rotate-180 font-semibold [writing-mode:vertical-rl]">
-            Agent
+            Chat
           </span>
           {running && (
             <span
@@ -388,9 +438,9 @@ export function AgentPanel({
       )}
 
       <div id={bodyId} hidden={!open} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="flex flex-none flex-col gap-2 border-b border-desk-600 p-3">
+        <div className="flex h-12 flex-none flex-col justify-center border-b border-desk-600/70 bg-desk-800/70 px-3">
           <div className="flex items-center gap-2">
-            <h2 className="min-w-0 flex-1 text-base font-semibold">Agent</h2>
+            <h2 className="min-w-0 flex-1 text-base font-semibold">Chat</h2>
             <IconButton
               label="Check again"
               disabled={detection === 'running' || running}
@@ -401,6 +451,13 @@ export function AgentPanel({
             <Help label="About the chat">
               Describe your presentation, then generate. Hide the chat to see the Inspector in a
               narrow window.
+            </Help>
+            <Help label="Generation settings">
+              {project.agentConfiguration.timeoutSeconds === null
+                ? 'No time limit. Cancel generation at any time.'
+                : `Stops after ${String(project.agentConfiguration.timeoutSeconds)} seconds. You can cancel earlier.`}{' '}
+              Change the time limit in Settings. Project instructions apply to every request; edit
+              them or reuse a template from Instructions & templates.
             </Help>
             <IconButton
               label="Hide the chat"
@@ -417,11 +474,13 @@ export function AgentPanel({
 
         <div
           ref={log}
-          className="flex min-h-32 flex-1 flex-col overflow-y-auto bg-desk-900 p-3"
+          role="log"
+          aria-label="Conversation"
+          className="chat-conversation flex min-h-32 flex-1 flex-col overflow-y-auto px-4 py-5"
           aria-live="polite"
         >
           {conversation.length === 0 && !running ? (
-            <div className="m-auto max-w-lg text-center text-ink-300">
+            <div className="m-auto flex max-w-48 flex-col items-center text-center text-ink-300">
               <p>
                 {selectedId === 'mock'
                   ? 'Try the three-Koma demo.'
@@ -438,7 +497,7 @@ export function AgentPanel({
               </Button>
             </div>
           ) : (
-            <ol className="flex flex-col gap-2">
+            <ol className="flex flex-col gap-6">
               {conversation.map((entry) => (
                 <Entry
                   key={entry.id}
@@ -453,7 +512,7 @@ export function AgentPanel({
           {execution !== null && (
             <div
               role="status"
-              className="mt-2 flex items-start gap-3 rounded-lg rounded-bl-sm border border-desk-600 px-3 py-2 wrap-break-word"
+              className="mt-5 flex items-start gap-3 rounded-lg border border-desk-600 bg-desk-800/70 px-3 py-2 wrap-break-word"
             >
               <span
                 aria-hidden="true"
@@ -479,176 +538,185 @@ export function AgentPanel({
         </div>
 
         <form
-          className="@container flex min-h-0 shrink flex-col gap-2 overflow-y-auto border-t border-desk-600 p-3"
+          className="flex min-h-0 flex-none flex-col gap-2 overflow-y-auto border-t border-desk-600/70 bg-desk-900 px-3 pt-3 pb-2"
           onSubmit={(event) => {
             event.preventDefault();
             submit(request);
           }}
         >
-          <div className="flex items-center justify-between gap-2 text-sm">
-            <span className="text-ink-400">
-              {project.systemInstructions.trim() === '' ? 'Instructions' : 'Instructions active'}
-            </span>
-            <div className="flex items-center gap-1">
-              <Help label="About project instructions">
-                Instructions apply to each request. Edit them or reuse a saved template.
-              </Help>
-              <IconButton label="Instructions & templates" onClick={() => setSettingsOpen(true)}>
-                <SettingsIcon />
-              </IconButton>
-            </div>
+          <div className="chat-composer-box flex items-end gap-1 rounded-2xl border border-desk-500 bg-desk-800 p-1.5 focus-within:border-pencil-blue/70">
+            <label htmlFor={requestId} className="sr-only">
+              Your request
+            </label>
+            <textarea
+              id={requestId}
+              ref={requestField}
+              rows={1}
+              className="min-h-9 max-h-36 min-w-0 flex-1 field-sizing-content resize-none bg-transparent px-2 py-2 text-ink-100 placeholder:text-ink-400 focus-visible:outline-none"
+              aria-invalid={requestError === undefined ? undefined : true}
+              aria-describedby={requestError === undefined ? undefined : requestErrorId}
+              value={request}
+              placeholder="Describe the presentation…"
+              onChange={(event) => setRequest(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                  event.preventDefault();
+                  submit(request);
+                }
+              }}
+            />
+            <button
+              type="submit"
+              aria-label="Generate Komas"
+              title="Generate Komas (Ctrl/Command+Enter)"
+              disabled={!canSubmit}
+              className="flex size-10 flex-none items-center justify-center rounded-full bg-pencil-blue text-desk-950 transition-colors hover:bg-[#a4d8f0] disabled:cursor-not-allowed disabled:bg-desk-600 disabled:text-ink-400"
+            >
+              <SendIcon size={18} />
+            </button>
           </div>
-          <Field label="Your request" error={requestError}>
-            {(ids) => (
-              <TextArea
-                {...ids}
-                ref={requestField}
-                rows={4}
-                className="max-h-60 min-h-24 field-sizing-content"
-                value={request}
-                placeholder="What should the presentation show, and in which order?"
-                onChange={(event) => {
-                  setRequest(event.target.value);
-                }}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
-                    event.preventDefault();
-                    submit(request);
-                  }
-                }}
-              />
-            )}
-          </Field>
+          {requestError !== undefined && (
+            <p id={requestErrorId} role="alert" className="text-sm text-pencil-red">
+              Error: {requestError}
+            </p>
+          )}
+
           <div
             role="group"
             aria-label="Generation choices"
-            // Provider, model and Komas share one row when the chat is wide.
-            // Narrower, the provider takes its own row above model and Komas.
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-2 @min-[30rem]:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto]"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
           >
-            <Field label="Provider" className="col-span-2 @min-[30rem]:col-span-1">
-              {(ids) => (
-                <Select
-                  {...ids}
-                  value={selectedId}
-                  disabled={running}
-                  onChange={(event) => {
-                    apply(
-                      changeAgentConfiguration({
-                        ...project.agentConfiguration,
-                        selectedProviderId: event.target.value,
-                      }),
-                    );
-                  }}
-                >
-                  {providers.length === 0 && <option value={selectedId}>{selectedId}</option>}
-                  {providers.map((provider) => (
-                    <option key={provider.metadata.id} value={provider.metadata.id}>
-                      {provider.metadata.displayName} ({describeAvailability(provider)})
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <Field label="Model">
-              {(ids) => (
-                <Select
-                  {...ids}
-                  value={models.value}
-                  disabled={running || !models.selectable}
-                  title={
-                    models.selectable
-                      ? 'Default lets the provider choose. Set another model id in Settings.'
-                      : `${selected?.metadata.displayName ?? selectedId} has no model choice.`
+            <div className="flex min-w-0 items-center gap-1.5">
+              <label htmlFor={modelId} className="flex-none text-xs text-ink-400">
+                Model
+              </label>
+              <Select
+                id={modelId}
+                className="min-w-24 w-full text-sm"
+                value={models.value}
+                disabled={running || !models.selectable}
+                title={
+                  models.selectable
+                    ? 'Default lets the provider choose. Set another model id in Settings.'
+                    : `${selected?.metadata.displayName ?? selectedId} has no model choice.`
+                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === DEFAULT_MODEL_VALUE && models.value !== DEFAULT_MODEL_VALUE) {
+                    const previous = models.value;
+                    setPreviousModels((current) => ({ ...current, [modelKey]: previous }));
                   }
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (value === DEFAULT_MODEL_VALUE && models.value !== DEFAULT_MODEL_VALUE) {
-                      const previous = models.value;
-                      setPreviousModels((current) => ({ ...current, [modelKey]: previous }));
-                    }
-                    apply(
-                      changeAgentConfiguration(
-                        withProviderModel(project.agentConfiguration, selectedId, value),
-                      ),
-                    );
-                  }}
-                >
-                  {models.options.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </Select>
-              )}
-            </Field>
-            <Field
-              label="Komas"
-              className="w-34"
-              error={validCount ? undefined : 'Enter a whole number from 1.'}
-            >
-              {(ids) => (
-                <div className="flex gap-1">
-                  <TextInput
-                    {...ids}
-                    type="number"
-                    className="w-16 tabular-nums"
-                    min={1}
-                    step={1}
-                    placeholder="Auto"
-                    disabled={autoKomaCount}
-                    value={autoKomaCount ? '' : komaCount}
-                    onChange={(event) => {
-                      setKomaCount(event.target.value);
-                    }}
-                  />
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    active={autoKomaCount}
-                    aria-pressed={autoKomaCount}
-                    title="Let the agent choose a suitable number of Komas"
-                    onClick={() => {
-                      setAutoKomaCount(!autoKomaCount);
-                    }}
-                  >
-                    Auto
-                  </Button>
-                </div>
-              )}
-            </Field>
+                  apply(
+                    changeAgentConfiguration(
+                      withProviderModel(project.agentConfiguration, selectedId, value),
+                    ),
+                  );
+                }}
+              >
+                {models.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <div className="flex items-center gap-1">
+              <label htmlFor={countId} className="text-xs text-ink-400">
+                Komas
+              </label>
+              <TextInput
+                id={countId}
+                type="number"
+                className="w-11 tabular-nums text-center"
+                min={1}
+                step={1}
+                placeholder="Auto"
+                aria-invalid={validCount ? undefined : true}
+                aria-describedby={validCount ? undefined : countErrorId}
+                disabled={autoKomaCount}
+                value={autoKomaCount ? '' : komaCount}
+                onChange={(event) => setKomaCount(event.target.value)}
+              />
+              <Button
+                variant="outline"
+                compact
+                active={autoKomaCount}
+                aria-pressed={autoKomaCount}
+                title="Let the agent choose a suitable number of Komas"
+                onClick={() => setAutoKomaCount(!autoKomaCount)}
+              >
+                Auto
+              </Button>
+            </div>
           </div>
-          <div className="flex items-center justify-between gap-2">
+          {!validCount && (
+            <p id={countErrorId} role="alert" className="text-sm text-pencil-red">
+              Enter a whole number from 1.
+            </p>
+          )}
+
+          <div className="flex min-w-0 items-center gap-1 border-t border-desk-600/70 pt-2">
+            <label htmlFor={providerId} className="sr-only">
+              Provider
+            </label>
+            <Select
+              id={providerId}
+              className="min-w-0 w-full text-sm"
+              value={selectedId}
+              disabled={running}
+              onChange={(event) => {
+                apply(
+                  changeAgentConfiguration({
+                    ...project.agentConfiguration,
+                    selectedProviderId: event.target.value,
+                  }),
+                );
+              }}
+            >
+              {providers.length === 0 && <option value={selectedId}>{selectedId}</option>}
+              {providers.map((provider) => (
+                <option key={provider.metadata.id} value={provider.metadata.id}>
+                  {provider.metadata.displayName} ({describeAvailability(provider)})
+                </option>
+              ))}
+            </Select>
             {detection === 'done' && selected !== undefined && <Availability provider={selected} />}
-            <Help label="Generation settings">
-              {project.agentConfiguration.timeoutSeconds === null
-                ? 'No time limit. Cancel generation at any time.'
-                : `Stops after ${String(project.agentConfiguration.timeoutSeconds)} seconds. You can cancel earlier.`}{' '}
-              Change the time limit in Settings.
-            </Help>
+            <IconButton
+              label="Instructions & templates"
+              aria-description={
+                project.systemInstructions.trim() === ''
+                  ? 'No project instructions'
+                  : 'Instructions active'
+              }
+              title={
+                project.systemInstructions.trim() === ''
+                  ? 'Instructions & templates'
+                  : 'Instructions active · Instructions & templates'
+              }
+              className="relative"
+              onClick={() => setSettingsOpen(true)}
+            >
+              <SettingsIcon />
+              {project.systemInstructions.trim() !== '' && (
+                <span
+                  className="absolute right-0.5 bottom-0.5 size-1.5 rounded-full bg-pencil-blue"
+                  aria-hidden="true"
+                />
+              )}
+            </IconButton>
           </div>
           {detection === 'running' && (
-            <p role="status" className="text-sm text-ink-400">
+            <p role="status" className="text-xs text-ink-400">
               Checking providers
             </p>
           )}
           {detection === 'failed' && (
-            <p role="alert" className="text-sm text-pencil-red">
+            <p role="alert" className="text-xs text-pencil-red">
               Error: the providers could not be checked.
             </p>
           )}
-          <Button
-            type="submit"
-            variant="primary"
-            className="w-full"
-            disabled={
-              trimmed === '' || !requestValidation.success || !validCount || running || !available
-            }
-          >
-            Generate Komas
-          </Button>
           {selectedId === 'mock' && (
-            <div className="flex items-center justify-center gap-1 text-sm text-ink-400">
+            <div className="flex items-center gap-1 text-xs text-ink-400">
               <span>Demo only · 3 Komas</span>
               <Help label="About the demo">
                 The mock provider creates the same demo for every request, using your Brand Kit
@@ -657,13 +725,13 @@ export function AgentPanel({
             </div>
           )}
           {selected?.metadata.usesExternalService === true && (
-            <p className="text-sm text-ink-400">
+            <p className="text-xs leading-snug text-ink-400">
               {selected.metadata.displayName} sends your request, instructions, Brand Kit, Koma text
               and asset names online.
             </p>
           )}
           {project.presentation.komas.length > 0 && (
-            <p className="text-sm text-ink-400">Replaces current Komas. Undo is available.</p>
+            <p className="text-xs text-ink-400">Replaces current Komas. Undo is available.</p>
           )}
         </form>
       </div>

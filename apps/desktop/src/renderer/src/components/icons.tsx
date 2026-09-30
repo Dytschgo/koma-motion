@@ -29,6 +29,12 @@ export const PlayIcon = (props: IconProps): ReactElement => (
   </Icon>
 );
 
+export const SendIcon = (props: IconProps): ReactElement => (
+  <Icon {...props}>
+    <path d="M8 12.5v-9M4.5 7l3.5-3.5L11.5 7" strokeWidth="1.8" />
+  </Icon>
+);
+
 export const PauseIcon = (props: IconProps): ReactElement => (
   <Icon {...props}>
     <path d="M5.5 3.5v9M10.5 3.5v9" strokeWidth="2" />

@@ -180,11 +180,14 @@ test('keeps model and Komas together at the narrowest chat and window', async ()
 
   // Keyboard: the choices are reachable in order after the request.
   const { provider, model, komas, auto } = getComposer(window);
+  const chat = window.getByRole('region', { name: 'Agent chat' });
+  const conversation = chat.getByRole('log', { name: 'Conversation' });
+  const form = chat.locator('form');
+  expect((await getBox(form)).height).toBeLessThan((await getBox(conversation)).height);
   await provider.selectOption('claude-code');
   await window.getByLabel('Your request').focus();
   await window.keyboard.press('Tab');
-  await expect(provider).toBeFocused();
-  await window.keyboard.press('Tab');
+  // An empty request leaves Send disabled, so focus moves to Model.
   await expect(model).toBeFocused();
   await window.keyboard.press('Tab');
   await expect(komas).toBeFocused();
@@ -192,5 +195,19 @@ test('keeps model and Komas together at the narrowest chat and window', async ()
   await expect(auto).toBeFocused();
   await window.keyboard.press('Enter');
   await expect(auto).toHaveAttribute('aria-pressed', 'true');
+  await window.keyboard.press('Tab');
+  await expect(provider).toBeFocused();
+
+  await provider.selectOption('mock');
+  await window.getByLabel('Your request').fill('Present the motion engine.');
+  await window.getByLabel('Your request').focus();
+  await window.keyboard.press('Tab');
+  await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeFocused();
+
+  // A long request grows within the dock without pushing the choices away.
+  await window.getByLabel('Your request').fill('A detailed presentation brief. '.repeat(80));
+  expect((await getBox(conversation)).height).toBeGreaterThan(100);
+  await expect(provider).toBeInViewport({ ratio: 1 });
+  await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeInViewport({ ratio: 1 });
   expect(problems).toEqual([]);
 });
