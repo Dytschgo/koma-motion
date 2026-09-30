@@ -9,6 +9,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { answerSaveDialog, launchApplication, type RunningApplication } from '../e2e/application';
+import { selectProvider } from '../e2e/composerControls';
 
 const executablePath = process.env['KOMA_APP_EXECUTABLE'] ?? '';
 const expectedVersion = process.env['KOMA_EXPECT_VERSION'] ?? '';
@@ -76,7 +77,7 @@ test('creates, generates, previews and saves a presentation', async () => {
 
   await window.getByRole('button', { name: 'Create a project' }).click();
   await window.getByLabel('Project name').fill('Packaged');
-  await window.getByLabel('Provider', { exact: true }).selectOption('mock');
+  await selectProvider(window, 'mock');
   await window.getByRole('button', { name: 'Use the example request' }).click();
   await window.getByRole('button', { name: 'Generate Komas' }).click();
   await expect(
