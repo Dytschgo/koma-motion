@@ -312,8 +312,8 @@ test('edits multiline text with the keyboard, saves, reopens and preserves undo 
   await editor.pressSequentially('Second line');
   const draft = 'Presentations are frames.\nSecond line';
   await expect(editor).toHaveValue(draft);
-  await editor.press('Home');
-  await editor.press('Shift+End');
+  await editor.press(process.platform === 'darwin' ? 'Meta+ArrowLeft' : 'Home');
+  await editor.press(process.platform === 'darwin' ? 'Meta+Shift+ArrowRight' : 'Shift+End');
   expect(
     await editor.evaluate((node: HTMLTextAreaElement) =>
       node.value.slice(node.selectionStart, node.selectionEnd),
@@ -445,11 +445,14 @@ test('keeps editor bounds at zoom/resize and discards drafts when reopening the 
   await text.click();
   await text.press('Enter');
   await editor.fill('Resize draft');
-  const before = await editor.boundingBox();
+  const before = await stage.boundingBox();
+  const beforeEditor = await editor.boundingBox();
+  if (!before || !beforeEditor) throw new Error('Missing bounds before resize');
   await application.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0]?.setSize(1100, 760),
+    BrowserWindow.getAllWindows()[0]?.setSize(1200, 700),
   );
-  await expect.poll(async () => (await editor.boundingBox())?.width).not.toBe(before?.width);
+  await expect.poll(async () => (await stage.boundingBox())?.width).not.toBe(before.width);
+  await expect.poll(async () => (await editor.boundingBox())?.width).not.toBe(beforeEditor.width);
   await expect(editor).toHaveValue('Resize draft');
   const canvasBox = await stage.boundingBox();
   const editBox = await editor.boundingBox();
