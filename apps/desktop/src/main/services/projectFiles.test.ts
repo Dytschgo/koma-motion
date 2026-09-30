@@ -45,7 +45,7 @@ function holdWrites(): HeldWrite[] {
       held.push({
         filePath,
         release: () => {
-          resolve(ok(project));
+          resolve(ok({ project, fileRevision: `saved-${project.name}` }));
         },
         fail: () => {
           resolve(
@@ -94,6 +94,36 @@ describe('project file session', () => {
     expect(session.sessionId).toBe(2);
   });
 
+  it('uses the latest local revision for queued saves of the same file', async () => {
+    const filePath = join(sep, 'projects', 'shared.koma');
+    session.filePath = filePath;
+    session.fileBaseline = { filePath, revision: 'opened-revision' };
+    const held = holdWrites();
+    const first = saveProject(window, session, buildProject({ name: 'First' }), now);
+    const second = saveProject(window, session, buildProject({ name: 'Second' }), now);
+    await flush();
+    expect(writeFile.mock.calls[0]?.[2]).toEqual({ expectedRevision: 'opened-revision' });
+    held[0]?.release();
+    await first;
+    await flush();
+    expect(writeFile.mock.calls[1]?.[2]).toEqual({ expectedRevision: 'saved-First' });
+    held[1]?.release();
+    await second;
+    expect(session.fileBaseline?.revision).toBe('saved-Second');
+  });
+
+  it('preserves the file baseline when a save fails', async () => {
+    const filePath = join(sep, 'projects', 'shared.koma');
+    session.filePath = filePath;
+    session.fileBaseline = { filePath, revision: 'opened-revision' };
+    const held = holdWrites();
+    const pending = saveProject(window, session, buildProject(), now);
+    await flush();
+    held[0]?.fail();
+    await pending;
+    expect(session.fileBaseline).toEqual({ filePath, revision: 'opened-revision' });
+  });
+
   it('does not adopt a path chosen after the project was replaced', async () => {
     session.filePath = null;
     const dialogResult = defer<{ canceled: boolean; filePath: string }>();
@@ -108,7 +138,7 @@ describe('project file session', () => {
     expect(writeFile).not.toHaveBeenCalled();
   });
 
-  it('keeps the newest save path when an earlier write finishes last', async () => {
+  it('serialises writes and keeps the path of the newest successful save', async () => {
     session.filePath = 'C:\\current.koma';
     const held = holdWrites();
     const first = saveProject(window, session, buildProject({ name: 'Current' }), now);
@@ -116,16 +146,12 @@ describe('project file session', () => {
     const second = saveProjectAs(window, session, buildProject({ name: 'Other' }), now);
     await flush();
 
-    // Finish whichever writes have already started, newest request last, and
-    // repeat so a write that was waiting on an older one can run afterwards.
-    for (let attempt = 0; attempt < 4 && held.length > 0; attempt += 1) {
-      const started = held.splice(0, held.length);
-      for (let index = started.length - 1; index >= 0; index -= 1) {
-        started[index]?.release();
-      }
-      await flush();
-    }
-    await Promise.all([first, second]);
+    expect(held).toHaveLength(1);
+    held[0]?.release();
+    await first;
+    await vi.waitFor(() => expect(held).toHaveLength(2));
+    held[1]?.release();
+    await second;
 
     expect(session.filePath).toBe('C:\\other.koma');
     expect(writeFile.mock.calls.map((call) => call[0])).toEqual([
@@ -148,7 +174,8 @@ describe('project file session', () => {
     await flush();
 
     held[0]?.release();
-    await flush();
+    await first;
+    await vi.waitFor(() => expect(held).toHaveLength(2));
     held[1]?.fail();
     const [firstResult, secondResult] = await Promise.all([first, second]);
 
