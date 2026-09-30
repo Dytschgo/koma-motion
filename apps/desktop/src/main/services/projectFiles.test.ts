@@ -2,7 +2,7 @@ import { join, sep } from 'node:path';
 import type { KomaProject } from '@koma-motion/core';
 import { err, ok } from '@koma-motion/core';
 import { buildProject } from '@koma-motion/core/testing';
-import { writeProjectFile } from '@koma-motion/project-format/node';
+import { readProjectFile, writeProjectFile } from '@koma-motion/project-format/node';
 import type { BrowserWindow } from 'electron';
 import { dialog } from 'electron';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -10,6 +10,7 @@ import {
   canCompleteSaveAndClose,
   createNewProject,
   createProjectSession,
+  openProject,
   saveProject,
   saveProjectAs,
   type ProjectSession,
@@ -27,6 +28,7 @@ vi.mock('@koma-motion/project-format/node', () => ({
   writeProjectFile: vi.fn(),
 }));
 
+const showOpenDialog = vi.spyOn(dialog, 'showOpenDialog');
 const showSaveDialog = vi.spyOn(dialog, 'showSaveDialog');
 const writeFile = vi.mocked(writeProjectFile);
 const window = {} as BrowserWindow;
@@ -75,6 +77,50 @@ describe('project file session', () => {
     session.sessionId = 1;
     showSaveDialog.mockReset();
     writeFile.mockReset();
+  });
+
+  it('keeps the editor session and file revision intact after a failed migration', async () => {
+    session.filePath = 'original.koma';
+    session.fileRevisions.set('original.koma', 'original-revision');
+    session.hasUnsavedChanges = true;
+    const before = { ...session };
+    showOpenDialog.mockResolvedValue({
+      canceled: false,
+      filePaths: ['broken.koma'],
+    });
+    vi.mocked(readProjectFile).mockResolvedValue(
+      err({
+        code: 'migrationFailed',
+        message: 'The upgrade could not be validated: name is invalid.',
+        issues: [],
+      }),
+    );
+    const result = await openProject(window, session);
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') {
+      expect(result.message).toContain('original file was not changed');
+      expect(result.diagnostics).toContain('migrationFailed');
+    }
+    expect(session).toEqual(before);
+    expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('refuses Save a Copy to the source file before any write', async () => {
+    const path = join(sep, 'projects', 'source.koma');
+    session.filePath = path;
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath: path });
+    const result = await saveProjectAs(
+      window,
+      session,
+      buildProject(),
+      now,
+      session.sessionId,
+      true,
+    );
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') expect(result.message).toContain('different name');
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(session.filePath).toBe(path);
   });
 
   it('does not point the replacement project at a save that was already running', async () => {

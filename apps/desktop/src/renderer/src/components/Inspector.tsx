@@ -1,4 +1,4 @@
-import { collectProjectWarnings, type KomaProject, type KomaTransition } from '@koma-motion/core';
+import { type KomaProject, type KomaTransition } from '@koma-motion/core';
 import { validateTransition } from '@koma-motion/motion-engine';
 import { useEffect, useId, useMemo, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { getMotionStatus } from '../lib/motionSummary';
@@ -9,14 +9,11 @@ import {
   useSelectedKoma,
 } from '../lib/selectors';
 import { canRecalculateTransition } from '../state/commands';
-import { useProjectStore } from '../state/projectStore';
 import { useUiStore, type InspectorTab } from '../state/uiStore';
-import { WarningIcon } from './icons';
 import { ElementPanel } from './inspector/ElementPanel';
 import { KomaPanel } from './inspector/KomaPanel';
 import { LayersPanel } from './inspector/LayersPanel';
 import { MotionPanel, type TransitionHealth } from './inspector/MotionPanel';
-import { Disclosure } from './inspector/parts';
 
 const TABS: readonly { readonly id: InspectorTab; readonly label: string }[] = [
   { id: 'element', label: 'Element' },
@@ -39,44 +36,6 @@ function useTransitionHealth(
       canRecalculateTransition(project.presentation, transition.id);
     return { issues, status, canRecalculate };
   }, [project, transition]);
-}
-
-function ProjectWarnings({ project }: { readonly project: KomaProject }): ReactElement | null {
-  const loadWarnings = useProjectStore((state) => state.loadWarnings);
-  const warnings = useMemo(() => {
-    const current = collectProjectWarnings(project).map((warning) => warning.message);
-    return [
-      ...new Set([...current, ...loadWarnings.filter((warning) => !current.includes(warning))]),
-    ];
-  }, [project, loadWarnings]);
-  if (warnings.length === 0) {
-    return null;
-  }
-  return (
-    <div className="flex-none border-b border-desk-600">
-      <Disclosure
-        icon={
-          <span className="text-signal-warn">
-            <WarningIcon size={14} />
-          </span>
-        }
-        title={`Warnings (${String(warnings.length)})`}
-        summary={warnings[0]}
-        defaultOpen={false}
-      >
-        <ul className="flex max-h-40 flex-col gap-2 overflow-y-auto text-sm text-signal-warn">
-          {warnings.map((warning) => (
-            <li key={warning} className="flex gap-2">
-              <span className="mt-0.5 flex-none">
-                <WarningIcon size={14} />
-              </span>
-              {warning}
-            </li>
-          ))}
-        </ul>
-      </Disclosure>
-    </div>
-  );
 }
 
 /**
@@ -139,7 +98,6 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
       aria-label="Inspector"
       className="flex w-[304px] flex-none flex-col border-l border-desk-600 bg-desk-800"
     >
-      <ProjectWarnings project={project} />
       {koma === null ? (
         <p className="p-4 text-ink-400">Select a Koma to see its details.</p>
       ) : (

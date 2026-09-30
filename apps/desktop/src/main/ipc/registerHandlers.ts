@@ -121,8 +121,15 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     return response;
   });
 
-  handle('koma:project:save-as', async ({ project }) => {
-    const response = await saveProjectAs(window, session, project, new Date());
+  handle('koma:project:save-as', async ({ project, preserveOriginal }) => {
+    const response = await saveProjectAs(
+      window,
+      session,
+      project,
+      new Date(),
+      session.sessionId,
+      preserveOriginal,
+    );
     context.projectStateChanged();
     return response;
   });

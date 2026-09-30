@@ -6,6 +6,7 @@ export type ProjectFormatErrorCode =
   | 'newerSchemaVersion'
   | 'unsupportedSchemaVersion'
   | 'invalidProject'
+  | 'migrationFailed'
   | 'tooLarge'
   | 'fileNotReadable'
   | 'fileNotWritable'

@@ -38,6 +38,19 @@ afterEach(async () => {
 });
 
 describe('project files', () => {
+  it('leaves a legacy original byte-for-byte unchanged on successful and failed migration', async () => {
+    for (const name of ['Valid', '']) {
+      const path = join(directory, name === '' ? 'failed.koma' : 'upgraded.koma');
+      const text = JSON.stringify({ ...buildProject(), name, schemaVersion: 1 });
+      await writeFile(path, text);
+      const loaded = await readProjectFile(path);
+      expect(loaded.ok).toBe(name !== '');
+      if (!loaded.ok) expect(loaded.error.code).toBe('migrationFailed');
+      else expect(loaded.value.migratedFrom).toBe(1);
+      expect(await readFile(path, 'utf8')).toBe(text);
+    }
+    expect(await readdir(directory)).toEqual(['failed.koma', 'upgraded.koma']);
+  });
   it('refuses a stale save and preserves the file changed by another writer', async () => {
     const filePath = join(directory, 'shared.koma');
     await writeProjectFile(filePath, buildProject({ name: 'Original' }));

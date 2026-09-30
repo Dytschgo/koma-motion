@@ -10,6 +10,7 @@ import {
   type SaveClaim,
 } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
+import { useHealthStore } from '../state/healthStore';
 import { invoke } from './api';
 
 export const DEFAULT_PROJECT_NAME = 'Untitled project';
@@ -54,6 +55,7 @@ function detachGeneration(): void {
 }
 
 function showProject(): void {
+  useHealthStore.getState().clearFailure();
   detachGeneration();
   useUiStore.getState().reset();
   useAgentStore.getState().clearConversation();
@@ -85,13 +87,23 @@ export async function openProject(): Promise<void> {
   try {
     const response = await invoke('koma:project:open', {});
     if (response.status === 'opened') {
-      useProjectStore.getState().load(response.project, response.file, response.warnings);
+      useProjectStore
+        .getState()
+        .load(response.project, response.file, response.warnings, response.migratedFrom ?? null);
       showProject();
+      if (response.migratedFrom != null) useHealthStore.getState().setOpen(true);
     } else if (response.status === 'failed') {
-      useUiStore.getState().notify('error', response.message);
+      useHealthStore.getState().failOpen({
+        message: response.message,
+        diagnostics: response.diagnostics ?? response.message,
+      });
     }
   } catch (error) {
-    reportError('Opening the project', error);
+    useHealthStore.getState().failOpen({
+      message:
+        'The project could not be opened. Your current project is still available. Try opening the file again.',
+      diagnostics: describeError(error),
+    });
   }
 }
 
@@ -103,14 +115,21 @@ export async function openProject(): Promise<void> {
  * a newer one does not change the path or the saved-state marker, and a save
  * that finishes after the project was replaced is ignored.
  */
-async function save(channel: 'koma:project:save' | 'koma:project:save-as'): Promise<boolean> {
+async function save(
+  channel: 'koma:project:save' | 'koma:project:save-as',
+  preserveOriginal = false,
+  onFailure?: (message: string) => void,
+): Promise<boolean> {
   const project = selectProject(useProjectStore.getState());
   const claim = useProjectStore.getState().claimSave();
   if (project === null || claim === null) {
     return false;
   }
   try {
-    const response = await invoke(channel, { project });
+    const response = await invoke(channel, {
+      project,
+      ...(preserveOriginal ? { preserveOriginal: true } : {}),
+    });
     if (!isCurrentSession(claim.sessionId)) {
       return false;
     }
@@ -123,12 +142,14 @@ async function save(channel: 'koma:project:save' | 'koma:project:save-as'): Prom
       return !selectHasUnsavedChanges(useProjectStore.getState());
     }
     if (response.status === 'failed') {
-      useUiStore.getState().notify('error', response.message);
+      if (onFailure) onFailure(response.message);
+      else useUiStore.getState().notify('error', response.message);
     }
     return false;
   } catch (error) {
     if (isCurrentSession(claim.sessionId)) {
-      reportError('Saving the project', error);
+      if (onFailure) onFailure(`Saving the project failed. ${describeError(error)}`);
+      else reportError('Saving the project', error);
     }
     return false;
   }
@@ -140,12 +161,16 @@ function didAcceptSave(claim: SaveClaim): boolean {
   return state.sessionId === claim.sessionId && state.appliedSaveSerial === claim.serial;
 }
 
-export function saveProject(): Promise<boolean> {
-  return save('koma:project:save');
+export function saveProject(onFailure?: (message: string) => void): Promise<boolean> {
+  return save('koma:project:save', false, onFailure);
 }
 
 export function saveProjectAs(): Promise<boolean> {
   return save('koma:project:save-as');
+}
+
+export function saveProjectCopy(onFailure?: (message: string) => void): Promise<boolean> {
+  return save('koma:project:save-as', true, onFailure);
 }
 
 /**

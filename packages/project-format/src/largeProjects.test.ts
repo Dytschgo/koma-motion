@@ -28,7 +28,8 @@ it.each([1, 2])(
     expect(migrated.value.project.systemInstructions).toBe(project.systemInstructions);
     expect(migrated.value.project.presentation).toEqual(project.presentation);
     expect(migrated.value.project.futureExtension).toEqual({ keep: true });
-    expect(migrated.value.warnings.join(' ')).toContain('old automatic time limit was disabled');
+    expect(migrated.value.warnings.join(' ')).toContain('Saving writes the current format');
+    expect(migrated.value.warnings.join(' ')).not.toContain('time limit');
     const saved = serialiseProject(migrated.value.project);
     expect(saved.ok).toBe(true);
     if (saved.ok) {

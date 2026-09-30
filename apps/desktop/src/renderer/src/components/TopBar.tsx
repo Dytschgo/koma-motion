@@ -14,6 +14,7 @@ import { useUiStore } from '../state/uiStore';
 import { useUpdateStore } from '../state/updateStore';
 import { DownloadIcon, KomaMark, PlayIcon, RedoIcon, SettingsIcon, UndoIcon } from './icons';
 import { Button, IconButton } from './ui';
+import { ProjectHealthButton } from './ProjectHealth';
 
 export function TopBar(): ReactElement {
   const hasProject = useProjectStore((state) => selectProject(state) !== null);
@@ -42,7 +43,7 @@ export function TopBar(): ReactElement {
     update !== null && (update.state === 'available' || update.state === 'downloaded');
 
   return (
-    <header className="flex h-12 flex-none items-center gap-1 border-b border-desk-600 bg-desk-800 px-3">
+    <header className="flex min-h-12 flex-none flex-wrap items-center gap-1 border-b border-desk-600 bg-desk-800 px-3 py-1">
       <div className="mr-3 flex items-center gap-2">
         <KomaMark />
         <span className="text-lg font-semibold tracking-tight">Koma Motion</span>
@@ -107,6 +108,7 @@ export function TopBar(): ReactElement {
           {update.state === 'downloaded' ? 'Update ready' : 'Update available'}
         </Button>
       )}
+      <ProjectHealthButton />
       <Button
         variant="outline"
         icon={<PlayIcon size={14} />}

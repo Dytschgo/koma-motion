@@ -578,6 +578,12 @@ export function AgentPanel({
                 </Select>
               )}
             </Field>
+            <p className="text-sm text-ink-400">
+              {project.agentConfiguration.timeoutSeconds === null
+                ? 'Generation runs until completion or cancellation. No automatic time limit.'
+                : `Generation stops after ${String(project.agentConfiguration.timeoutSeconds)} seconds unless it finishes or you cancel first.`}{' '}
+              Change the time limit in Settings.
+            </p>
             <Field
               label="Komas"
               className="w-34"

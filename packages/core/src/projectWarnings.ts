@@ -4,8 +4,18 @@ import type { KomaProject } from './schema/project';
 export type ProjectWarningCode = 'missingAsset' | 'assetDataUnavailable' | 'missingLogoAsset';
 
 export interface ProjectWarning {
+  readonly id: string;
   readonly code: ProjectWarningCode;
   readonly message: string;
+  readonly target:
+    | {
+        readonly kind: 'image';
+        readonly komaId: string;
+        readonly elementId: string;
+        readonly assetId: string;
+      }
+    | { readonly kind: 'logo'; readonly assetId: string }
+    | { readonly kind: 'asset'; readonly assetId: string };
 }
 
 /**
@@ -16,33 +26,44 @@ export function collectProjectWarnings(project: KomaProject): ProjectWarning[] {
   const warnings: ProjectWarning[] = [];
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
 
-  for (const asset of project.assets) {
-    if (asset.embeddedData === null) {
-      warnings.push({
-        code: 'assetDataUnavailable',
-        message: `The image data of asset "${asset.name}" is not stored in this project. It is shown as a placeholder.`,
-      });
-    }
-  }
+  const used = new Set<string>();
 
   const logoAssetId = project.brandKit.logoAssetId;
-  if (logoAssetId !== null && !assets.has(logoAssetId)) {
+  if (logoAssetId !== null) used.add(logoAssetId);
+  if (logoAssetId !== null && assets.get(logoAssetId)?.embeddedData == null) {
     warnings.push({
+      id: 'logo',
       code: 'missingLogoAsset',
-      message: `The Brand Kit logo refers to asset "${logoAssetId}", which is not part of this project.`,
+      message: `The Brand Kit logo image is unavailable (asset "${logoAssetId}").`,
+      target: { kind: 'logo', assetId: logoAssetId },
     });
   }
 
   project.presentation.komas.forEach((koma, index) => {
     for (const element of flattenElements(koma.elements)) {
-      if (element.type === 'image' && !assets.has(element.content.assetId)) {
+      if (element.type !== 'image') continue;
+      const assetId = element.content.assetId;
+      used.add(assetId);
+      if (assets.get(assetId)?.embeddedData == null) {
         warnings.push({
-          code: 'missingAsset',
-          message: `Koma ${String(index + 1)}: image "${element.name}" refers to asset "${element.content.assetId}", which is not part of this project. It is shown as a placeholder.`,
+          id: `image:${koma.id}:${element.id}`,
+          code: assets.has(assetId) ? 'assetDataUnavailable' : 'missingAsset',
+          message: `Koma ${String(index + 1)}: image "${element.name}" is unavailable (asset "${assetId}"). It is shown as a placeholder.`,
+          target: { kind: 'image', komaId: koma.id, elementId: element.id, assetId },
         });
       }
     }
   });
+
+  for (const asset of project.assets) {
+    if (asset.embeddedData === null && !used.has(asset.id))
+      warnings.push({
+        id: `asset:${asset.id}`,
+        code: 'assetDataUnavailable',
+        message: `Unused image "${asset.name}" has no image data stored in this project.`,
+        target: { kind: 'asset', assetId: asset.id },
+      });
+  }
 
   return warnings;
 }
