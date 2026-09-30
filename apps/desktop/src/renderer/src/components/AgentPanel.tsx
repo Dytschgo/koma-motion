@@ -61,7 +61,7 @@ function Availability({ provider }: { readonly provider: DetectedProvider }): Re
       className={`flex items-center gap-0.5 ${available ? 'text-signal-ok' : 'text-signal-warn'}`}
     >
       {available ? <CheckIcon size={14} /> : <WarningIcon size={14} />}
-      <span className="sr-only">{available ? 'Ready' : 'Not available'}</span>
+      <span>{available ? 'Ready' : 'Not available'}</span>
       <Help label="Provider details">{provider.detection.message}</Help>
     </p>
   );
@@ -316,6 +316,7 @@ export function AgentPanel({
   const [request, setRequest] = useState('');
   const [komaCount, setKomaCount] = useState(String(DEFAULT_KOMA_COUNT));
   const [autoKomaCount, setAutoKomaCount] = useState(false);
+  const [choice, setChoice] = useState<'provider' | 'count' | null>(null);
   /** A model id chosen before Default, per project and provider, so it can be chosen again. */
   const [previousModels, setPreviousModels] = useState<Readonly<Record<string, string>>>({});
   const count = parseKomaCount(autoKomaCount, komaCount);
@@ -332,11 +333,17 @@ export function AgentPanel({
   const modelId = useId();
   const countId = useId();
   const countErrorId = useId();
+  const providerChoicesId = useId();
+  const countChoicesId = useId();
   const section = useRef<HTMLElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const requestField = useRef<HTMLTextAreaElement>(null);
   const showButton = useRef<HTMLButtonElement>(null);
+  const providerButton = useRef<HTMLButtonElement>(null);
+  const countButton = useRef<HTMLButtonElement>(null);
+  const choicesPanel = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(open);
+  const choiceProject = useRef(project.id);
 
   const selectedId = project.agentConfiguration.selectedProviderId;
   const selected = providers.find((provider) => provider.metadata.id === selectedId);
@@ -352,6 +359,34 @@ export function AgentPanel({
   const canSubmit =
     trimmed !== '' && requestValidation.success && validCount && !running && available;
   const latestStatus = execution?.events.at(-1);
+
+  useEffect(() => {
+    if (!open || choiceProject.current !== project.id) {
+      setChoice(null);
+    }
+    choiceProject.current = project.id;
+  }, [open, project.id]);
+
+  useEffect(() => {
+    if (choice === null) return;
+    const trigger = choice === 'provider' ? providerButton.current : countButton.current;
+    choicesPanel.current
+      ?.querySelector<HTMLElement>(
+        'select:not(:disabled), input:not(:disabled), button:not(:disabled)',
+      )
+      ?.focus();
+    const dismiss = (event: PointerEvent): void => {
+      if (
+        event.target instanceof Node &&
+        !trigger?.contains(event.target) &&
+        !choicesPanel.current?.contains(event.target)
+      ) {
+        setChoice(null);
+      }
+    };
+    document.addEventListener('pointerdown', dismiss);
+    return () => document.removeEventListener('pointerdown', dismiss);
+  }, [choice]);
 
   useEffect(() => {
     // Scrolls the conversation only, never the window around it.
@@ -538,7 +573,7 @@ export function AgentPanel({
         </div>
 
         <form
-          className="flex min-h-0 flex-none flex-col gap-2 overflow-y-auto border-t border-desk-600/70 bg-desk-900 px-3 pt-3 pb-2"
+          className="relative flex min-h-0 flex-none flex-col gap-2 overflow-visible border-t border-desk-600/70 bg-desk-900 px-3 pt-3 pb-2"
           onSubmit={(event) => {
             event.preventDefault();
             submit(request);
@@ -584,103 +619,58 @@ export function AgentPanel({
           <div
             role="group"
             aria-label="Generation choices"
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2"
+            className="relative flex min-w-0 items-center gap-1"
           >
-            <div className="flex min-w-0 items-center gap-1.5">
-              <label htmlFor={modelId} className="flex-none text-xs text-ink-400">
-                Model
-              </label>
-              <Select
-                id={modelId}
-                className="min-w-24 w-full text-sm"
-                value={models.value}
-                disabled={running || !models.selectable}
-                title={
-                  models.selectable
-                    ? 'Default lets the provider choose. Set another model id in Settings.'
-                    : `${selected?.metadata.displayName ?? selectedId} has no model choice.`
-                }
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (value === DEFAULT_MODEL_VALUE && models.value !== DEFAULT_MODEL_VALUE) {
-                    const previous = models.value;
-                    setPreviousModels((current) => ({ ...current, [modelKey]: previous }));
-                  }
-                  apply(
-                    changeAgentConfiguration(
-                      withProviderModel(project.agentConfiguration, selectedId, value),
-                    ),
-                  );
-                }}
-              >
-                {models.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="flex items-center gap-1">
-              <label htmlFor={countId} className="text-xs text-ink-400">
-                Komas
-              </label>
-              <TextInput
-                id={countId}
-                type="number"
-                className="w-11 tabular-nums text-center"
-                min={1}
-                step={1}
-                placeholder="Auto"
-                aria-invalid={validCount ? undefined : true}
-                aria-describedby={validCount ? undefined : countErrorId}
-                disabled={autoKomaCount}
-                value={autoKomaCount ? '' : komaCount}
-                onChange={(event) => setKomaCount(event.target.value)}
-              />
-              <Button
-                variant="outline"
-                compact
-                active={autoKomaCount}
-                aria-pressed={autoKomaCount}
-                title="Let the agent choose a suitable number of Komas"
-                onClick={() => setAutoKomaCount(!autoKomaCount)}
-              >
-                Auto
-              </Button>
-            </div>
-          </div>
-          {!validCount && (
-            <p id={countErrorId} role="alert" className="text-sm text-pencil-red">
-              Enter a whole number from 1.
-            </p>
-          )}
-
-          <div className="flex min-w-0 items-center gap-1 border-t border-desk-600/70 pt-2">
-            <label htmlFor={providerId} className="sr-only">
-              Provider
-            </label>
-            <Select
-              id={providerId}
-              className="min-w-0 w-full text-sm"
-              value={selectedId}
+            <button
+              ref={providerButton}
+              type="button"
+              aria-label="Provider and model"
+              aria-description={`${selected?.metadata.displayName ?? selectedId}${models.selectable && models.value !== DEFAULT_MODEL_VALUE ? `, model ${models.value}` : ''}${detection === 'running' ? ', checking availability' : detection === 'failed' || (detection === 'done' && !available) ? ', unavailable' : ''}`}
+              aria-haspopup="dialog"
+              aria-expanded={choice === 'provider'}
+              aria-controls={choice === 'provider' ? providerChoicesId : undefined}
               disabled={running}
-              onChange={(event) => {
-                apply(
-                  changeAgentConfiguration({
-                    ...project.agentConfiguration,
-                    selectedProviderId: event.target.value,
-                  }),
-                );
-              }}
+              className="flex h-9 min-w-0 flex-1 items-center gap-1 rounded-md px-2 text-left text-sm text-ink-300 hover:bg-desk-700 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
+              onClick={() => setChoice(choice === 'provider' ? null : 'provider')}
             >
-              {providers.length === 0 && <option value={selectedId}>{selectedId}</option>}
-              {providers.map((provider) => (
-                <option key={provider.metadata.id} value={provider.metadata.id}>
-                  {provider.metadata.displayName} ({describeAvailability(provider)})
-                </option>
-              ))}
-            </Select>
-            {detection === 'done' && selected !== undefined && <Availability provider={selected} />}
+              <span className="min-w-0 flex-1 truncate">
+                {selected?.metadata.displayName ?? selectedId}
+                {models.selectable && models.value !== DEFAULT_MODEL_VALUE
+                  ? ` · ${models.value}`
+                  : ''}
+                {detection === 'running' ? ' · checking' : ''}
+              </span>
+              {(detection === 'failed' || (detection === 'done' && !available)) && (
+                <span className="flex-none text-signal-warn" aria-hidden="true">
+                  <WarningIcon size={14} />
+                </span>
+              )}
+              <ChevronIcon direction="down" size={14} />
+            </button>
+            <button
+              ref={countButton}
+              type="button"
+              aria-label="Koma count"
+              aria-description={
+                validCount
+                  ? autoKomaCount
+                    ? 'Automatic Koma count'
+                    : `${komaCount} Komas`
+                  : 'Invalid Koma count. Enter a whole number from 1.'
+              }
+              aria-haspopup="dialog"
+              aria-expanded={choice === 'count'}
+              aria-controls={choice === 'count' ? countChoicesId : undefined}
+              aria-invalid={validCount ? undefined : true}
+              aria-describedby={validCount ? undefined : countErrorId}
+              className={`flex h-9 flex-none items-center gap-1 rounded-md px-2 text-sm hover:bg-desk-700 ${validCount ? 'text-ink-300 hover:text-ink-100' : 'text-pencil-red'}`}
+              onClick={() => setChoice(choice === 'count' ? null : 'count')}
+            >
+              <span>
+                {validCount ? (autoKomaCount ? 'Auto Komas' : `${komaCount} Komas`) : 'Set Komas'}
+              </span>
+              <ChevronIcon direction="down" size={14} />
+            </button>
             <IconButton
               label="Instructions & templates"
               aria-description={
@@ -704,34 +694,179 @@ export function AgentPanel({
                 />
               )}
             </IconButton>
+            {!validCount && (
+              <span id={countErrorId} className="sr-only">
+                Enter a whole number from 1.
+              </span>
+            )}
           </div>
-          {detection === 'running' && (
-            <p role="status" className="text-xs text-ink-400">
-              Checking providers
-            </p>
-          )}
-          {detection === 'failed' && (
-            <p role="alert" className="text-xs text-pencil-red">
-              Error: the providers could not be checked.
-            </p>
-          )}
-          {selectedId === 'mock' && (
-            <div className="flex items-center gap-1 text-xs text-ink-400">
-              <span>Demo only · 3 Komas</span>
-              <Help label="About the demo">
-                The mock provider creates the same demo for every request, using your Brand Kit
-                colours. Choose an installed agent for your own content.
-              </Help>
+
+          {choice === 'provider' && (
+            <div
+              ref={choicesPanel}
+              id={providerChoicesId}
+              role="dialog"
+              aria-label="Provider and model"
+              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(22rem,55vh)] w-[min(18rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto rounded-xl border border-desk-500 bg-desk-800 p-3 shadow-[0_16px_40px_rgb(0_0_0/0.45)]"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setChoice(null);
+                  providerButton.current?.focus();
+                }
+              }}
+              onBlur={(event) => {
+                if (
+                  event.relatedTarget instanceof Node &&
+                  !event.currentTarget.contains(event.relatedTarget) &&
+                  !providerButton.current?.contains(event.relatedTarget)
+                )
+                  setChoice(null);
+              }}
+            >
+              <label htmlFor={providerId} className="text-xs font-medium text-ink-300">
+                Provider
+              </label>
+              <Select
+                id={providerId}
+                value={selectedId}
+                disabled={running}
+                onChange={(event) =>
+                  apply(
+                    changeAgentConfiguration({
+                      ...project.agentConfiguration,
+                      selectedProviderId: event.target.value,
+                    }),
+                  )
+                }
+              >
+                {providers.length === 0 && <option value={selectedId}>{selectedId}</option>}
+                {providers.map((provider) => (
+                  <option key={provider.metadata.id} value={provider.metadata.id}>
+                    {provider.metadata.displayName} ({describeAvailability(provider)})
+                  </option>
+                ))}
+              </Select>
+              <label htmlFor={modelId} className="text-xs font-medium text-ink-300">
+                Model
+              </label>
+              <Select
+                id={modelId}
+                value={models.value}
+                disabled={running || !models.selectable}
+                title={
+                  models.selectable
+                    ? 'Default lets the provider choose. Set another model id in Settings.'
+                    : `${selected?.metadata.displayName ?? selectedId} has no model choice.`
+                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === DEFAULT_MODEL_VALUE && models.value !== DEFAULT_MODEL_VALUE)
+                    setPreviousModels((current) => ({ ...current, [modelKey]: models.value }));
+                  apply(
+                    changeAgentConfiguration(
+                      withProviderModel(project.agentConfiguration, selectedId, value),
+                    ),
+                  );
+                }}
+              >
+                {models.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+              {detection === 'running' && (
+                <p role="status" className="text-xs text-ink-300">
+                  Checking providers
+                </p>
+              )}
+              {detection === 'failed' && (
+                <p role="alert" className="text-xs text-pencil-red">
+                  Error: the providers could not be checked.
+                </p>
+              )}
+              {detection === 'done' && selected !== undefined && (
+                <Availability provider={selected} />
+              )}
+              {selectedId === 'mock' && <p className="text-xs text-ink-300">Demo only · 3 Komas</p>}
+              {selected?.metadata.usesExternalService === true && (
+                <p className="text-xs leading-snug text-ink-300">
+                  {selected.metadata.displayName} sends your request, instructions, Brand Kit, Koma
+                  text and asset names online.
+                </p>
+              )}
             </div>
           )}
-          {selected?.metadata.usesExternalService === true && (
-            <p className="text-xs leading-snug text-ink-400">
-              {selected.metadata.displayName} sends your request, instructions, Brand Kit, Koma text
-              and asset names online.
-            </p>
-          )}
-          {project.presentation.komas.length > 0 && (
-            <p className="text-xs text-ink-400">Replaces current Komas. Undo is available.</p>
+          {choice === 'count' && (
+            <div
+              ref={choicesPanel}
+              id={countChoicesId}
+              role="dialog"
+              aria-label="Koma count"
+              className="absolute right-3 bottom-[calc(100%+0.5rem)] z-30 flex w-[min(16rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 rounded-xl border border-desk-500 bg-desk-800 p-3 shadow-[0_16px_40px_rgb(0_0_0/0.45)]"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setChoice(null);
+                  countButton.current?.focus();
+                }
+              }}
+              onBlur={(event) => {
+                if (
+                  event.relatedTarget instanceof Node &&
+                  !event.currentTarget.contains(event.relatedTarget) &&
+                  !countButton.current?.contains(event.relatedTarget)
+                )
+                  setChoice(null);
+              }}
+            >
+              <label htmlFor={countId} className="text-xs font-medium text-ink-300">
+                Komas
+              </label>
+              <div className="flex gap-2">
+                <TextInput
+                  id={countId}
+                  type="number"
+                  className="min-w-0 w-full tabular-nums"
+                  min={1}
+                  step={1}
+                  aria-invalid={validCount ? undefined : true}
+                  aria-describedby={validCount ? undefined : countErrorId}
+                  disabled={autoKomaCount}
+                  value={autoKomaCount ? '' : komaCount}
+                  onChange={(event) => setKomaCount(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key !== 'Enter') return;
+                    event.preventDefault();
+                    if (validCount) {
+                      setChoice(null);
+                      countButton.current?.focus();
+                    }
+                  }}
+                />
+                <Button
+                  variant="outline"
+                  compact
+                  active={autoKomaCount}
+                  aria-pressed={autoKomaCount}
+                  title="Let the agent choose a suitable number of Komas"
+                  onClick={() => setAutoKomaCount(!autoKomaCount)}
+                >
+                  Auto
+                </Button>
+              </div>
+              {!validCount && (
+                <p role="alert" className="text-xs text-pencil-red">
+                  Enter a whole number from 1.
+                </p>
+              )}
+              {project.presentation.komas.length > 0 && (
+                <p className="text-xs text-ink-300">Replaces current Komas. Undo is available.</p>
+              )}
+            </div>
           )}
         </form>
       </div>

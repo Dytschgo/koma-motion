@@ -4,6 +4,7 @@ import { komaProjectSchema } from '@koma-motion/core';
 import { buildKoma, buildProject } from '@koma-motion/core/testing';
 import { expect, test } from '@playwright/test';
 import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import { countTrigger, setKomaCount } from './composerControls';
 
 let running: RunningApplication;
 test.beforeEach(async () => {
@@ -65,8 +66,8 @@ for (const count of [250, 1000]) {
     await window.getByRole('button', { name: 'Open', exact: true }).click();
     await expect(komas).toHaveCount(count + 1);
     await expect(add).toBeEnabled();
-    await window.getByRole('spinbutton', { name: 'Komas', exact: true }).fill('30');
-    await expect(window.getByRole('spinbutton', { name: 'Komas', exact: true })).toHaveValue('30');
+    await setKomaCount(window, '30');
+    await expect(countTrigger(window)).toHaveAttribute('aria-description', '30 Komas');
     const brief = 'Detailed request. '.repeat(300);
     await window.getByLabel('Your request').fill(brief);
     await expect(window.getByLabel('Your request')).toHaveValue(brief);

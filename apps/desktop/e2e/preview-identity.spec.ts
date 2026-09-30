@@ -1,5 +1,6 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { launchApplication, type RunningApplication } from './application';
+import { selectProvider, providerTrigger } from './composerControls';
 
 let running: RunningApplication;
 
@@ -21,8 +22,8 @@ function positionSlider(page: Page): Locator {
 
 async function createGeneratedProject(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create a project' }).click();
-  await page.getByLabel('Provider', { exact: true }).selectOption('mock');
-  await expect(page.getByLabel('Provider', { exact: true })).toHaveValue('mock');
+  await selectProvider(page, 'mock');
+  await expect(providerTrigger(page)).toHaveAttribute('aria-description', 'Mock provider');
   await page.getByRole('button', { name: 'Use the example request' }).click();
   await page.getByRole('button', { name: 'Generate Komas' }).click();
   await expect(

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { buildProject } from '@koma-motion/core/testing';
 import { expect, test } from '@playwright/test';
 import { answerOpenDialog, launchApplication } from './application';
+import { openProviderChoices } from './composerControls';
 
 test('explains existing content sent by external providers before generation', async () => {
   const running = await launchApplication();
@@ -13,7 +14,7 @@ test('explains existing content sent by external providers before generation', a
     await answerOpenDialog(application, filePath);
     await window.getByRole('button', { name: 'Open a project' }).click();
     await expect(window.getByLabel('Project name')).toHaveValue('Fixture project');
-    const provider = window.getByLabel('Provider', { exact: true });
+    const provider = (await openProviderChoices(window)).getByLabel('Provider', { exact: true });
     await provider.selectOption('claude-code');
     const disclosure = window.getByText(
       'Claude Code sends your request, instructions, Brand Kit, Koma text and asset names online.',

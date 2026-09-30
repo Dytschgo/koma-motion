@@ -11,6 +11,7 @@ import {
   showInspector,
   type RunningApplication,
 } from './application';
+import { openProviderChoices } from './composerControls';
 
 const REQUEST = 'Explain the lifecycle of a bee in three Komas.';
 
@@ -36,7 +37,8 @@ test('explains the mock demo and how to generate from a request', async () => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800);
   });
 
-  const provider = window.getByLabel('Provider', { exact: true });
+  const providerChoices = await openProviderChoices(window);
+  const provider = providerChoices.getByLabel('Provider', { exact: true });
   const exampleRequest =
     'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
   const mockExplanation = window.getByText('Demo only · 3 Komas');
@@ -45,14 +47,12 @@ test('explains the mock demo and how to generate from a request', async () => {
   await expect(mockExplanation).toBeInViewport({ ratio: 1 });
   await expect(window.getByText('Try the three-Koma demo.')).toBeVisible();
 
-  await window.getByRole('button', { name: 'Use the example request' }).click();
-  await expect(window.getByLabel('Your request')).toHaveValue(exampleRequest);
-
   await provider.selectOption('claude-code');
   await expect(provider).toHaveValue('claude-code');
   await expect(mockExplanation).toHaveCount(0);
   await expect(window.getByText('What would you like to present?')).toBeVisible();
   await expect(window.getByText(/^Claude Code sends your request.*online\.$/)).toBeVisible();
+  await window.getByRole('button', { name: 'Use the example request' }).click();
   await expect(window.getByLabel('Your request')).toHaveValue(exampleRequest);
   await expect(window.getByRole('list', { name: 'Komas' })).toHaveCount(0);
   expect(problems).toEqual([]);
@@ -97,11 +97,13 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   });
 
   await test.step('select the mock provider', async () => {
-    const provider = window.getByLabel('Provider', { exact: true });
+    const providerChoices = await openProviderChoices(window);
+    const provider = providerChoices.getByLabel('Provider', { exact: true });
     await provider.selectOption('mock');
     await expect(provider).toHaveValue('mock');
-    await expect(window.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
-    await expect(window.getByText('Demo only · 3 Komas')).toBeVisible();
+    await expect(providerChoices.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
+    await expect(providerChoices.getByText('Demo only · 3 Komas')).toBeVisible();
+    await window.getByRole('button', { name: 'Provider and model' }).click();
   });
 
   await test.step('submit a generation request and receive three Komas', async () => {
