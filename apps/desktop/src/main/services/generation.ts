@@ -1,6 +1,7 @@
 import {
   agentError,
   buildGenerationRequest,
+  buildTransitionRegenerationRequest,
   convertResponseToPresentation,
   type AgentError,
   type ExecutionStatusEvent,
@@ -18,7 +19,7 @@ import {
   type IdGenerator,
   type KomaProject,
 } from '@koma-motion/core';
-import type { GenerationOutcome } from '../../shared/ipc';
+import type { GenerationOutcome, TransitionRegenerationOutcome } from '../../shared/ipc';
 
 const MAX_SUMMARY_LENGTH = 400;
 
@@ -134,6 +135,77 @@ export async function generatePresentation(options: {
     historyEntry: entry,
     warnings,
     repaired: result.repaired,
+    diagnostics: result.diagnostics,
+  };
+}
+
+/**
+ * Asks the selected provider for new settings of one transition.
+ *
+ * The provider sees the two Komas and the motion derived from them, and
+ * answers with timing and a rationale only. Its answer is validated here; the
+ * renderer rebuilds the transition from the Komas as they are when the answer
+ * arrives, and discards it if either Koma changed in the meantime.
+ */
+export async function regenerateTransition(options: {
+  readonly runner: GenerationRunner;
+  readonly executionId: string;
+  readonly providerId: string;
+  readonly project: KomaProject;
+  readonly transitionId: string;
+  readonly onStatus: (event: ExecutionStatusEvent) => void;
+  readonly now: () => Date;
+}): Promise<TransitionRegenerationOutcome> {
+  const { runner, executionId, providerId, project, transitionId, onStatus, now } = options;
+  const request = buildTransitionRegenerationRequest(project, transitionId);
+  if (!request.ok) {
+    const timestamp = now().toISOString();
+    onStatus({ executionId, phase: 'failed', message: request.error.message, timestamp });
+    return {
+      status: 'failed',
+      transitionId,
+      error: request.error,
+      diagnostics: {
+        providerId,
+        startedAt: timestamp,
+        finishedAt: timestamp,
+        durationMs: 0,
+        promptTemplate: '',
+        attempts: [],
+      },
+    };
+  }
+  const configuration = project.agentConfiguration;
+  const result = await runner.executeTransition({
+    executionId,
+    providerId,
+    request: request.value,
+    timeoutMs: configuration.timeoutSeconds === null ? null : configuration.timeoutSeconds * 1000,
+    model: configuration.providers[providerId]?.model ?? null,
+    onStatus,
+  });
+  if (result.status !== 'succeeded') {
+    return {
+      status: result.status,
+      transitionId,
+      error: result.error,
+      diagnostics: result.diagnostics,
+    };
+  }
+  const warnings = [...result.warnings];
+  if (result.repaired) {
+    warnings.push('The first response of the provider was not valid. It was corrected once.');
+  }
+  return {
+    status: 'succeeded',
+    transitionId,
+    settings: {
+      strategy: result.response.strategy,
+      duration: result.response.durationMs,
+      easing: result.response.easing,
+      rationale: result.response.rationale,
+    },
+    warnings,
     diagnostics: result.diagnostics,
   };
 }

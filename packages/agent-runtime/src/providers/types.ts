@@ -2,6 +2,7 @@ import { modelNameSchema, providerIdSchema } from '@koma-motion/core';
 import { z } from 'zod';
 import { agentErrorSchema, type AgentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
+import type { TransitionRegenerationRequest } from '../contract/transition';
 import type { AgentPrompt } from '../prompts/presentationGeneration';
 
 export const providerMetadataSchema = z.object({
@@ -139,6 +140,15 @@ export interface AgentProvider {
 
   generatePresentation(
     request: PresentationGenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult>;
+
+  /**
+   * Proposes new settings for one transition. The output is validated like
+   * presentation output, against the transition contract in the prompt.
+   */
+  generateTransition(
+    request: TransitionRegenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult>;
 }

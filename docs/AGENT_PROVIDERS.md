@@ -68,11 +68,47 @@ interface AgentProvider {
     request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult>;
+
+  generateTransition(
+    request: TransitionRegenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult>;
 }
 ```
 
 `AgentExecutionContext` contains the execution id, the attempt number, the
 rendered prompt, the model, an `AbortSignal` and a function to report progress.
+
+`generateTransition` regenerates one transition whose Komas changed after its
+motion was made. The CLI providers only see the rendered prompt, so both
+methods start the same process; only the prompt, the response schema and the
+progress message differ. `GenerationRunner.executeTransition` runs it with
+the same detection, cancellation, timeout, validation and single repair
+attempt as a presentation.
+
+### Transition regeneration
+
+The request (`TransitionRegenerationRequest`,
+`packages/agent-runtime/src/contract/transition.ts`) describes the two Komas
+(position, title, purpose and a summary of their elements), the operations
+the application derived from them, the current settings, the allowed
+strategies and easings, the duration range and the project instructions. It
+is built from the project as it is when the user asks, and only for a
+transition between two neighbouring Komas that can be compared.
+
+The response contains four values: `strategy`, `durationMs` (100 to
+10,000), `easing` and a non-empty `rationale`. The provider cannot change
+the Komas or the element operations: the renderer rebuilds the operations
+from the current Komas with `buildTransition` and replaces only that
+transition. It applies the answer only when neither Koma and none of the
+transition's settings changed while the provider worked, compared by content
+fingerprints (`fingerprintKoma`). Otherwise the answer is discarded and the
+transition stays marked as out of date.
+
+IPC channel: `koma:providers:regenerate-transition`, request
+`{ executionId, providerId, project, transitionId }`. It is cancelled with
+`koma:providers:cancel` and reports progress with `koma:providers:status`,
+like a generation. The model is the one configured for the selected provider.
 
 ### Differences to the originally proposed interface
 
@@ -346,6 +382,13 @@ part of the user interface and not part of a provider.
 | `presentation-repair`     | 2       | the correction of a rejected response                 |
 | `presentation-generation` | 1       | retained previous wording; the runner does not use it |
 | `presentation-repair`     | 1       | retained previous wording; the runner does not use it |
+| `transition-regeneration` | 1       | new settings for one transition                       |
+| `transition-repair`       | 1       | the correction of a rejected transition response      |
+
+The transition templates are in
+`packages/agent-runtime/src/prompts/transitionRegeneration.ts`. All project
+data in them, including titles, element names and text, is wrapped as
+untrusted data.
 
 Every template renders three parts:
 
@@ -628,6 +671,9 @@ application can be used with it.
   that progress and cancellation can be seen.
 - Its output passes through the same validation as the output of every other
   provider.
+- To regenerate a transition, it keeps the current strategy, duration and
+  easing and writes a rationale that counts the objects that change, enter
+  and leave. It pretends to work for 1.2 seconds as well.
 
 The story:
 

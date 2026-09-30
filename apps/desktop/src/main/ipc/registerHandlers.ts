@@ -17,7 +17,7 @@ import {
 } from '../../shared/ipc';
 import { isTrustedSender } from '../security';
 import type { BrandKitLibrary } from '../services/brandKitLibrary';
-import { generatePresentation } from '../services/generation';
+import { generatePresentation, regenerateTransition } from '../services/generation';
 import { selectLogo } from '../services/logo';
 import { InstructionTemplateLibrary } from '../services/instructionTemplates';
 import {
@@ -181,6 +181,22 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
         send('koma:providers:status', status);
       },
     }),
+  );
+
+  handle(
+    'koma:providers:regenerate-transition',
+    ({ executionId, providerId, project, transitionId }) =>
+      regenerateTransition({
+        runner,
+        executionId,
+        providerId,
+        project,
+        transitionId,
+        now: () => new Date(),
+        onStatus: (status) => {
+          send('koma:providers:status', status);
+        },
+      }),
   );
 
   handle('koma:providers:cancel', ({ executionId }) => ({

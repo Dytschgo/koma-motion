@@ -12,7 +12,6 @@ import {
   type KomaProject,
   type KomaTransition,
 } from '@koma-motion/core';
-import { validateTransition } from '@koma-motion/motion-engine';
 import { useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import {
   getTransitionContext,
@@ -20,6 +19,7 @@ import {
   useSelectedElement,
   useSelectedKoma,
 } from '../lib/selectors';
+import { assessTransition } from '../lib/transitionIssues';
 import {
   changeElement,
   changeKomaDetails,
@@ -680,13 +680,11 @@ function TransitionSection({
 }): ReactElement | null {
   const apply = useProjectStore((state) => state.apply);
   const context = getTransitionContext(project.presentation, transition.id);
-  const issues = useMemo(
-    () => validateTransition(transition, project.presentation),
-    [transition, project.presentation],
-  );
   if (context === null) {
     return null;
   }
+  // The warning next to the preview controls explains the problem; this only points to it.
+  const assessment = assessTransition(project.presentation, transition, context.from, context.to);
   const change = (patch: Parameters<typeof changeTransition>[1], field: string): void => {
     apply(changeTransition(transition.id, patch), {
       coalesceKey: `transition:${transition.id}:${field}`,
@@ -767,17 +765,19 @@ function TransitionSection({
         </ul>
       </div>
 
-      {issues.length > 0 && (
-        <ul role="alert" className="flex flex-col gap-1 text-sm text-signal-warn">
-          {issues.map((issue, index) => (
-            <li key={index} className="flex gap-2">
-              <span className="flex-none">
-                <WarningIcon size={14} />
-              </span>
-              Warning: {issue.message}
-            </li>
-          ))}
-        </ul>
+      {assessment !== null && (
+        <p className="flex gap-2 text-sm text-signal-warn">
+          <span aria-hidden="true" className="flex-none">
+            <WarningIcon size={14} />
+          </span>
+          <span>
+            {assessment.blocked
+              ? 'This transition cannot play.'
+              : 'Part of this transition is skipped.'}{' '}
+            The warning above the preview controls explains why
+            {assessment.remedy === 'regenerate' ? ' and lets you regenerate it.' : '.'}
+          </span>
+        </p>
       )}
     </Section>
   );

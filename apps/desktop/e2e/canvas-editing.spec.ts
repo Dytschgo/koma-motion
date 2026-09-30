@@ -163,6 +163,12 @@ test('moves, resizes, cancels and edits text with one undo per committed gesture
   await locked.click({ position: { x: 4, y: lockedBox.height - 4 } });
   await expect(stage.getByRole('button', { name: /Resize/ })).toHaveCount(0);
 
+  // The edits moved objects of the first Koma, so its transition must be
+  // regenerated before it can be previewed. The edits stay.
+  await expect(window.getByLabel('Position in the transition')).toBeDisabled();
+  const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
+  await warning.getByRole('button', { name: 'Regenerate transition' }).click();
+  await expect(warning).toHaveCount(0);
   await window.getByLabel('Position in the transition').fill('500');
   await expect(stage.getByRole('button')).toHaveCount(0);
   await expect(window.getByRole('button', { name: 'Add image', exact: true })).toBeDisabled();

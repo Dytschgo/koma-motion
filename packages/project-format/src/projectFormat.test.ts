@@ -1,6 +1,11 @@
 import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
 import { CURRENT_SCHEMA_VERSION } from '@koma-motion/core';
-import { buildTransition, computeFrame, komaToFrame } from '@koma-motion/motion-engine';
+import {
+  buildTransition,
+  computeFrame,
+  komaToFrame,
+  validateTransition,
+} from '@koma-motion/motion-engine';
 import { describe, expect, it } from 'vitest';
 import { migrateToVersion, type Migration } from './migrations';
 import { parseProject } from './parse';
@@ -125,7 +130,13 @@ describe('parseProject', () => {
       return;
     }
 
-    expect(parsed.value.warnings.some((warning) => warning.includes('missing-shape'))).toBe(true);
+    // The problem is reported by motion validation, not as a load warning.
+    expect(parsed.value.warnings.some((warning) => warning.includes('missing-shape'))).toBe(false);
+    expect(
+      validateTransition(invented, parsed.value.project.presentation).some((issue) =>
+        issue.message.includes('missing-shape'),
+      ),
+    ).toBe(true);
     expect(serialise(parsed.value.project)).toBe(text);
     expect(parsed.value.project.presentation.transitions[0]?.elementTransitions).toEqual(
       invented.elementTransitions,

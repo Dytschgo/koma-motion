@@ -4,15 +4,17 @@ import {
   type Koma,
   type KomaProject,
   type KomaTransition,
+  type Presentation,
 } from '@koma-motion/core';
 import { komaToFrame } from '@koma-motion/motion-engine';
 import { createAssetResolver, KomaStage, type AssetResolver } from '@koma-motion/renderer';
 import { useMemo, type ReactElement } from 'react';
 import { formatSeconds, useSelectedKoma } from '../lib/selectors';
+import { assessTransition } from '../lib/transitionIssues';
 import { addKoma, deleteKoma, renameProject, reorderKoma } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
-import { DownIcon, PlusIcon, TrashIcon, UpIcon } from './icons';
+import { DownIcon, PlusIcon, TrashIcon, UpIcon, WarningIcon } from './icons';
 import { Button, IconButton, TextInput } from './ui';
 
 const THUMBNAIL_WIDTH = 184;
@@ -31,18 +33,50 @@ function countChanges(transition: KomaTransition): number {
  * part of the presentation, not an effect added afterwards.
  */
 function InBetween({
+  presentation,
   transition,
+  fromKoma,
+  toKoma,
   from,
   to,
   active,
 }: {
+  readonly presentation: Presentation;
   readonly transition: KomaTransition;
+  readonly fromKoma: Koma;
+  readonly toKoma: Koma;
   readonly from: number;
   readonly to: number;
   readonly active: boolean;
 }): ReactElement {
   const startPreview = useUiStore((state) => state.startPreview);
+  const selectKoma = useUiStore((state) => state.selectKoma);
+  const setView = useUiStore((state) => state.setView);
   const changes = countChanges(transition);
+  const assessment = assessTransition(presentation, transition, fromKoma, toKoma);
+  if (assessment?.blocked === true) {
+    // Nothing to preview. The button shows the explanation next to the
+    // preview controls instead, by selecting the Koma the transition leaves.
+    return (
+      <li className="flex items-stretch gap-2 pl-[18px]">
+        <span aria-hidden="true" className="w-px flex-none bg-signal-warn" />
+        <button
+          type="button"
+          aria-label={`Transition from Koma ${String(from)} to Koma ${String(to)}: ${assessment.label.toLowerCase()}. It cannot play. Show the problem`}
+          className="my-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-signal-warn/40 px-2 py-1 text-left text-sm text-signal-warn hover:bg-desk-700"
+          onClick={() => {
+            setView('canvas');
+            selectKoma(fromKoma.id);
+          }}
+        >
+          <span aria-hidden="true" className="flex-none">
+            <WarningIcon size={14} />
+          </span>
+          <span className="truncate">{assessment.label}</span>
+        </button>
+      </li>
+    );
+  }
   return (
     <li className="flex items-stretch gap-2 pl-[18px]">
       <span
@@ -64,7 +98,13 @@ function InBetween({
         <span className="truncate">
           {formatSeconds(transition.duration)}, {transition.strategy}
         </span>
-        <span className="flex-none tabular-nums">
+        <span className="flex flex-none items-center gap-1 tabular-nums">
+          {assessment !== null && (
+            <span className="text-ink-400" title={assessment.headline}>
+              <WarningIcon size={12} />
+              <span className="sr-only">{assessment.label}.</span>
+            </span>
+          )}
           {changes} {changes === 1 ? 'change' : 'changes'}
         </span>
       </button>
@@ -228,10 +268,13 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
                   ? undefined
                   : findTransitionBetween(project.presentation, previous.id, koma.id);
               return [
-                transition !== undefined && (
+                transition !== undefined && previous !== undefined && (
                   <InBetween
                     key={transition.id}
+                    presentation={project.presentation}
                     transition={transition}
+                    fromKoma={previous}
+                    toKoma={koma}
                     from={index}
                     to={index + 1}
                     active={

@@ -1,6 +1,7 @@
 import { modelNameSchema } from '@koma-motion/core';
 import { agentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
+import type { TransitionRegenerationRequest } from '../contract/transition';
 import type {
   AgentExecutionContext,
   AgentProvider,
@@ -135,10 +136,32 @@ export class ClaudeCodeProvider implements AgentProvider {
     });
   }
 
-  async generatePresentation(
+  generatePresentation(
     _request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
+    return this.#run(
+      context,
+      context.attempt === 1
+        ? 'Claude Code is designing the Komas. This can take a few minutes'
+        : 'Claude Code is correcting its response',
+    );
+  }
+
+  /** The CLI only sees the rendered prompt, so a transition runs like a presentation. */
+  generateTransition(
+    _request: TransitionRegenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult> {
+    return this.#run(
+      context,
+      context.attempt === 1
+        ? 'Claude Code is choosing the motion of one transition'
+        : 'Claude Code is correcting its response',
+    );
+  }
+
+  async #run(context: AgentExecutionContext, progress: string): Promise<ProviderExecutionResult> {
     const executable = await this.#environment.resolveExecutable(EXECUTABLE_NAME);
     if (executable === null) {
       return {
@@ -150,11 +173,7 @@ export class ClaudeCodeProvider implements AgentProvider {
 
     const workingDirectory = await this.#environment.createWorkingDirectory();
     try {
-      context.reportProgress(
-        context.attempt === 1
-          ? 'Claude Code is designing the Komas. This can take a few minutes'
-          : 'Claude Code is correcting its response',
-      );
+      context.reportProgress(progress);
       const outcome = await this.#environment.runProcess({
         executable,
         arguments: buildClaudeCodeArguments({

@@ -246,16 +246,34 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
     ).toContainText('0 changes');
   });
 
-  await test.step('changing an element keeps stored motion until explicitly regenerated', async () => {
+  await test.step('a changed element marks its transitions until they are regenerated', async () => {
     await showInspector(window);
     await window
       .getByRole('region', { name: 'Canvas' })
       .getByRole('button', { name: 'Motion engine (shape)' })
       .click();
     await window.getByLabel('X', { exact: true }).fill('300');
+    // The stored motion no longer matches, so the in-between is marked and not played.
+    const stale = window.getByRole('button', {
+      name: 'Transition from Koma 1 to Koma 2: out of date. It cannot play. Show the problem',
+    });
+    await expect(stale).toBeVisible();
+    await expect(window.getByLabel('X', { exact: true })).toHaveValue('300');
+
+    await stale.click();
+    const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
+    await expect(warning).toContainText('no longer matches "Motion engine"');
+    await warning.getByRole('button', { name: 'Regenerate transition' }).click();
+    await expect(warning).toHaveCount(0);
     await expect(
       window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
-    ).toContainText('0 changes');
+    ).toContainText('1 change');
+    // Regeneration keeps the edited Koma.
+    await window.getByRole('button', { name: 'Koma 2: Koma 4' }).click();
+    await window
+      .getByRole('region', { name: 'Canvas' })
+      .getByRole('button', { name: 'Motion engine (shape)' })
+      .click();
     await expect(window.getByLabel('X', { exact: true })).toHaveValue('300');
   });
 

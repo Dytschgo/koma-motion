@@ -1,5 +1,6 @@
 import { agentError } from '../../contract/errors';
 import type { PresentationGenerationRequest } from '../../contract/request';
+import type { TransitionRegenerationRequest } from '../../contract/transition';
 import type {
   AgentExecutionContext,
   AgentProvider,
@@ -7,7 +8,7 @@ import type {
   ProviderExecutionResult,
   ProviderMetadata,
 } from '../types';
-import { buildMockResponse } from './mockStory';
+import { buildMockResponse, buildMockTransitionSettings } from './mockStory';
 
 export const MOCK_PROVIDER_ID = 'mock';
 export const MOCK_PROVIDER_VERSION = '1.0.0';
@@ -17,6 +18,7 @@ const PROGRESS_STEPS = [
   'Composing the Komas',
   'Choosing the choreography',
 ] as const;
+const TRANSITION_PROGRESS_STEPS = ['Comparing the two Komas', 'Choosing the choreography'] as const;
 
 export interface MockAgentProviderOptions {
   /**
@@ -86,11 +88,28 @@ export class MockAgentProvider implements AgentProvider {
     request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
+    return this.#answer(PROGRESS_STEPS, context, () => buildMockResponse(request));
+  }
+
+  async generateTransition(
+    request: TransitionRegenerationRequest,
+    context: AgentExecutionContext,
+  ): Promise<ProviderExecutionResult> {
+    return this.#answer(TRANSITION_PROGRESS_STEPS, context, () =>
+      buildMockTransitionSettings(request),
+    );
+  }
+
+  async #answer(
+    steps: readonly string[],
+    context: AgentExecutionContext,
+    build: () => unknown,
+  ): Promise<ProviderExecutionResult> {
     const details = { exitCode: null, errorOutput: '' };
     try {
-      for (const step of PROGRESS_STEPS) {
+      for (const step of steps) {
         context.reportProgress(step);
-        await sleep(this.#delayMs / PROGRESS_STEPS.length, context.signal);
+        await sleep(this.#delayMs / steps.length, context.signal);
       }
     } catch {
       return {
@@ -101,7 +120,7 @@ export class MockAgentProvider implements AgentProvider {
     }
     return {
       ok: true,
-      output: { rawText: JSON.stringify(buildMockResponse(request)) },
+      output: { rawText: JSON.stringify(build()) },
       details,
     };
   }

@@ -36,7 +36,12 @@ import {
   type Presentation,
   type TransitionSettingsPatch,
 } from '@koma-motion/core';
-import { normaliseDuration, syncTransitions } from '@koma-motion/motion-engine';
+import {
+  buildTransition,
+  normaliseDuration,
+  syncTransitions,
+  type TransitionSuggestion,
+} from '@koma-motion/motion-engine';
 
 export type ProjectCommand = ((project: KomaProject, idGenerator: IdGenerator) => KomaProject) & {
   /** Visual endpoints for PR 3. These commands do not regenerate stored motion. */
@@ -225,6 +230,30 @@ export const changeTransition =
       ...(patch.duration === undefined ? {} : { duration: normaliseDuration(patch.duration) }),
     }),
   });
+
+/**
+ * Rebuilds one transition from its Komas as they are now, with regenerated
+ * settings. Nothing else changes: not the Komas, not the other transitions.
+ * A transition whose Komas are no longer neighbours, or cannot be compared,
+ * is left as it is.
+ */
+export const regenerateTransitionMotion =
+  (transitionId: string, settings: TransitionSuggestion): ProjectCommand =>
+  (project) => {
+    const { presentation } = project;
+    const index = presentation.transitions.findIndex((item) => item.id === transitionId);
+    const transition = presentation.transitions[index];
+    if (transition === undefined) return project;
+    const fromIndex = presentation.komas.findIndex((koma) => koma.id === transition.fromKomaId);
+    const from = presentation.komas[fromIndex];
+    const to = presentation.komas[fromIndex + 1];
+    if (from === undefined || to?.id !== transition.toKomaId) return project;
+    const built = buildTransition({ id: transition.id, from, to, suggestion: settings });
+    if (!built.ok) return project;
+    const transitions = [...presentation.transitions];
+    transitions[index] = built.value.transition;
+    return { ...project, presentation: { ...presentation, transitions } };
+  };
 
 /** Replaces the presentation with a generated one and records the generation. */
 export const applyGeneration =
