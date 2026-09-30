@@ -1,5 +1,6 @@
+import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchApplication } from './application';
+import { answerSaveDialog, launchApplication } from './application';
 
 test('opens secondary guidance by hover, keyboard and click without clipping', async () => {
   const running = await launchApplication();
@@ -38,6 +39,38 @@ test('opens secondary guidance by hover, keyboard and click without clipping', a
     await expect(tooltip).toHaveCount(0);
     await window.getByRole('button', { name: 'Canvas shortcuts', exact: true }).click();
     await expect(tooltip).toContainText('Enter edits text');
+    expect(running.problems).toEqual([]);
+  } finally {
+    await running.close();
+  }
+});
+
+test('closes chat help when Brand Kit hides its trigger', async () => {
+  const running = await launchApplication();
+  const { window, application } = running;
+  try {
+    await application.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
+    });
+    await window.getByRole('button', { name: 'Create a project' }).click();
+    const help = window.getByRole('button', { name: 'About the chat' });
+    const tooltip = window.getByRole('tooltip');
+    await help.focus();
+    await help.press('Enter');
+    await expect(tooltip).toContainText('Hide the chat');
+
+    const brandKit = window.getByRole('button', { name: 'Brand Kit', exact: true });
+    await brandKit.focus();
+    await brandKit.press('Enter');
+    await expect(window.getByRole('button', { name: 'Show the chat' })).toBeVisible();
+    await expect(tooltip).toHaveCount(0);
+    await answerSaveDialog(application, join(running.directory, 'hidden-help.koma'));
+    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(window.getByText('All changes saved')).toBeVisible();
+
+    await window.getByRole('button', { name: 'Show the chat' }).click();
+    await expect(help).toBeVisible();
+    await expect(tooltip).toHaveCount(0);
     expect(running.problems).toEqual([]);
   } finally {
     await running.close();
