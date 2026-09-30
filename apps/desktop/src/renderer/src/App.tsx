@@ -1,6 +1,8 @@
-import { useEffect, type ReactElement } from 'react';
+import type { KomaProject } from '@koma-motion/core';
+import { useElementSize } from '@koma-motion/renderer';
+import { useEffect, useRef, type ReactElement } from 'react';
 import { AgentPanel } from './components/AgentPanel';
-import { BrandKitEditor } from './components/BrandKitEditor';
+import { BrandKitPanel } from './components/BrandKitPanel';
 import { Inspector } from './components/Inspector';
 import { KomaStrip } from './components/KomaStrip';
 import { ConfirmDialog, Notices } from './components/Overlays';
@@ -10,6 +12,7 @@ import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
 import { detectProviders } from './lib/agentActions';
 import { invoke, subscribe } from './lib/api';
+import { getBrandKitPanelWidth, getChatLayout, INSPECTOR_WIDTH } from './lib/chatLayout';
 import { followUpdates } from './lib/updateActions';
 import {
   createNewProject,
@@ -93,34 +96,71 @@ function useApplicationEvents(): void {
   }, []);
 }
 
+/**
+ * Komas on the left, the canvas in the middle, the Inspector or the Brand Kit
+ * beside it and the chat on the right. When the window has no room for the
+ * canvas, the side panel and the chat side by side, the open chat takes the
+ * place of the Inspector, and the Brand Kit and the chat take turns: opening
+ * one collapses the other.
+ */
+function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
+  const view = useUiStore((state) => state.view);
+  const chatOpen = useUiStore((state) => state.agentPanelOpen);
+  const chatWidth = useUiStore((state) => state.agentPanelWidth);
+  const [attachArea, area] = useElementSize<HTMLDivElement>();
+  const chatLayout = getChatLayout({
+    available: area.width,
+    preferred: chatWidth,
+    inspector: view === 'canvas' ? INSPECTOR_WIDTH : getBrandKitPanelWidth(window.innerWidth),
+  });
+  const brandKitOpen = view === 'brandKit';
+  const crowded = chatOpen && brandKitOpen && chatLayout.replacesInspector;
+
+  const previous = useRef({ chatOpen, brandKitOpen });
+  useEffect(() => {
+    const chatJustOpened = !previous.current.chatOpen;
+    previous.current = { chatOpen, brandKitOpen };
+    if (!crowded) {
+      return;
+    }
+    if (chatJustOpened) {
+      useUiStore.getState().setView('canvas');
+    } else {
+      useUiStore.getState().setAgentPanelOpen(false);
+    }
+  }, [crowded, chatOpen, brandKitOpen]);
+
+  return (
+    <div className="flex min-h-0 flex-1">
+      <KomaStrip project={project} />
+      <div ref={attachArea} className="flex min-h-0 min-w-0 flex-1">
+        <main className="flex min-h-0 min-w-0 flex-1">
+          <Workspace project={project} />
+          {brandKitOpen ? (
+            <div className="contents" hidden={crowded}>
+              <BrandKitPanel project={project} />
+            </div>
+          ) : (
+            // Hidden, not removed, so that the Inspector keeps its state.
+            <div className="contents" hidden={chatOpen && chatLayout.replacesInspector}>
+              <Inspector project={project} />
+            </div>
+          )}
+        </main>
+        <AgentPanel project={project} layout={chatLayout} />
+      </div>
+    </div>
+  );
+}
+
 export function App(): ReactElement {
   const project = useProjectStore(selectProject);
-  const view = useUiStore((state) => state.view);
   useApplicationEvents();
 
   return (
     <div className="flex h-full flex-col">
       <TopBar />
-      {project === null ? (
-        <Welcome />
-      ) : (
-        <div className="flex min-h-0 flex-1">
-          <KomaStrip project={project} />
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-            <main className="flex min-h-0 flex-1">
-              {view === 'brandKit' ? (
-                <BrandKitEditor project={project} />
-              ) : (
-                <>
-                  <Workspace project={project} />
-                  <Inspector project={project} />
-                </>
-              )}
-            </main>
-            <AgentPanel project={project} />
-          </div>
-        </div>
-      )}
+      {project === null ? <Welcome /> : <ProjectLayout project={project} />}
       <SettingsDialog project={project} />
       <ConfirmDialog />
       <Notices />

@@ -154,7 +154,11 @@ test('moves, resizes, cancels and edits text with one undo per committed gesture
   await expect(
     window.getByRole('list', { name: 'Komas' }).getByRole('button', { name: /Resize/ }),
   ).toHaveCount(0);
-  await stage.getByRole('button', { name: 'Locked (shape)' }).click();
+  // Its lower left corner, as the text editing controls float over the top right of the canvas.
+  const locked = stage.getByRole('button', { name: 'Locked (shape)' });
+  const lockedBox = await locked.boundingBox();
+  if (!lockedBox) throw new Error('No locked shape');
+  await locked.click({ position: { x: 4, y: lockedBox.height - 4 } });
   await expect(stage.getByRole('button', { name: /Resize/ })).toHaveCount(0);
 
   await window.getByLabel('Position in the transition').fill('500');

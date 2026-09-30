@@ -2,7 +2,41 @@
 import type { BrandKitRawDraft } from '@koma-motion/brand-kit';
 import { clampZoom } from '@koma-motion/renderer';
 import { create } from 'zustand';
+import {
+  clampChatWidth,
+  parseChatPreferences,
+  serializeChatPreferences,
+  type ChatPreferences,
+} from '../lib/chatLayout';
 import { selectProject, useProjectStore } from './projectStore';
+
+/** Key of the chat preferences in the local storage of the window. */
+export const CHAT_PREFERENCES_KEY = 'koma-motion:chat';
+
+/** The storage of the window, or nothing outside a window (unit tests). */
+function getPreferenceStorage(): Storage | null {
+  try {
+    return typeof window === 'undefined' ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+function loadChatPreferences(): ChatPreferences {
+  try {
+    return parseChatPreferences(getPreferenceStorage()?.getItem(CHAT_PREFERENCES_KEY) ?? null);
+  } catch {
+    return parseChatPreferences(null);
+  }
+}
+
+function saveChatPreferences(preferences: ChatPreferences): void {
+  try {
+    getPreferenceStorage()?.setItem(CHAT_PREFERENCES_KEY, serializeChatPreferences(preferences));
+  } catch {
+    // The preferences are a convenience. Losing them must not break the interface.
+  }
+}
 
 /**
  * Raw Brand Kit text for one open project. It is not saved. `projectId` stops
@@ -17,7 +51,14 @@ export interface BrandKitDraftState {
 
 const EMPTY_BRAND_KIT_RAW_DRAFT: BrandKitRawDraft = {};
 
+/**
+ * What the panel beside the canvas shows: the inspector or the Brand Kit.
+ * The canvas and its controls stay visible either way.
+ */
 export type WorkspaceView = 'canvas' | 'brandKit';
+
+/** The part of the Brand Kit panel that is shown. */
+export type BrandKitTab = 'project' | 'library';
 
 export interface ConfirmationRequest {
   readonly title: string;
@@ -49,12 +90,16 @@ export interface PreviewIdentity {
 
 interface UiState {
   readonly view: WorkspaceView;
+  readonly brandKitTab: BrandKitTab;
   readonly selectedKomaId: string | null;
   readonly selectedElementId: string | null;
   /** `null` fits the canvas into the workspace. */
   readonly zoom: number | null;
   readonly settingsOpen: boolean;
+  /** Chat sidebar. Kept across projects and restarts, never in the project. */
   readonly agentPanelOpen: boolean;
+  /** The width the user chose for the chat sidebar. */
+  readonly agentPanelWidth: number;
   readonly confirmation: ConfirmationRequest | null;
   readonly notices: readonly Notice[];
   readonly preview: PreviewIdentity | null;
@@ -62,11 +107,13 @@ interface UiState {
   readonly brandKitDraft: BrandKitDraftState | null;
 
   readonly setView: (view: WorkspaceView) => void;
+  readonly setBrandKitTab: (tab: BrandKitTab) => void;
   readonly selectKoma: (komaId: string | null) => void;
   readonly selectElement: (elementId: string | null) => void;
   readonly setZoom: (zoom: number | null) => void;
   readonly setSettingsOpen: (open: boolean) => void;
   readonly setAgentPanelOpen: (open: boolean) => void;
+  readonly setAgentPanelWidth: (width: number) => void;
   readonly confirm: (request: Omit<ConfirmationRequest, 'resolve'>) => Promise<boolean>;
   readonly answerConfirmation: (confirmed: boolean) => void;
   readonly notify: (kind: Notice['kind'], message: string) => void;
@@ -91,26 +138,34 @@ export function selectBrandKitRawDraft(
 
 let nextToken = 1;
 
+const initialChatPreferences = loadChatPreferences();
+
 export const useUiStore = create<UiState>((set, get) => ({
   view: 'canvas',
+  brandKitTab: 'project',
   selectedKomaId: null,
   selectedElementId: null,
   zoom: null,
   settingsOpen: false,
-  agentPanelOpen: true,
+  agentPanelOpen: initialChatPreferences.open,
+  agentPanelWidth: initialChatPreferences.width,
   confirmation: null,
   notices: [],
   preview: null,
   brandKitDraft: null,
 
   setView(view) {
-    set({ view, preview: null });
+    set({ view });
+  },
+  setBrandKitTab(brandKitTab) {
+    set({ brandKitTab });
   },
   selectKoma(selectedKomaId) {
-    set({ selectedKomaId, selectedElementId: null, preview: null, view: 'canvas' });
+    set({ selectedKomaId, selectedElementId: null, preview: null });
   },
   selectElement(selectedElementId) {
-    set({ selectedElementId });
+    // Selecting an element asks for its properties, so the inspector replaces the Brand Kit.
+    set(selectedElementId === null ? { selectedElementId } : { selectedElementId, view: 'canvas' });
   },
   setZoom(zoom) {
     set({ zoom: zoom === null ? null : clampZoom(zoom) });
@@ -120,6 +175,9 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   setAgentPanelOpen(agentPanelOpen) {
     set({ agentPanelOpen });
+  },
+  setAgentPanelWidth(width) {
+    set({ agentPanelWidth: clampChatWidth(width) });
   },
   confirm(request) {
     get().confirmation?.resolve(false);
@@ -153,7 +211,6 @@ export const useUiStore = create<UiState>((set, get) => ({
         toKomaId: transition.toKomaId,
         token: nextToken++,
       },
-      view: 'canvas',
       selectedElementId: null,
     });
   },
@@ -172,6 +229,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({
       confirmation: null,
       view: 'canvas',
+      brandKitTab: 'project',
       selectedKomaId: null,
       selectedElementId: null,
       zoom: null,
@@ -180,3 +238,12 @@ export const useUiStore = create<UiState>((set, get) => ({
     });
   },
 }));
+
+useUiStore.subscribe((state, previous) => {
+  if (
+    state.agentPanelOpen !== previous.agentPanelOpen ||
+    state.agentPanelWidth !== previous.agentPanelWidth
+  ) {
+    saveChatPreferences({ open: state.agentPanelOpen, width: state.agentPanelWidth });
+  }
+});

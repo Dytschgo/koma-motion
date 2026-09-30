@@ -37,7 +37,7 @@ makes every change visible immediately.
 | Package          | Responsibility                                                                                                               | Runs in                        |
 | ---------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | `core`           | schemas and types of projects, Komas, elements and transitions; colours; identifiers; document operations                    | everywhere                     |
-| `brand-kit`      | default Brand Kit, validation of editor input, contrast checks, the Brand Kit as agents see it                               | everywhere                     |
+| `brand-kit`      | default Brand Kit, validation of editor input, contrast checks, the Brand Kit as agents see it, the saved-kit library format | everywhere                     |
 | `project-format` | deterministic serialisation, parsing, migrations, warnings; whole-file replacement under `/node`                             | everywhere, `/node` in Node.js |
 | `motion-engine`  | comparing Komas, building and validating transitions, computing frames                                                       | everywhere                     |
 | `agent-runtime`  | request and response contract, prompts, validation, conversion, registry, runner, mock provider; CLI providers under `/node` | everywhere, `/node` in Node.js |
@@ -238,6 +238,14 @@ schema for the request and the response of every channel.
 | `koma:project:save`            | save to the current file                    |
 | `koma:project:save-as`         | choose a file and save                      |
 | `koma:brand-kit:select-logo`   | choose an image as logo                     |
+| `koma:brand-kits:list`         | read the saved Brand Kit library            |
+| `koma:brand-kits:create`       | save a Brand Kit and its logo               |
+| `koma:brand-kits:update`       | replace a saved kit with project values     |
+| `koma:brand-kits:rename`       | rename a saved kit                          |
+| `koma:brand-kits:duplicate`    | copy a saved kit                            |
+| `koma:brand-kits:delete`       | delete a saved kit                          |
+| `koma:brand-kits:load`         | read a saved kit and its logo to apply it   |
+| `koma:brand-kits:start-new`    | keep an unreadable library as a backup      |
 | `koma:providers:detect`        | detect all providers                        |
 | `koma:providers:execute`       | run a generation                            |
 | `koma:providers:cancel`        | stop a generation                           |
@@ -278,6 +286,8 @@ sure that the channel list of the preload script equals the contract.
 | selection, view, zoom    | `uiStore`                       | no                     |
 | preview                  | `uiStore` and the playback hook | no                     |
 | agent executions, chat   | `agentStore`                    | no                     |
+| chat sidebar width, open | `uiStore`, window local storage | no                     |
+| saved Brand Kit library  | `brandKitLibraryStore`, on disk | no, app data folder    |
 | unfinished editor input  | component state                 | no                     |
 
 Changes to the document are commands: pure functions from a project to a
@@ -289,6 +299,13 @@ transitions.
 generation. The history holds up to 100 steps. A series of edits of the same
 field within 1.2 seconds is one step. Undo history is not saved with the
 project.
+
+Saved Brand Kits are not project state. The library lives in the data folder
+of the application (`brand-kits/library.json`, logos in `brand-kits/logos/`
+named by the SHA-256 of their bytes), is read and written by the main process
+only, and changes to it are not undoable. Applying a saved kit is a project
+command: it copies the logo into the project's assets, reusing an asset with
+the same bytes, and can be undone.
 
 Unsaved changes are detected by comparing the current document with the
 document that was last saved or loaded. Undoing back to the saved state

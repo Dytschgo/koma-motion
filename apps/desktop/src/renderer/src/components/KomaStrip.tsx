@@ -249,7 +249,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
                   count={komas.length}
                   project={project}
                   resolveAsset={resolveAsset}
-                  selected={view === 'canvas' && selectedKoma?.id === koma.id}
+                  selected={selectedKoma?.id === koma.id}
                 />,
               ];
             })}

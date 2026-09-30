@@ -3,6 +3,7 @@ import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } fro
 import { ipcEvents } from '../shared/ipc';
 import { registerHandlers } from './ipc/registerHandlers';
 import { APP_URL, hardenWebContents } from './security';
+import type { BrandKitLibrary } from './services/brandKitLibrary';
 import { createProjectSession } from './services/projectFiles';
 import type { UpdateService } from './updates/service';
 
@@ -38,7 +39,10 @@ function buildMenu(): Menu {
   return Menu.buildFromTemplate(template);
 }
 
-export function createMainWindow(updates: UpdateService): BrowserWindow {
+export function createMainWindow(
+  updates: UpdateService,
+  brandKits: BrandKitLibrary,
+): BrowserWindow {
   const window = new BrowserWindow({
     title: APPLICATION_NAME,
     width: 1480,
@@ -85,6 +89,7 @@ export function createMainWindow(updates: UpdateService): BrowserWindow {
     window,
     session,
     updates,
+    brandKits,
     closeConfirmed: () => {
       closeConfirmed = true;
       window.close();

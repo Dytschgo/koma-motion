@@ -1,4 +1,9 @@
-import type { KomaElement, Position, Size } from '@koma-motion/core';
+import {
+  MAX_ELEMENT_TEXT_LENGTH,
+  type KomaElement,
+  type Position,
+  type Size,
+} from '@koma-motion/core';
 import type { Frame } from '@koma-motion/motion-engine';
 import { useRef, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AssetResolver } from './assets';
@@ -289,7 +294,7 @@ export function KomaStage({
             <textarea
               aria-label={`Edit text: ${shown.name}`}
               autoFocus
-              maxLength={5000}
+              maxLength={MAX_ELEMENT_TEXT_LENGTH}
               value={textEditing.text}
               onChange={(event) => setTextDraft({ ...textEditing, text: event.target.value })}
               onPointerDown={(event) => event.stopPropagation()}
@@ -323,6 +328,9 @@ export function KomaStage({
                 key={corner}
                 type="button"
                 aria-label={`Resize ${shown.name} ${corner}`}
+                // Pointer only: the keyboard sets the size in the Inspector.
+                tabIndex={-1}
+                title="Drag to resize. Width and height are also in the Inspector."
                 onPointerDown={(event) => begin(event, shown, corner)}
                 style={{
                   position: 'absolute',
