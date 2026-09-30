@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { open, readFile, rename, stat, unlink } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 import {
@@ -14,6 +14,20 @@ import { projectFormatError, type ProjectFormatError } from '../errors';
 import { parseProject, readSchemaVersion, type LoadedProject } from '../parse';
 import { serialiseProject } from '../serialise';
 import { withProjectFileOperation } from './operationGate';
+
+/** Fingerprint of the bytes read or written, kept only in the main process. */
+function fileRevision(contents: string | Uint8Array): string {
+  return createHash('sha256').update(contents).digest('hex');
+}
+
+export interface LoadedProjectFile extends LoadedProject {
+  readonly fileRevision: string;
+}
+
+export interface SavedProjectFile {
+  readonly project: KomaProject;
+  readonly fileRevision: string;
+}
 
 function isFileSystemError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
@@ -46,9 +60,9 @@ function uninspectableMessage(filePath: string, detail: string): string {
 
 export async function readProjectFile(
   filePath: string,
-): Promise<Result<LoadedProject, ProjectFormatError>> {
+): Promise<Result<LoadedProjectFile, ProjectFormatError>> {
   return withProjectFileOperation(async () => {
-    let text: string;
+    let contents: Buffer;
     try {
       const details = await stat(filePath);
       if (!details.isFile()) {
@@ -62,7 +76,7 @@ export async function readProjectFile(
       if (details.size > MAX_PROJECT_FILE_BYTES) {
         return err(projectFormatError('tooLarge', PROJECT_TOO_LARGE_MESSAGE));
       }
-      text = await readFile(filePath, 'utf8');
+      contents = await readFile(filePath);
     } catch (error) {
       return err(
         projectFormatError(
@@ -71,13 +85,14 @@ export async function readProjectFile(
         ),
       );
     }
-    return parseProject(text);
+    const parsed = parseProject(contents.toString('utf8'));
+    return parsed.ok ? ok({ ...parsed.value, fileRevision: fileRevision(contents) }) : parsed;
   });
 }
 
 type TargetInspection =
   | { readonly status: 'absent' }
-  | { readonly status: 'inspected'; readonly version: number | null }
+  | { readonly status: 'inspected'; readonly version: number | null; readonly revision: string }
   | { readonly status: 'uninspectable'; readonly message: string };
 
 /**
@@ -113,9 +128,9 @@ async function inspectExistingTarget(filePath: string): Promise<TargetInspection
     };
   }
 
-  let text: string;
+  let contents: Buffer;
   try {
-    text = await readFile(filePath, 'utf8');
+    contents = await readFile(filePath);
   } catch (error) {
     return {
       status: 'uninspectable',
@@ -124,11 +139,45 @@ async function inspectExistingTarget(filePath: string): Promise<TargetInspection
   }
 
   try {
-    const document: unknown = JSON.parse(text);
-    return { status: 'inspected', version: readSchemaVersion(document) };
+    const document: unknown = JSON.parse(contents.toString('utf8'));
+    return {
+      status: 'inspected',
+      version: readSchemaVersion(document),
+      revision: fileRevision(contents),
+    };
   } catch {
-    return { status: 'inspected', version: null };
+    return { status: 'inspected', version: null, revision: fileRevision(contents) };
   }
+}
+
+async function checkTarget(
+  filePath: string,
+  expectedRevision: string | undefined,
+): Promise<ProjectFormatError | null> {
+  const inspection = await inspectExistingTarget(filePath);
+  if (inspection.status === 'uninspectable') {
+    return projectFormatError('uninspectableTarget', inspection.message);
+  }
+  if (
+    inspection.status === 'inspected' &&
+    inspection.version !== null &&
+    inspection.version > CURRENT_SCHEMA_VERSION
+  ) {
+    return projectFormatError(
+      'wouldOverwriteNewerProject',
+      `"${basename(filePath)}" was saved by a newer version of Koma Motion (format version ${String(inspection.version)}). It was not overwritten. Save under a different name instead.`,
+    );
+  }
+  if (
+    expectedRevision !== undefined &&
+    (inspection.status !== 'inspected' || inspection.revision !== expectedRevision)
+  ) {
+    return projectFormatError(
+      'fileChangedExternally',
+      `"${basename(filePath)}" was changed or removed outside this window. It was not overwritten. Your edits are still open. Use Save as to save them under a different name, or reopen the file to see its latest contents.`,
+    );
+  }
+  return null;
 }
 
 /**
@@ -141,7 +190,11 @@ async function inspectExistingTarget(filePath: string): Promise<TargetInspection
  * directory, so this is not a guarantee against power loss. A failure before
  * the rename leaves the target unchanged and removes the temporary file.
  */
-export async function writeFileAtomic(filePath: string, text: string): Promise<void> {
+export async function writeFileAtomic(
+  filePath: string,
+  text: string,
+  beforeReplace?: () => Promise<void>,
+): Promise<void> {
   const temporaryPath = join(
     dirname(filePath),
     `.${basename(filePath)}.${randomBytes(6).toString('hex')}.tmp`,
@@ -155,6 +208,7 @@ export async function writeFileAtomic(filePath: string, text: string): Promise<v
     } finally {
       await handle.close();
     }
+    await beforeReplace?.();
     await rename(temporaryPath, filePath);
     renamed = true;
   } finally {
@@ -167,28 +221,20 @@ export async function writeFileAtomic(filePath: string, text: string): Promise<v
 /**
  * Validates and saves a project. An existing project that was written by a
  * newer version of Koma Motion is never overwritten. An existing file that
- * cannot be inspected is not overwritten either.
+ * cannot be inspected is not overwritten either. When `expectedRevision` is
+ * supplied, a file changed or removed since it was read is also kept.
+ * This is optimistic conflict detection, not a cross-process filesystem lock:
+ * another writer can still race the final check and rename.
  */
 export async function writeProjectFile(
   filePath: string,
   project: KomaProject,
-): Promise<Result<KomaProject, ProjectFormatError>> {
+  options: { readonly expectedRevision?: string } = {},
+): Promise<Result<SavedProjectFile, ProjectFormatError>> {
   return withProjectFileOperation(async () => {
-    const inspection = await inspectExistingTarget(filePath);
-    if (inspection.status === 'uninspectable') {
-      return err(projectFormatError('uninspectableTarget', inspection.message));
-    }
-    if (
-      inspection.status === 'inspected' &&
-      inspection.version !== null &&
-      inspection.version > CURRENT_SCHEMA_VERSION
-    ) {
-      return err(
-        projectFormatError(
-          'wouldOverwriteNewerProject',
-          `"${basename(filePath)}" was saved by a newer version of Koma Motion (format version ${String(inspection.version)}). It was not overwritten. Save under a different name instead.`,
-        ),
-      );
+    const rejection = await checkTarget(filePath, options.expectedRevision);
+    if (rejection !== null) {
+      return err(rejection);
     }
 
     const serialised = serialiseProject(project);
@@ -196,9 +242,18 @@ export async function writeProjectFile(
       return serialised;
     }
 
+    let finalRejection: ProjectFormatError | null = null;
     try {
-      await writeFileAtomic(filePath, serialised.value);
+      await writeFileAtomic(filePath, serialised.value, async () => {
+        finalRejection = await checkTarget(filePath, options.expectedRevision);
+        if (finalRejection !== null) {
+          throw new Error('Project replacement rejected');
+        }
+      });
     } catch (error) {
+      if (finalRejection !== null) {
+        return err(finalRejection);
+      }
       return err(
         projectFormatError(
           'fileNotWritable',
@@ -206,6 +261,6 @@ export async function writeProjectFile(
         ),
       );
     }
-    return ok(project);
+    return ok({ project, fileRevision: fileRevision(serialised.value) });
   });
 }

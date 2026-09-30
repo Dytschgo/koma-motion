@@ -16,6 +16,8 @@ export interface ProjectSession {
    * renderer can neither read nor change it.
    */
   filePath: string | null;
+  /** Shared by queued saves, including paths first chosen by a pending Save as. */
+  fileRevisions: Map<string, string>;
   hasUnsavedChanges: boolean;
   /**
    * Changes when the open project is replaced. A save that started earlier
@@ -38,6 +40,7 @@ export interface ProjectSession {
 export function createProjectSession(): ProjectSession {
   return {
     filePath: null,
+    fileRevisions: new Map(),
     hasUnsavedChanges: false,
     sessionId: 0,
     saveTicket: 0,
@@ -59,6 +62,7 @@ export function canCompleteSaveAndClose(session: ProjectSession): boolean {
 function replaceOpenProject(session: ProjectSession): void {
   session.sessionId += 1;
   session.filePath = null;
+  session.fileRevisions = new Map();
   session.hasUnsavedChanges = false;
   session.saveAndCloseSessionId = null;
   session.saveTicket = 0;
@@ -121,6 +125,7 @@ export async function openProject(
   }
   replaceOpenProject(session);
   session.filePath = filePath;
+  session.fileRevisions.set(filePath, loaded.value.fileRevision);
   return {
     status: 'opened',
     project: loaded.value.project,
@@ -153,9 +158,19 @@ async function writeTo(
   sessionId: number,
 ): Promise<IpcResponse<'koma:project:save'>> {
   const ticket = ++session.saveTicket;
-  const saved = await enqueueWrite(session, () =>
-    writeProjectFile(filePath, touchProject(project, now.toISOString())),
-  );
+  // Capture this project's map, then resolve the revision when the queued write
+  // runs. An earlier Save as may establish it while this request is waiting.
+  const revisions = session.fileRevisions;
+  const saved = await enqueueWrite(session, async () => {
+    const revision = revisions.get(filePath);
+    const result = await writeProjectFile(filePath, touchProject(project, now.toISOString()), {
+      ...(revision === undefined ? {} : { expectedRevision: revision }),
+    });
+    if (result.ok) {
+      revisions.set(filePath, result.value.fileRevision);
+    }
+    return result;
+  });
   if (!saved.ok) {
     return { status: 'failed', message: saved.error.message };
   }
@@ -163,7 +178,7 @@ async function writeTo(
     session.filePath = filePath;
     session.publishedSaveTicket = ticket;
   }
-  return { status: 'saved', project: saved.value, file: toFileInfo(filePath) };
+  return { status: 'saved', project: saved.value.project, file: toFileInfo(filePath) };
 }
 
 export async function saveProjectAs(

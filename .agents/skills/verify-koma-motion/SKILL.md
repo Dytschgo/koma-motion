@@ -46,5 +46,6 @@ For a changed implementation, also run the repository's format, lint, typecheck,
 - [Preview controls](preview.md): transition identity, scrubbing, document edits, duration, and reduced motion at supported window sizes.
 - [Persisted motion](persisted-motion.md): warnings, blocked interpolation, stacking, and unchanged source files.
 - [Mock project workflow](project-workflow.md): create, generate, edit, save, and reopen.
+- [External file conflicts](file-conflicts.md): refuse a stale save and keep local edits in a copy.
 
 The focused specs were introduced by separate draft PRs. If a named spec is absent from the checkout, report that prerequisite; do not silently substitute another test or claim the feature was covered.

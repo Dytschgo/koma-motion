@@ -214,18 +214,19 @@ presentation.komas[1].elements[0].size.width: Too small: expected number to be >
 brandKit.colours.primary: Colour must be a six-digit hex value such as #FF5A36
 ```
 
-| Code                         | Meaning                                                 |
-| ---------------------------- | ------------------------------------------------------- |
-| `invalidJson`                | the file is not JSON, for example because it is damaged |
-| `notAProject`                | format marker or version is missing                     |
-| `newerSchemaVersion`         | written by a newer version of Koma Motion               |
-| `unsupportedSchemaVersion`   | an older version without a migration                    |
-| `invalidProject`             | the document does not match the schema                  |
-| `tooLarge`                   | above the shared 64 MiB byte limit                      |
-| `fileNotReadable`            | the file could not be read                              |
-| `fileNotWritable`            | the file could not be written                           |
-| `uninspectableTarget`        | an existing file could not be inspected, so it was kept |
-| `wouldOverwriteNewerProject` | saving would overwrite a project of a newer version     |
+| Code                         | Meaning                                                  |
+| ---------------------------- | -------------------------------------------------------- |
+| `invalidJson`                | the file is not JSON, for example because it is damaged  |
+| `notAProject`                | format marker or version is missing                      |
+| `newerSchemaVersion`         | written by a newer version of Koma Motion                |
+| `unsupportedSchemaVersion`   | an older version without a migration                     |
+| `invalidProject`             | the document does not match the schema                   |
+| `tooLarge`                   | above the shared 64 MiB byte limit                       |
+| `fileNotReadable`            | the file could not be read                               |
+| `fileNotWritable`            | the file could not be written                            |
+| `uninspectableTarget`        | an existing file could not be inspected, so it was kept  |
+| `fileChangedExternally`      | file bytes changed or the file was removed since opening |
+| `wouldOverwriteNewerProject` | saving would overwrite a project of a newer version      |
 
 ### Warnings
 
@@ -326,6 +327,20 @@ and the previous file is unchanged. A lock that stops the rename has the same
 result: the previous file stays, and the temporary file is removed.
 
 `updatedAt` is set on every save. `createdAt` never changes.
+
+### Changes made outside the window
+
+The main process remembers a SHA-256 fingerprint of the bytes it opened or
+last saved. A normal save refuses to overwrite the file if its bytes changed
+or the file was removed. The local edits remain open; use Save as with another
+name to keep them, or reopen the file to load the external changes.
+
+Queued saves of the same file advance that fingerprint after each successful
+write. The target is checked again after the temporary file is flushed,
+immediately before replacement. This detects stale saves, but is not a
+filesystem lock: a different process could write between the final check and
+the rename. The fingerprint is session state, not part of the project format,
+and is never supplied by the renderer.
 
 ### Power loss
 
