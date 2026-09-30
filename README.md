@@ -189,10 +189,16 @@ Read more in [docs/MOTION_MODEL.md](docs/MOTION_MODEL.md).
 
 ## Agent providers
 
+New projects start with Mock, which always makes the same three-Koma demo,
+regardless of your request. To generate Komas from your description, choose
+Claude Code in the Agent panel's Provider menu. Claude Code must be installed
+and signed in on this computer; the panel shows whether Koma Motion can find it.
+Save the resulting editable project as a `.koma` file.
+
 | Provider        | Needs                                | State                                          |
 | --------------- | ------------------------------------ | ---------------------------------------------- |
 | Mock provider   | nothing                              | available                                      |
-| Claude Code CLI | Claude Code, installed and signed in | tested on Windows with Claude Code 2.1.283     |
+| Claude Code CLI | Claude Code, installed and signed in | tested on Windows with Claude Code 2.1.285     |
 | Codex CLI       | Codex CLI, installed and signed in   | experimental, generation has never been tested |
 
 Providers that use an agent CLI send your request and your Brand Kit to the
