@@ -13,6 +13,7 @@ import {
   applyGeneration,
   changeBrandKit,
   changeElement,
+  changeKomaDetails,
   changeTransition,
   deleteKoma,
   reorderKoma,
@@ -226,6 +227,29 @@ describe('document commands', () => {
       .filter((item) => item.persistentId === 'engine')
       .map((item) => item.operation);
     expect(operations).toEqual(['move']);
+  });
+
+  it('keeps transitions for metadata edits and rebuilds only visual neighbours', () => {
+    const four = run(base, addKoma('koma-1'), addKoma('koma-1'), addKoma('koma-1'));
+    const middle = four.presentation.komas[1];
+    const element = middle?.elements[0];
+    if (middle === undefined || element === undefined) throw new Error('Expected a middle Koma');
+
+    const notes = run(four, changeKomaDetails(middle.id, { speakerNotes: 'Presenter notes' }));
+    const titled = run(
+      notes,
+      changeKomaDetails(middle.id, { title: 'New title', purpose: 'New purpose' }),
+    );
+    expect(notes.presentation.transitions).toBe(four.presentation.transitions);
+    expect(titled.presentation.transitions).toBe(four.presentation.transitions);
+
+    const visual = run(titled, changeElement(middle.id, { ...element, rotation: 45 }));
+    expect(visual.presentation.transitions[0]).not.toBe(titled.presentation.transitions[0]);
+    expect(visual.presentation.transitions[1]).not.toBe(titled.presentation.transitions[1]);
+    expect(visual.presentation.transitions[2]).toBe(titled.presentation.transitions[2]);
+    expect(
+      visual.presentation.transitions[0]?.elementTransitions.map((item) => item.operation),
+    ).toContain('rotate');
   });
 
   it('keeps the settings of a transition when its Komas change', () => {

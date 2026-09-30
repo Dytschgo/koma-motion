@@ -179,17 +179,27 @@ export interface SyncedPresentation {
 
 /**
  * Makes the transitions of a presentation match its Komas: one transition for
- * every adjacent pair, with element operations computed from the current
- * state of the Komas. Settings and rationale of existing transitions are kept.
+ * every adjacent pair. For rebuilt pairs, element operations are computed from
+ * the current Komas. Settings and rationale of existing transitions are kept.
  *
- * Call this after every change to Komas or their order.
+ * Call this after every change to Komas or their order. With `previous`, a pair
+ * whose Koma and transition objects are unchanged retains its stored motion,
+ * even if that motion was already stale. Only rebuilt pairs report warnings.
+ * Without `previous`, every pair is rebuilt and reports its warnings.
  */
 export function syncTransitions(
   presentation: Presentation,
   idGenerator: IdGenerator,
+  previous?: Presentation,
 ): SyncedPresentation {
   const warnings: MotionIssue[] = [];
   const transitions: KomaTransition[] = [];
+  const previousPairs = new Map<Koma, Koma>();
+  previous?.komas.forEach((to, index) => {
+    const from = previous.komas[index - 1];
+    if (from !== undefined) previousPairs.set(to, from);
+  });
+  const previousTransitions = new Set(previous?.transitions);
 
   presentation.komas.forEach((to, index) => {
     const from = presentation.komas[index - 1];
@@ -199,6 +209,14 @@ export function syncTransitions(
     const existing = presentation.transitions.find(
       (transition) => transition.fromKomaId === from.id && transition.toKomaId === to.id,
     );
+    if (
+      existing !== undefined &&
+      previousPairs.get(to) === from &&
+      previousTransitions.has(existing)
+    ) {
+      transitions.push(existing);
+      return;
+    }
     const built = buildTransition({
       id: existing?.id ?? idGenerator.next('transition', `${from.id}/${to.id}`),
       from,

@@ -173,6 +173,145 @@ describe('syncTransitions', () => {
     ]);
   });
 
+  it('rebuilds the edited Koma neighbours and reuses an untouched persisted pair', () => {
+    const fourth = buildKoma({ id: 'koma-4', title: 'End', elements: [] });
+    const generator = createSeededIdGenerator('reuse');
+    const initial = syncTransitions(
+      buildPresentation({ komas: [first, second, third, fourth] }),
+      generator,
+    ).presentation;
+    const [left, right, far] = initial.transitions;
+    if (left === undefined || right === undefined || far === undefined) {
+      throw new Error('Expected three transitions');
+    }
+    // Stored motion for an untouched pair is preserved, even if it was already stale.
+    const stored = { ...far, elementTransitions: [] };
+    const previous = { ...initial, transitions: [left, right, stored] };
+    const editedSecond = {
+      ...second,
+      elements: second.elements.map((element) => ({ ...element, rotation: 45 })),
+    };
+    const edited = { ...previous, komas: [first, editedSecond, third, fourth] };
+    const result = syncTransitions(edited, generator, previous).presentation;
+
+    expect(result.transitions[0]).not.toBe(previous.transitions[0]);
+    expect(result.transitions[1]).not.toBe(previous.transitions[1]);
+    expect(result.transitions[2]).toBe(stored);
+    expect(result.transitions[2]?.elementTransitions).toEqual([]);
+    expect(result.transitions[0]?.elementTransitions.map((item) => item.operation)).toContain(
+      'rotate',
+    );
+    expect(result.transitions[1]?.elementTransitions.map((item) => item.operation)).toContain(
+      'rotate',
+    );
+  });
+
+  it('rebuilds a transition when its settings object changes', () => {
+    const generator = createSeededIdGenerator('settings');
+    const previous = syncTransitions(
+      buildPresentation({ komas: [first, second] }),
+      generator,
+    ).presentation;
+    const original = previous.transitions[0];
+    if (original === undefined) throw new Error('Expected a transition');
+    const changed = {
+      ...previous,
+      transitions: [{ ...original, duration: 2000, elementTransitions: [] }],
+    };
+    const result = syncTransitions(changed, generator, previous).presentation;
+    expect(result.transitions[0]).not.toBe(changed.transitions[0]);
+    expect(result.transitions[0]?.duration).toBe(2000);
+    expect(result.transitions[0]?.elementTransitions.map((item) => item.operation)).toEqual([
+      'move',
+    ]);
+  });
+
+  it('reports warnings only for rebuilt pairs when previous is supplied', () => {
+    const changedType = buildKoma({
+      id: 'koma-text',
+      elements: [buildText({ id: 'engine-text', persistentId: 'motion-engine' })],
+    });
+    const generator = createSeededIdGenerator('warnings');
+    const initial = syncTransitions(buildPresentation({ komas: [first, changedType] }), generator);
+    expect(initial.warnings.map((warning) => warning.code)).toEqual(['ambiguousState']);
+    const reused = syncTransitions(initial.presentation, generator, initial.presentation);
+    expect(reused.presentation.transitions[0]).toBe(initial.presentation.transitions[0]);
+    expect(reused.warnings).toEqual([]);
+    expect(
+      syncTransitions(initial.presentation, generator).warnings.map((warning) => warning.code),
+    ).toEqual(['ambiguousState']);
+  });
+
+  it('reuses only pairs that remain adjacent after an insertion or deletion', () => {
+    const generator = createSeededIdGenerator('order');
+    const previous = syncTransitions(
+      buildPresentation({ komas: [first, second, third] }),
+      generator,
+    ).presentation;
+    const inserted = buildKoma({ id: 'koma-new', elements: [] });
+    const added = syncTransitions(
+      { ...previous, komas: [first, inserted, second, third] },
+      generator,
+      previous,
+    ).presentation;
+    expect(added.transitions[0]?.fromKomaId).toBe(first.id);
+    expect(added.transitions[0]?.toKomaId).toBe(inserted.id);
+    expect(added.transitions[1]?.fromKomaId).toBe(inserted.id);
+    expect(added.transitions[1]?.toKomaId).toBe(second.id);
+    expect(added.transitions[2]).toBe(previous.transitions[1]);
+
+    const deleted = syncTransitions(
+      { ...previous, komas: [first, third] },
+      generator,
+      previous,
+    ).presentation;
+    expect(deleted.transitions).toHaveLength(1);
+    expect(deleted.transitions[0]?.fromKomaId).toBe(first.id);
+    expect(deleted.transitions[0]?.toKomaId).toBe(third.id);
+    expect(deleted.transitions[0]).not.toBe(previous.transitions[0]);
+
+    const moved = syncTransitions(
+      { ...previous, komas: [second, first, third] },
+      generator,
+      previous,
+    ).presentation;
+    expect(
+      moved.transitions.map((transition) => [transition.fromKomaId, transition.toKomaId]),
+    ).toEqual([
+      [second.id, first.id],
+      [first.id, third.id],
+    ]);
+    expect(moved.transitions[0]).not.toBe(previous.transitions[0]);
+    expect(moved.transitions[1]).not.toBe(previous.transitions[1]);
+  });
+
+  it('rebuilds a stored nonadjacent pair when reordering makes it adjacent', () => {
+    const generator = createSeededIdGenerator('new-adjacency');
+    const built = buildTransition({ id: 'stored-a-c', from: first, to: third });
+    if (!built.ok) throw new Error('Expected a transition');
+    const stale = {
+      ...built.value.transition,
+      duration: 2000,
+      rationale: 'Stored rationale',
+      elementTransitions: [],
+    };
+    const previous = buildPresentation({ komas: [first, second, third], transitions: [stale] });
+    expect(presentationSchema.safeParse(previous).success).toBe(true);
+    const result = syncTransitions(
+      { ...previous, komas: [first, third, second] },
+      generator,
+      previous,
+    ).presentation;
+
+    expect(result.transitions[0]).not.toBe(stale);
+    expect(result.transitions[0]).toMatchObject({
+      id: stale.id,
+      duration: 2000,
+      rationale: 'Stored rationale',
+    });
+    expect(result.transitions[0]?.elementTransitions.length).toBeGreaterThan(0);
+  });
+
   it('removes transitions of pairs that are no longer adjacent', () => {
     const generator = createSeededIdGenerator('sync');
     const initial = syncTransitions(
