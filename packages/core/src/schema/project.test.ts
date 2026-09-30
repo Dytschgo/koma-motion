@@ -18,6 +18,7 @@ import {
   MAX_EXTENSION_NODES,
   MAX_EXTENSION_OBJECT_KEYS,
   komaProjectSchema,
+  CURRENT_SCHEMA_VERSION,
 } from './project';
 
 describe('komaProjectSchema', () => {
@@ -26,7 +27,10 @@ describe('komaProjectSchema', () => {
   });
 
   it('rejects an unknown schema version', () => {
-    const result = komaProjectSchema.safeParse({ ...buildProject(), schemaVersion: 2 });
+    const result = komaProjectSchema.safeParse({
+      ...buildProject(),
+      schemaVersion: CURRENT_SCHEMA_VERSION + 1,
+    });
     expect(result.success).toBe(false);
   });
 

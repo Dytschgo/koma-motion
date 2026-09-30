@@ -32,6 +32,10 @@ import {
 } from '@koma-motion/core';
 import { z } from 'zod';
 import { updateChannelSchema, updateStatusSchema } from './updates';
+import {
+  instructionTemplateActionSchema,
+  instructionTemplateLibrarySchema,
+} from './instructionTemplates';
 
 export const API_KEY = 'komaMotion';
 
@@ -104,6 +108,26 @@ const brandKitContent = {
 };
 
 export const ipcContract = {
+  'koma:instruction-templates:list': {
+    request: empty,
+    response: z.discriminatedUnion('status', [
+      z.object({
+        status: z.literal('loaded'),
+        templates: instructionTemplateLibrarySchema.shape.templates,
+      }),
+      failure,
+    ]),
+  },
+  'koma:instruction-templates:change': {
+    request: instructionTemplateActionSchema,
+    response: z.discriminatedUnion('status', [
+      z.object({
+        status: z.literal('saved'),
+        templates: instructionTemplateLibrarySchema.shape.templates,
+      }),
+      failure,
+    ]),
+  },
   'koma:project:create': {
     request: z.object({ name: z.string().trim().min(1).max(200) }).strict(),
     response: z.object({ project: komaProjectSchema }),
@@ -138,6 +162,14 @@ export const ipcContract = {
     ]),
   },
   'koma:brand-kit:select-logo': {
+    request: empty,
+    response: z.discriminatedUnion('status', [
+      z.object({ status: z.literal('selected'), asset: assetReferenceSchema }),
+      cancelled,
+      failure,
+    ]),
+  },
+  'koma:project:select-image': {
     request: empty,
     response: z.discriminatedUnion('status', [
       z.object({ status: z.literal('selected'), asset: assetReferenceSchema }),

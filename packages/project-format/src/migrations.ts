@@ -10,14 +10,31 @@ export interface Migration {
 }
 
 /**
- * Migrations in ascending order. Schema version 1 is the first version, so
- * the list is empty. When the schema changes:
+ * Migrations in ascending order. When the schema changes:
  *
  * 1. increase `CURRENT_SCHEMA_VERSION` in @koma-motion/core,
  * 2. add a migration from the previous version here,
  * 3. add a test with a project file of the previous version.
  */
-export const MIGRATIONS: readonly Migration[] = [];
+export const MIGRATIONS: readonly Migration[] = [
+  // Version 1 had no active instructions. Do not activate unknown extension data.
+  { fromVersion: 1, migrate: (document) => ({ ...document, systemInstructions: '' }) },
+  {
+    fromVersion: 2,
+    migrate: (document) => {
+      const configuration = document['agentConfiguration'];
+      if (
+        typeof configuration !== 'object' ||
+        configuration === null ||
+        Array.isArray(configuration)
+      )
+        return document;
+      if (!('timeoutSeconds' in configuration) || typeof configuration.timeoutSeconds !== 'number')
+        return document;
+      return { ...document, agentConfiguration: { ...configuration, timeoutSeconds: null } };
+    },
+  },
+];
 
 export interface MigrationOutcome {
   readonly document: RawProject;

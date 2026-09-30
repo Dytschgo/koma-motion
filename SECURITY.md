@@ -82,14 +82,22 @@ a newer version of Koma Motion. One project file is read or written at a time.
 
 - CLIs are started without a shell, with an executable path and an explicit
   argument array.
-- What the user and the project contribute to a prompt is passed on standard
-  input, not as an argument. Claude Code receives the fixed system
-  instructions and the response schema as arguments.
+- What the user and the project contribute to a prompt is not passed as an
+  argument. Claude Code and Codex read it from standard input. Grok does not
+  read a prompt from standard input, so Koma Motion writes it to a file in
+  the temporary directory and passes that path. Claude Code and Grok receive
+  the fixed system instructions and the response schema as arguments.
 - The only user-controlled argument is the optional model name, which is
   restricted to a safe alphabet.
-- Agents are started with their tools disabled (Claude Code) or in a read-only
-  sandbox (Codex), in an empty temporary working directory.
-- Every execution has a timeout and can be cancelled.
+- Agents are started in an empty temporary working directory. Claude Code
+  disables tools. Codex uses a read-only sandbox. Grok allowlists no built-in
+  tools, disables web search, subagents and plan mode, and sets permission
+  mode `dontAsk` and sandbox profile `strict`. The Grok sandbox guide does
+  not list Windows, so enforcement there is not established.
+- Every execution can be cancelled. Generation has no default deadline; an
+  optional safety timer can be enabled in Settings. CLI version probes remain
+  time-bounded. [Memory and file boundaries](docs/GENERATION_LIMITS.md) remain
+  enforced independently of run duration.
 - Standard output and standard error are limited in size. Diagnostics are
   redacted for common secret formats before they are shown.
 - Commands, paths or code contained in agent output are never executed. Agent

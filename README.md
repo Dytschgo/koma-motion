@@ -45,7 +45,7 @@ describe a presentation in a chat and an AI agent designs it. The
 application then works out how every object moves from one frame to the next.
 
 Koma Motion does not run AI models itself. It uses agent programs that are
-installed on your computer, such as Claude Code, and it contains a mock
+installed on your computer, such as Claude Code or Grok, and it contains a mock
 provider that works without any AI service.
 
 ## Why Komas instead of isolated slides?
@@ -102,14 +102,24 @@ Everything in this list is implemented and covered by automated tests.
   sidebar beside the canvas that can be resized and collapsed.
 - Generate three Komas with the built-in mock provider, without network and
   without an API key.
-- Generate Komas with Claude Code. Tested on Windows.
+- Generate Komas with Claude Code or Grok. Tested on Windows.
 - See the Komas and the in-betweens that connect them.
-- Select Komas and elements and edit their properties.
+- Select elements on the canvas, drag and resize them, edit text in place,
+  and import or replace images. The Inspector remains available.
 - Add, copy, reorder and delete Komas.
 - Preview the transition between two Komas: play, pause, restart, move to
   any position, change the duration.
 - Undo and redo every change.
 - Cancel a running generation.
+
+On the canvas, click to select and drag to move. Drag a corner to resize.
+Arrow keys move a selected element by one logical unit, or ten with Shift.
+Double-click selected text, press Enter, or choose **Edit text**; **Apply text**
+(or Ctrl/Cmd+Enter) commits it. **Cancel text edit** or Escape keeps the original.
+Escape, pointer cancellation, release outside the canvas, and layout changes
+cancel a drag. Locked elements and transition previews cannot be edited.
+Each committed gesture or image import is one undo step. Element edits preserve
+stored transitions; explicit motion regeneration is separate work.
 
 ## Screenshots
 
@@ -130,23 +140,24 @@ The screenshots are created from the running application with
 
 ## Key features
 
-| Feature                      | State                                          |
-| ---------------------------- | ---------------------------------------------- |
-| Persistent object identity   | available                                      |
-| Deterministic motion engine  | available                                      |
-| Transition preview           | available                                      |
-| Brand Kit                    | available                                      |
-| Mock provider                | available                                      |
-| Claude Code provider         | available, tested on Windows                   |
-| Codex CLI provider           | experimental, generation has never been tested |
-| Undo and redo                | available                                      |
-| Editing on the canvas        | not available, elements are edited in a panel  |
-| Playing a whole presentation | not available, one transition at a time        |
-| PowerPoint export            | **not available**                              |
-| Stop Motion Mode             | not available, concept only                    |
-| Installers                   | available for Windows and macOS, not signed    |
-| Stable and nightly updates   | available; installed by the app on Windows     |
-| `koma` command line tool     | not available, the name is reserved            |
+| Feature                      | State                                              |
+| ---------------------------- | -------------------------------------------------- |
+| Persistent object identity   | available                                          |
+| Deterministic motion engine  | available                                          |
+| Transition preview           | available                                          |
+| Brand Kit                    | available                                          |
+| Mock provider                | available                                          |
+| Claude Code provider         | available, tested on Windows                       |
+| Codex CLI provider           | experimental, generation has never been tested     |
+| Grok provider                | available, tested on Windows with Grok 1.0.44      |
+| Undo and redo                | available                                          |
+| Editing on the canvas        | move, resize, edit text, import and replace images |
+| Playing a whole presentation | not available, one transition at a time            |
+| PowerPoint export            | **not available**                                  |
+| Stop Motion Mode             | not available, concept only                        |
+| Installers                   | available for Windows and macOS, not signed        |
+| Stable and nightly updates   | available; installed by the app on Windows         |
+| `koma` command line tool     | not available, the name is reserved                |
 
 ## Architecture overview
 
@@ -206,8 +217,9 @@ Read more in [docs/MOTION_MODEL.md](docs/MOTION_MODEL.md).
 
 New projects start with Mock, which always makes the same three-Koma demo,
 regardless of your request. To generate Komas from your description, choose
-Claude Code in the Agent panel's Provider menu. Claude Code must be installed
-and signed in on this computer; the panel shows whether Koma Motion can find it.
+Claude Code or Grok in the Agent panel's Provider menu. The agent must be
+installed and signed in on this computer; the panel shows whether Koma Motion
+can find it.
 Save the resulting editable project as a `.koma` file.
 
 | Provider        | Needs                                | State                                          |
@@ -215,9 +227,11 @@ Save the resulting editable project as a `.koma` file.
 | Mock provider   | nothing                              | available                                      |
 | Claude Code CLI | Claude Code, installed and signed in | tested on Windows with Claude Code 2.1.285     |
 | Codex CLI       | Codex CLI, installed and signed in   | experimental, generation has never been tested |
+| Grok CLI        | Grok, installed and signed in        | tested on Windows with Grok 1.0.44             |
 
-Providers that use an agent CLI send your request, your Brand Kit, a text
-summary of existing Komas, and asset names to the online service of that CLI.
+Providers that use an agent CLI send your request, project instructions, your
+Brand Kit, a text summary of existing Komas, and asset names to the online
+service of that CLI.
 The application says so before you generate.
 Koma Motion stores no API keys.
 
@@ -348,14 +362,17 @@ privately, as described there.
 
 - PowerPoint export does not exist. No other export exists either.
 - The Codex CLI provider has never generated a presentation.
-- Claude Code has been tested on Windows only.
+- Claude Code and Grok have been tested on Windows only.
+- Grok stores a session transcript in its own data directory. Its sandbox
+  profile is requested, and enforcement on Windows is not established.
 - Generation replaces the whole presentation. Single Komas cannot be changed
   through the chat.
-- Elements cannot be dragged on the canvas or added by hand.
+- Text and shape elements cannot yet be added by hand.
 - Changes that cannot be interpolated, such as a change of text or font
   size, are cross-fades.
 - Fonts must be installed on the computer.
-- Images can only be added as the logo of the Brand Kit, up to 2 MB.
+- Images (PNG, JPEG, WebP or GIF) are limited to 2 MB each and stored inside
+  the project.
 - The installers are not signed and not notarised. Windows and macOS warn
   when they are opened.
 - On macOS the application cannot install updates. It opens the download
@@ -388,3 +405,9 @@ the [Code of Conduct](CODE_OF_CONDUCT.md) first.
 ## Licence
 
 [MIT](LICENSE)
+
+Generation has no built-in Koma-count limit or default time limit. Enter a Koma
+count or leave it empty for the agent to choose; cancel a running generation
+whenever needed. Projects can contain more than 200 Komas. Requests, output,
+files, and per-frame rendering still have documented [technical safety
+boundaries](docs/GENERATION_LIMITS.md), separate from provider service limits.

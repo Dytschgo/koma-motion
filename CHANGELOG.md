@@ -10,11 +10,18 @@ changes to the project format.
 
 ### Added
 
+- Grok CLI provider. Detection and generation were verified on Windows with
+  Grok 1.0.44. The CLI keeps its own sign-in. Koma Motion does not store an
+  API key.
 - Brand Kit library: save the Brand Kit of a project, logo included, create a
   blank kit, rename, duplicate, update and delete saved kits, and apply one to
   any project. The library is stored in the data folder of the application,
   outside project files. Applying a kit is undoable and marks the project as
   changed.
+- Canvas editing: move and resize elements on the canvas, and edit text and
+  replace images in place.
+- Project instructions, sent with every generation request, and reusable
+  instruction templates stored by the application.
 
 ### Changed
 
@@ -22,7 +29,14 @@ changes to the project format.
   so the Komas and the transition controls stay available.
 - Only one Koma Motion runs per data folder. Starting it again brings the
   open window to the front, so two processes can no longer overwrite each
-  other's saved Brand Kits.
+  other's saved Brand Kits or instruction templates.
+- Removed the 12-Koma generation and 200-Koma project caps across contracts,
+  prompts, editing, and files; replaced the count dropdown with numeric input.
+- Replaced short request, generated-element and text restrictions with documented
+  memory/rendering budgets; retained bounded, validated output and file handling.
+- Made generation deadlines optional and disabled by default. Format 3 upgrades
+  legacy projects and disables their automatic deadline; cancellation remains available.
+- Added large-deck pipeline, save/reopen, migration, timer, and safety-boundary tests.
 - The agent chat is a sidebar to the right of the canvas instead of a panel
   below it. Collapse it to give the canvas its space back, and resize it by
   dragging its edge or with the arrow keys. The width and whether it is open

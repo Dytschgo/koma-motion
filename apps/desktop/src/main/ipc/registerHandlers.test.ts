@@ -18,6 +18,7 @@ import { registerHandlers } from './registerHandlers';
 const ipcHandlers = vi.hoisted(
   () => new Map<string, (event: IpcMainInvokeEvent, payload: unknown) => Promise<unknown>>(),
 );
+const templateLocation = vi.hoisted(() => ({ directory: '' }));
 const dialogs = vi.hoisted(() => ({
   showOpenDialog: vi.fn(() => Promise.resolve({ canceled: true, filePaths: [] as string[] })),
   showSaveDialog: vi.fn(() => Promise.resolve({ canceled: true, filePath: '' })),
@@ -26,6 +27,7 @@ const dialogs = vi.hoisted(() => ({
 vi.mock('electron', () => ({
   app: {
     getVersion: () => '0.0.0-test',
+    getPath: () => templateLocation.directory,
     isPackaged: true,
   },
   ipcMain: {
@@ -57,6 +59,48 @@ describe('project persistence IPC', () => {
     dialogs.showSaveDialog.mockClear();
     for (const registration of registrations.splice(0)) {
       registration.dispose();
+    }
+  });
+
+  it('validates template IPC and refuses untrusted senders before touching app data', async () => {
+    templateLocation.directory = await mkdtemp(join(tmpdir(), 'koma-instruction-ipc-'));
+    try {
+      const { event, invoke } = openHandlers();
+      await expect(invoke('koma:instruction-templates:list', event, {})).resolves.toEqual({
+        status: 'loaded',
+        templates: [],
+      });
+      await expect(
+        invoke('koma:instruction-templates:change', event, {
+          action: 'create',
+          name: 'X',
+          instructions: '',
+          path: '../forbidden',
+        }),
+      ).rejects.toThrow('Invalid request');
+      await expect(
+        invoke(
+          'koma:instruction-templates:change',
+          { ...event, senderFrame: null },
+          { action: 'create', name: 'X', instructions: '' },
+        ),
+      ).rejects.toThrow('Request rejected');
+      await expect(
+        invoke('koma:instruction-templates:change', event, {
+          action: 'create',
+          name: 'Valid',
+          instructions: 'Plain language',
+        }),
+      ).resolves.toMatchObject({
+        status: 'saved',
+        templates: [{ name: 'Valid', instructions: 'Plain language' }],
+      });
+      await expect(invoke('koma:instruction-templates:list', event, {})).resolves.toMatchObject({
+        status: 'loaded',
+        templates: [{ name: 'Valid' }],
+      });
+    } finally {
+      await rm(templateLocation.directory, { recursive: true, force: true });
     }
   });
 

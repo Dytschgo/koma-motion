@@ -16,7 +16,7 @@ test('explains existing content sent by external providers before generation', a
     const provider = window.getByLabel('Provider');
     await provider.selectOption('claude-code');
     const disclosure = window.getByText(
-      'Claude Code sends your request, Brand Kit, a text summary of existing Komas, and asset names to an online service.',
+      'Claude Code sends your request, project instructions, Brand Kit, a text summary of existing Komas, and asset names to an online service.',
       { exact: true },
     );
     await expect(disclosure).toBeVisible();

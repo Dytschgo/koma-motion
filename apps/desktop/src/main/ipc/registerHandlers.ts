@@ -1,4 +1,8 @@
-import { ClaudeCodeProvider, CodexCliProvider } from '@koma-motion/agent-runtime/node';
+import {
+  ClaudeCodeProvider,
+  CodexCliProvider,
+  GrokCliProvider,
+} from '@koma-motion/agent-runtime/node';
 import { GenerationRunner, MockAgentProvider, ProviderRegistry } from '@koma-motion/agent-runtime';
 import { createRandomIdGenerator } from '@koma-motion/core';
 import { createExporters } from '@koma-motion/exporters';
@@ -15,6 +19,7 @@ import { isTrustedSender } from '../security';
 import type { BrandKitLibrary } from '../services/brandKitLibrary';
 import { generatePresentation } from '../services/generation';
 import { selectLogo } from '../services/logo';
+import { InstructionTemplateLibrary } from '../services/instructionTemplates';
 import {
   canCompleteSaveAndClose,
   createNewProject,
@@ -42,6 +47,9 @@ type Handler<C extends IpcChannel> = (
   request: ReturnType<(typeof ipcContract)[C]['request']['parse']>,
 ) => Promise<IpcResponse<C>> | IpcResponse<C>;
 
+// App scope, including across project/window replacement. Paths never come from the renderer.
+const instructionTemplates = new InstructionTemplateLibrary(() => app.getPath('userData'));
+
 function getPlatform(): IpcResponse<'koma:app:get-info'>['platform'] {
   switch (process.platform) {
     case 'win32':
@@ -64,6 +72,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     new MockAgentProvider(),
     new ClaudeCodeProvider(),
     new CodexCliProvider(),
+    new GrokCliProvider(),
   ]);
   const runner = new GenerationRunner({ registry });
   const idGenerator = createRandomIdGenerator();
@@ -119,6 +128,31 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   });
 
   handle('koma:brand-kit:select-logo', () => selectLogo(window));
+  handle('koma:project:select-image', () => selectLogo(window, 'Choose an image'));
+
+  handle('koma:instruction-templates:list', async () => {
+    try {
+      return { status: 'loaded', templates: await instructionTemplates.list() };
+    } catch {
+      return {
+        status: 'failed',
+        message:
+          'The template library could not be loaded. Your saved templates have not been changed. Retry after checking the app data folder.',
+      };
+    }
+  });
+
+  handle('koma:instruction-templates:change', async (action) => {
+    try {
+      return { status: 'saved', templates: await instructionTemplates.change(action) };
+    } catch {
+      return {
+        status: 'failed',
+        message:
+          'The template could not be saved. Your input has been kept. Reload the library and try again; check its limit of 100 templates and access to the app data folder.',
+      };
+    }
+  });
 
   const { brandKits } = context;
   handle('koma:brand-kits:list', () => brandKits.list());

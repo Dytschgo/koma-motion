@@ -1,8 +1,12 @@
-import { err, ok, type Result } from '@koma-motion/core';
+import { err, ok, exceedsUtf8ByteLength, type Result } from '@koma-motion/core';
 import { agentError, type AgentError, type ResponseIssue } from '../contract/errors';
 
-/** Largest agent output that is parsed, in characters. */
-export const MAX_AGENT_OUTPUT_LENGTH = 512 * 1024;
+/** UTF-8 response safety boundary. See docs/GENERATION_LIMITS.md for allocation rationale. */
+export const MAX_AGENT_OUTPUT_BYTES = 8 * 1024 * 1024;
+/** Compatibility alias; the boundary is now checked in UTF-8 bytes. */
+export const MAX_AGENT_OUTPUT_LENGTH = MAX_AGENT_OUTPUT_BYTES;
+export const AGENT_OUTPUT_TOO_LARGE_MESSAGE =
+  'The response exceeds the 8 MiB memory safety boundary. No partial presentation was applied. Request less detail or generate sections in separate projects, then retry.';
 
 const EMPTY_RESPONSE = 'The agent returned an empty response.';
 const NO_JSON_OBJECT =
@@ -13,11 +17,8 @@ const AMBIGUOUS_OBJECTS = 'The agent returned more than one JSON object, so no a
 const INCONSISTENT_OUTPUT =
   'The text and the structured output are different answers, so neither one was used.';
 
-function outputTooLarge(length: number): AgentError {
-  return agentError(
-    'outputTooLarge',
-    `The agent returned ${String(length)} characters, more than the limit of ${String(MAX_AGENT_OUTPUT_LENGTH)}.`,
-  );
+function outputTooLarge(): AgentError {
+  return agentError('outputTooLarge', AGENT_OUTPUT_TOO_LARGE_MESSAGE);
 }
 
 function tryParse(text: string): Result<unknown, null> {
@@ -119,14 +120,27 @@ function jsonValuesEqual(left: unknown, right: unknown): boolean {
 }
 
 function serialiseStructured(value: unknown): Result<string, AgentError> {
+  const overBudget = new Error('Output budget exceeded');
+  let units = 0;
   try {
-    const serialised: unknown = JSON.stringify(value);
+    // Stop during traversal, before allocating an arbitrarily large JSON string.
+    // Escaping can expand this coarse code-unit budget by at most six; the exact
+    // UTF-8 boundary is checked below. Provider streams are bounded independently.
+    const serialised: unknown = JSON.stringify(value, (key, current: unknown) => {
+      units += key.length + (typeof current === 'string' ? current.length : 1);
+      if (units > MAX_AGENT_OUTPUT_BYTES) throw overBudget;
+      return current;
+    });
     if (typeof serialised !== 'string') {
       return err(agentError('noStructuredOutput', UNREADABLE_STRUCTURED));
     }
     return ok(serialised);
-  } catch {
-    return err(agentError('noStructuredOutput', UNREADABLE_STRUCTURED));
+  } catch (error) {
+    return err(
+      error === overBudget
+        ? outputTooLarge()
+        : agentError('noStructuredOutput', UNREADABLE_STRUCTURED),
+    );
   }
 }
 
@@ -170,8 +184,8 @@ function selectParsedObject(objects: readonly Record<string, unknown>[]): Extrac
 }
 
 function extract(rawText: string): Extraction {
-  if (rawText.length > MAX_AGENT_OUTPUT_LENGTH) {
-    return failed('tooLarge', outputTooLarge(rawText.length));
+  if (exceedsUtf8ByteLength(rawText, MAX_AGENT_OUTPUT_BYTES)) {
+    return failed('tooLarge', outputTooLarge());
   }
 
   const text = rawText.trim();
@@ -220,8 +234,8 @@ export function resolveProviderOutput(output: {
   readonly rawText: string;
   readonly structured?: unknown;
 }): Result<unknown, AgentError> {
-  if (output.rawText.length > MAX_AGENT_OUTPUT_LENGTH) {
-    return err(outputTooLarge(output.rawText.length));
+  if (exceedsUtf8ByteLength(output.rawText, MAX_AGENT_OUTPUT_BYTES)) {
+    return err(outputTooLarge());
   }
 
   const { structured } = output;
@@ -231,8 +245,8 @@ export function resolveProviderOutput(output: {
     if (!encoded.ok) {
       return encoded;
     }
-    if (encoded.value.length > MAX_AGENT_OUTPUT_LENGTH) {
-      return err(outputTooLarge(encoded.value.length));
+    if (exceedsUtf8ByteLength(encoded.value, MAX_AGENT_OUTPUT_BYTES)) {
+      return err(outputTooLarge());
     }
     serialised = encoded.value;
   }

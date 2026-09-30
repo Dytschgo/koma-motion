@@ -9,7 +9,7 @@ import type { IdGenerator } from './ids';
 import type { AssetReference } from './schema/asset';
 import type { KomaElement } from './schema/element';
 import { flattenElements, type Koma } from './schema/koma';
-import { MAX_KOMAS, type Presentation } from './schema/presentation';
+import { type Presentation } from './schema/presentation';
 import {
   MAX_HISTORY_ENTRIES,
   MAX_PROJECT_ASSETS,
@@ -114,9 +114,6 @@ export function insertKoma(
   koma: Koma,
   afterKomaId: string | null,
 ): Presentation {
-  if (presentation.komas.length >= MAX_KOMAS) {
-    return presentation;
-  }
   const index = presentation.komas.findIndex((candidate) => candidate.id === afterKomaId);
   const position = index === -1 ? presentation.komas.length : index + 1;
   return {

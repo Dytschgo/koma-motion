@@ -11,7 +11,7 @@ import {
 } from './operations';
 import type { AssetReference } from './schema/asset';
 import type { ImageElement } from './schema/element';
-import { MAX_KOMAS, presentationSchema } from './schema/presentation';
+import { presentationSchema } from './schema/presentation';
 import { komaProjectSchema, MAX_PROJECT_ASSETS } from './schema/project';
 import { buildKoma, buildPresentation, buildProject, buildShape } from './testing/fixtures';
 
@@ -94,14 +94,16 @@ describe('document operations', () => {
     expect(presentationSchema.safeParse(result).success).toBe(true);
   });
 
-  it('keeps a full presentation unchanged when another Koma is inserted', () => {
+  it('inserts beyond the former 200-Koma maximum', () => {
     const presentation = buildPresentation({
-      komas: Array.from({ length: MAX_KOMAS }, (_, index) =>
+      komas: Array.from({ length: 200 }, (_, index) =>
         buildKoma({ id: `koma-${String(index + 1)}`, elements: [] }),
       ),
     });
     expect(presentationSchema.safeParse(presentation).success).toBe(true);
-    expect(insertKoma(presentation, buildKoma({ id: 'extra' }), 'koma-1')).toBe(presentation);
+    const inserted = insertKoma(presentation, buildKoma({ id: 'extra' }), 'koma-1');
+    expect(inserted.komas).toHaveLength(201);
+    expect(presentationSchema.safeParse(inserted).success).toBe(true);
   });
 
   it('removes a Koma together with its transitions', () => {

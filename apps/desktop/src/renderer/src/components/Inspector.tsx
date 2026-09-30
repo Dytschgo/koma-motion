@@ -1,4 +1,5 @@
 import {
+  MAX_ELEMENT_TEXT_LENGTH,
   collectProjectWarnings,
   EASINGS,
   parseColour,
@@ -27,8 +28,18 @@ import {
 } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
+import { chooseKomaImage } from '../lib/projectActions';
 import { TrashIcon, WarningIcon } from './icons';
-import { Field, IconButton, NumberInput, PanelHeading, Select, TextArea, TextInput } from './ui';
+import {
+  Button,
+  Field,
+  IconButton,
+  NumberInput,
+  PanelHeading,
+  Select,
+  TextArea,
+  TextInput,
+} from './ui';
 
 function Section({
   title,
@@ -371,7 +382,7 @@ function ElementSection({
                 {...ids}
                 rows={3}
                 value={element.content.text}
-                maxLength={5000}
+                maxLength={MAX_ELEMENT_TEXT_LENGTH}
                 disabled={locked}
                 onChange={(event) => {
                   change({ ...element, content: { text: event.target.value } }, 'text');
@@ -566,22 +577,32 @@ function ElementSection({
       )}
 
       {element.type === 'image' && (
-        <Field label="Description for screen readers">
-          {(ids) => (
-            <TextInput
-              {...ids}
-              value={element.content.altText}
-              maxLength={500}
-              disabled={locked}
-              onChange={(event) => {
-                change(
-                  { ...element, content: { ...element.content, altText: event.target.value } },
-                  'alt',
-                );
-              }}
-            />
-          )}
-        </Field>
+        <>
+          <Button
+            disabled={locked}
+            onClick={() => {
+              void chooseKomaImage(koma.id, element.id);
+            }}
+          >
+            Replace image
+          </Button>
+          <Field label="Description for screen readers">
+            {(ids) => (
+              <TextInput
+                {...ids}
+                value={element.content.altText}
+                maxLength={500}
+                disabled={locked}
+                onChange={(event) => {
+                  change(
+                    { ...element, content: { ...element.content, altText: event.target.value } },
+                    'alt',
+                  );
+                }}
+              />
+            )}
+          </Field>
+        </>
       )}
 
       {element.type === 'group' && (
@@ -790,6 +811,7 @@ function WarningsSection({ project }: { readonly project: KomaProject }): ReactE
 }
 
 export function Inspector({ project }: { readonly project: KomaProject }): ReactElement {
+  const preview = useUiStore((state) => state.preview);
   const koma = useSelectedKoma();
   const element = useSelectedElement();
   const transition = useCurrentTransition();
@@ -804,11 +826,11 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
       {koma === null ? (
         <p className="p-4 text-ink-400">Select a Koma to see its details.</p>
       ) : (
-        <>
+        <fieldset disabled={preview !== null} className="min-w-0">
           {element !== null && <ElementSection key={element.id} koma={koma} element={element} />}
           <ElementList koma={koma} />
           <KomaSection key={koma.id} koma={koma} index={index} />
-        </>
+        </fieldset>
       )}
       {transition !== null && (
         <TransitionSection key={transition.id} project={project} transition={transition} />

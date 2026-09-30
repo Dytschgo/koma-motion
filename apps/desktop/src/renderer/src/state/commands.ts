@@ -1,22 +1,28 @@
 /**
  * Document commands: the changes a person can make to a project. They are
- * pure functions that combine the operations of the core model with the
- * motion engine, so transitions always match the Komas they connect.
+ * pure functions over the core model. Structural Koma commands reconnect
+ * transitions; visual element commands expose endpoints and leave stored motion alone.
  */
 import { applyBrandKitToProject, type BrandKitLogoData } from '@koma-motion/brand-kit';
 import {
   appendGenerationHistory,
   clearBrandLogo,
+  assetReferenceSchema,
+  getCanvasSize,
+  flattenElements,
+  komaElementSchema,
+  MAX_ELEMENTS_PER_KOMA,
+  MAX_PROJECT_ASSETS,
   createKoma,
   duplicateKoma,
   findKoma,
   insertKoma,
-  MAX_KOMAS,
   moveKoma,
   removeElement,
   removeKoma,
   replaceElement,
   setBrandLogo,
+  systemInstructionsSchema,
   updateKomaDetails,
   updateTransitionSettings,
   type AgentConfiguration,
@@ -32,7 +38,14 @@ import {
 } from '@koma-motion/core';
 import { normaliseDuration, syncTransitions } from '@koma-motion/motion-engine';
 
-export type ProjectCommand = (project: KomaProject, idGenerator: IdGenerator) => KomaProject;
+export type ProjectCommand = ((project: KomaProject, idGenerator: IdGenerator) => KomaProject) & {
+  /** Visual endpoints for PR 3. These commands do not regenerate stored motion. */
+  readonly affectedKomaIds?: readonly string[];
+};
+
+function visualCommand(komaId: string, command: ProjectCommand): ProjectCommand {
+  return Object.assign(command, { affectedKomaIds: [komaId] });
+}
 
 /** Changes the Komas and recomputes transitions when their visual content may change. */
 function changeKomas(
@@ -62,6 +75,14 @@ export const changeBrandKit =
   (project) =>
     project.brandKit === brandKit ? project : { ...project, brandKit };
 
+export const changeSystemInstructions = (instructions: string): ProjectCommand => {
+  const systemInstructions = systemInstructionsSchema.parse(instructions);
+  return (project) =>
+    project.systemInstructions === systemInstructions
+      ? project
+      : { ...project, systemInstructions };
+};
+
 export const changeLogo =
   (asset: AssetReference | null): ProjectCommand =>
   (project) =>
@@ -88,7 +109,81 @@ export const changeKomaDetails = (komaId: string, patch: KomaDetailsPatch): Proj
   );
 
 export const changeElement = (komaId: string, element: KomaElement): ProjectCommand =>
-  changeKomas((presentation) => replaceElement(presentation, komaId, element));
+  visualCommand(komaId, (project) => {
+    const original = findKoma(project.presentation, komaId)?.elements.find(
+      (item) => item.id === element.id,
+    );
+    if (!original || original.type !== element.type) return project;
+    const next = komaElementSchema.parse({
+      ...element,
+      id: original.id,
+      persistentId: original.persistentId,
+    });
+    if (JSON.stringify(komaElementSchema.parse(original)) === JSON.stringify(next)) return project;
+    return { ...project, presentation: replaceElement(project.presentation, komaId, next) };
+  });
+
+/** Import/replacement and its bytes are one atomic undo step. Shared assets survive replacement. */
+export const importImage = (
+  komaId: string,
+  asset: AssetReference,
+  elementId?: string,
+): ProjectCommand =>
+  visualCommand(komaId, (project, ids) => {
+    const koma = findKoma(project.presentation, komaId);
+    if (!koma) return project;
+    const original = koma.elements.find((element) => element.id === elementId);
+    if (elementId !== undefined && (!original || original.type !== 'image' || original.locked))
+      return project;
+    if (!original && koma.elements.length >= MAX_ELEMENTS_PER_KOMA)
+      throw new Error('This Koma has reached its element limit.');
+    assetReferenceSchema.parse(asset);
+    if (asset.embeddedData === null) throw new Error('The image has no embedded content.');
+    const canvas = getCanvasSize(project.presentation.aspectRatio);
+    const element: KomaElement =
+      original?.type === 'image'
+        ? { ...original, content: { ...original.content, assetId: asset.id } }
+        : {
+            id: ids.next('element'),
+            persistentId: ids.next('object'),
+            type: 'image',
+            name: asset.name.slice(0, 120),
+            position: { x: canvas.width / 4, y: canvas.height / 4 },
+            size: { width: canvas.width / 2, height: canvas.height / 2 },
+            rotation: 0,
+            opacity: 1,
+            zIndex: Math.min(10000, Math.max(0, ...koma.elements.map((item) => item.zIndex)) + 1),
+            locked: false,
+            visible: true,
+            content: { assetId: asset.id, altText: '' },
+            style: { fit: 'contain', cornerRadius: 0 },
+          };
+    const presentation = original
+      ? replaceElement(project.presentation, komaId, element)
+      : {
+          ...project.presentation,
+          komas: project.presentation.komas.map((item) =>
+            item.id === komaId ? { ...item, elements: [...item.elements, element] } : item,
+          ),
+        };
+    const previousAsset = original?.type === 'image' ? original.content.assetId : null;
+    const stillUsed =
+      project.brandKit.logoAssetId === previousAsset ||
+      presentation.komas.some((item) =>
+        flattenElements(item.elements).some(
+          (item) => item.type === 'image' && item.content.assetId === previousAsset,
+        ),
+      );
+    const assets = [
+      ...project.assets.filter(
+        (item) => item.id !== asset.id && (item.id !== previousAsset || stillUsed),
+      ),
+      asset,
+    ];
+    if (assets.length > MAX_PROJECT_ASSETS)
+      throw new Error('This project has reached its image limit.');
+    return { ...project, presentation, assets };
+  });
 
 export const deleteElement = (komaId: string, elementId: string): ProjectCommand =>
   changeKomas((presentation) => removeElement(presentation, komaId, elementId));
@@ -102,9 +197,6 @@ export const addKoma =
   (afterKomaId: string | null): ProjectCommand =>
   (project, idGenerator) =>
     changeKomas((presentation) => {
-      if (presentation.komas.length >= MAX_KOMAS) {
-        return presentation;
-      }
       const source = afterKomaId === null ? undefined : findKoma(presentation, afterKomaId);
       const title = `Koma ${String(presentation.komas.length + 1)}`;
       const koma =

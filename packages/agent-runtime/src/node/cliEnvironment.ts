@@ -50,6 +50,8 @@ export const CLI_CHILD_ENVIRONMENT_ALLOWLIST = [
   'ANTHROPIC_API_KEY',
   'OPENAI_API_KEY',
   'CODEX_HOME',
+  'XAI_API_KEY',
+  'GROK_HOME',
 ] as const;
 
 /** Builds the environment passed to a CLI. The result is not merged with the parent. */
@@ -92,7 +94,7 @@ export function createCliEnvironment(): CliEnvironment {
 }
 
 /** Combined limit for the output of an agent CLI, in bytes. */
-export const MAX_CLI_OUTPUT_BYTES = 8 * 1024 * 1024;
+export const MAX_CLI_OUTPUT_BYTES = 32 * 1024 * 1024;
 const DETECTION_TIMEOUT_MS = 15_000;
 const MAX_VERSION_OUTPUT_BYTES = 64 * 1024;
 
@@ -178,7 +180,7 @@ export function describeProcessFailure(
   if (outcome.outputLimitExceeded) {
     return {
       code: 'outputTooLarge',
-      message: `${displayName} produced more output than Koma Motion accepts and was stopped.`,
+      message: `${displayName} exceeded the 32 MiB process-output memory safety boundary and was stopped. No partial presentation was applied. Reduce output detail or generate sections in separate projects, then retry.`,
     };
   }
   if (outcome.aborted) {

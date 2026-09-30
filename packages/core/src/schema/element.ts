@@ -3,6 +3,9 @@ import { hexColourSchema } from '../colour';
 import { opacitySchema, positionSchema, rotationSchema, sizeSchema } from '../geometry';
 import { idSchema, persistentIdSchema } from '../ids';
 
+/** Bounds browser text layout work per element; whole-project bytes are bounded separately. */
+export const MAX_ELEMENT_TEXT_LENGTH = 100_000;
+
 export const ELEMENT_TYPES = ['text', 'shape', 'image', 'group'] as const;
 export const elementTypeSchema = z.enum(ELEMENT_TYPES);
 export type ElementType = z.infer<typeof elementTypeSchema>;
@@ -42,7 +45,12 @@ export const textElementSchema = z.object({
   ...elementBaseShape,
   type: z.literal('text'),
   content: z.object({
-    text: z.string().max(5000),
+    text: z
+      .string()
+      .max(
+        MAX_ELEMENT_TEXT_LENGTH,
+        'A text element exceeds the 100,000-character layout safety budget. Split it across elements or Komas.',
+      ),
   }),
   style: z.object({
     fontFamily: fontFamilySchema,

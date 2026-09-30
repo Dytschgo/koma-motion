@@ -10,11 +10,14 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 const API_KEY = 'komaMotion';
 
 const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
+  'koma:instruction-templates:list',
+  'koma:instruction-templates:change',
   'koma:project:create',
   'koma:project:open',
   'koma:project:save',
   'koma:project:save-as',
   'koma:brand-kit:select-logo',
+  'koma:project:select-image',
   'koma:brand-kits:list',
   'koma:brand-kits:create',
   'koma:brand-kits:update',

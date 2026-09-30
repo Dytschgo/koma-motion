@@ -13,7 +13,7 @@ The code lives in `packages/core` (schemas) and `packages/project-format`
 | Encoding        | UTF-8, line feeds, final newline  |
 | Syntax          | JSON, indented with two spaces    |
 | Format marker   | `"format": "koma-motion-project"` |
-| Current version | `"schemaVersion": 1`              |
+| Current version | `"schemaVersion": 3`              |
 | Size limit      | 64 MiB (67,108,864 UTF-8 bytes)   |
 
 The format is an early-stage format. It can change before version 1.0 of Koma
@@ -26,7 +26,7 @@ An example is in `examples/generated-with-claude-code.koma`.
 ```jsonc
 {
   "format": "koma-motion-project",
-  "schemaVersion": 1,
+  "schemaVersion": 3,
   "id": "project_3f0c…",
   "name": "Introducing Koma Motion",
   "createdAt": "2026-09-29T13:43:35.965Z",
@@ -44,9 +44,44 @@ An example is in `examples/generated-with-claude-code.koma`.
   },
   "assets": [ … ],
   "agentConfiguration": { … },
+  "systemInstructions": "",
   "generationHistory": [ … ]
 }
 ```
+
+### Project instructions
+
+`systemInstructions` is plain text saved with the project, limited to 8,000
+UTF-16 code units (JavaScript string length). An empty or missing value means
+no additional instructions. Text is preserved verbatim; overlong or non-string
+values are rejected rather than shortened. Version 1 files migrate to version
+2 with empty instructions, so legacy projects gain no active guidance.
+
+Settings and the agent panel expose the instructions editor and reusable
+templates. Project edits and applying template text use document commands and
+can be undone. Invalid drafts remain visible when Settings closes and reopens;
+saves and requests use the last valid project text. A failed project save keeps
+the document and its unsaved state.
+
+Reusable templates are separate app data in
+`instruction-templates.json` under Electron's `userData` directory. The main
+process validates reads and writes and replaces the file atomically. The library
+supports up to 100 templates, with names of 1–100 characters and the same
+8,000-character instruction limit. Corrupt data is reported and kept intact.
+Template CRUD does not enter document history. Applying copies only the text
+into the project; templates are never embedded as a library in project files.
+Template data has no credentials, provider configuration or path fields.
+
+The generation request carries project instructions separately from the chat
+request and Brand Kit. Generation and repair prompt version 4 render them as a
+JSON string in a dedicated Project instructions section before the current
+Request section. Application rules stay in the system prompt. Claude receives
+the system prompt as one argument and the remaining prompt on standard input;
+Codex receives both on standard input. Grok receives the prompt in an
+app-created temporary text file, with the system prompt as a separate argument.
+The mock receives the same structured
+request and prompt but continues to produce its fixed demo. Project text cannot
+change executable names, CLI arguments, sandbox settings or output validation.
 
 ### Brand Kit
 
@@ -161,7 +196,7 @@ system.
 ```jsonc
 {
   "selectedProviderId": "mock",
-  "timeoutSeconds": 300,
+  "timeoutSeconds": null,
   "providers": { "claude-code": { "model": "claude-opus-5-5" } },
 }
 ```
@@ -366,3 +401,19 @@ implemented. The format is prepared for it:
   their data comes from.
 
 Open questions are tracked in the issue "Design the asset packaging format".
+
+### Version 3: larger presentations and optional deadlines
+
+Version 3 removes the 200-Koma/transition cap, accepts longer generation-history
+requests, raises per-Koma elements to 2,000 and per-element text to 100,000 code
+units, and permits `agentConfiguration.timeoutSeconds: null` for no deadline.
+The canonical whole-file size remains 64 MiB of UTF-8, including assets, history,
+and extension data. See [the limit audit](GENERATION_LIMITS.md).
+
+Version 1 first migrates to version 2 with empty active project instructions;
+version 2 migrates to version 3 with the old automatic timeout disabled. Its
+provider/model settings, existing instructions, presentation, assets, history,
+and supported extension data are preserved. Opening reports the deadline change.
+Saving writes version 3. Older app versions refuse the newer format rather than
+silently losing larger content or restoring a deadline. An explicitly enabled
+version-3 timeout is preserved on save/reopen.

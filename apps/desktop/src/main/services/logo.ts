@@ -11,9 +11,10 @@ import { createImageAsset, IMAGE_FILE_EXTENSIONS } from './imageAsset';
  */
 export async function selectLogo(
   window: BrowserWindow,
+  title = 'Choose a logo',
 ): Promise<IpcResponse<'koma:brand-kit:select-logo'>> {
   const selection = await dialog.showOpenDialog(window, {
-    title: 'Choose a logo',
+    title,
     filters: [{ name: 'Images', extensions: [...IMAGE_FILE_EXTENSIONS] }],
     properties: ['openFile'],
   });

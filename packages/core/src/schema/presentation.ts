@@ -8,8 +8,6 @@ import {
   type TransitionOperation,
 } from './transition';
 
-export const MAX_KOMAS = 200;
-
 export const presentationSchema = z
   .object({
     id: idSchema,
@@ -18,8 +16,8 @@ export const presentationSchema = z
     audience: z.string().max(1000),
     narrative: z.string().max(10000),
     aspectRatio: aspectRatioSchema,
-    komas: z.array(komaSchema).max(MAX_KOMAS),
-    transitions: z.array(komaTransitionSchema).max(MAX_KOMAS),
+    komas: z.array(komaSchema),
+    transitions: z.array(komaTransitionSchema),
   })
   .superRefine((presentation, context) => {
     const komaIds = new Set<string>();

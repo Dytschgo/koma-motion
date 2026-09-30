@@ -12,7 +12,7 @@ import {
 } from './schema/project';
 
 export const DEFAULT_PROVIDER_ID = 'mock';
-export const DEFAULT_AGENT_TIMEOUT_SECONDS = 300;
+export const DEFAULT_AGENT_TIMEOUT_SECONDS = null;
 
 export function createAgentConfiguration(): AgentConfiguration {
   return {
@@ -72,6 +72,7 @@ export function createProject(options: {
     presentation: createPresentation({ idGenerator: options.idGenerator, title: options.name }),
     assets: [],
     agentConfiguration: createAgentConfiguration(),
+    systemInstructions: '',
     generationHistory: [],
   };
 }

@@ -1,6 +1,7 @@
 /** New, Open, Save and Save As: the steps between the interface and the main process. */
-import { setBrandLogo } from '@koma-motion/core';
+import { setBrandLogo, type KomaProject, type IdGenerator } from '@koma-motion/core';
 import { serialiseProject } from '@koma-motion/project-format';
+import { importImage } from '../state/commands';
 import { useAgentStore } from '../state/agentStore';
 import {
   selectHasUnsavedChanges,
@@ -208,5 +209,47 @@ export async function chooseProjectLogo(): Promise<void> {
     if (isCurrentSession(sessionId)) {
       reportError('Adding the logo', error);
     }
+  }
+}
+
+/** Native file selection is bound to this session and Koma, including across async dialogs. */
+export async function chooseKomaImage(komaId: string, elementId?: string): Promise<void> {
+  const { sessionId } = useProjectStore.getState();
+  if (useUiStore.getState().preview !== null) return;
+  try {
+    const response = await invoke('koma:project:select-image', {});
+    if (
+      !isCurrentSession(sessionId) ||
+      useUiStore.getState().preview !== null ||
+      useUiStore.getState().selectedKomaId !== komaId
+    )
+      return;
+    if (response.status === 'failed') {
+      useUiStore.getState().notify('error', response.message);
+      return;
+    }
+    if (response.status !== 'selected') return;
+    // Validate the total project size before committing any document or history change.
+    const command = importImage(komaId, response.asset, elementId);
+    useProjectStore.getState().apply(
+      Object.assign(
+        (project: KomaProject, ids: IdGenerator) => {
+          const next = command(project, ids);
+          const result = serialiseProject(next);
+          if (!result.ok) throw new Error(result.error.message);
+          return next;
+        },
+        { affectedKomaIds: command.affectedKomaIds },
+      ),
+    );
+    const project = selectProject(useProjectStore.getState());
+    const image = project?.presentation.komas
+      .find((koma) => koma.id === komaId)
+      ?.elements.find(
+        (item) => item.type === 'image' && item.content.assetId === response.asset.id,
+      );
+    if (image) useUiStore.getState().selectElement(image.id);
+  } catch (error) {
+    if (isCurrentSession(sessionId)) reportError('Importing the image', error);
   }
 }

@@ -1,7 +1,6 @@
 import {
   findTransitionBetween,
   getCanvasSize,
-  MAX_KOMAS,
   type Koma,
   type KomaProject,
   type KomaTransition,
@@ -189,7 +188,6 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
   const selectedKoma = useSelectedKoma();
   const resolveAsset = useMemo(() => createAssetResolver(project.assets), [project.assets]);
   const { komas } = project.presentation;
-  const komaLimitReached = komas.length >= MAX_KOMAS;
 
   return (
     <aside
@@ -263,8 +261,6 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
         <Button
           variant="outline"
           icon={<PlusIcon size={14} />}
-          disabled={komaLimitReached}
-          aria-describedby={komaLimitReached ? 'koma-limit-message' : undefined}
           onClick={() => {
             const known = new Set(komas.map((koma) => koma.id));
             apply(addKoma(selectedKoma?.id ?? null));
@@ -278,11 +274,6 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
         >
           Add Koma
         </Button>
-        {komaLimitReached && (
-          <p id="koma-limit-message" className="px-1 text-sm text-ink-400">
-            A project can have up to {MAX_KOMAS} Komas. Delete one to add another.
-          </p>
-        )}
         <Button
           aria-pressed={view === 'brandKit'}
           active={view === 'brandKit'}

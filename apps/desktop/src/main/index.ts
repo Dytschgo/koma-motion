@@ -8,9 +8,10 @@ import { createMainWindow } from './window';
 
 registerAppScheme();
 
-// One running instance per data folder. Saved Brand Kits are read, changed and
-// written back by the main process, and a second process doing the same at the
-// same time would silently discard the other's changes.
+// One running instance per data folder. Saved Brand Kits and instruction
+// templates are read, changed and written back by the main process, and a
+// second process doing the same at the same time would silently discard the
+// other's changes.
 const isFirstInstance = app.requestSingleInstanceLock();
 if (!isFirstInstance) {
   app.quit();

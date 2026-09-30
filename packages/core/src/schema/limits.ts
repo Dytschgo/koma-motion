@@ -9,7 +9,7 @@ export const MAX_PROJECT_FILE_BYTES = 64 * 1024 * 1024;
 const MAX_PROJECT_FILE_MB = MAX_PROJECT_FILE_BYTES / (1024 * 1024);
 
 /** Shown when a project or file is above {@link MAX_PROJECT_FILE_BYTES}. */
-export const PROJECT_TOO_LARGE_MESSAGE = `The project is larger than ${String(MAX_PROJECT_FILE_MB)} MB, which is the maximum size Koma Motion can save and open.`;
+export const PROJECT_TOO_LARGE_MESSAGE = `The project is larger than ${String(MAX_PROJECT_FILE_MB)} MB, the memory safety boundary for saving and opening files. Reduce embedded images or split the presentation into separate projects, then save again. Your current file has not been overwritten.`;
 
 /** Nesting depth of unknown extension data. The value itself is depth 1. */
 export const MAX_EXTENSION_DEPTH = 32;

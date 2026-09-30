@@ -173,6 +173,11 @@ export class ClaudeCodeProvider implements AgentProvider {
         errorOutput: redactDiagnostics(outcome.standardError),
       };
 
+      if (outcome.outputLimitExceeded || outcome.aborted || outcome.startError !== null) {
+        const failure = describeProcessFailure(this.displayName, outcome);
+        if (failure !== null)
+          return { ok: false, error: agentError(failure.code, failure.message), details };
+      }
       const envelope = parseClaudeEnvelope(outcome.standardOutput);
       if (envelope?.isError === true) {
         const reason = redactDiagnostics(envelope.result, 300);

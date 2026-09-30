@@ -1,4 +1,5 @@
 import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
+import { CURRENT_SCHEMA_VERSION } from '@koma-motion/core';
 import { buildTransition, computeFrame, komaToFrame } from '@koma-motion/motion-engine';
 import { describe, expect, it } from 'vitest';
 import { migrateToVersion, type Migration } from './migrations';
@@ -31,9 +32,11 @@ function reverseKeys(value: unknown): unknown {
 describe('serialiseProject', () => {
   it('produces human-readable text that starts with the format marker', () => {
     const text = serialise(buildProject());
-    expect(text.startsWith('{\n  "format": "koma-motion-project",\n  "schemaVersion": 1,')).toBe(
-      true,
-    );
+    expect(
+      text.startsWith(
+        `{\n  "format": "koma-motion-project",\n  "schemaVersion": ${String(CURRENT_SCHEMA_VERSION)},`,
+      ),
+    ).toBe(true);
     expect(text.endsWith('}\n')).toBe(true);
   });
 
@@ -171,7 +174,9 @@ describe('parseProject', () => {
   });
 
   it('refuses projects written by a newer version', () => {
-    const result = parseProject(JSON.stringify({ ...buildProject(), schemaVersion: 2 }));
+    const result = parseProject(
+      JSON.stringify({ ...buildProject(), schemaVersion: CURRENT_SCHEMA_VERSION + 1 }),
+    );
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.error.code).toBe('newerSchemaVersion');

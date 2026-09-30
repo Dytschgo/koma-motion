@@ -8,7 +8,10 @@ import {
   type Page,
 } from '@playwright/test';
 
-export const APPLICATION_DIRECTORY = resolve(import.meta.dirname, '..');
+// A copied build keeps parallel development rebuilds from deleting a test's renderer files.
+export const APPLICATION_DIRECTORY = resolve(
+  process.env['KOMA_E2E_APPLICATION_DIRECTORY'] ?? resolve(import.meta.dirname, '..'),
+);
 
 export interface RunningApplication {
   readonly application: ElectronApplication;

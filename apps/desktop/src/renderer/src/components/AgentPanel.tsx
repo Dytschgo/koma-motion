@@ -1,4 +1,4 @@
-import { MAX_REQUESTED_KOMAS, MAX_USER_REQUEST_LENGTH } from '@koma-motion/agent-runtime';
+import { userRequestSchema } from '@koma-motion/agent-runtime';
 import type { KomaProject } from '@koma-motion/core';
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { cancelGeneration, detectProviders, generate } from '../lib/agentActions';
@@ -18,8 +18,6 @@ import { Button, Field, IconButton, Select, TextArea, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
   'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
-
-const KOMA_COUNTS = Array.from({ length: MAX_REQUESTED_KOMAS }, (_, index) => index + 1);
 
 const FAILURE_TITLES = {
   failed: 'Generation failed',
@@ -265,10 +263,18 @@ export function AgentPanel({
   const open = useUiStore((state) => state.agentPanelOpen);
   const setOpen = useUiStore((state) => state.setAgentPanelOpen);
   const setWidth = useUiStore((state) => state.setAgentPanelWidth);
+  const setSettingsOpen = useUiStore((state) => state.setSettingsOpen);
 
   const [request, setRequest] = useState('');
   const [audience, setAudience] = useState('');
-  const [komaCount, setKomaCount] = useState(3);
+  const [komaCount, setKomaCount] = useState('3');
+  const count = komaCount.trim() === '' ? null : Number(komaCount);
+  const validCount = count === null || (Number.isSafeInteger(count) && count > 0);
+  const requestValidation = userRequestSchema.safeParse(request);
+  const requestError =
+    request.trim() === '' || requestValidation.success
+      ? undefined
+      : requestValidation.error.issues[0]?.message;
   const bodyId = useId();
   const section = useRef<HTMLElement>(null);
   const log = useRef<HTMLDivElement>(null);
@@ -308,7 +314,7 @@ export function AgentPanel({
   }, [open]);
 
   const submit = (text: string): void => {
-    if (text.trim() === '' || running || !available) {
+    if (!userRequestSchema.safeParse(text).success || !validCount || running || !available) {
       return;
     }
     setRequest('');
@@ -316,7 +322,7 @@ export function AgentPanel({
       userRequest: text.trim(),
       objective: null,
       audience: audience.trim() === '' ? null : audience.trim(),
-      requestedKomaCount: komaCount,
+      requestedKomaCount: count,
     });
   };
 
@@ -493,7 +499,15 @@ export function AgentPanel({
             submit(request);
           }}
         >
-          <Field label="Your request">
+          <div className="flex items-center justify-between gap-2 text-sm">
+            <span className="text-ink-400">
+              {project.systemInstructions.trim() === ''
+                ? 'No project instructions'
+                : 'Project instructions active'}
+            </span>
+            <Button onClick={() => setSettingsOpen(true)}>Instructions &amp; templates</Button>
+          </div>
+          <Field label="Your request" error={requestError}>
             {(ids) => (
               <TextArea
                 {...ids}
@@ -501,7 +515,6 @@ export function AgentPanel({
                 rows={4}
                 className="max-h-60 min-h-24 field-sizing-content"
                 value={request}
-                maxLength={MAX_USER_REQUEST_LENGTH}
                 placeholder="What should the presentation show, and in which order?"
                 onChange={(event) => {
                   setRequest(event.target.value);
@@ -528,21 +541,21 @@ export function AgentPanel({
                 />
               )}
             </Field>
-            <Field label="Komas" className="w-20 flex-none">
+            <Field
+              label="Komas"
+              className="w-24 flex-none"
+              error={validCount ? undefined : 'Enter a positive whole number.'}
+            >
               {(ids) => (
-                <Select
+                <TextInput
                   {...ids}
+                  type="number"
+                  min={1}
+                  step={1}
+                  placeholder="Auto"
                   value={komaCount}
-                  onChange={(event) => {
-                    setKomaCount(Number(event.target.value));
-                  }}
-                >
-                  {KOMA_COUNTS.map((count) => (
-                    <option key={count} value={count}>
-                      {count}
-                    </option>
-                  ))}
-                </Select>
+                  onChange={(event) => setKomaCount(event.target.value)}
+                />
               )}
             </Field>
           </div>
@@ -550,20 +563,22 @@ export function AgentPanel({
             type="submit"
             variant="primary"
             className="w-full"
-            disabled={trimmed === '' || running || !available}
+            disabled={
+              trimmed === '' || !requestValidation.success || !validCount || running || !available
+            }
           >
             Generate Komas
           </Button>
           {selectedId === 'mock' && (
             <p className="text-sm text-ink-400">
               Mock always creates the same three-Koma demo, whatever you ask. To generate from your
-              request, choose Claude Code above.
+              request, choose an installed agent above.
             </p>
           )}
           {selected?.metadata.usesExternalService === true && (
             <p className="text-sm text-ink-400">
-              {selected.metadata.displayName} sends your request, Brand Kit, a text summary of
-              existing Komas, and asset names to an online service.
+              {selected.metadata.displayName} sends your request, project instructions, Brand Kit, a
+              text summary of existing Komas, and asset names to an online service.
             </p>
           )}
           {project.presentation.komas.length > 0 && (

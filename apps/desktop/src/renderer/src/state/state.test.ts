@@ -3,12 +3,7 @@ import {
   pruneBrandKitRawDraft,
   toLibraryBrandKit,
 } from '@koma-motion/brand-kit';
-import {
-  MAX_KOMAS,
-  createSeededIdGenerator,
-  komaProjectSchema,
-  type KomaProject,
-} from '@koma-motion/core';
+import { createSeededIdGenerator, komaProjectSchema, type KomaProject } from '@koma-motion/core';
 import { buildKoma, buildProject, buildShape, buildText } from '@koma-motion/core/testing';
 import { validateTransition } from '@koma-motion/motion-engine';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -180,7 +175,11 @@ describe('document commands', () => {
     const result = commands.reduce((current, command) => command(current, idGenerator), project);
     expect(komaProjectSchema.safeParse(result).success).toBe(true);
     for (const transition of result.presentation.transitions) {
-      expect(validateTransition(transition, result.presentation)).toEqual([]);
+      expect(
+        validateTransition(transition, result.presentation).filter(
+          (issue) => issue.code !== 'staleTransition',
+        ),
+      ).toEqual([]);
     }
     return result;
   }
@@ -203,25 +202,26 @@ describe('document commands', () => {
     expect(project.presentation.komas[0]?.background.colour).toBe(base.brandKit.colours.background);
   });
 
-  it('does not create an undoable change when adding at the Koma limit', () => {
+  it('adds beyond 200 Komas as an undoable change', () => {
     const full = buildProject({
       presentation: {
         ...base.presentation,
-        komas: Array.from({ length: MAX_KOMAS }, (_, index) =>
+        komas: Array.from({ length: 200 }, (_, index) =>
           buildKoma({ id: `koma-${String(index + 1)}`, elements: [] }),
         ),
       },
     });
     expect(komaProjectSchema.safeParse(full).success).toBe(true);
     const generator = createSeededIdGenerator('limit');
-    const nextId = createSeededIdGenerator('limit').next('koma');
-    expect(addKoma('koma-1')(full, generator)).toBe(full);
-    expect(generator.next('koma')).toBe(nextId);
-    const history = createHistory(full);
-    expect(commit(history, addKoma('koma-1')(full, generator), { time: 0 })).toBe(history);
+    const next = addKoma('koma-1')(full, generator);
+    expect(next.presentation.komas).toHaveLength(201);
+    expect(komaProjectSchema.safeParse(next).success).toBe(true);
+    const history = commit(createHistory(full), next, { time: 0 });
+    expect(undo(history).present).toBe(full);
+    expect(redo(undo(history)).present).toBe(next);
   });
 
-  it('recomputes the motion when an element changes', () => {
+  it('exposes visual endpoints without regenerating stored motion', () => {
     const withSecond = run(base, addKoma('koma-1'));
     const second = withSecond.presentation.komas[1];
     const copy = second?.elements.find((element) => element.persistentId === 'engine');
@@ -234,13 +234,14 @@ describe('document commands', () => {
       changeElement(second.id, { ...copy, position: { x: 900, y: 500 } }),
     );
 
-    const operations = project.presentation.transitions[0]?.elementTransitions
-      .filter((item) => item.persistentId === 'engine')
-      .map((item) => item.operation);
-    expect(operations).toEqual(['move']);
+    expect(project.presentation.transitions).toBe(withSecond.presentation.transitions);
+    expect(changeElement(second.id, copy).affectedKomaIds).toEqual([second.id]);
+    expect(
+      project.presentation.komas[1]?.elements.find((item) => item.id === copy.id)?.position,
+    ).toEqual({ x: 900, y: 500 });
   });
 
-  it('keeps transitions for metadata edits and rebuilds only visual neighbours', () => {
+  it('keeps stored transitions for metadata and visual element edits', () => {
     const four = run(base, addKoma('koma-1'), addKoma('koma-1'), addKoma('koma-1'));
     const middle = four.presentation.komas[1];
     const element = middle?.elements[0];
@@ -255,12 +256,7 @@ describe('document commands', () => {
     expect(titled.presentation.transitions).toBe(four.presentation.transitions);
 
     const visual = run(titled, changeElement(middle.id, { ...element, rotation: 45 }));
-    expect(visual.presentation.transitions[0]).not.toBe(titled.presentation.transitions[0]);
-    expect(visual.presentation.transitions[1]).not.toBe(titled.presentation.transitions[1]);
-    expect(visual.presentation.transitions[2]).toBe(titled.presentation.transitions[2]);
-    expect(
-      visual.presentation.transitions[0]?.elementTransitions.map((item) => item.operation),
-    ).toContain('rotate');
+    expect(visual.presentation.transitions).toBe(titled.presentation.transitions);
   });
 
   it('keeps the settings of a transition when its Komas change', () => {
