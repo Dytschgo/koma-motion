@@ -10,6 +10,7 @@ import {
   duplicateKoma,
   findKoma,
   insertKoma,
+  MAX_KOMAS,
   moveKoma,
   removeElement,
   removeKoma,
@@ -79,6 +80,9 @@ export const addKoma =
   (afterKomaId: string | null): ProjectCommand =>
   (project, idGenerator) =>
     changeKomas((presentation) => {
+      if (presentation.komas.length >= MAX_KOMAS) {
+        return presentation;
+      }
       const source = afterKomaId === null ? undefined : findKoma(presentation, afterKomaId);
       const title = `Koma ${String(presentation.komas.length + 1)}`;
       const koma =
