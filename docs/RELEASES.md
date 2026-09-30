@@ -71,6 +71,15 @@ time.
 The application is signed ad hoc. That lets it start on Apple silicon, but
 it is no proof of where the application comes from.
 
+**Managed Macs.** On a Mac that a company manages, an endpoint security tool
+such as Elastic Endpoint can end the application a moment after it starts,
+without a message and without the "Open Anyway" choice. This was observed on
+a Mac enrolled in Intune. Neither the installer nor the application can do
+anything about it: such tools want a Developer ID signature with
+notarisation, which this release does not have (see
+[Code signing](#code-signing)). Ask the administrators for an exception, or
+use an unmanaged Mac.
+
 ### Checking a download
 
 Every release contains `SHA256SUMS.txt` with the checksum of each file.
