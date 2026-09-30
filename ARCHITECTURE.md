@@ -286,6 +286,7 @@ sure that the channel list of the preload script equals the contract.
 | selection, view, zoom    | `uiStore`                       | no                     |
 | preview                  | `uiStore` and the playback hook | no                     |
 | agent executions, chat   | `agentStore`                    | no                     |
+| chat sidebar width, open | `uiStore`, window local storage | no                     |
 | saved Brand Kit library  | `brandKitLibraryStore`, on disk | no, app data folder    |
 | unfinished editor input  | component state                 | no                     |
 

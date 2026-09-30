@@ -98,7 +98,8 @@ Everything in this list is implemented and covered by automated tests.
   preview and readability checks, in a panel beside the canvas.
 - Save Brand Kits, logo included, to a library on this computer and apply
   them to any project. Applying a kit can be undone.
-- Describe a presentation in the chat and choose a provider.
+- Describe a presentation in the chat and choose a provider. The chat is a
+  sidebar beside the canvas that can be resized and collapsed.
 - Generate three Komas with the built-in mock provider, without network and
   without an API key.
 - Generate Komas with Claude Code. Tested on Windows.
