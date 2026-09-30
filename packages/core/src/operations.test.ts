@@ -1,8 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import { createRandomIdGenerator, createSeededIdGenerator, hashString, idSchema } from './ids';
-import { duplicateKoma, insertKoma, moveKoma, removeKoma, replaceElement } from './operations';
+import {
+  clearBrandLogo,
+  duplicateKoma,
+  insertKoma,
+  moveKoma,
+  removeKoma,
+  replaceElement,
+  setBrandLogo,
+} from './operations';
+import type { AssetReference } from './schema/asset';
+import type { ImageElement } from './schema/element';
 import { presentationSchema } from './schema/presentation';
-import { buildKoma, buildPresentation, buildShape } from './testing/fixtures';
+import { komaProjectSchema } from './schema/project';
+import { buildKoma, buildPresentation, buildProject, buildShape } from './testing/fixtures';
+
+function imageAsset(id: string): AssetReference {
+  return {
+    id,
+    type: 'image',
+    name: `${id}.png`,
+    mediaType: 'image/png',
+    projectPath: `assets/${id}.png`,
+    metadata: {},
+    embeddedData: { encoding: 'base64', data: 'aGVsbG8=' },
+  };
+}
+
+function imageElement(assetId: string): ImageElement {
+  return {
+    ...buildShape(),
+    id: `element-${assetId}`,
+    persistentId: `image-${assetId}`,
+    name: 'Logo image',
+    type: 'image',
+    content: { assetId, altText: 'Logo' },
+    style: { fit: 'contain', cornerRadius: 0 },
+  };
+}
 
 describe('id generators', () => {
   it('creates valid random identifiers that differ', () => {
@@ -95,5 +130,96 @@ describe('document operations', () => {
     const result = replaceElement(presentation, 'koma-1', moved);
     expect(result.komas[0]?.elements[0]?.position).toEqual({ x: 500, y: 500 });
     expect(presentation.komas[0]?.elements[0]?.position).toEqual({ x: 100, y: 100 });
+  });
+});
+
+describe('Brand Kit logo assets', () => {
+  const oldLogo = imageAsset('asset-old-logo');
+  const newLogo = imageAsset('asset-new-logo');
+
+  it('keeps an old logo used by an image when the logo is replaced', () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: oldLogo.id },
+      assets: [oldLogo],
+      presentation: buildPresentation({
+        komas: [buildKoma({ elements: [imageElement(oldLogo.id)] })],
+      }),
+    });
+
+    const updated = setBrandLogo(project, newLogo);
+
+    expect(updated.brandKit.logoAssetId).toBe(newLogo.id);
+    expect(updated.assets).toEqual([oldLogo, newLogo]);
+    expect(komaProjectSchema.safeParse(updated).success).toBe(true);
+    expect(project.assets).toEqual([oldLogo]);
+  });
+
+  it('keeps an old logo used by a group child when the logo is cleared', () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: oldLogo.id },
+      assets: [oldLogo],
+      presentation: buildPresentation({
+        komas: [
+          buildKoma({
+            elements: [
+              {
+                ...buildShape(),
+                type: 'group',
+                content: {
+                  referenceSize: { width: 200, height: 200 },
+                  children: [imageElement(oldLogo.id)],
+                },
+                style: {},
+              },
+            ],
+          }),
+        ],
+      }),
+    });
+
+    const updated = clearBrandLogo(project);
+
+    expect(updated.brandKit.logoAssetId).toBeNull();
+    expect(updated.assets).toEqual([oldLogo]);
+    expect(komaProjectSchema.safeParse(updated).success).toBe(true);
+  });
+
+  it('removes the previous logo when no image uses it', () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: oldLogo.id },
+      assets: [oldLogo],
+    });
+
+    expect(setBrandLogo(project, newLogo).assets).toEqual([newLogo]);
+    expect(clearBrandLogo(project).assets).toEqual([]);
+  });
+
+  it('replaces an asset with the same id without duplicating it', () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: oldLogo.id },
+      assets: [oldLogo, newLogo],
+    });
+    const replacement = { ...newLogo, name: 'updated.png' };
+
+    const updated = setBrandLogo(project, replacement);
+
+    expect(updated.assets).toEqual([replacement]);
+    expect(komaProjectSchema.safeParse(updated).success).toBe(true);
+  });
+
+  it('reuses the current logo id without keeping a stale copy', () => {
+    const project = buildProject({
+      brandKit: { ...buildProject().brandKit, logoAssetId: oldLogo.id },
+      assets: [oldLogo],
+      presentation: buildPresentation({
+        komas: [buildKoma({ elements: [imageElement(oldLogo.id)] })],
+      }),
+    });
+    const replacement = { ...oldLogo, name: 'replaced.png' };
+
+    const updated = setBrandLogo(project, replacement);
+
+    expect(updated.assets).toEqual([replacement]);
+    expect(komaProjectSchema.safeParse(updated).success).toBe(true);
   });
 });
