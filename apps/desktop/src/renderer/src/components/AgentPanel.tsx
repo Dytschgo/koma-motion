@@ -10,7 +10,7 @@ import { CheckIcon, ChevronIcon, WarningIcon } from './icons';
 import { Button, Field, IconButton, Select, TextArea, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
-  'Create a three-frame presentation introducing Koma Motion. Start with the complete system, focus on the motion engine, then reveal how it exports an editable presentation.';
+  'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
 
 const KOMA_COUNTS = Array.from({ length: MAX_REQUESTED_KOMAS }, (_, index) => index + 1);
 
@@ -257,8 +257,9 @@ export function AgentPanel({ project }: { readonly project: KomaProject }): Reac
             {conversation.length === 0 && !running ? (
               <div className="m-auto max-w-lg text-center text-ink-300">
                 <p>
-                  Describe the presentation you want. Your request includes the Brand Kit, a text
-                  summary of existing Komas, and asset names.
+                  {selectedId === 'mock'
+                    ? 'Try the built-in three-Koma demo to see how Koma Motion works. Your Brand Kit colours are applied.'
+                    : 'Describe the presentation you want. Your request includes the Brand Kit, a text summary of existing Komas, and asset names.'}
                 </p>
                 <Button
                   variant="outline"
@@ -377,6 +378,12 @@ export function AgentPanel({ project }: { readonly project: KomaProject }): Reac
                 Generate Komas
               </Button>
             </div>
+            {selectedId === 'mock' && (
+              <p className="text-sm text-ink-400">
+                Mock always creates the same three-Koma demo, whatever you ask. To generate from
+                your request, choose Claude Code above.
+              </p>
+            )}
             {selected?.metadata.usesExternalService === true && (
               <p className="text-sm text-ink-400">
                 {selected.metadata.displayName} sends your request, Brand Kit, a text summary of
