@@ -7,6 +7,7 @@ import type {
   AgentProvider,
   ProviderDetectionResult,
   ProviderExecutionResult,
+  ModelCatalog,
   ProviderMetadata,
 } from '../providers/types';
 import {
@@ -25,6 +26,28 @@ import type {
 } from '../contract/brandKitAnalysis';
 
 export const CLAUDE_CODE_PROVIDER_ID = 'claude-code';
+
+/**
+ * Models offered for Claude Code. `claude --help` documents the aliases
+ * `fable`, `opus` and `sonnet` and accepts a model's full name; `haiku` was
+ * accepted by Claude Code 2.1.285 on 30 September 2026. Claude Code has no
+ * command that lists the models of a sign-in, so this list is curated and
+ * the CLI decides at run time whether a model is available.
+ */
+export const CLAUDE_MODEL_CATALOG: ModelCatalog = {
+  source: 'curated',
+  models: [
+    { id: 'fable', label: 'Fable (latest)', kind: 'alias' },
+    { id: 'opus', label: 'Opus (latest)', kind: 'alias' },
+    { id: 'sonnet', label: 'Sonnet (latest)', kind: 'alias' },
+    { id: 'haiku', label: 'Haiku (latest)', kind: 'alias' },
+    { id: 'claude-fable-5-1', label: 'Claude Fable 5.1', kind: 'id' },
+    { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', kind: 'id' },
+    { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', kind: 'id' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', kind: 'id' },
+  ],
+  note: 'A list of Claude Code aliases and model names. Claude Code cannot list the models of your sign-in; it reports a model it cannot use when the run starts.',
+};
 const EXECUTABLE_NAME = 'claude';
 
 /**
@@ -111,6 +134,20 @@ export function parseClaudeEnvelope(standardOutput: string): ClaudeEnvelope | nu
   };
 }
 
+/**
+ * Whether an error result says that the chosen model cannot be used. Claude
+ * Code words this in several ways ("model not found", "may not exist or you
+ * may not have access", "invalid model"); all name the model.
+ */
+export function describesUnavailableModel(result: string): boolean {
+  return (
+    /\bmodel\b/i.test(result) &&
+    /(not[ _]found|not exist|does not exist|not have access|no access|invalid model|unknown model|not available)/i.test(
+      result,
+    )
+  );
+}
+
 /** Generates presentations with a locally installed Claude Code CLI. */
 export class ClaudeCodeProvider implements AgentProvider {
   readonly id = CLAUDE_CODE_PROVIDER_ID;
@@ -124,6 +161,8 @@ export class ClaudeCodeProvider implements AgentProvider {
     usesExternalService: true,
     supportsModelSelection: true,
     defaultModel: null,
+    modelCatalog: CLAUDE_MODEL_CATALOG,
+    acceptsCustomModel: true,
   };
 
   readonly #environment: CliEnvironment;
@@ -212,6 +251,16 @@ export class ClaudeCodeProvider implements AgentProvider {
       }
       const envelope = parseClaudeEnvelope(outcome.standardOutput);
       if (envelope?.isError === true) {
+        if (context.model !== null && describesUnavailableModel(envelope.result)) {
+          return {
+            ok: false,
+            error: agentError(
+              'executionFailed',
+              `The model "${context.model}" is not available to your Claude Code sign-in. Choose another model or use the default.`,
+            ),
+            details,
+          };
+        }
         const reason = redactDiagnostics(envelope.result, 300);
         return {
           ok: false,

@@ -96,6 +96,8 @@ export class MockAgentProvider implements AgentProvider {
     usesExternalService: false,
     supportsModelSelection: false,
     defaultModel: null,
+    modelCatalog: { source: 'none', models: [], note: 'The mock provider has no models.' },
+    acceptsCustomModel: false,
   };
 
   readonly #delayMs: number;

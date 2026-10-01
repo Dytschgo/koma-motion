@@ -247,6 +247,7 @@ schema for the request and the response of every channel.
 | `koma:brand-kits:load`         | read a saved kit and its logo to apply it   |
 | `koma:brand-kits:start-new`    | keep an unreadable library as a backup      |
 | `koma:providers:detect`        | detect all providers                        |
+| `koma:providers:list-models`   | list the models of a signed-in CLI          |
 | `koma:providers:execute`       | run a generation                            |
 | `koma:providers:cancel`        | stop a generation                           |
 | `koma:app:set-unsaved-changes` | tell the main process about unsaved changes |

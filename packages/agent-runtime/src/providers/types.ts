@@ -10,6 +10,50 @@ import type {
   BrandKitAnalysisResponse,
 } from '../contract/brandKitAnalysis';
 
+/** One model a provider offers by name. */
+export const providerModelSchema = z.object({
+  id: modelNameSchema,
+  label: z.string().min(1).max(80),
+  /** `alias` names a family and resolves to its latest model; `id` is an exact model. */
+  kind: z.enum(['alias', 'id']),
+});
+export type ProviderModel = z.infer<typeof providerModelSchema>;
+
+/**
+ * Where the model choices of a provider come from.
+ *
+ * - `none`: the provider has no model choice, or offers no list.
+ * - `curated`: a list shipped with Koma Motion from the provider's
+ *   documentation. It is not read from the account and may contain models
+ *   that a sign-in cannot use.
+ * - `cli`: the provider's CLI can list the models of the signed-in account
+ *   on request (`listModels`). `models` holds a fallback until then.
+ */
+export const modelCatalogSchema = z.object({
+  source: z.enum(['none', 'curated', 'cli']),
+  models: z.array(providerModelSchema).max(50),
+  /** A sentence that explains the list to the user. */
+  note: z.string().max(300),
+});
+export type ModelCatalog = z.infer<typeof modelCatalogSchema>;
+
+/** The answer of a provider that listed the models of the signed-in account. */
+export const providerModelListingSchema = z.discriminatedUnion('status', [
+  z.object({
+    status: z.literal('listed'),
+    models: z.array(modelNameSchema).max(50),
+    defaultModel: modelNameSchema.nullable(),
+    checkedAt: z.iso.datetime(),
+  }),
+  z.object({ status: z.literal('unsupported') }),
+  z.object({
+    status: z.literal('failed'),
+    /** A sentence that can be shown to the user as it is. */
+    message: z.string().max(300),
+  }),
+]);
+export type ProviderModelListing = z.infer<typeof providerModelListingSchema>;
+
 export const providerMetadataSchema = z.object({
   id: providerIdSchema,
   displayName: z.string(),
@@ -20,6 +64,9 @@ export const providerMetadataSchema = z.object({
   usesExternalService: z.boolean(),
   supportsModelSelection: z.boolean(),
   defaultModel: modelNameSchema.nullable(),
+  modelCatalog: modelCatalogSchema,
+  /** Whether a model id typed by the user may be passed to the provider. */
+  acceptsCustomModel: z.boolean(),
 });
 export type ProviderMetadata = z.infer<typeof providerMetadataSchema>;
 
@@ -142,6 +189,12 @@ export interface AgentProvider {
   readonly metadata: ProviderMetadata;
 
   detect(): Promise<ProviderDetectionResult>;
+
+  /**
+   * Lists the models the signed-in account can use, when the provider's CLI
+   * offers such a list. Only providers whose catalog source is `cli` have it.
+   */
+  listModels?(signal: AbortSignal): Promise<ProviderModelListing>;
 
   /** Optional dedicated visual analysis capability. Never generates or changes a presentation. */
   analyzeBrandKit?(

@@ -22,7 +22,12 @@ import {
   type CliEnvironment,
 } from './cliEnvironment';
 import { buildCodexArguments, CodexCliProvider } from './CodexCliProvider';
-import { buildGrokArguments, GrokCliProvider, parseGrokEnvelope } from './GrokCliProvider';
+import {
+  buildGrokArguments,
+  GrokCliProvider,
+  parseGrokEnvelope,
+  parseGrokModelList,
+} from './GrokCliProvider';
 import { MAX_DIAGNOSTIC_LENGTH, MAX_SCANNED_LENGTH, redactDiagnostics } from './redact';
 import { resolveExecutable, type ResolutionEnvironment } from './resolveExecutable';
 import {
@@ -1623,5 +1628,100 @@ describe('redactDiagnostics', () => {
   it('still appends the truncation suffix at the default limit', () => {
     const redacted = redactDiagnostics('z'.repeat(MAX_DIAGNOSTIC_LENGTH + 25));
     expect(redacted).toBe(`${'z'.repeat(MAX_DIAGNOSTIC_LENGTH)}\n[truncated]`);
+  });
+});
+
+describe('model selection', () => {
+  it('passes an explicit model to every CLI provider, and none for the default', async () => {
+    const structured = buildResponse();
+    const claudeOutput = JSON.stringify({
+      type: 'result',
+      is_error: false,
+      result: '',
+      structured_output: structured,
+    });
+    const claude = fakeEnvironment(completed({ standardOutput: claudeOutput }));
+    await new ClaudeCodeProvider(claude).generatePresentation(
+      buildRequest(),
+      context({ model: 'claude-opus-5-5' }),
+    );
+    const claudeArguments = claude.calls[0]?.arguments ?? [];
+    expect(claudeArguments[claudeArguments.indexOf('--model') + 1]).toBe('claude-opus-5-5');
+
+    const byDefault = fakeEnvironment(completed({ standardOutput: claudeOutput }));
+    await new ClaudeCodeProvider(byDefault).generatePresentation(buildRequest(), context());
+    expect(byDefault.calls[0]?.arguments).not.toContain('--model');
+  });
+
+  it('explains a model that the Claude Code sign-in cannot use', async () => {
+    const environment = fakeEnvironment(
+      completed({
+        exitCode: 1,
+        standardOutput: JSON.stringify({
+          type: 'result',
+          is_error: true,
+          result:
+            "There's an issue with the selected model (claude-nope). It may not exist or you may not have access to it.",
+        }),
+      }),
+    );
+    const result = await new ClaudeCodeProvider(environment).generatePresentation(
+      buildRequest(),
+      context({ model: 'claude-nope' }),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.message).toBe(
+        'The model "claude-nope" is not available to your Claude Code sign-in. Choose another model or use the default.',
+      );
+    }
+  });
+
+  it('reads the models Grok lists for the signed-in account', () => {
+    const output = [
+      'You are logged in with grok.com.',
+      '',
+      'Default model: grok-4.7',
+      '',
+      'Available models:',
+      '  * grok-4.7 (default)',
+      '  - grok-4.7-build-fast',
+      '  - grok-4.6',
+      '  - not a model; rm -rf',
+      '',
+    ].join('\r\n');
+    expect(parseGrokModelList(output)).toEqual({
+      models: ['grok-4.7', 'grok-4.7-build-fast', 'grok-4.6'],
+      defaultModel: 'grok-4.7',
+    });
+    expect(parseGrokModelList('Not logged in.')).toBeNull();
+    expect(parseGrokModelList('Available models:\n')).toBeNull();
+  });
+
+  it('lists Grok models with `grok models` and reports a failure without its output', async () => {
+    const listed = fakeEnvironment(
+      completed({ standardOutput: 'Available models:\n  * grok-4.7 (default)\n  - grok-4.6\n' }),
+    );
+    const listing = await new GrokCliProvider(listed).listModels(new AbortController().signal);
+    expect(listing).toEqual({
+      status: 'listed',
+      models: ['grok-4.7', 'grok-4.6'],
+      defaultModel: 'grok-4.7',
+      checkedAt: '2026-01-15T10:30:00.000Z',
+    });
+    expect(listed.calls[0]?.arguments).toEqual(['models']);
+    expect(listed.calls[0]?.env).toEqual(CHILD_ENVIRONMENT);
+
+    const failed = fakeEnvironment(
+      completed({ exitCode: 1, standardError: 'token=secret-value expired' }),
+    );
+    const failure = await new GrokCliProvider(failed).listModels(new AbortController().signal);
+    expect(failure.status).toBe('failed');
+    expect(JSON.stringify(failure)).not.toContain('secret-value');
+
+    const missing = fakeEnvironment(completed(), false);
+    expect(
+      (await new GrokCliProvider(missing).listModels(new AbortController().signal)).status,
+    ).toBe('failed');
   });
 });

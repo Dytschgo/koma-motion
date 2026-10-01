@@ -9,13 +9,7 @@ import {
   clampChatWidth,
   type ChatLayout,
 } from '../lib/chatLayout';
-import {
-  DEFAULT_KOMA_COUNT,
-  DEFAULT_MODEL_VALUE,
-  getModelChoices,
-  parseKomaCount,
-  withProviderModel,
-} from '../lib/composerChoices';
+import { DEFAULT_KOMA_COUNT, parseKomaCount } from '../lib/composerChoices';
 import { useAgentStore, type ConversationEntry, type DetectedProvider } from '../state/agentStore';
 import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
@@ -29,6 +23,7 @@ import {
   SettingsIcon,
   WarningIcon,
 } from './icons';
+import { ModelPicker, useModelChoices } from './ModelPicker';
 import { Button, Help, IconButton, Select, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
@@ -316,9 +311,7 @@ export function AgentPanel({
   const [request, setRequest] = useState('');
   const [komaCount, setKomaCount] = useState(String(DEFAULT_KOMA_COUNT));
   const [autoKomaCount, setAutoKomaCount] = useState(false);
-  const [choice, setChoice] = useState<'provider' | 'count' | null>(null);
-  /** A model id chosen before Default, per project and provider, so it can be chosen again. */
-  const [previousModels, setPreviousModels] = useState<Readonly<Record<string, string>>>({});
+  const [choice, setChoice] = useState<'provider' | 'model' | 'count' | null>(null);
   const count = parseKomaCount(autoKomaCount, komaCount);
   const validCount = count !== undefined;
   const requestValidation = userRequestSchema.safeParse(request);
@@ -330,16 +323,17 @@ export function AgentPanel({
   const requestId = useId();
   const requestErrorId = useId();
   const providerId = useId();
-  const modelId = useId();
   const countId = useId();
   const countErrorId = useId();
   const providerChoicesId = useId();
+  const modelChoicesId = useId();
   const countChoicesId = useId();
   const section = useRef<HTMLElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const requestField = useRef<HTMLTextAreaElement>(null);
   const showButton = useRef<HTMLButtonElement>(null);
   const providerButton = useRef<HTMLButtonElement>(null);
+  const modelButton = useRef<HTMLButtonElement>(null);
   const countButton = useRef<HTMLButtonElement>(null);
   const choicesPanel = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(open);
@@ -348,12 +342,8 @@ export function AgentPanel({
   const selectedId = project.agentConfiguration.selectedProviderId;
   const selected = providers.find((provider) => provider.metadata.id === selectedId);
   const available = selected?.detection.availability === 'available';
-  const modelKey = `${project.id}:${selectedId}`;
-  const models = getModelChoices(
-    selected?.metadata,
-    project.agentConfiguration,
-    previousModels[modelKey] ?? null,
-  );
+  const models = useModelChoices(project, selected);
+  const providerName = selected?.metadata.displayName ?? selectedId;
   const running = execution !== null;
   const trimmed = request.trim();
   const canSubmit =
@@ -369,7 +359,12 @@ export function AgentPanel({
 
   useEffect(() => {
     if (choice === null) return;
-    const trigger = choice === 'provider' ? providerButton.current : countButton.current;
+    const trigger =
+      choice === 'provider'
+        ? providerButton.current
+        : choice === 'model'
+          ? modelButton.current
+          : countButton.current;
     choicesPanel.current
       ?.querySelector<HTMLElement>(
         'select:not(:disabled), input:not(:disabled), button:not(:disabled)',
@@ -613,23 +608,47 @@ export function AgentPanel({
             <button
               ref={providerButton}
               type="button"
-              aria-label="Provider and model"
-              aria-description={`${selected?.metadata.displayName ?? selectedId}${models.selectable && models.value !== DEFAULT_MODEL_VALUE ? `, model ${models.value}` : ''}${detection === 'running' ? ', checking availability' : detection === 'failed' || (detection === 'done' && !available) ? ', unavailable' : ''}`}
+              aria-label="Provider"
+              aria-description={`${providerName}${detection === 'running' ? ', checking availability' : detection === 'failed' || (detection === 'done' && !available) ? ', unavailable' : ''}`}
               aria-haspopup="dialog"
               aria-expanded={choice === 'provider'}
               aria-controls={choice === 'provider' ? providerChoicesId : undefined}
               disabled={running}
-              className="flex h-9 min-w-0 flex-1 items-center gap-1 rounded-md px-2 text-left text-sm text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
+              className="flex h-9 min-w-10 flex-[1_1_0] items-center gap-1 rounded-control px-2 text-left text-sm text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
               onClick={() => setChoice(choice === 'provider' ? null : 'provider')}
             >
               <span className="min-w-0 flex-1 truncate">
-                {selected?.metadata.displayName ?? selectedId}
-                {models.selectable && models.value !== DEFAULT_MODEL_VALUE
-                  ? ` · ${models.value}`
-                  : ''}
+                {providerName}
                 {detection === 'running' ? ' · checking' : ''}
               </span>
               {(detection === 'failed' || (detection === 'done' && !available)) && (
+                <span className="flex-none text-signal-warn" aria-hidden="true">
+                  <WarningIcon size={14} />
+                </span>
+              )}
+              <ChevronIcon direction="down" size={14} />
+            </button>
+            <button
+              ref={modelButton}
+              type="button"
+              aria-label="Model"
+              aria-description={
+                models.selectable
+                  ? `Next run uses ${models.effectiveLabel}${models.availability === 'notListed' ? ', not listed for your sign-in' : ''}`
+                  : `${providerName} has no model choice`
+              }
+              aria-haspopup="dialog"
+              aria-expanded={choice === 'model'}
+              aria-controls={choice === 'model' ? modelChoicesId : undefined}
+              disabled={running}
+              title={`Next run uses ${models.effectiveLabel}`}
+              className="flex h-9 min-w-10 flex-[1_1_0] items-center gap-1 rounded-control px-2 text-left text-sm text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
+              onClick={() => setChoice(choice === 'model' ? null : 'model')}
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {models.effectiveModel ?? (models.selectable ? 'Default model' : 'Built-in')}
+              </span>
+              {models.availability === 'notListed' && (
                 <span className="flex-none text-signal-warn" aria-hidden="true">
                   <WarningIcon size={14} />
                 </span>
@@ -702,7 +721,7 @@ export function AgentPanel({
               ref={choicesPanel}
               id={providerChoicesId}
               role="dialog"
-              aria-label="Provider and model"
+              aria-label="Provider"
               className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(22rem,55vh)] w-[min(18rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto rounded-card border border-line-strong bg-surface-2 p-3 shadow-popover"
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
@@ -744,35 +763,6 @@ export function AgentPanel({
                   </option>
                 ))}
               </Select>
-              <label htmlFor={modelId} className="text-xs font-medium text-ink-300">
-                Model
-              </label>
-              <Select
-                id={modelId}
-                value={models.value}
-                disabled={running || !models.selectable}
-                title={
-                  models.selectable
-                    ? 'Default lets the provider choose. Set another model id in Settings.'
-                    : `${selected?.metadata.displayName ?? selectedId} has no model choice.`
-                }
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (value === DEFAULT_MODEL_VALUE && models.value !== DEFAULT_MODEL_VALUE)
-                    setPreviousModels((current) => ({ ...current, [modelKey]: models.value }));
-                  apply(
-                    changeAgentConfiguration(
-                      withProviderModel(project.agentConfiguration, selectedId, value),
-                    ),
-                  );
-                }}
-              >
-                {models.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
               {detection === 'running' && (
                 <p role="status" className="text-xs text-ink-300">
                   Checking providers
@@ -793,6 +783,33 @@ export function AgentPanel({
                   text and asset names online.
                 </p>
               )}
+            </div>
+          )}
+          {choice === 'model' && (
+            <div
+              ref={choicesPanel}
+              id={modelChoicesId}
+              role="dialog"
+              aria-label="Model"
+              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(26rem,60vh)] w-[min(20rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto rounded-card border border-line-strong bg-surface-2 p-3 shadow-popover"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setChoice(null);
+                  modelButton.current?.focus();
+                }
+              }}
+              onBlur={(event) => {
+                if (
+                  event.relatedTarget instanceof Node &&
+                  !event.currentTarget.contains(event.relatedTarget) &&
+                  !modelButton.current?.contains(event.relatedTarget)
+                )
+                  setChoice(null);
+              }}
+            >
+              <ModelPicker project={project} provider={selected} label="Model" disabled={running} />
             </div>
           )}
           {choice === 'count' && (

@@ -8,7 +8,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { komaProjectSchema } from '@koma-motion/core';
 import { expect, test } from '@playwright/test';
-import { openProviderChoices, setKomaCount } from './composerControls';
+import { chooseModel, openProviderChoices, setKomaCount } from './composerControls';
 import {
   answerOpenDialog,
   answerSaveDialog,
@@ -44,14 +44,14 @@ test('generates a presentation with Claude Code', async () => {
     await window.getByLabel('Stop generation after a time limit').check();
     await window.getByLabel('Time limit in seconds').fill('600');
     if (model !== '') {
-      await window.getByLabel('Model for Claude Code').fill(model);
+      await chooseModel(window, 'Model for Claude Code', model);
     }
     await window.getByRole('button', { name: 'Done' }).click();
 
     const providerChoices = await openProviderChoices(window);
     await providerChoices.getByLabel('Provider', { exact: true }).selectOption('claude-code');
     await expect(providerChoices.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
-    await window.getByRole('button', { name: 'Provider and model' }).click();
+    await window.getByRole('button', { name: 'Provider', exact: true }).click();
 
     await setKomaCount(window, '3');
     await window.getByLabel('Your request').fill(REQUEST);
