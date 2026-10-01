@@ -10,6 +10,13 @@ changes to the project format.
 
 ### Added
 
+- Three starters on the welcome screen and under **Settings, Templates**:
+  **Solar system** (Deep Orbit), **Quarterly results** for the fictional
+  Northwind Labs, and **Rapunzel story** (Golden Tower Tales). Each brings a
+  Brand Kit and project instructions that ask for shape-drawn scenes with
+  persistent objects that travel, grow and change colour between Komas, and
+  puts a first request into the chat. Applying a starter to an open project is
+  one step that Undo reverts. The mock provider still answers with its demo.
 - Editable PowerPoint (`.pptx`) export from a native save dialog. Text, shapes
   and supported pictures remain editable. Choose static slides, slide fades or
   Morph for eligible continuous transitions, with optional automatic advance.

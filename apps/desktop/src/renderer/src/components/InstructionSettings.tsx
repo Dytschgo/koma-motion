@@ -11,7 +11,10 @@ import {
   type InstructionTemplateAction,
 } from '../../../shared/instructionTemplates';
 import { invoke } from '../lib/api';
+import { applyStarterToProject } from '../lib/projectActions';
 import { changeSystemInstructions } from '../state/commands';
+import { useUiStore } from '../state/uiStore';
+import { StarterList } from './Starters';
 import { useProjectStore } from '../state/projectStore';
 import { Button, Field, Select, SettingsCard, TextArea, TextInput } from './ui';
 
@@ -186,6 +189,23 @@ export function useInstructionSettings(
 
   const libraryPage = (
     <div className="flex flex-col gap-4">
+      <SettingsCard
+        title="Starters"
+        description="Built-in examples of richly animated decks. Applying one replaces this project's Brand Kit and instructions in one step that Undo reverts, and puts its first request into the chat."
+      >
+        <StarterList
+          actionLabel="Apply"
+          disabled={project === null}
+          onChoose={(preset) => {
+            applyStarterToProject(preset);
+            setDraft(null);
+            useUiStore.getState().setSettingsOpen(false);
+          }}
+        />
+        {project === null && (
+          <p className="mt-2 text-sm text-ink-400">Open a project to apply a starter.</p>
+        )}
+      </SettingsCard>
       <SettingsCard
         title="Saved templates"
         description="Available across projects for this app user. Applying a template copies its text into the open project; later template changes do not change projects."

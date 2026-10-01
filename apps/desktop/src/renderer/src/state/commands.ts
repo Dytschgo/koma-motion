@@ -3,7 +3,11 @@
  * pure functions over the core model. Structural Koma commands reconnect
  * transitions; visual element commands expose endpoints and leave stored motion alone.
  */
-import { applyBrandKitToProject, type BrandKitLogoData } from '@koma-motion/brand-kit';
+import {
+  applyBrandKitToProject,
+  type BrandKitLogoData,
+  type StarterPreset,
+} from '@koma-motion/brand-kit';
 import {
   appendGenerationHistory,
   clearBrandLogo,
@@ -103,6 +107,20 @@ export const applySavedBrandKit =
   (brandKit: BrandKit, logo: BrandKitLogoData | null): ProjectCommand =>
   (project, idGenerator) =>
     applyBrandKitToProject(project, brandKit, logo, idGenerator);
+
+/**
+ * Gives the project the Brand Kit and instructions of a starter in one step,
+ * so a single Undo returns to the previous kit and instructions.
+ */
+export const applyStarterPreset = (preset: StarterPreset): ProjectCommand => {
+  const systemInstructions = systemInstructionsSchema.parse(preset.systemInstructions);
+  return (project, idGenerator) => {
+    const branded = applyBrandKitToProject(project, preset.brandKit, null, idGenerator);
+    return branded === project && project.systemInstructions === systemInstructions
+      ? project
+      : { ...branded, systemInstructions };
+  };
+};
 
 export const changeAgentConfiguration =
   (agentConfiguration: AgentConfiguration): ProjectCommand =>

@@ -409,6 +409,17 @@ export function AgentPanel({
     available &&
     referencesReady;
 
+  const composerSeed = useUiStore((state) => state.composerSeed);
+  const seedComposer = useUiStore((state) => state.seedComposer);
+  // A starter puts its first request into the composer, ready to send.
+  useEffect(() => {
+    if (composerSeed === null) return;
+    setRequest(composerSeed.request);
+    setKomaCount(String(composerSeed.komaCount));
+    setAutoKomaCount(false);
+    seedComposer(null);
+  }, [composerSeed, seedComposer]);
+
   useEffect(() => {
     if (!open || choiceProject.current !== project.id) {
       setChoice(null);

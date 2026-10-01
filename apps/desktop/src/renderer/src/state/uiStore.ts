@@ -116,6 +116,8 @@ interface UiState {
   readonly preview: PreviewIdentity | null;
   /** Raw Brand Kit text. Ignored when its project id is not the open project. */
   readonly brandKitDraft: BrandKitDraftState | null;
+  /** A request to put into the chat composer, for example from a starter. Taken once. */
+  readonly composerSeed: ComposerSeed | null;
 
   readonly setView: (view: WorkspaceView) => void;
   readonly setBrandKitTab: (tab: BrandKitTab) => void;
@@ -136,7 +138,13 @@ interface UiState {
   readonly startPreview: (transitionId: string) => void;
   readonly stopPreview: () => void;
   readonly setBrandKitDraft: (projectId: string, raw: BrandKitRawDraft) => void;
+  readonly seedComposer: (seed: ComposerSeed | null) => void;
   readonly reset: () => void;
+}
+
+export interface ComposerSeed {
+  readonly request: string;
+  readonly komaCount: number;
 }
 
 /** Raw Brand Kit text for `projectId`, or nothing when the draft is for another project. */
@@ -170,6 +178,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   notices: [],
   preview: null,
   brandKitDraft: null,
+  composerSeed: null,
 
   setView(view) {
     set({ view });
@@ -263,6 +272,9 @@ export const useUiStore = create<UiState>((set, get) => ({
         : { brandKitDraft: { projectId, raw } },
     );
   },
+  seedComposer(composerSeed) {
+    set({ composerSeed });
+  },
   reset() {
     get().confirmation?.resolve(false);
     set({
@@ -275,6 +287,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       zoom: null,
       preview: null,
       brandKitDraft: null,
+      composerSeed: null,
     });
   },
 }));

@@ -47,6 +47,8 @@ export async function launchApplication(
     readonly executablePath?: string;
     /** Added to the environment, for example KOMA_MOCK_DELAY_MS. */
     readonly env?: Readonly<Record<string, string>>;
+    /** Records a video of every window into this folder. */
+    readonly recordVideoDirectory?: string;
   } = {},
 ): Promise<RunningApplication> {
   const directory = await mkdtemp(join(tmpdir(), 'koma-motion-e2e-'));
@@ -63,6 +65,14 @@ export async function launchApplication(
           args: [APPLICATION_DIRECTORY, userData, ...scale],
           cwd: APPLICATION_DIRECTORY,
           env: { ...getApplicationEnvironment(), ...options.env },
+          ...(options.recordVideoDirectory === undefined
+            ? {}
+            : {
+                recordVideo: {
+                  dir: options.recordVideoDirectory,
+                  size: { width: 1480, height: 920 },
+                },
+              }),
         }
       : {
           executablePath: options.executablePath,
