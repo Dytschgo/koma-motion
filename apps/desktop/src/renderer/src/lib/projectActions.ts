@@ -11,6 +11,7 @@ import {
 } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { useHealthStore } from '../state/healthStore';
+import { useReferenceStore } from '../state/referenceStore';
 import { invoke } from './api';
 
 export const DEFAULT_PROJECT_NAME = 'Untitled project';
@@ -55,6 +56,7 @@ function detachGeneration(): void {
 }
 
 function showProject(): void {
+  useReferenceStore.getState().clear();
   useHealthStore.getState().clearFailure();
   detachGeneration();
   useUiStore.getState().reset();

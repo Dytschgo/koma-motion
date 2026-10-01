@@ -102,7 +102,13 @@ export async function generate(input: GenerationInput): Promise<void> {
   const providerName = metadata?.displayName ?? providerId;
   const executionId = createExecutionId();
 
-  agent.addEntry({ kind: 'request', text: input.userRequest });
+  agent.addEntry({
+    kind: 'request',
+    text: input.userRequest,
+    ...(input.references?.length
+      ? { referenceNames: input.references.map((reference) => reference.name) }
+      : {}),
+  });
   agent.startExecution({
     executionId,
     providerId,

@@ -23,6 +23,7 @@ import {
 } from './icons';
 import { Button, IconButton } from './ui';
 import { ProjectHealthButton } from './ProjectHealth';
+import { PowerPointExport } from './PowerPointExport';
 
 function OpenIcon(): ReactElement {
   return (
@@ -56,6 +57,7 @@ export function TopBar(): ReactElement {
   const canUndo = useProjectStore(selectCanUndo);
   const canRedo = useProjectStore(selectCanRedo);
   const file = useProjectStore((state) => state.file);
+  const sessionId = useProjectStore((state) => state.sessionId);
   const undo = useProjectStore((state) => state.undo);
   const redo = useProjectStore((state) => state.redo);
   const startPreview = useUiStore((state) => state.startPreview);
@@ -106,6 +108,7 @@ export function TopBar(): ReactElement {
         <Button compact disabled={!hasProject} onClick={() => void saveProjectAs()}>
           Save as
         </Button>
+        <PowerPointExport key={sessionId} />
       </nav>
 
       <span className="mx-1.5 h-5 w-px bg-line" aria-hidden="true" />

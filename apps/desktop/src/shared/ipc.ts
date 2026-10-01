@@ -48,6 +48,8 @@ import {
   instructionTemplateActionSchema,
   instructionTemplateLibrarySchema,
 } from './instructionTemplates';
+import { powerPointOptionsSchema, exportValidationSchema, exportIssueSchema } from './export';
+import { referenceSelectionOutcomeSchema } from './references';
 
 export const API_KEY = 'komaMotion';
 
@@ -145,6 +147,26 @@ const brandKitContent = {
 };
 
 export const ipcContract = {
+  'koma:references:select': {
+    request: empty,
+    response: referenceSelectionOutcomeSchema,
+  },
+  'koma:export:validate': {
+    request: z.object({ project: komaProjectSchema }).strict(),
+    response: exportValidationSchema,
+  },
+  'koma:export:powerpoint': {
+    request: z.object({ project: komaProjectSchema, options: powerPointOptionsSchema }).strict(),
+    response: z.discriminatedUnion('status', [
+      z.object({
+        status: z.literal('exported'),
+        fileName: z.string(),
+        warnings: z.array(exportIssueSchema),
+      }),
+      cancelled,
+      failure,
+    ]),
+  },
   'koma:deck:capabilities': {
     request: empty,
     response: z.object({ allowMock: z.boolean(), claude: providerDetectionResultSchema }),

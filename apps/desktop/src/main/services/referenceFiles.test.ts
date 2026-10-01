@@ -108,7 +108,9 @@ describe('reference file selection', () => {
   });
 
   it('extracts local PDF text and rejects corrupt PDFs', async () => {
-    const bytes = await readFile(resolve('apps/desktop/e2e/fixtures/decks/northstar.pdf'));
+    const bytes = await readFile(
+      resolve(import.meta.dirname, '../../../e2e/fixtures/decks/northstar.pdf'),
+    );
     const reference = await prepareReference('source.pdf', bytes);
     expect(reference.format).toBe('pdf');
     expect(reference.text.length).toBeGreaterThan(20);
