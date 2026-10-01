@@ -22,6 +22,7 @@ import { useUiStore } from '../state/uiStore';
 import { generate } from './agentActions';
 import { invoke } from './api';
 import { chooseProjectLogo, createNewProject, saveAndClose, saveProject } from './projectActions';
+import { buildTimeline } from './runActivity';
 
 vi.mock('./api', () => ({
   invoke: vi.fn(),
@@ -111,6 +112,7 @@ function resetStores(): void {
     providers: [],
     detection: 'idle',
     execution: null,
+    lastRun: null,
     conversation: [],
   });
   useUiStore.getState().reset();
@@ -873,6 +875,40 @@ function succeeded(presentation: Presentation): IpcResponse<'koma:providers:exec
 describe('combined generation confirmation and asset selection', () => {
   beforeEach(resetStores);
 
+  it('reports a failed run when applying a successful response throws', async () => {
+    const initial = buildProject();
+    useProjectStore.getState().load(initial, null);
+    mockChannels((channel) => {
+      if (channel === 'koma:providers:execute')
+        return Promise.resolve(succeeded(buildPresentation()));
+      throw new Error(`Unexpected channel ${channel}`);
+    });
+    const apply = vi.spyOn(useProjectStore.getState(), 'apply').mockImplementationOnce(() => {
+      throw new Error('Could not apply the generated presentation');
+    });
+    try {
+      await generate({
+        userRequest: 'Create Komas',
+        objective: null,
+        audience: null,
+        requestedKomaCount: null,
+      });
+    } finally {
+      apply.mockRestore();
+    }
+    expect(selectProject(useProjectStore.getState())).toBe(initial);
+    expect(useAgentStore.getState().conversation.at(-1)).toMatchObject({
+      kind: 'failure',
+      error: { code: 'internalError' },
+    });
+    const run = useAgentStore.getState().lastRun;
+    expect(run?.result).toBe('failed');
+    expect(buildTimeline(run?.events ?? [], run?.startedAt ?? 0).at(-1)).toMatchObject({
+      phase: 'failed',
+      message: 'The application could not complete the request.',
+    });
+  });
+
   it('rechecks assets selected while a generation decision is pending', async () => {
     const initial = buildProject({
       assets: [availableLogo],
@@ -925,5 +961,11 @@ describe('combined generation confirmation and asset selection', () => {
     expect(failure.error.message).toContain('current assets');
     expect(failure.diagnostics).toMatchObject({ providerId: 'mock', attempts: [] });
     expect(useAgentStore.getState().execution).toBeNull();
+    const run = useAgentStore.getState().lastRun;
+    expect(run?.result).toBe('failed');
+    expect(buildTimeline(run?.events ?? [], run?.startedAt ?? 0).at(-1)).toMatchObject({
+      phase: 'failed',
+      message: failure.error.message,
+    });
   });
 });

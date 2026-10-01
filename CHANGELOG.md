@@ -100,6 +100,13 @@ changes to the project format.
   window the open chat is shown in place of the Inspector, and the chat and
   the Brand Kit take turns: the chat comes back when the Brand Kit closes.
 
+### Fixed
+
+- Explicit model choices stay selected even when they match the provider's
+  current default. Choosing Default still leaves model selection to the provider.
+- The run monitor reports failure when generated Komas cannot be applied,
+  including image assets replaced while a generation decision is pending.
+
 ## [0.1.0] - 2026-09-29
 
 The first release: a vertical slice of the desktop application from the chat

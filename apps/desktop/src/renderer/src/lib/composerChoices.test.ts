@@ -98,7 +98,7 @@ describe('model choices', () => {
     expect(values(codex)).toEqual([DEFAULT_MODEL_VALUE, CUSTOM_MODEL_VALUE]);
   });
 
-  it('names a known provider default and does not list it twice', () => {
+  it('keeps an explicit model distinct from the provider default even when they match', () => {
     const choices = getModelChoices(
       provider({ defaultModel: 'sonnet', modelCatalog: { source: 'none', models: [], note: '' } }),
       configuration({ 'claude-code': { model: 'sonnet' } }),
@@ -108,9 +108,43 @@ describe('model choices', () => {
       label: 'Default (sonnet)',
       group: 'default',
     });
-    expect(values(choices)).toEqual([DEFAULT_MODEL_VALUE, CUSTOM_MODEL_VALUE]);
-    expect(choices.value).toBe(DEFAULT_MODEL_VALUE);
-    expect(choices.effectiveLabel).toBe('sonnet (default)');
+    expect(values(choices)).toEqual([DEFAULT_MODEL_VALUE, 'sonnet', CUSTOM_MODEL_VALUE]);
+    expect(choices.value).toBe('sonnet');
+    expect(choices.effectiveModel).toBe('sonnet');
+    expect(choices.effectiveLabel).toBe('sonnet');
+  });
+
+  it('preserves a pinned account default when the account default changes', () => {
+    const config = configuration({ grok: { model: 'grok-4.7' } });
+    for (const defaultModel of ['grok-4.7', 'grok-4.6']) {
+      const choices = getModelChoices(grok, config, {
+        listing: {
+          status: 'listed',
+          models: ['grok-4.7', 'grok-4.6'],
+          defaultModel,
+          checkedAt: '2026-09-30T12:00:00.000Z',
+        },
+      });
+      expect(choices.value).toBe('grok-4.7');
+      expect(choices.effectiveModel).toBe('grok-4.7');
+      expect(choices.effectiveLabel).toBe('grok-4.7');
+      expect(choices.availability).toBe('listed');
+      expect(values(choices).filter((value) => value === 'grok-4.7')).toHaveLength(1);
+    }
+  });
+
+  it('leaves Default dynamic and keeps a matching remembered model reachable', () => {
+    const metadata = provider({
+      defaultModel: 'sonnet',
+      modelCatalog: { source: 'none', models: [], note: '' },
+    });
+    for (const config of [configuration(), configuration({ 'claude-code': { model: null } })]) {
+      const choices = getModelChoices(metadata, config, { remembered: 'sonnet' });
+      expect(choices.value).toBe(DEFAULT_MODEL_VALUE);
+      expect(choices.effectiveModel).toBeNull();
+      expect(choices.effectiveLabel).toBe('sonnet (default)');
+      expect(values(choices)).toContain('sonnet');
+    }
   });
 
   it('keeps a model chosen earlier reachable after Default', () => {

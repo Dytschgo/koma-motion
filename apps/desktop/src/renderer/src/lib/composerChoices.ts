@@ -115,14 +115,13 @@ export function getModelChoices(
 
   const configured = configuration.providers[metadata.id]?.model ?? null;
   for (const id of [configured, options.remembered ?? null]) {
-    if (id !== null && id !== defaultModel) add(id, id, 'custom');
+    if (id !== null) add(id, id, 'custom');
   }
   if (metadata.acceptsCustomModel) {
     list.push({ value: CUSTOM_MODEL_VALUE, label: 'Enter a model id…', group: 'enter' });
   }
 
-  const value =
-    configured === null || configured === defaultModel ? DEFAULT_MODEL_VALUE : configured;
+  const value = configured ?? DEFAULT_MODEL_VALUE;
   const effectiveModel = value === DEFAULT_MODEL_VALUE ? null : value;
   return {
     options: list,
