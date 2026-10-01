@@ -18,12 +18,15 @@ const PDF_TIMEOUT_MS = 15_000;
 
 type ReferenceFormat = ReferenceText['format'];
 
+/** Only messages created here may cross IPC; OS and parser errors can contain paths. */
+class ReferenceFileError extends Error {}
+
 function formatOf(fileName: string): ReferenceFormat {
   const extension = extname(fileName).toLowerCase();
   if (extension === '.txt') return 'txt';
   if (extension === '.md') return 'md';
   if (extension === '.pdf') return 'pdf';
-  throw new Error('Choose a TXT, Markdown or PDF file.');
+  throw new ReferenceFileError('Choose a TXT, Markdown or PDF file.');
 }
 
 function safeName(filePath: string): string {
@@ -43,11 +46,12 @@ function clipText(text: string): { text: string; truncated: boolean } {
 
 async function pdfText(bytes: Uint8Array): Promise<{ text: string; truncated: boolean }> {
   if (!Buffer.from(bytes.subarray(0, 1024)).includes(Buffer.from('%PDF-'))) {
-    throw new Error('The selected PDF is invalid. Export a new copy.');
+    throw new ReferenceFileError('The selected PDF is invalid. Export a new copy.');
   }
   const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
   const loadingTask = getDocument({
     data: new Uint8Array(bytes),
+    enableXfa: false,
     useSystemFonts: false,
     stopAtErrors: true,
   });
@@ -56,7 +60,7 @@ async function pdfText(bytes: Uint8Array): Promise<{ text: string; truncated: bo
     const extraction = (async () => {
       const pdf = await loadingTask.promise;
       if (pdf.numPages > MAX_REFERENCE_PDF_PAGES) {
-        throw new Error(
+        throw new ReferenceFileError(
           `A PDF reference may have at most ${String(MAX_REFERENCE_PDF_PAGES)} pages.`,
         );
       }
@@ -82,7 +86,10 @@ async function pdfText(bytes: Uint8Array): Promise<{ text: string; truncated: bo
       extraction,
       new Promise<never>((_, reject) => {
         timeout = setTimeout(
-          () => reject(new Error('PDF text extraction took too long. Choose a smaller PDF.')),
+          () =>
+            reject(
+              new ReferenceFileError('PDF text extraction took too long. Choose a smaller PDF.'),
+            ),
           PDF_TIMEOUT_MS,
         );
       }),
@@ -100,7 +107,7 @@ export async function prepareReference(
   id = randomUUID(),
 ): Promise<ReferenceText> {
   if (bytes.byteLength > MAX_REFERENCE_FILE_BYTES) {
-    throw new Error('A reference file may be at most 10 MiB.');
+    throw new ReferenceFileError('A reference file may be at most 10 MiB.');
   }
   const format = formatOf(fileName);
   let extracted: { text: string; truncated: boolean };
@@ -111,15 +118,17 @@ export async function prepareReference(
     try {
       text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     } catch {
-      throw new Error('The text file must use UTF-8 encoding.');
+      throw new ReferenceFileError('The text file must use UTF-8 encoding.');
     }
     if (text.includes('\0')) {
-      throw new Error('The selected file contains binary data. Choose a UTF-8 text file.');
+      throw new ReferenceFileError(
+        'The selected file contains binary data. Choose a UTF-8 text file.',
+      );
     }
     extracted = clipText(text);
   }
   if (extracted.text.length === 0) {
-    throw new Error('The selected file has no extractable text.');
+    throw new ReferenceFileError('The selected file has no extractable text.');
   }
   return referenceTextSchema.parse({
     id,
@@ -134,9 +143,9 @@ async function readBounded(filePath: string): Promise<Uint8Array> {
   const handle = await open(filePath, 'r');
   try {
     const details = await handle.stat();
-    if (!details.isFile()) throw new Error('The selected item is not a file.');
+    if (!details.isFile()) throw new ReferenceFileError('The selected item is not a file.');
     if (details.size > MAX_REFERENCE_FILE_BYTES) {
-      throw new Error('A reference file may be at most 10 MiB.');
+      throw new ReferenceFileError('A reference file may be at most 10 MiB.');
     }
     const buffer = Buffer.alloc(MAX_REFERENCE_FILE_BYTES + 1);
     let length = 0;
@@ -146,7 +155,7 @@ async function readBounded(filePath: string): Promise<Uint8Array> {
       length += bytesRead;
     }
     if (length > MAX_REFERENCE_FILE_BYTES) {
-      throw new Error('A reference file may be at most 10 MiB.');
+      throw new ReferenceFileError('A reference file may be at most 10 MiB.');
     }
     return buffer.subarray(0, length);
   } finally {
@@ -158,30 +167,32 @@ async function readBounded(filePath: string): Promise<Uint8Array> {
 export async function selectReferenceFiles(
   window: BrowserWindow,
 ): Promise<ReferenceSelectionOutcome> {
-  const selection = await dialog.showOpenDialog(window, {
-    title: 'Choose reference files',
-    filters: [{ name: 'Reference text', extensions: ['txt', 'md', 'pdf'] }],
-    properties: ['openFile', 'multiSelections'],
-  });
-  if (selection.canceled || selection.filePaths.length === 0) return { status: 'cancelled' };
-  if (selection.filePaths.length > MAX_REFERENCE_FILES) {
-    return { status: 'failed', message: 'Choose at most 5 reference files.' };
-  }
   try {
+    const selection = await dialog.showOpenDialog(window, {
+      title: 'Choose reference files',
+      filters: [{ name: 'Reference text', extensions: ['txt', 'md', 'pdf'] }],
+      properties: ['openFile', 'multiSelections'],
+    });
+    if (selection.canceled || selection.filePaths.length === 0) return { status: 'cancelled' };
+    if (selection.filePaths.length > MAX_REFERENCE_FILES) {
+      return { status: 'failed', message: 'Choose at most 5 reference files.' };
+    }
     const references: ReferenceText[] = [];
     let totalBytes = 0;
     for (const filePath of selection.filePaths) {
       const bytes = await readBounded(filePath);
       totalBytes += bytes.byteLength;
       if (totalBytes > MAX_TOTAL_REFERENCE_FILE_BYTES) {
-        throw new Error('Reference files may total at most 20 MiB.');
+        throw new ReferenceFileError('Reference files may total at most 20 MiB.');
       }
       references.push(await prepareReference(filePath, bytes));
       if (
         references.reduce((total, reference) => total + reference.text.length, 0) >
         MAX_TOTAL_REFERENCE_TEXT_LENGTH
       ) {
-        throw new Error('Extracted reference text may total at most 200,000 characters.');
+        throw new ReferenceFileError(
+          'Extracted reference text may total at most 200,000 characters.',
+        );
       }
     }
     return { status: 'selected', references };
@@ -189,7 +200,9 @@ export async function selectReferenceFiles(
     return {
       status: 'failed',
       message:
-        error instanceof Error ? error.message.slice(0, 500) : 'The reference could not be read.',
+        error instanceof ReferenceFileError
+          ? error.message
+          : 'The reference could not be read. Check that it still exists and is supported.',
     };
   }
 }

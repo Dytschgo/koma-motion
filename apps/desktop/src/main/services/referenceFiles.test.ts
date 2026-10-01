@@ -49,6 +49,19 @@ describe('reference file selection', () => {
     );
   });
 
+  it('does not disclose a selected path when reading fails', async () => {
+    const missingPath = join(folder, 'private-budget.txt');
+    mocks.dialog.mockResolvedValue({ canceled: false, filePaths: [missingPath] });
+    const outcome = await selectReferenceFiles(parent);
+    expect(outcome.status).toBe('failed');
+    if (outcome.status === 'failed') {
+      expect(outcome.message).toContain('could not be read');
+      expect(outcome.message).not.toContain(missingPath);
+      expect(outcome.message).not.toContain('private-budget');
+    }
+    expect(JSON.stringify(outcome)).not.toContain(folder);
+  });
+
   it('rejects invalid UTF-8 and binary text', async () => {
     await expect(prepareReference('bad.txt', Uint8Array.of(0xc3, 0x28))).rejects.toThrow('UTF-8');
     await expect(prepareReference('bad.md', Buffer.from('abc\0def'))).rejects.toThrow('binary');
