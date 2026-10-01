@@ -105,7 +105,7 @@ Agents:
 - Reference ingestion supports TXT, Markdown and PDF text only. References
   stay in the current project session, outside the saved project. Each file is
   limited to 10 MiB and 100,000 extracted characters; no more than five files,
-  20 MiB input and 200,000 extracted characters can be attached.
+  200,000 extracted characters can be attached, with 20 MiB input per selection.
 
 Distribution:
 

@@ -272,7 +272,7 @@ Auto advance is available with fade or Morph. The `.koma` project is unchanged.
 
 **Attach references** in the chat to select up to five TXT, Markdown or PDF
 files through a native dialog. Each file may be at most 10 MiB, with 20 MiB
-total; PDFs may have at most 40 pages. Extraction is limited to 100,000
+per selection; PDFs may have at most 40 pages. Extraction is limited to 100,000
 characters per file and 200,000 total, and PDF extraction times out after
 15 seconds. Clipped text is marked. References stay in the current project
 session and are not stored in `.koma` or included

@@ -24,8 +24,8 @@ pnpm test
 pnpm build
 ```
 
-After the `export-references.spec.ts` Electron test has landed, run it against
-the built application with a distinct output directory for this run:
+Run `export-references.spec.ts` against the built application with a distinct
+output directory for this run:
 
 ```powershell
 $exportReferencesRun = Get-Date -Format 'yyyyMMdd-HHmmss'
@@ -33,9 +33,7 @@ pnpm --filter @koma-motion/desktop exec playwright test export-references.spec.t
 ```
 
 If the spec is absent, report that fact and do not claim export or reference
-behavior was covered by it. If it is present, record the exact assertions and
-result. The existing `chat-reference-capture.spec.ts` may cover one chat path;
-inspect its assertions before using it as evidence for attachment behavior.
+behavior was covered by it. Record the exact assertions and result.
 Electron tests stub native dialogs, so they verify the app's IPC and file
 handling after a choice, not the operating system's dialog UI.
 
@@ -55,7 +53,7 @@ content online. Assert that the provider prompt contains extracted text as
 marked untrusted data with ordinal source labels, and excludes the local path,
 filename and reference ID. A failed read must not return an OS error path.
 
-Limits to exercise: five files, 10 MiB each, 20 MiB combined input, 40 PDF
+Limits to exercise: five attached files, 10 MiB each, 20 MiB per selection, 40 PDF
 pages, 100,000 extracted characters per file and 200,000 combined. UTF-8
 decoding is strict and PDF extraction has a 15-second timeout. Corrupt or
 image-only PDFs should fail with a useful message. A clipped reference should

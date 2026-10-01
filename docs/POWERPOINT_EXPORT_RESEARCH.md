@@ -35,6 +35,22 @@ Easing, staged timing and per-element fades are not preserved. Morph is an
 approximation of the Koma
 motion engine, not an export of its exact frames or choreography.
 
+The versions exercised in this prototype are locked in `pnpm-lock.yaml`:
+
+| Library    | Version | Licence                                 | Role                                        |
+| ---------- | ------- | --------------------------------------- | ------------------------------------------- |
+| PptxGenJS  | 4.0.1   | MIT                                     | Native editable PowerPoint objects          |
+| JSZip      | 3.10.2  | MIT or GPL-3.0-or-later; used under MIT | Add transition XML to the generated archive |
+| image-size | 2.0.4   | MIT                                     | Inspect embedded image dimensions           |
+
+PptxGenJS fits the existing TypeScript/Node main process and produces editable
+objects without requiring an Office installation. Its [shape API](https://gitbrent.github.io/PptxGenJS/docs/api-shapes/)
+and [text API](https://gitbrent.github.io/PptxGenJS/docs/api-text/) describe the
+object properties. Position and corner-radius values are converted to inches;
+font and stroke sizes are converted to points. Tests cover drawing order,
+zero and nonzero corner radii, and text scaled within a group. This is a
+verified implementation choice, not a benchmark of all available libraries.
+
 The writer uses `pptxgenjs` for editable objects and adds transition XML to
 the package. Microsoft's [Morph transition specification](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-pptx/41ca8fbf-efc8-49ac-8a32-7bd0856544bd)
 describes the Morph element used here. Package and XML assertions test the
