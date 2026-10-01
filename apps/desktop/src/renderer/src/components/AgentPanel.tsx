@@ -1,7 +1,7 @@
 import { userRequestSchema } from '@koma-motion/agent-runtime';
 import type { KomaProject } from '@koma-motion/core';
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
-import { cancelGeneration, detectProviders, generate } from '../lib/agentActions';
+import { detectProviders, generate } from '../lib/agentActions';
 import {
   CHAT_DEFAULT_WIDTH,
   CHAT_MIN_WIDTH,
@@ -10,12 +10,7 @@ import {
   type ChatLayout,
 } from '../lib/chatLayout';
 import { DEFAULT_KOMA_COUNT, parseKomaCount } from '../lib/composerChoices';
-import {
-  useAgentStore,
-  type ConversationEntry,
-  type DetectedProvider,
-  type RunningExecution,
-} from '../state/agentStore';
+import { useAgentStore, type ConversationEntry, type DetectedProvider } from '../state/agentStore';
 import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
@@ -29,6 +24,7 @@ import {
   WarningIcon,
 } from './icons';
 import { ModelPicker, useModelChoices } from './ModelPicker';
+import { RunActivity, RunMonitor } from './RunActivity';
 import { Button, Help, IconButton, Select, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
@@ -64,41 +60,6 @@ function Availability({ provider }: { readonly provider: DetectedProvider }): Re
       <span>{available ? 'Ready' : 'Not available'}</span>
       <Help label="Provider details">{provider.detection.message}</Help>
     </p>
-  );
-}
-
-/**
- * What the provider writes while it works. Not a live region: screen readers
- * hear the phase in the status above, not every word.
- */
-function StreamedText({ execution }: { readonly execution: RunningExecution }): ReactElement {
-  const { output } = execution;
-  if (!execution.streams) {
-    return (
-      <p className="mt-2 pl-5 text-sm text-ink-400">
-        {execution.providerName} reports its progress in steps and does not stream its text.
-      </p>
-    );
-  }
-  if (output.text === '') {
-    return (
-      <p className="mt-2 pl-5 text-sm text-ink-400">
-        Waiting for {execution.providerName} to write…
-      </p>
-    );
-  }
-  return (
-    <div
-      aria-label={`Output from ${execution.providerName}`}
-      role="region"
-      className="mt-2 ml-5 border-l-2 border-line-strong pl-3"
-    >
-      {output.attempt > 1 && <p className="eyebrow mb-1">Correction</p>}
-      <p className="text-sm leading-relaxed whitespace-pre-wrap text-ink-100 select-text">
-        {output.truncated && <span className="text-ink-400">… </span>}
-        {output.text}
-      </p>
-    </div>
   );
 }
 
@@ -368,6 +329,8 @@ export function AgentPanel({
   const providers = useAgentStore((state) => state.providers);
   const detection = useAgentStore((state) => state.detection);
   const execution = useAgentStore((state) => state.execution);
+  const lastRun = useAgentStore((state) => state.lastRun);
+  const [monitorOpen, setMonitorOpen] = useState(false);
   const conversation = useAgentStore((state) => state.conversation);
   const apply = useProjectStore((state) => state.apply);
   const open = useUiStore((state) => state.agentPanelOpen);
@@ -417,7 +380,6 @@ export function AgentPanel({
   const trimmed = request.trim();
   const canSubmit =
     trimmed !== '' && requestValidation.success && validCount && !running && available;
-  const latestStatus = execution?.events.at(-1);
 
   useEffect(() => {
     if (!open || choiceProject.current !== project.id) {
@@ -611,33 +573,20 @@ export function AgentPanel({
               ))}
             </ol>
           )}
-          {execution !== null && (
-            <div className="mt-5 rounded-card border border-line bg-surface-2/70 px-3 py-2.5 wrap-break-word">
-              <div className="flex items-start gap-3">
-                <span
-                  aria-hidden="true"
-                  className="working-dot mt-1.5 size-2 flex-none rounded-full bg-motion"
-                />
-                <div role="status" className="min-w-0 flex-1">
-                  <p className="text-sm text-ink-400">{execution.providerName}</p>
-                  <p>
-                    {execution.cancelRequested ? 'Stopping' : (latestStatus?.message ?? 'Starting')}
-                  </p>
-                </div>
-                {latestStatus?.phase !== 'succeeded' && (
-                  <Button
-                    variant="outline"
-                    disabled={execution.cancelRequested}
-                    onClick={() => void cancelGeneration()}
-                  >
-                    Cancel
-                  </Button>
-                )}
-              </div>
-              <StreamedText execution={execution} />
-            </div>
+          {execution !== null ? (
+            <RunActivity run={execution} onOpenMonitor={() => setMonitorOpen(true)} />
+          ) : (
+            lastRun !== null && (
+              <RunActivity run={lastRun} onOpenMonitor={() => setMonitorOpen(true)} />
+            )
           )}
         </div>
+
+        <RunMonitor
+          run={execution ?? lastRun}
+          open={monitorOpen}
+          onClose={() => setMonitorOpen(false)}
+        />
 
         <form
           className="relative flex min-h-0 flex-none flex-col gap-2 overflow-visible border-t border-line bg-surface-1 px-3 pt-3 pb-2"

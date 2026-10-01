@@ -47,6 +47,12 @@ export interface MockAgentProviderOptions {
    */
   readonly delayMs?: number;
   readonly now?: () => Date;
+  /**
+   * `invalid` answers with output that fails validation on every attempt, so
+   * validation, the repair attempt and a failed run can be seen and tested
+   * without an AI service.
+   */
+  readonly outcome?: 'valid' | 'invalid';
 }
 
 /** Resolves after `durationMs`, or rejects as soon as `signal` is aborted. */
@@ -117,10 +123,12 @@ export class MockAgentProvider implements AgentProvider {
 
   readonly #delayMs: number;
   readonly #now: () => Date;
+  readonly #outcome: 'valid' | 'invalid';
 
   constructor(options: MockAgentProviderOptions = {}) {
     this.#delayMs = Math.max(0, options.delayMs ?? 1200);
     this.#now = options.now ?? (() => new Date());
+    this.#outcome = options.outcome ?? 'valid';
   }
 
   detect(): Promise<ProviderDetectionResult> {
@@ -172,7 +180,12 @@ export class MockAgentProvider implements AgentProvider {
     }
     return {
       ok: true,
-      output: { rawText: JSON.stringify(build()) },
+      output: {
+        rawText:
+          this.#outcome === 'invalid'
+            ? JSON.stringify({ komas: 'The mock provider was asked to answer invalidly.' })
+            : JSON.stringify(build()),
+      },
       details,
     };
   }

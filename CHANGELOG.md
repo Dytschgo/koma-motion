@@ -10,6 +10,11 @@ changes to the project format.
 
 ### Added
 
+- Run activity in the chat: a pixel character follows the observed phases of a
+  generation (starting, generating, checking, correcting, completed, failed,
+  stopped), with the elapsed time. **Open run monitor** shows the same run with
+  a timeline and the streamed text; it starts nothing new. Reduced motion
+  shows a still pose.
 - The chat shows what Claude writes while it generates. Only its visible text is
   streamed; thinking, tool input and error output are never shown. The text
   stays with the result. The mock provider streams a short demo narration;
