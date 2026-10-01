@@ -287,6 +287,9 @@ test('extracts a local PDF for preview without exposing its path', async () => {
   await expect(references).toContainText('Clear thinking');
   await expect(window.getByRole('alert')).toHaveCount(0);
   await expect(window.getByText(path, { exact: true })).toHaveCount(0);
+  expect(
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+  ).toBe(1);
   expect(problems).toEqual([]);
 });
 
