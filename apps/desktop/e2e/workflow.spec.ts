@@ -505,11 +505,12 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
   expect(problems).toEqual([]);
 });
 
-test('does not offer an exporter that does not exist yet', async () => {
+test('offers the verified editable PowerPoint exporter', async () => {
   const { window } = running;
+  await window.getByRole('button', { name: 'Create a project' }).click();
   await openSettingsPage(window, 'About');
-  await expect(window.getByText('PowerPoint: not available yet')).toBeVisible();
-  await expect(window.getByRole('button', { name: /export/i })).toHaveCount(0);
+  await expect(window.getByText('PowerPoint: available')).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Export', exact: true })).toBeDisabled();
 });
 
 test('explains why a file cannot be opened', async () => {
