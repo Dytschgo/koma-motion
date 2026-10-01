@@ -29,9 +29,14 @@ export async function exportPowerPoint(
         message: validation.issues.map((issue) => issue.message).join('\n'),
       };
     }
+    const name = Array.from(project.name, (character) =>
+      character.charCodeAt(0) < 32 || '<>:"/\\|?*'.includes(character) ? '_' : character,
+    )
+      .join('')
+      .slice(0, 120);
     const selection = await dialog.showSaveDialog(window, {
       title: 'Export PowerPoint',
-      defaultPath: `${project.name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 120) || 'Presentation'}.pptx`,
+      defaultPath: `${name || 'Presentation'}.pptx`,
       filters: [{ name: 'PowerPoint presentation', extensions: ['pptx'] }],
       properties: ['showOverwriteConfirmation', 'createDirectory'],
     });

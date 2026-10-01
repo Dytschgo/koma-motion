@@ -55,12 +55,9 @@ describe('PowerPoint destination selection', () => {
       session = 2;
       return Promise.resolve({ canceled: false, filePath: 'C:/exports/deck.pptx' });
     });
-    await expect(
-      exportPowerPoint(window, buildProject(), options, () => session),
-    ).resolves.toMatchObject({
-      status: 'failed',
-      message: expect.stringContaining('project changed'),
-    });
+    const result = await exportPowerPoint(window, buildProject(), options, () => session);
+    expect(result.status).toBe('failed');
+    if (result.status === 'failed') expect(result.message).toContain('project changed');
     expect(mocks.export).not.toHaveBeenCalled();
   });
   it('reports validation failure without opening a destination dialog', async () => {
