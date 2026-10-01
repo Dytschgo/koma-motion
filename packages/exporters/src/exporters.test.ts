@@ -148,8 +148,12 @@ describe('PowerPointExporter', () => {
         }),
         {
           ...group,
+          position: { x: 100, y: 350 },
           size: { width: 800, height: 600 },
-          content: { ...group.content, children: [buildText()] },
+          content: {
+            ...group.content,
+            children: [buildText({ position: { x: 20, y: 20 }, content: { text: 'Scaled text' } })],
+          },
         },
       ];
       const path = join(directory, 'scaled.pptx');
@@ -160,6 +164,10 @@ describe('PowerPointExporter', () => {
       expect(xml).toContain('prst="rect"');
       // A 64-pixel font in a 2x group is 64 points on a 7.5-inch-high slide.
       expect(xml).toContain('sz="6400"');
+      if (process.env.KOMA_EXPORT_FIXTURE_DIR) {
+        await mkdir(process.env.KOMA_EXPORT_FIXTURE_DIR, { recursive: true });
+        await copyFile(path, join(process.env.KOMA_EXPORT_FIXTURE_DIR, 'scaled-group.pptx'));
+      }
     } finally {
       await rm(directory, { recursive: true, force: true });
     }
