@@ -37,6 +37,8 @@ test('starts a project from a starter with its Brand Kit, instructions and reque
   await window.getByRole('button', { name: 'Brand Kit', exact: true }).first().click();
   await expect(window.getByLabel('Brand name')).toHaveValue('Deep Orbit');
 
+  // In a narrow window the Brand Kit and the chat take turns.
+  await showChat(window);
   // The mock provider still answers with its demonstration deck.
   await window.getByRole('button', { name: 'Generate Komas' }).click();
   await expect(
