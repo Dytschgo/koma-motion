@@ -30,7 +30,8 @@ test.afterEach(async () => {
 
 for (const size of SIZES) {
   test(`captures every main screen at ${String(size.width)}x${String(size.height)}`, async () => {
-    running = await launchApplication();
+    // A slower mock leaves time to capture the running state.
+    running = await launchApplication({ env: { KOMA_MOCK_DELAY_MS: '4000' } });
     const { application, window } = running;
     const output = join(root!, phase, `${String(size.width)}x${String(size.height)}`);
     await mkdir(output, { recursive: true });
@@ -53,6 +54,9 @@ for (const size of SIZES) {
     await window.getByRole('button', { name: 'Generate Komas' }).click();
     await expect(window.getByRole('button', { name: 'Cancel' })).toBeVisible();
     await shot('03-generating');
+    await window.getByRole('button', { name: 'Open run monitor' }).click();
+    await shot('03b-run-monitor');
+    await window.keyboard.press('Escape');
     await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
     await shot('04-generated-chat');
 

@@ -9,6 +9,7 @@
 import {
   agentErrorSchema,
   executionDiagnosticsSchema,
+  executionOutputEventSchema,
   executionStatusEventSchema,
   generationInputSchema,
   providerDetectionResultSchema,
@@ -398,6 +399,8 @@ export const IPC_CHANNELS = Object.keys(ipcContract) as readonly string[] as rea
 export const ipcEvents = {
   'koma:deck:progress': deckProgressSchema,
   'koma:providers:status': executionStatusEventSchema,
+  /** Text a provider writes for the user while a chat generation runs. Bounded per event. */
+  'koma:providers:output': executionOutputEventSchema,
   /** The window is about to close and the user chose to save first. */
   'koma:app:save-and-close': empty,
   /** The state of updating changed. */

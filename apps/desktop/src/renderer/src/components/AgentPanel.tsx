@@ -1,7 +1,7 @@
 import { userRequestSchema } from '@koma-motion/agent-runtime';
 import type { KomaProject } from '@koma-motion/core';
 import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
-import { cancelGeneration, detectProviders, generate } from '../lib/agentActions';
+import { detectProviders, generate } from '../lib/agentActions';
 import {
   CHAT_DEFAULT_WIDTH,
   CHAT_MIN_WIDTH,
@@ -24,6 +24,7 @@ import {
   WarningIcon,
 } from './icons';
 import { ModelPicker, useModelChoices } from './ModelPicker';
+import { RunActivity, RunMonitor } from './RunActivity';
 import { Button, Help, IconButton, Select, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
@@ -59,6 +60,26 @@ function Availability({ provider }: { readonly provider: DetectedProvider }): Re
       <span>{available ? 'Ready' : 'Not available'}</span>
       <Help label="Provider details">{provider.detection.message}</Help>
     </p>
+  );
+}
+
+/** Text a provider wrote during a finished run, kept with its outcome. */
+function KeptOutput({
+  text,
+  name,
+}: {
+  readonly text: string;
+  readonly name: string;
+}): ReactElement {
+  return (
+    <details className="mt-2 text-sm">
+      <summary className="cursor-pointer text-ink-400 hover:text-ink-100">
+        What {name} wrote
+      </summary>
+      <p className="mt-1 border-l-2 border-line-strong pl-3 leading-relaxed whitespace-pre-wrap text-ink-300">
+        {text}
+      </p>
+    </details>
   );
 }
 
@@ -107,6 +128,9 @@ function Entry({
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="mb-1 text-xs font-medium text-ink-400">{entry.providerName}</p>
           <p className="whitespace-pre-wrap leading-relaxed">{entry.text}</p>
+          {entry.output !== undefined && (
+            <KeptOutput text={entry.output} name={entry.providerName} />
+          )}
           {entry.warnings.length > 0 && (
             <ul className="mt-2 flex flex-col gap-1 text-sm text-signal-warn">
               {entry.warnings.map((warning, index) => (
@@ -137,6 +161,9 @@ function Entry({
           <p className="font-semibold">Generated Komas were not applied</p>
           <p>{entry.text}</p>
           <p className="mt-2 text-sm text-ink-400">Your edits remain in the presentation.</p>
+          {entry.output !== undefined && (
+            <KeptOutput text={entry.output} name={entry.providerName} />
+          )}
         </div>
       </li>
     );
@@ -162,6 +189,7 @@ function Entry({
         </ul>
       )}
       <p className="mt-2 text-sm text-ink-400">Your presentation was not changed.</p>
+      {entry.output !== undefined && <KeptOutput text={entry.output} name={entry.providerName} />}
       <details className="mt-1 text-sm text-ink-400">
         <summary className="cursor-pointer hover:text-ink-100">Diagnostics</summary>
         <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3">
@@ -301,6 +329,8 @@ export function AgentPanel({
   const providers = useAgentStore((state) => state.providers);
   const detection = useAgentStore((state) => state.detection);
   const execution = useAgentStore((state) => state.execution);
+  const lastRun = useAgentStore((state) => state.lastRun);
+  const [monitorOpen, setMonitorOpen] = useState(false);
   const conversation = useAgentStore((state) => state.conversation);
   const apply = useProjectStore((state) => state.apply);
   const open = useUiStore((state) => state.agentPanelOpen);
@@ -337,6 +367,8 @@ export function AgentPanel({
   const countButton = useRef<HTMLButtonElement>(null);
   const choicesPanel = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(open);
+  /** Whether the conversation is scrolled to its end. */
+  const following = useRef(true);
   const choiceProject = useRef(project.id);
 
   const selectedId = project.agentConfiguration.selectedProviderId;
@@ -348,7 +380,6 @@ export function AgentPanel({
   const trimmed = request.trim();
   const canSubmit =
     trimmed !== '' && requestValidation.success && validCount && !running && available;
-  const latestStatus = execution?.events.at(-1);
 
   useEffect(() => {
     if (!open || choiceProject.current !== project.id) {
@@ -384,11 +415,21 @@ export function AgentPanel({
   }, [choice]);
 
   useEffect(() => {
-    // Scrolls the conversation only, never the window around it.
+    // Scrolls the conversation only, never the window around it. A new
+    // entry always scrolls; see the effect below for growing output.
     if (open && log.current !== null) {
       log.current.scrollTop = log.current.scrollHeight;
+      following.current = true;
     }
-  }, [open, conversation.length, execution?.events.length]);
+  }, [open, conversation.length]);
+
+  useEffect(() => {
+    // Growing output and new phases follow only while the person is at the
+    // bottom, so reading earlier text is not interrupted.
+    if (open && log.current !== null && following.current) {
+      log.current.scrollTop = log.current.scrollHeight;
+    }
+  }, [open, execution?.events.length, execution?.output.text]);
 
   // Opening moves focus to the request. Closing moves it to the control that
   // opens the chat again, so focus is never lost in the hidden panel.
@@ -496,7 +537,11 @@ export function AgentPanel({
           role="log"
           aria-label="Conversation"
           className="flex min-h-32 flex-1 flex-col overflow-y-auto bg-surface-0 px-4 py-5"
-          aria-live="polite"
+          onScroll={(event) => {
+            const element = event.currentTarget;
+            following.current =
+              element.scrollHeight - element.scrollTop - element.clientHeight < 48;
+          }}
         >
           {conversation.length === 0 && !running ? (
             <div className="m-auto flex max-w-48 flex-col items-center text-center text-ink-300">
@@ -528,33 +573,20 @@ export function AgentPanel({
               ))}
             </ol>
           )}
-          {execution !== null && (
-            <div
-              role="status"
-              className="mt-5 flex items-start gap-3 rounded-lg border border-line bg-surface-2/70 px-3 py-2 wrap-break-word"
-            >
-              <span
-                aria-hidden="true"
-                className="working-dot mt-1.5 size-2 flex-none rounded-full bg-motion"
-              />
-              <div className="min-w-0 flex-1">
-                <p className="text-sm text-ink-400">{execution.providerName}</p>
-                <p>
-                  {execution.cancelRequested ? 'Stopping' : (latestStatus?.message ?? 'Starting')}
-                </p>
-              </div>
-              {latestStatus?.phase !== 'succeeded' && (
-                <Button
-                  variant="outline"
-                  disabled={execution.cancelRequested}
-                  onClick={() => void cancelGeneration()}
-                >
-                  Cancel
-                </Button>
-              )}
-            </div>
+          {execution !== null ? (
+            <RunActivity run={execution} onOpenMonitor={() => setMonitorOpen(true)} />
+          ) : (
+            lastRun !== null && (
+              <RunActivity run={lastRun} onOpenMonitor={() => setMonitorOpen(true)} />
+            )
           )}
         </div>
+
+        <RunMonitor
+          run={execution ?? lastRun}
+          open={monitorOpen}
+          onClose={() => setMonitorOpen(false)}
+        />
 
         <form
           className="relative flex min-h-0 flex-none flex-col gap-2 overflow-visible border-t border-line bg-surface-1 px-3 pt-3 pb-2"

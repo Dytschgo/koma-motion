@@ -3,7 +3,12 @@ import {
   CodexCliProvider,
   GrokCliProvider,
 } from '@koma-motion/agent-runtime/node';
-import { GenerationRunner, MockAgentProvider, ProviderRegistry } from '@koma-motion/agent-runtime';
+import {
+  GenerationRunner,
+  MockAgentProvider,
+  ProviderRegistry,
+  type MockAgentProviderOptions,
+} from '@koma-motion/agent-runtime';
 import { createRandomIdGenerator } from '@koma-motion/core';
 import { createExporters } from '@koma-motion/exporters';
 import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
@@ -18,6 +23,7 @@ import {
 } from '../../shared/ipc';
 import { isTrustedSender } from '../security';
 import type { BrandKitLibrary } from '../services/brandKitLibrary';
+import { createOutputBatcher } from '../services/outputBatcher';
 import { generatePresentation, regenerateTransition } from '../services/generation';
 import { selectLogo } from '../services/logo';
 import { InstructionTemplateLibrary } from '../services/instructionTemplates';
@@ -63,6 +69,19 @@ function getPlatform(): IpcResponse<'koma:app:get-info'>['platform'] {
 }
 
 /**
+ * Test settings of the mock provider for builds that are not packaged:
+ * `KOMA_MOCK_DELAY_MS` (0 to 60000) and `KOMA_MOCK_OUTCOME=invalid`. A
+ * packaged application ignores them.
+ */
+export function readMockOptions(environment: NodeJS.ProcessEnv): MockAgentProviderOptions {
+  const delay = Number(environment['KOMA_MOCK_DELAY_MS']);
+  return {
+    ...(Number.isSafeInteger(delay) && delay >= 0 && delay <= 60_000 ? { delayMs: delay } : {}),
+    ...(environment['KOMA_MOCK_OUTCOME'] === 'invalid' ? { outcome: 'invalid' as const } : {}),
+  };
+}
+
+/**
  * Registers the handlers of every channel in the contract. Requests from
  * unexpected senders and requests that do not match their schema are rejected
  * before a handler runs.
@@ -70,7 +89,7 @@ function getPlatform(): IpcResponse<'koma:app:get-info'>['platform'] {
 export function registerHandlers(context: WindowContext): { dispose(): void } {
   const { window, session } = context;
   const registry = new ProviderRegistry([
-    new MockAgentProvider(),
+    new MockAgentProvider(app.isPackaged ? {} : readMockOptions(process.env)),
     new ClaudeCodeProvider(),
     new CodexCliProvider(),
     new GrokCliProvider(),
@@ -229,20 +248,31 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     return provider.listModels(listing.signal);
   });
 
-  handle('koma:providers:execute', ({ executionId, providerId, project, input }) =>
-    generatePresentation({
-      runner,
-      executionId,
-      providerId,
-      project,
-      input,
-      idGenerator,
-      now: () => new Date(),
-      onStatus: (status) => {
-        send('koma:providers:status', status);
-      },
-    }),
-  );
+  handle('koma:providers:execute', async ({ executionId, providerId, project, input }) => {
+    const output = createOutputBatcher((event) => {
+      send('koma:providers:output', event);
+    });
+    try {
+      return await generatePresentation({
+        runner,
+        executionId,
+        providerId,
+        project,
+        input,
+        idGenerator,
+        now: () => new Date(),
+        onStatus: (status) => {
+          // Output written before a phase change is shown before that phase.
+          output.flush();
+          send('koma:providers:status', status);
+        },
+        onOutput: output.push,
+      });
+    } finally {
+      // Nothing is sent after the outcome: the window ignores late output anyway.
+      output.close();
+    }
+  });
 
   handle(
     'koma:providers:regenerate-transition',

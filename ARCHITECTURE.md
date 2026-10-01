@@ -260,6 +260,8 @@ schema for the request and the response of every channel.
 | `koma:updates:install`         | restart and install the downloaded update   |
 
 Events from the main process: `koma:providers:status`,
+`koma:providers:output` (text a provider writes during a chat generation, at
+most 4000 characters per event and one event per 50 ms),
 `koma:app:save-and-close` and `koma:updates:status`.
 
 The update channels carry no addresses. The window chooses a channel; which

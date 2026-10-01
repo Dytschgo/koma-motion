@@ -4,6 +4,7 @@ import {
   buildTransitionRegenerationRequest,
   convertResponseToPresentation,
   type AgentError,
+  type ExecutionOutputEvent,
   type ExecutionStatusEvent,
   type GenerationInput,
   type GenerationRunner,
@@ -43,8 +44,10 @@ export async function generatePresentation(options: {
   readonly idGenerator: IdGenerator;
   readonly now: () => Date;
   readonly onStatus: (event: ExecutionStatusEvent) => void;
+  /** Receives text the provider writes for the user while it works. */
+  readonly onOutput?: (event: ExecutionOutputEvent) => void;
 }): Promise<GenerationOutcome> {
-  const { runner, executionId, providerId, project, input, now, onStatus } = options;
+  const { runner, executionId, providerId, project, input, now, onStatus, onOutput } = options;
   const request = buildGenerationRequest(project, input);
   const configuration = project.agentConfiguration;
 
@@ -69,6 +72,7 @@ export async function generatePresentation(options: {
     timeoutMs: configuration.timeoutSeconds === null ? null : configuration.timeoutSeconds * 1000,
     model: configuration.providers[providerId]?.model ?? null,
     onStatus,
+    ...(onOutput === undefined ? {} : { onOutput }),
   });
 
   const failed = (

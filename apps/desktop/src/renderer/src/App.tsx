@@ -49,12 +49,16 @@ function useApplicationEvents(): void {
       useAgentStore.getState().addStatus(event);
       useTransitionRegenerationStore.getState().progress(event.executionId, event.message);
     });
+    const unsubscribeOutput = subscribe('koma:providers:output', (event) => {
+      useAgentStore.getState().addOutput(event);
+    });
     const unsubscribeClose = subscribe('koma:app:save-and-close', () => {
       void saveAndClose();
     });
     const unfollowUpdates = followUpdates();
     return () => {
       unsubscribeStatus();
+      unsubscribeOutput();
       unsubscribeClose();
       unfollowUpdates();
     };

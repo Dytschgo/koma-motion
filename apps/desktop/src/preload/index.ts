@@ -49,6 +49,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
 const EVENT_CHANNELS: ReadonlySet<string> = new Set([
   'koma:deck:progress',
   'koma:providers:status',
+  'koma:providers:output',
   'koma:app:save-and-close',
   'koma:updates:status',
 ]);

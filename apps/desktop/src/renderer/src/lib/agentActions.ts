@@ -1,7 +1,12 @@
 /** Provider detection and generation: the steps between the chat panel and the main process. */
-import { agentError, type GenerationInput, type ResponseIssue } from '@koma-motion/agent-runtime';
+import {
+  agentError,
+  type GenerationInput,
+  type ProviderMetadata,
+  type ResponseIssue,
+} from '@koma-motion/agent-runtime';
 import type { KomaProject, Presentation } from '@koma-motion/core';
-import { useAgentStore } from '../state/agentStore';
+import { useAgentStore, type RunResult } from '../state/agentStore';
 import { applyGeneration, recordGeneration } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
@@ -55,6 +60,15 @@ function unavailableImageIssues(presentation: Presentation, project: KomaProject
   return issues;
 }
 
+/** The model a run starts with, in words. */
+function describeModel(
+  metadata: ProviderMetadata | undefined,
+  model: string | null | undefined,
+): string {
+  if (metadata === undefined || !metadata.supportsModelSelection) return 'built-in';
+  return model ?? metadata.defaultModel ?? 'default model';
+}
+
 export async function detectProviders(): Promise<void> {
   const agent = useAgentStore.getState();
   agent.setDetection('running');
@@ -82,17 +96,34 @@ export async function generate(input: GenerationInput): Promise<void> {
   }
   const providerId = project.agentConfiguration.selectedProviderId;
   const presentationAtStart = project.presentation;
-  const providerName =
-    agent.providers.find((provider) => provider.metadata.id === providerId)?.metadata.displayName ??
-    providerId;
+  const metadata = agent.providers.find(
+    (provider) => provider.metadata.id === providerId,
+  )?.metadata;
+  const providerName = metadata?.displayName ?? providerId;
   const executionId = createExecutionId();
 
   agent.addEntry({ kind: 'request', text: input.userRequest });
-  agent.startExecution({ executionId, providerId, providerName });
+  agent.startExecution({
+    executionId,
+    providerId,
+    providerName,
+    streams: metadata?.streamsOutput ?? false,
+    modelLabel: describeModel(metadata, project.agentConfiguration.providers[providerId]?.model),
+  });
+
+  /** The text this run streamed, kept with its outcome in the conversation. */
+  const streamed = (): { output?: string } => {
+    const execution = useAgentStore.getState().execution;
+    return execution?.executionId === executionId && execution.output.text.trim() !== ''
+      ? { output: execution.output.text }
+      : {};
+  };
 
   /** A project switch invalidates this run. Its output must not land in the replacement. */
   const stillThisProject = (): boolean => useProjectStore.getState().sessionId === sessionId;
 
+  /** How the run ended, for the activity in the chat. A run that throws failed. */
+  let result: RunResult = 'failed';
   try {
     const outcome = await invoke('koma:providers:execute', {
       executionId,
@@ -100,6 +131,12 @@ export async function generate(input: GenerationInput): Promise<void> {
       project,
       input,
     });
+    result =
+      outcome.status === 'succeeded'
+        ? 'completed'
+        : outcome.status === 'cancelled'
+          ? 'cancelled'
+          : 'failed';
     if (!stillThisProject()) {
       return;
     }
@@ -136,6 +173,7 @@ export async function generate(input: GenerationInput): Promise<void> {
             continue;
           }
           useAgentStore.getState().addEntry({
+            ...streamed(),
             kind: 'notApplied',
             providerName,
             text: outcome.historyEntry.summary,
@@ -153,7 +191,9 @@ export async function generate(input: GenerationInput): Promise<void> {
       }
       const issues = unavailableImageIssues(outcome.presentation, currentProject);
       if (issues.length > 0) {
+        result = 'failed';
         useAgentStore.getState().addEntry({
+          ...streamed(),
           kind: 'failure',
           providerName,
           status: 'failed',
@@ -170,6 +210,7 @@ export async function generate(input: GenerationInput): Promise<void> {
       useProjectStore.getState().apply(applyGeneration(outcome.presentation, outcome.historyEntry));
       useUiStore.getState().selectKoma(outcome.presentation.komas[0]?.id ?? null);
       useAgentStore.getState().addEntry({
+        ...streamed(),
         kind: 'result',
         providerName,
         text: outcome.historyEntry.summary,
@@ -178,6 +219,7 @@ export async function generate(input: GenerationInput): Promise<void> {
     } else {
       useProjectStore.getState().apply(recordGeneration(outcome.historyEntry));
       useAgentStore.getState().addEntry({
+        ...streamed(),
         kind: 'failure',
         providerName,
         status: outcome.status,
@@ -191,6 +233,7 @@ export async function generate(input: GenerationInput): Promise<void> {
       return;
     }
     useAgentStore.getState().addEntry({
+      ...streamed(),
       kind: 'failure',
       providerName,
       status: 'failed',
@@ -210,7 +253,7 @@ export async function generate(input: GenerationInput): Promise<void> {
       request: input.userRequest,
     });
   } finally {
-    useAgentStore.getState().finishExecution(executionId);
+    useAgentStore.getState().finishExecution(executionId, result);
   }
 }
 

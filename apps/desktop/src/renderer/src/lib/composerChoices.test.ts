@@ -29,6 +29,7 @@ function provider(overrides: Partial<ProviderMetadata> = {}): ProviderMetadata {
       note: 'Curated.',
     },
     acceptsCustomModel: true,
+    streamsOutput: true,
     ...overrides,
   };
 }

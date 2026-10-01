@@ -142,6 +142,7 @@ export class CodexCliProvider implements AgentProvider {
       note: 'Codex has no command that lists models. Enter a model id your Codex sign-in can use, or keep the default.',
     },
     acceptsCustomModel: true,
+    streamsOutput: false,
   };
 
   readonly #environment: CliEnvironment;

@@ -197,6 +197,7 @@ export class GrokCliProvider implements AgentProvider {
       note: 'Grok can list the models of your sign-in. Load them to choose one, or enter a model id.',
     },
     acceptsCustomModel: true,
+    streamsOutput: false,
   };
 
   readonly #environment: CliEnvironment;
