@@ -42,6 +42,8 @@ const DISABLED_CODEX_FEATURES = [
   'browser_use_full_cdp_access',
   'computer_use',
   'shell_tool',
+  // Images are generated only by the explicitly enabled image pipeline.
+  'image_generation',
 ] as const;
 
 /**
@@ -137,9 +139,20 @@ export class CodexCliProvider implements AgentProvider {
     supportsModelSelection: true,
     defaultModel: null,
     modelCatalog: {
-      source: 'none',
-      models: [],
-      note: 'Codex has no command that lists models. Enter a model id your Codex sign-in can use, or keep the default.',
+      source: 'curated',
+      // Verified against the visible Codex CLI catalog on 2026-10-01.
+      // https://developers.openai.com/api/docs/models
+      models: [
+        { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', kind: 'id' },
+        { id: 'gpt-6-astra', label: 'GPT-6 Astra', kind: 'id' },
+        { id: 'gpt-6-sol', label: 'GPT-6 Sol', kind: 'id' },
+        { id: 'gpt-6-luna', label: 'GPT-6 Luna', kind: 'id' },
+        { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', kind: 'id' },
+        { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', kind: 'id' },
+        { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', kind: 'id' },
+        { id: 'gpt-5.5', label: 'GPT-5.5', kind: 'id' },
+      ],
+      note: 'Numbered models from the Codex catalog. Access depends on your sign-in. You can also enter another model id or use the CLI default.',
     },
     acceptsCustomModel: true,
     streamsOutput: false,

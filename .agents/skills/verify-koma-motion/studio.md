@@ -4,12 +4,39 @@ Build first and use the mock-provider workflow in `SKILL.md`. These specs use
 isolated native Electron windows and synthetic files:
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts canvas-editing.spec.ts inspector.spec.ts transitionWarnings.spec.ts projectHealth.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatBrandKit.spec.ts canvas-editing.spec.ts inspector.spec.ts transitionWarnings.spec.ts projectHealth.spec.ts
 ```
 
-- Composer: create a project, choose provider/model/Koma count beside the request,
-  toggle Auto, and verify values at a narrow chat width. The mock disclosure and
-  Generate action must remain reachable in short windows.
+- Composer: create a project, choose a model from the compact searchable list beside
+  Brand Kit below the request. The header must have no provider/model selector.
+  Verify provider logos, cross-provider search, numbered Models before Automatic
+  choices, and Favorites chosen by the user. Stars remain visible without hover:
+  outlined when unselected, filled when favorited. Check
+  one-step Undo/Redo of the combined provider/model choice. Pinning favorites must
+  persist across restart without adding project undo entries. Open Model options
+  in the footer for provider details and custom IDs; the main list has no provider
+  dropdown. Toggle Auto and verify keyboard navigation at a narrow chat width. The mock
+  disclosure, reference attachment, instructions and Generate action must remain
+  reachable in short windows.
+- Chat Brand Kit chooser: select a saved kit beside the model, check the current
+  selection after Undo/Redo, generate with the mock and save the project. Exercise
+  empty/damaged libraries and retry, long names, outside-click/Escape dismissal,
+  and mutual exclusion with the model picker. Capture wide and 300-pixel panels.
+  The chooser lists existing kits; editing and management stay in the library.
+- Image generation: run `imageGeneration.spec.ts`. The Images tab offers Off,
+  Codex and Grok Imagine through existing CLI sign-ins. Each CLI manages
+  its image model; do not claim explicit image-model version selection. Verify
+  independent text/image choices, narrow layout, project persistence, atomic
+  image/assets Undo/Redo, failure and cancellation. `KOMA_MOCK_IMAGES` provides
+  synthetic success/failure fixtures only in unpackaged builds with the mock
+  presentation provider. It must never enable a live generation test. API keys
+  are not forwarded by the image adapter. A live image run requires an explicit
+  request; protocol/capability detection alone is not image-output coverage.
+  Both initial and repair prompts must name the chosen image backend and tell
+  the text agent to return `imageRequests` for the app to dispatch. Grok uses
+  headless `image_gen`; only numbered images in the newly created CLI session
+  may be imported. Test rejected paths, unrelated tool results, failures and
+  cancellation with synthetic CLI peers. Grok retains its own session history.
 - Canvas: open the fixture, select text and press Enter, type multiple lines,
   finish with Ctrl/Command+Enter, undo/redo, save and reopen. Escape discards a
   draft; invalid text retains its draft and prevents losing it on selection.

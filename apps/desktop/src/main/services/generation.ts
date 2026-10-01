@@ -21,6 +21,8 @@ import {
   type KomaProject,
 } from '@koma-motion/core';
 import type { GenerationOutcome, TransitionRegenerationOutcome } from '../../shared/ipc';
+import type { ImageGenerator } from '@koma-motion/agent-runtime/node';
+import { generateRequestedImages } from './generatedImages';
 
 const MAX_SUMMARY_LENGTH = 400;
 
@@ -46,6 +48,8 @@ export async function generatePresentation(options: {
   readonly onStatus: (event: ExecutionStatusEvent) => void;
   /** Receives text the provider writes for the user while it works. */
   readonly onOutput?: (event: ExecutionOutputEvent) => void;
+  readonly signal?: AbortSignal;
+  readonly generateImage?: ImageGenerator;
 }): Promise<GenerationOutcome> {
   const { runner, executionId, providerId, project, input, now, onStatus, onOutput } = options;
   const request = buildGenerationRequest(project, input);
@@ -89,6 +93,49 @@ export async function generatePresentation(options: {
     return failed(result.status, result.error);
   }
 
+  let response = result.response;
+  const assets: KomaProject['assets'] = [];
+  if (
+    (configuration.imageGeneration === 'codex' || configuration.imageGeneration === 'grok') &&
+    (response.imageRequests?.length ?? 0) > 0
+  ) {
+    try {
+      const generated = await generateRequestedImages({
+        response,
+        provider: configuration.imageGeneration,
+        signal: options.signal ?? AbortSignal.timeout(600_000),
+        idGenerator: options.idGenerator,
+        ...(options.generateImage ? { generateImage: options.generateImage } : {}),
+        onProgress: (message) =>
+          onStatus({ executionId, phase: 'generating', message, timestamp: now().toISOString() }),
+      });
+      response = generated.response;
+      assets.push(...generated.assets);
+    } catch (error) {
+      const timedOut =
+        options.signal?.aborted &&
+        options.signal.reason instanceof DOMException &&
+        options.signal.reason.name === 'TimeoutError';
+      const status = timedOut ? 'timedOut' : options.signal?.aborted ? 'cancelled' : 'failed';
+      return failed(
+        status,
+        agentError(
+          status === 'failed' ? 'executionFailed' : status,
+          status === 'cancelled'
+            ? 'Image generation was stopped. No Komas were replaced.'
+            : status === 'timedOut'
+              ? 'Image generation timed out. No Komas were replaced.'
+              : `${error instanceof Error ? error.message : 'Image generation failed.'} No Komas were replaced.`,
+        ),
+      );
+    }
+  }
+  if (options.signal?.aborted)
+    return failed(
+      'cancelled',
+      agentError('cancelled', 'Generation was stopped. No Komas were replaced.'),
+    );
+
   onStatus({
     executionId,
     phase: 'converting',
@@ -97,8 +144,14 @@ export async function generatePresentation(options: {
   });
   // The same request always leads to the same identifiers.
   const seed = hashString(JSON.stringify({ providerId, request }));
-  const converted = convertResponseToPresentation(result.response, {
-    request,
+  const converted = convertResponseToPresentation(response, {
+    request: {
+      ...request,
+      availableAssets: [
+        ...request.availableAssets,
+        ...assets.map(({ id, name }) => ({ id, name })),
+      ],
+    },
     idGenerator: createSeededIdGenerator(seed),
   });
   if (!converted.ok) {
@@ -117,7 +170,10 @@ export async function generatePresentation(options: {
     warnings,
   );
   const candidate = komaProjectSchema.safeParse(
-    appendGenerationHistory({ ...project, presentation }, entry),
+    appendGenerationHistory(
+      { ...project, presentation, assets: [...project.assets, ...assets] },
+      entry,
+    ),
   );
   if (!candidate.success) {
     const tooLarge = candidate.error.issues.some(
@@ -136,6 +192,7 @@ export async function generatePresentation(options: {
   return {
     status: 'succeeded',
     presentation,
+    assets,
     historyEntry: entry,
     warnings,
     repaired: result.repaired,

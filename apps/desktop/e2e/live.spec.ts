@@ -51,7 +51,7 @@ test('generates a presentation with Claude Code', async () => {
     const providerChoices = await openProviderChoices(window);
     await providerChoices.getByLabel('Provider', { exact: true }).selectOption('claude-code');
     await expect(providerChoices.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
-    await window.getByRole('button', { name: 'Provider', exact: true }).click();
+    await window.getByRole('button', { name: 'Model', exact: true }).click();
 
     await setKomaCount(window, '3');
     await window.getByLabel('Your request').fill(REQUEST);

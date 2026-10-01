@@ -1,6 +1,6 @@
 import { userRequestSchema } from '@koma-motion/agent-runtime';
 import type { KomaProject } from '@koma-motion/core';
-import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactElement } from 'react';
 import { detectProviders, generate } from '../lib/agentActions';
 import {
   CHAT_DEFAULT_WIDTH,
@@ -25,8 +25,12 @@ import {
   WarningIcon,
 } from './icons';
 import { ModelPicker, useModelChoices } from './ModelPicker';
+import { CompactModelPicker } from './CompactModelPicker';
+import { ProviderLogo } from './ProviderLogo';
 import { RunActivity, RunMonitor } from './RunActivity';
-import { ReferenceFiles } from './ReferenceFiles';
+import { ReferenceFiles, ReferenceAttachmentButton } from './ReferenceFiles';
+import { ChatBrandKitPicker } from './ChatBrandKitPicker';
+import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
 import { Button, Help, IconButton, Select, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
@@ -352,7 +356,7 @@ export function AgentPanel({
   const [request, setRequest] = useState('');
   const [komaCount, setKomaCount] = useState(String(DEFAULT_KOMA_COUNT));
   const [autoKomaCount, setAutoKomaCount] = useState(false);
-  const [choice, setChoice] = useState<'provider' | 'model' | 'count' | null>(null);
+  const [choice, setChoice] = useState<'model' | 'count' | 'brand' | null>(null);
   const count = parseKomaCount(autoKomaCount, komaCount);
   const validCount = count !== undefined;
   const requestValidation = userRequestSchema.safeParse(request);
@@ -366,14 +370,15 @@ export function AgentPanel({
   const providerId = useId();
   const countId = useId();
   const countErrorId = useId();
-  const providerChoicesId = useId();
   const modelChoicesId = useId();
   const countChoicesId = useId();
   const section = useRef<HTMLElement>(null);
+  const header = useRef<HTMLDivElement>(null);
+  const composer = useRef<HTMLFormElement>(null);
+  const [pickerMaxHeight, setPickerMaxHeight] = useState<number>();
   const log = useRef<HTMLDivElement>(null);
   const requestField = useRef<HTMLTextAreaElement>(null);
   const showButton = useRef<HTMLButtonElement>(null);
-  const providerButton = useRef<HTMLButtonElement>(null);
   const modelButton = useRef<HTMLButtonElement>(null);
   const countButton = useRef<HTMLButtonElement>(null);
   const choicesPanel = useRef<HTMLDivElement>(null);
@@ -388,6 +393,7 @@ export function AgentPanel({
   const models = useModelChoices(project, selected);
   const providerName = selected?.metadata.displayName ?? selectedId;
   const running = execution !== null;
+  const brandBusy = useBrandKitLibraryStore((state) => state.busy);
   const trimmed = request.trim();
   const consentKey = `${String(sessionId)}:${selectedId}:${references.map((reference) => reference.id).join(',')}`;
   const needsReferenceConsent =
@@ -399,6 +405,7 @@ export function AgentPanel({
     requestValidation.success &&
     validCount &&
     !running &&
+    !brandBusy &&
     available &&
     referencesReady;
 
@@ -409,17 +416,32 @@ export function AgentPanel({
     choiceProject.current = project.id;
   }, [open, project.id]);
 
+  // A long request in a short window leaves less room above the composer.
+  // Bound the popup to that actual space so it never covers the chat header.
+  useLayoutEffect(() => {
+    if (choice === null || composer.current === null || header.current === null) return;
+    const measure = (): void => {
+      const top = composer.current?.getBoundingClientRect().top;
+      const bottom = header.current?.getBoundingClientRect().bottom;
+      if (top !== undefined && bottom !== undefined) {
+        setPickerMaxHeight(Math.max(64, Math.floor(top - bottom - 12)));
+      }
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(composer.current);
+    if (section.current !== null) observer.observe(section.current);
+    return () => observer.disconnect();
+  }, [choice]);
+
   useEffect(() => {
-    if (choice === null) return;
-    const trigger =
-      choice === 'provider'
-        ? providerButton.current
-        : choice === 'model'
-          ? modelButton.current
-          : countButton.current;
+    if (choice === null || choice === 'brand') return;
+    const trigger = choice === 'model' ? modelButton.current : countButton.current;
     choicesPanel.current
       ?.querySelector<HTMLElement>(
-        'select:not(:disabled), input:not(:disabled), button:not(:disabled)',
+        choice === 'model'
+          ? 'input[type="search"]:not(:disabled)'
+          : 'select:not(:disabled), input:not(:disabled), button:not(:disabled)',
       )
       ?.focus();
     const dismiss = (event: PointerEvent): void => {
@@ -474,6 +496,7 @@ export function AgentPanel({
       !userRequestSchema.safeParse(text).success ||
       count === undefined ||
       running ||
+      brandBusy ||
       !available ||
       !referencesReady
     ) {
@@ -495,7 +518,7 @@ export function AgentPanel({
     <section
       ref={section}
       aria-label="Agent chat"
-      className="relative flex min-h-0 flex-none flex-col border-l border-line bg-surface-1"
+      className="chat-panel relative flex min-h-0 flex-none flex-col border-l border-line bg-surface-2"
       style={open ? { width: layout.width } : undefined}
     >
       {open ? (
@@ -533,9 +556,36 @@ export function AgentPanel({
       )}
 
       <div id={bodyId} hidden={!open} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="flex h-11 flex-none flex-col justify-center border-b border-line bg-surface-1 pr-1.5 pl-3.5">
+        <div
+          ref={header}
+          data-testid="chat-header"
+          className="flex h-11 flex-none flex-col justify-center border-b border-line bg-surface-1 pr-1.5 pl-3.5"
+        >
           <div className="flex items-center gap-2">
             <h2 className="min-w-0 flex-1 text-base font-semibold">Chat</h2>
+            <IconButton
+              label="Instructions & templates"
+              aria-description={
+                project.systemInstructions.trim() === ''
+                  ? 'No project instructions'
+                  : 'Instructions active'
+              }
+              title={
+                project.systemInstructions.trim() === ''
+                  ? 'Instructions & templates'
+                  : 'Instructions active · Instructions & templates'
+              }
+              className="relative"
+              onClick={() => openSettings('instructions')}
+            >
+              <SettingsIcon />
+              {project.systemInstructions.trim() !== '' && (
+                <span
+                  className="absolute right-0.5 bottom-0.5 size-1.5 rounded-full bg-accent"
+                  aria-hidden="true"
+                />
+              )}
+            </IconButton>
             <IconButton
               label="Check again"
               disabled={detection === 'running' || running}
@@ -560,7 +610,7 @@ export function AgentPanel({
           ref={log}
           role="log"
           aria-label="Conversation"
-          className="flex min-h-32 flex-1 flex-col overflow-y-auto bg-surface-0 px-4 py-5"
+          className="flex min-h-32 flex-1 flex-col overflow-y-auto bg-surface-2 px-4 py-5"
           onScroll={(event) => {
             const element = event.currentTarget;
             following.current =
@@ -613,13 +663,14 @@ export function AgentPanel({
         />
 
         <form
-          className="relative flex min-h-0 flex-none flex-col gap-2 overflow-visible border-t border-line bg-surface-1 px-3 pt-3 pb-2"
+          ref={composer}
+          className="relative flex min-h-0 flex-none flex-col gap-2 overflow-visible bg-surface-2 px-3 pt-2 pb-3"
           onSubmit={(event) => {
             event.preventDefault();
             submit(request);
           }}
         >
-          <div className="flex items-end gap-1 rounded-card border border-line-strong bg-surface-2 p-1.5 shadow-raised transition-[border-color,box-shadow] duration-150 focus-within:border-accent/70 focus-within:shadow-[0_0_0_3px_rgb(124_196_232/0.12)]">
+          <div className="relative flex flex-col gap-2 rounded-card border border-line-strong bg-surface-1 p-2 shadow-raised transition-[border-color,box-shadow] duration-150 focus-within:border-accent/70 focus-within:shadow-[0_0_0_3px_rgb(124_196_232/0.12)]">
             <label htmlFor={requestId} className="sr-only">
               Your request
             </label>
@@ -627,7 +678,7 @@ export function AgentPanel({
               id={requestId}
               ref={requestField}
               rows={1}
-              className="min-h-9 max-h-36 min-w-0 flex-1 field-sizing-content resize-none bg-transparent px-2 py-2 text-ink-100 placeholder:text-ink-400 focus-visible:outline-none"
+              className="min-h-16 max-h-36 w-full min-w-0 field-sizing-content resize-none bg-transparent px-2 py-2 text-ink-100 placeholder:text-ink-400 focus-visible:outline-none"
               aria-invalid={requestError === undefined ? undefined : true}
               aria-describedby={requestError === undefined ? undefined : requestErrorId}
               value={request}
@@ -640,131 +691,99 @@ export function AgentPanel({
                 }
               }}
             />
-            <button
-              type="submit"
-              aria-label="Generate Komas"
-              title="Generate Komas (Ctrl/Command+Enter)"
-              disabled={!canSubmit}
-              className="flex size-10 flex-none items-center justify-center rounded-control bg-accent text-surface-0 transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-ink-400"
-            >
-              <SendIcon size={18} />
-            </button>
-          </div>
-          {requestError !== undefined && (
-            <p id={requestErrorId} role="alert" className="text-sm text-motion">
-              Error: {requestError}
-            </p>
-          )}
-
-          <div
-            role="group"
-            aria-label="Generation choices"
-            className="relative flex min-w-0 items-center gap-1"
-          >
-            <button
-              ref={providerButton}
-              type="button"
-              aria-label="Provider"
-              aria-description={`${providerName}${detection === 'running' ? ', checking availability' : detection === 'failed' || (detection === 'done' && !available) ? ', unavailable' : ''}`}
-              aria-haspopup="dialog"
-              aria-expanded={choice === 'provider'}
-              aria-controls={choice === 'provider' ? providerChoicesId : undefined}
-              disabled={running}
-              className="flex h-9 min-w-10 flex-[1_1_0] items-center gap-1 rounded-control px-2 text-left text-sm text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
-              onClick={() => setChoice(choice === 'provider' ? null : 'provider')}
-            >
-              <span className="min-w-0 flex-1 truncate">
-                {providerName}
-                {detection === 'running' ? ' · checking' : ''}
-              </span>
-              {(detection === 'failed' || (detection === 'done' && !available)) && (
-                <span className="flex-none text-signal-warn" aria-hidden="true">
-                  <WarningIcon size={14} />
-                </span>
-              )}
-              <ChevronIcon direction="down" size={14} />
-            </button>
-            <button
-              ref={modelButton}
-              type="button"
-              aria-label="Model"
-              aria-description={
-                models.selectable
-                  ? `Next run uses ${models.effectiveLabel}${models.availability === 'notListed' ? ', not listed for your sign-in' : ''}`
-                  : `${providerName} has no model choice`
-              }
-              aria-haspopup="dialog"
-              aria-expanded={choice === 'model'}
-              aria-controls={choice === 'model' ? modelChoicesId : undefined}
-              disabled={running}
-              title={`Next run uses ${models.effectiveLabel}`}
-              className="flex h-9 min-w-10 flex-[1_1_0] items-center gap-1 rounded-control px-2 text-left text-sm text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
-              onClick={() => setChoice(choice === 'model' ? null : 'model')}
-            >
-              <span className="min-w-0 flex-1 truncate">
-                {models.effectiveModel ?? (models.selectable ? 'Default model' : 'Built-in')}
-              </span>
-              {models.availability === 'notListed' && (
-                <span className="flex-none text-signal-warn" aria-hidden="true">
-                  <WarningIcon size={14} />
-                </span>
-              )}
-              <ChevronIcon direction="down" size={14} />
-            </button>
-            <button
-              ref={countButton}
-              type="button"
-              aria-label="Koma count"
-              aria-description={
-                validCount
-                  ? autoKomaCount
-                    ? 'Automatic Koma count'
-                    : `${komaCount} Komas`
-                  : 'Invalid Koma count. Enter a whole number from 1.'
-              }
-              aria-haspopup="dialog"
-              aria-expanded={choice === 'count'}
-              aria-controls={choice === 'count' ? countChoicesId : undefined}
-              aria-invalid={validCount ? undefined : true}
-              aria-describedby={validCount ? undefined : countErrorId}
-              className={`flex h-9 flex-none items-center gap-1 rounded-md px-2 text-sm hover:bg-surface-3 ${validCount ? 'text-ink-300 hover:text-ink-100' : 'text-motion'}`}
-              onClick={() => setChoice(choice === 'count' ? null : 'count')}
-            >
-              <span>
-                {validCount ? (autoKomaCount ? 'Auto Komas' : `${komaCount} Komas`) : 'Set Komas'}
-              </span>
-              <ChevronIcon direction="down" size={14} />
-            </button>
-            <IconButton
-              label="Instructions & templates"
-              aria-description={
-                project.systemInstructions.trim() === ''
-                  ? 'No project instructions'
-                  : 'Instructions active'
-              }
-              title={
-                project.systemInstructions.trim() === ''
-                  ? 'Instructions & templates'
-                  : 'Instructions active · Instructions & templates'
-              }
-              className="relative"
-              onClick={() => openSettings('instructions')}
-            >
-              <SettingsIcon />
-              {project.systemInstructions.trim() !== '' && (
-                <span
-                  className="absolute right-0.5 bottom-0.5 size-1.5 rounded-full bg-accent"
-                  aria-hidden="true"
-                />
-              )}
-            </IconButton>
-            {!validCount && (
-              <span id={countErrorId} className="sr-only">
-                Enter a whole number from 1.
-              </span>
+            {requestError !== undefined && (
+              <p id={requestErrorId} role="alert" className="text-sm text-motion">
+                Error: {requestError}
+              </p>
             )}
-          </div>
 
+            <div
+              role="group"
+              aria-label="Generation choices"
+              className="chat-composer-toolbar relative"
+            >
+              <ReferenceAttachmentButton disabled={running} />
+              <button
+                ref={modelButton}
+                type="button"
+                aria-label="Model"
+                aria-description={
+                  models.selectable
+                    ? `Next run uses ${models.effectiveLabel}${models.availability === 'notListed' ? ', not listed for your sign-in' : ''}`
+                    : `${providerName} has no model choice`
+                }
+                aria-haspopup="dialog"
+                aria-expanded={choice === 'model'}
+                aria-controls={choice === 'model' ? modelChoicesId : undefined}
+                disabled={running}
+                title={`${providerName}: next run uses ${models.effectiveLabel}`}
+                className="chat-model-trigger flex h-9 min-w-0 items-center gap-1 rounded-control bg-accent-deep px-2 text-left text-sm text-accent hover:bg-accent/20 disabled:opacity-50"
+                onClick={() => setChoice(choice === 'model' ? null : 'model')}
+              >
+                <ProviderLogo providerId={selectedId} size={15} />
+                <span className="min-w-0 flex-1 truncate">
+                  {models.effectiveModel === null
+                    ? `${providerName} · ${models.selectable ? 'Default' : 'Demo'}`
+                    : (models.options
+                        .find((option) => option.value === models.value)
+                        ?.label.split(' · ')[0] ?? models.effectiveModel)}
+                </span>
+                {(models.availability === 'notListed' ||
+                  detection === 'failed' ||
+                  (detection === 'done' && !available)) && (
+                  <span className="flex-none text-signal-warn" aria-hidden="true">
+                    <WarningIcon size={14} />
+                  </span>
+                )}
+                <ChevronIcon direction="down" size={14} />
+              </button>
+              <ChatBrandKitPicker
+                project={project}
+                maxHeight={pickerMaxHeight}
+                disabled={running}
+                open={choice === 'brand'}
+                onOpenChange={(next) => setChoice(next ? 'brand' : null)}
+              />
+              <button
+                ref={countButton}
+                type="button"
+                aria-label="Koma count"
+                aria-description={
+                  validCount
+                    ? autoKomaCount
+                      ? 'Automatic Koma count'
+                      : `${komaCount} Komas`
+                    : 'Invalid Koma count. Enter a whole number from 1.'
+                }
+                aria-haspopup="dialog"
+                aria-expanded={choice === 'count'}
+                aria-controls={choice === 'count' ? countChoicesId : undefined}
+                aria-invalid={validCount ? undefined : true}
+                aria-describedby={validCount ? undefined : countErrorId}
+                className={`chat-count-trigger flex h-9 flex-none items-center gap-1 rounded-md px-2 text-sm hover:bg-surface-3 ${validCount ? 'text-ink-300 hover:text-ink-100' : 'text-motion'}`}
+                onClick={() => setChoice(choice === 'count' ? null : 'count')}
+              >
+                <span>
+                  {validCount ? (autoKomaCount ? 'Auto Komas' : `${komaCount} Komas`) : 'Set Komas'}
+                </span>
+                <ChevronIcon direction="down" size={14} />
+              </button>
+              <button
+                type="submit"
+                aria-label="Generate Komas"
+                title="Generate Komas (Ctrl/Command+Enter)"
+                disabled={!canSubmit}
+                className="chat-send flex size-9 flex-none items-center justify-center rounded-control bg-accent text-surface-0 transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-ink-400"
+              >
+                <SendIcon size={18} />
+              </button>
+              {!validCount && (
+                <span id={countErrorId} className="sr-only">
+                  Enter a whole number from 1.
+                </span>
+              )}
+            </div>
+          </div>
           {project.agentConfiguration.timeoutSeconds !== null && (
             <p className="px-2 text-xs text-ink-400">
               Stops after {String(project.agentConfiguration.timeoutSeconds)} seconds. Change the
@@ -772,7 +791,7 @@ export function AgentPanel({
             </p>
           )}
 
-          <ReferenceFiles disabled={running} />
+          <ReferenceFiles disabled={running} showButton={false} />
           {needsReferenceConsent && (
             <label className="flex items-start gap-2 text-xs text-ink-300">
               <input
@@ -790,82 +809,14 @@ export function AgentPanel({
             </p>
           )}
 
-          {choice === 'provider' && (
-            <div
-              ref={choicesPanel}
-              id={providerChoicesId}
-              role="dialog"
-              aria-label="Provider"
-              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(22rem,55vh)] w-[min(18rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto rounded-card border border-line-strong bg-surface-2 p-3 shadow-popover"
-              onKeyDown={(event) => {
-                if (event.key === 'Escape') {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  setChoice(null);
-                  providerButton.current?.focus();
-                }
-              }}
-              onBlur={(event) => {
-                if (
-                  event.relatedTarget instanceof Node &&
-                  !event.currentTarget.contains(event.relatedTarget) &&
-                  !providerButton.current?.contains(event.relatedTarget)
-                )
-                  setChoice(null);
-              }}
-            >
-              <label htmlFor={providerId} className="text-xs font-medium text-ink-300">
-                Provider
-              </label>
-              <Select
-                id={providerId}
-                value={selectedId}
-                disabled={running}
-                onChange={(event) =>
-                  apply(
-                    changeAgentConfiguration({
-                      ...project.agentConfiguration,
-                      selectedProviderId: event.target.value,
-                    }),
-                  )
-                }
-              >
-                {providers.length === 0 && <option value={selectedId}>{selectedId}</option>}
-                {providers.map((provider) => (
-                  <option key={provider.metadata.id} value={provider.metadata.id}>
-                    {provider.metadata.displayName} ({describeAvailability(provider)})
-                  </option>
-                ))}
-              </Select>
-              {detection === 'running' && (
-                <p role="status" className="text-xs text-ink-300">
-                  Checking providers
-                </p>
-              )}
-              {detection === 'failed' && (
-                <p role="alert" className="text-xs text-motion">
-                  Error: the providers could not be checked.
-                </p>
-              )}
-              {detection === 'done' && selected !== undefined && (
-                <Availability provider={selected} />
-              )}
-              {selectedId === 'mock' && <p className="text-xs text-ink-300">Demo only · 3 Komas</p>}
-              {selected?.metadata.usesExternalService === true && (
-                <p className="text-xs leading-snug text-ink-300">
-                  {selected.metadata.displayName} sends your request, instructions, Brand Kit, Koma
-                  text and asset names online.
-                </p>
-              )}
-            </div>
-          )}
           {choice === 'model' && (
             <div
               ref={choicesPanel}
               id={modelChoicesId}
               role="dialog"
               aria-label="Model"
-              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(26rem,60vh)] w-[min(20rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto rounded-card border border-line-strong bg-surface-2 p-3 shadow-popover"
+              style={{ maxHeight: Math.min(pickerMaxHeight ?? 448, 448) }}
+              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(28rem,60vh)] w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-card border border-line-strong bg-surface-2 shadow-popover"
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -883,7 +834,67 @@ export function AgentPanel({
                   setChoice(null);
               }}
             >
-              <ModelPicker project={project} provider={selected} label="Model" disabled={running} />
+              <CompactModelPicker
+                project={project}
+                disabled={running}
+                onClose={() => {
+                  setChoice(null);
+                  modelButton.current?.focus();
+                }}
+              >
+                <label htmlFor={providerId} className="text-xs font-medium text-ink-300">
+                  Provider
+                </label>
+                <Select
+                  id={providerId}
+                  value={selectedId}
+                  disabled={running}
+                  onChange={(event) =>
+                    apply(
+                      changeAgentConfiguration({
+                        ...project.agentConfiguration,
+                        selectedProviderId: event.target.value,
+                      }),
+                    )
+                  }
+                >
+                  {providers.length === 0 && <option value={selectedId}>{selectedId}</option>}
+                  {providers.map((provider) => (
+                    <option key={provider.metadata.id} value={provider.metadata.id}>
+                      {provider.metadata.displayName} ({describeAvailability(provider)})
+                    </option>
+                  ))}
+                </Select>
+                {detection === 'running' && (
+                  <p role="status" className="text-xs text-ink-300">
+                    Checking providers
+                  </p>
+                )}
+                {detection === 'failed' && (
+                  <p role="alert" className="text-xs text-motion">
+                    Error: the providers could not be checked.
+                  </p>
+                )}
+                {detection === 'done' && selected !== undefined && (
+                  <Availability provider={selected} />
+                )}
+                {selectedId === 'mock' && (
+                  <p className="text-xs text-ink-300">Demo only · 3 Komas</p>
+                )}
+                {selected?.metadata.usesExternalService === true && (
+                  <p className="text-xs leading-snug text-ink-300">
+                    {selected.metadata.displayName} sends your request, instructions, Brand Kit,
+                    Koma text and asset names online.
+                  </p>
+                )}
+                <ModelPicker
+                  key={selectedId}
+                  project={project}
+                  provider={selected}
+                  label="Model"
+                  disabled={running}
+                />
+              </CompactModelPicker>
             </div>
           )}
           {choice === 'count' && (

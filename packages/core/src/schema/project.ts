@@ -45,6 +45,8 @@ export const MAX_AGENT_TIMEOUT_SECONDS = Math.floor(2_147_483_647 / 1000);
 
 export const agentConfigurationSchema = z.object({
   selectedProviderId: providerIdSchema,
+  /** Image generation is opt-in and uses the existing Codex CLI sign-in. */
+  imageGeneration: z.enum(['off', 'codex', 'grok']).optional(),
   /** null means run until completion or cancellation. */
   timeoutSeconds: z
     .number()

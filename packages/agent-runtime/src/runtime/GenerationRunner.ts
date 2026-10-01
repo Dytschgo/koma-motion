@@ -17,6 +17,8 @@ import {
 import {
   presentationGenerationPromptV5,
   presentationRepairPromptV5,
+  presentationGenerationPromptV7,
+  presentationRepairPromptV7,
   type AgentPrompt,
 } from '../prompts/presentationGeneration';
 import {
@@ -98,7 +100,7 @@ interface Task<Request, Response> {
   ) =>
     | { readonly success: true; readonly data: Request }
     | { readonly success: false; readonly issues: readonly RequestIssue[] };
-  readonly responseJsonSchema: () => JsonSchema;
+  readonly responseJsonSchema: (request: Request) => JsonSchema;
   readonly render: (request: Request, responseJsonSchema: JsonSchema) => AgentPrompt;
   readonly renderRepair: (input: {
     readonly request: Request;
@@ -138,10 +140,17 @@ function parseWith<Request>(schema: {
 
 const PRESENTATION_TASK: Task<PresentationGenerationRequest, AgentPresentationResponse> = {
   parseRequest: parseWith(presentationGenerationRequestSchema),
-  responseJsonSchema: getResponseJsonSchema,
+  responseJsonSchema: (request) => getResponseJsonSchema(request.imageGenerationEnabled === true),
   render: (request, responseJsonSchema) =>
-    presentationGenerationPromptV5.render({ request, responseJsonSchema }),
-  renderRepair: (input) => presentationRepairPromptV5.render(input),
+    (request.imageGenerationEnabled
+      ? presentationGenerationPromptV7
+      : presentationGenerationPromptV5
+    ).render({ request, responseJsonSchema }),
+  renderRepair: (input) =>
+    (input.request.imageGenerationEnabled
+      ? presentationRepairPromptV7
+      : presentationRepairPromptV5
+    ).render(input),
   invoke: (provider, request, context) => provider.generatePresentation(request, context),
   validate: validateAgentResponse,
 };
@@ -388,7 +397,7 @@ export class GenerationRunner {
       return fail(agentError('providerUnavailable', detection.message));
     }
 
-    const responseJsonSchema = task.responseJsonSchema();
+    const responseJsonSchema = task.responseJsonSchema(request);
     let prompt: AgentPrompt = task.render(request, responseJsonSchema);
     tools.setPromptTemplate(`${prompt.templateId}@${String(prompt.templateVersion)}`);
     let lastError = agentError('internalError', 'The provider was not started.');

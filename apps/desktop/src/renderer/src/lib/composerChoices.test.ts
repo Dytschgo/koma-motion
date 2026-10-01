@@ -9,6 +9,7 @@ import {
   parseCustomModel,
   parseKomaCount,
   withProviderModel,
+  withSelectedProviderModel,
 } from './composerChoices';
 
 function provider(overrides: Partial<ProviderMetadata> = {}): ProviderMetadata {
@@ -48,6 +49,18 @@ const values = (choices: { options: readonly { value: string }[] }): string[] =>
   choices.options.map((option) => option.value);
 
 describe('model choices', () => {
+  it('selects provider and model atomically while preserving other providers', () => {
+    const before = configuration({
+      'claude-code': { model: 'opus' },
+      codex: { model: 'saved-model' },
+    });
+    const after = withSelectedProviderModel(before, 'codex', 'chosen-model');
+    expect(after.selectedProviderId).toBe('codex');
+    expect(after.providers['codex']?.model).toBe('chosen-model');
+    expect(after.providers['claude-code']?.model).toBe('opus');
+    expect(before.providers['codex']?.model).toBe('saved-model');
+    expect(withSelectedProviderModel(after, 'codex', '').providers['codex']?.model).toBeNull();
+  });
   it('offers Default, the catalog and a custom id, and runs the default model by default', () => {
     const choices = getModelChoices(provider(), configuration());
     expect(values(choices)).toEqual([

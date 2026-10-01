@@ -1085,6 +1085,8 @@ describe('CodexCliProvider', () => {
       'computer_use',
       '--disable',
       'shell_tool',
+      '--disable',
+      'image_generation',
       '--cd',
       directory,
       '--output-schema',

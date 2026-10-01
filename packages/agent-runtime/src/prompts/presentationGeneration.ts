@@ -341,3 +341,63 @@ export const presentationRepairPromptV5: typeof presentationRepairPromptV4 = {
     };
   },
 };
+
+const IMAGE_GUIDANCE = `Image generation is enabled through the user's selected image provider.
+Return imageRequests: [] when generated imagery would not help the request.
+Otherwise request at most four distinct images. Each request has a persistentId and a clear, self-contained visual prompt (subject, composition, aspect ratio, and Brand Kit colours/style). Do not include commands, paths, credentials or URLs.
+For each image request, reserve its layout with a shape element using that persistentId. Keep the same placeholder identity wherever that image recurs. The app replaces these shapes with the generated image and preserves their geometry. Do not use a text or existing image element as a placeholder, and do not put essential text in generated images. Do not invent asset IDs. Never request the same persistentId twice.`;
+
+export const presentationGenerationPromptV6: typeof presentationGenerationPromptV5 = {
+  id: 'presentation-generation',
+  version: 6,
+  render(input) {
+    const base = presentationGenerationPromptV5.render(input);
+    return { ...base, templateVersion: 6, system: `${base.system}\n\n${IMAGE_GUIDANCE}` };
+  },
+};
+
+export const presentationRepairPromptV6: typeof presentationRepairPromptV5 = {
+  id: 'presentation-repair',
+  version: 6,
+  render(input) {
+    const base = presentationRepairPromptV5.render(input);
+    return { ...base, templateVersion: 6, system: `${base.system}\n\n${IMAGE_GUIDANCE}` };
+  },
+};
+
+function imageRouting(request: PresentationGenerationRequest): string {
+  const provider = request.imageProvider === 'grok' ? 'Grok Imagine' : 'Codex';
+  const tool =
+    request.imageProvider === 'grok' ? 'Grok CLI image_gen' : 'Codex app-server image_generation';
+  return `Images: ON. Selected image provider: ${provider}. Image model: managed by the selected CLI (no version override).
+To request images, add top-level JSON: "imageRequests": [{"persistentId":"hero-image","prompt":"A self-contained visual description"}].
+Koma Motion dispatches these requests to ${tool} using the user's existing sign-in and imports the results. This is separate from your text model. Use imageRequests; do not invoke a CLI, shell command, API, or another image provider yourself.
+${IMAGE_GUIDANCE.split('\n').slice(1).join('\n')}`;
+}
+
+/** Version 7 names the selected image backend and its app-mediated request route. */
+export const presentationGenerationPromptV7: typeof presentationGenerationPromptV5 = {
+  id: 'presentation-generation',
+  version: 7,
+  render(input) {
+    const base = presentationGenerationPromptV5.render(input);
+    return {
+      ...base,
+      templateVersion: 7,
+      system: `${base.system}\n\n${imageRouting(input.request)}`,
+    };
+  },
+};
+
+export const presentationRepairPromptV7: typeof presentationRepairPromptV5 = {
+  id: 'presentation-repair',
+  version: 7,
+  render(input) {
+    const base = presentationRepairPromptV5.render(input);
+    return {
+      ...base,
+      templateVersion: 7,
+      system: `${base.system}\n\n${imageRouting(input.request)}`,
+    };
+  },
+};

@@ -2,6 +2,8 @@ export * from './ClaudeCodeProvider';
 export * from './claudeStream';
 export * from './cliEnvironment';
 export * from './CodexCliProvider';
+export * from './codexImages';
+export * from './grokImages';
 export * from './GrokCliProvider';
 export * from './redact';
 export * from './resolveExecutable';

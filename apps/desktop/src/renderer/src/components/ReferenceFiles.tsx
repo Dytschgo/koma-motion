@@ -3,22 +3,58 @@ import { attachReferences } from '../lib/referenceActions';
 import { useProjectStore } from '../state/projectStore';
 import { useReferenceStore } from '../state/referenceStore';
 import { Button } from './ui';
+import { PlusIcon } from './icons';
 
-export function ReferenceFiles({ disabled }: { readonly disabled: boolean }): ReactElement {
+export function ReferenceAttachmentButton({
+  disabled,
+}: {
+  readonly disabled: boolean;
+}): ReactElement {
+  const selecting = useReferenceStore((state) => state.selecting);
+  return (
+    <button
+      type="button"
+      aria-label={selecting ? 'Reading references…' : 'Attach references'}
+      title="Attach references"
+      disabled={disabled || selecting}
+      onClick={() => void attachReferences()}
+      className="flex size-9 items-center justify-center rounded-control text-ink-300 hover:bg-surface-3 disabled:opacity-50"
+    >
+      <PlusIcon size={16} />
+    </button>
+  );
+}
+
+export function ReferenceFiles({
+  disabled,
+  showButton = true,
+}: {
+  readonly disabled: boolean;
+  readonly showButton?: boolean;
+}): ReactElement {
   const sessionId = useProjectStore((state) => state.sessionId);
   const state = useReferenceStore();
   const references = state.sessionId === sessionId ? state.references : [];
+  if (!showButton && references.length === 0 && state.error === null && !state.selecting)
+    return <></>;
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <div className="flex items-center gap-2">
-        <Button
-          compact
-          variant="outline"
-          disabled={disabled || state.selecting}
-          onClick={() => void attachReferences()}
-        >
-          {state.selecting ? 'Reading references…' : 'Attach references'}
-        </Button>
+        {showButton && (
+          <Button
+            compact
+            variant="outline"
+            disabled={disabled || state.selecting}
+            onClick={() => void attachReferences()}
+          >
+            {state.selecting ? 'Reading references…' : 'Attach references'}
+          </Button>
+        )}
+        {!showButton && state.selecting && (
+          <span role="status" className="text-xs text-ink-300">
+            Reading references…
+          </span>
+        )}
         {references.length > 0 && (
           <span className="text-xs text-ink-400">{references.length} attached · session only</span>
         )}

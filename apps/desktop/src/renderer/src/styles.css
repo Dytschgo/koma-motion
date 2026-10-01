@@ -281,3 +281,28 @@
     }
   }
 }
+
+/* Compact chat composer: preserve useful label space at the minimum sidebar width. */
+.chat-panel {
+  container-type: inline-size;
+  container-name: chat;
+}
+.chat-composer-toolbar {
+  display: grid;
+  grid-template-columns: 2.25rem minmax(0, 1fr) minmax(0, 0.85fr) auto 2.25rem;
+  align-items: center;
+  gap: 0.25rem;
+}
+@container chat (max-width: 390px) {
+  .chat-composer-toolbar {
+    grid-template-columns: 2.25rem minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .chat-count-trigger {
+    grid-column: 2;
+    justify-self: end;
+  }
+  .chat-send {
+    grid-column: 3;
+    justify-self: end;
+  }
+}
