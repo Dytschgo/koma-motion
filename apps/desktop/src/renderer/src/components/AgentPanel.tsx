@@ -13,6 +13,7 @@ import { DEFAULT_KOMA_COUNT, parseKomaCount } from '../lib/composerChoices';
 import { useAgentStore, type ConversationEntry, type DetectedProvider } from '../state/agentStore';
 import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
+import { useReferenceStore } from '../state/referenceStore';
 import { useUiStore } from '../state/uiStore';
 import {
   CheckIcon,
@@ -25,6 +26,7 @@ import {
 } from './icons';
 import { ModelPicker, useModelChoices } from './ModelPicker';
 import { RunActivity, RunMonitor } from './RunActivity';
+import { ReferenceFiles } from './ReferenceFiles';
 import { Button, Help, IconButton, Select, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
@@ -96,6 +98,11 @@ function Entry({
         <div className="max-w-[calc(100%-2rem)] whitespace-pre-wrap rounded-card rounded-tr-sm border border-line bg-surface-3 px-3.5 py-2.5 text-ink-100">
           <span className="sr-only">You asked: </span>
           {entry.text}
+          {entry.referenceNames !== undefined && (
+            <p className="mt-2 text-xs text-ink-400">
+              References: {entry.referenceNames.join(', ')}
+            </p>
+          )}
         </div>
         <span
           aria-hidden="true"
@@ -333,6 +340,10 @@ export function AgentPanel({
   const [monitorOpen, setMonitorOpen] = useState(false);
   const conversation = useAgentStore((state) => state.conversation);
   const apply = useProjectStore((state) => state.apply);
+  const sessionId = useProjectStore((state) => state.sessionId);
+  const referenceState = useReferenceStore();
+  const references = referenceState.sessionId === sessionId ? referenceState.references : [];
+  const [referenceConsent, setReferenceConsent] = useState<string | null>(null);
   const open = useUiStore((state) => state.agentPanelOpen);
   const setOpen = useUiStore((state) => state.setAgentPanelOpen);
   const setWidth = useUiStore((state) => state.setAgentPanelWidth);
@@ -378,8 +389,18 @@ export function AgentPanel({
   const providerName = selected?.metadata.displayName ?? selectedId;
   const running = execution !== null;
   const trimmed = request.trim();
+  const consentKey = `${String(sessionId)}:${selectedId}:${references.map((reference) => reference.id).join(',')}`;
+  const needsReferenceConsent =
+    references.length > 0 && selected?.metadata.usesExternalService === true;
+  const referencesReady =
+    !referenceState.selecting && (!needsReferenceConsent || referenceConsent === consentKey);
   const canSubmit =
-    trimmed !== '' && requestValidation.success && validCount && !running && available;
+    trimmed !== '' &&
+    requestValidation.success &&
+    validCount &&
+    !running &&
+    available &&
+    referencesReady;
 
   useEffect(() => {
     if (!open || choiceProject.current !== project.id) {
@@ -453,17 +474,20 @@ export function AgentPanel({
       !userRequestSchema.safeParse(text).success ||
       count === undefined ||
       running ||
-      !available
+      !available ||
+      !referencesReady
     ) {
       return;
     }
     setRequest('');
+    setReferenceConsent(null);
     void generate({
       userRequest: text.trim(),
       objective: null,
       // The agent infers the audience from the request.
       audience: null,
       requestedKomaCount: count,
+      ...(references.length > 0 ? { references: [...references] } : {}),
     });
   };
 
@@ -745,6 +769,24 @@ export function AgentPanel({
             <p className="px-2 text-xs text-ink-400">
               Stops after {String(project.agentConfiguration.timeoutSeconds)} seconds. Change the
               limit under Settings, Generation.
+            </p>
+          )}
+
+          <ReferenceFiles disabled={running} />
+          {needsReferenceConsent && (
+            <label className="flex items-start gap-2 text-xs text-ink-300">
+              <input
+                type="checkbox"
+                checked={referenceConsent === consentKey}
+                disabled={running}
+                onChange={(event) => setReferenceConsent(event.target.checked ? consentKey : null)}
+              />
+              <span>Send the extracted reference text to {providerName} with this request.</span>
+            </label>
+          )}
+          {references.length > 0 && selectedId === 'mock' && (
+            <p className="text-xs text-ink-400">
+              Mock repeats its demo and does not use reference content.
             </p>
           )}
 

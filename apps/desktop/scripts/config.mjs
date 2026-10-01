@@ -1,9 +1,9 @@
 /**
- * Build configuration of the three parts of the desktop application.
+ * Build configuration for the main process, preload bridges and renderer pages.
  *
  * Koma Motion uses Vite directly instead of an Electron build framework: the
- * application consists of two small Node.js bundles (main process and preload
- * script) and one web bundle (renderer), which Vite builds without help.
+ * Vite bundles the main process and each preload separately from the web
+ * pages, including the isolated PDF helpers.
  */
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -59,6 +59,10 @@ export function deckPreloadConfig(mode) {
   return nodeBundle('deck-preload', 'src/preload/deckRender.ts', mode);
 }
 
+export function referencePdfPreloadConfig(mode) {
+  return nodeBundle('reference-pdf-preload', 'src/preload/referencePdf.ts', mode);
+}
+
 export function rendererConfig(mode) {
   return {
     configFile: false,
@@ -79,6 +83,7 @@ export function rendererConfig(mode) {
         input: {
           main: resolve(root, 'src/renderer/index.html'),
           deck: resolve(root, 'src/renderer/deck-render.html'),
+          referencePdf: resolve(root, 'src/renderer/reference-pdf.html'),
         },
       },
     },

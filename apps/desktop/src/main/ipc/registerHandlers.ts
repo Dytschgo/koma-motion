@@ -26,6 +26,8 @@ import type { BrandKitLibrary } from '../services/brandKitLibrary';
 import { createOutputBatcher } from '../services/outputBatcher';
 import { generatePresentation, regenerateTransition } from '../services/generation';
 import { selectLogo } from '../services/logo';
+import { exportPowerPoint, validatePowerPoint } from '../services/powerPointExport';
+import { selectReferenceFiles } from '../services/referenceFiles';
 import { InstructionTemplateLibrary } from '../services/instructionTemplates';
 import {
   canCompleteSaveAndClose,
@@ -198,6 +200,11 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   });
 
   handle('koma:brand-kit:select-logo', () => selectLogo(window));
+  handle('koma:references:select', () => selectReferenceFiles(window));
+  handle('koma:export:validate', ({ project }) => validatePowerPoint(project));
+  handle('koma:export:powerpoint', ({ project, options }) =>
+    exportPowerPoint(window, project, options, () => session.sessionId),
+  );
   handle('koma:project:select-image', () => selectLogo(window, 'Choose an image'));
 
   handle('koma:instruction-templates:list', async () => {

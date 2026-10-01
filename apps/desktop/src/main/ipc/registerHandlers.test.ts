@@ -63,6 +63,28 @@ describe('project persistence IPC', () => {
     }
   });
 
+  it('rejects renderer-supplied reference and export paths before opening a dialog', async () => {
+    const { event, invoke } = openHandlers();
+    const exportRequest = {
+      project: buildProject(),
+      options: { motion: 'static', autoAdvance: false },
+    };
+    await expect(
+      invoke('koma:references:select', event, { filePaths: ['C:/private/source.txt'] }),
+    ).rejects.toThrow('Invalid request');
+    await expect(
+      invoke('koma:export:powerpoint', event, {
+        ...exportRequest,
+        filePath: 'C:/private/overwrite.pptx',
+      }),
+    ).rejects.toThrow('Invalid request');
+    await expect(
+      invoke('koma:export:powerpoint', { ...event, senderFrame: null }, exportRequest),
+    ).rejects.toThrow('Request rejected');
+    expect(dialogs.showOpenDialog).not.toHaveBeenCalled();
+    expect(dialogs.showSaveDialog).not.toHaveBeenCalled();
+  });
+
   it('validates template IPC and refuses untrusted senders before touching app data', async () => {
     templateLocation.directory = await mkdtemp(join(tmpdir(), 'koma-instruction-ipc-'));
     try {

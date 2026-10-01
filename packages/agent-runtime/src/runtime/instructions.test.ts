@@ -74,7 +74,7 @@ describe('instruction requests and prompts', () => {
     expect(result.status).toBe('succeeded');
     expect(provider.contexts).toHaveLength(2);
     for (const context of provider.contexts) {
-      expect(context.prompt.templateVersion).toBe(4);
+      expect(context.prompt.templateVersion).toBe(5);
       expect(context.prompt.user).toContain(JSON.stringify(instructions));
       expect(context.prompt.user).toContain('# Request\nCurrent task');
     }

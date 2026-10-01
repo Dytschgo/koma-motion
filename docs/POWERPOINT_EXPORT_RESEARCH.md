@@ -1,163 +1,97 @@
-# PowerPoint export research
+# PowerPoint export: implementation and evidence
 
-PowerPoint export is **not implemented**. Koma Motion contains an exporter
-interface and a placeholder exporter that reports that export is not
-available. The placeholder never writes a file.
+Koma Motion exports editable `.pptx` slides. The application offers static
+slides, slide fades and PowerPoint Morph for eligible continuous Koma
+transitions. The export is a separate file; it does not change the `.koma`
+project. This document distinguishes generated-file checks from a manual test
+in PowerPoint.
 
-This document lists what has to be investigated before an exporter can be
-built. It separates what has been verified from what is assumed.
+## Current implementation
 
-## Verified findings
+`packages/exporters` writes one slide per Koma. Text boxes, rectangles,
+rounded rectangles, circles, lines and supported embedded pictures are native
+PowerPoint objects. It preserves slide order, object stacking, editable text,
+supported image data, slide background and speaker notes. A group's visible
+children become separate editable objects. Objects continuing across Komas use
+the same `!!` name derived from their persistent identity. Microsoft documents
+that naming scheme for forcing Morph matches between slides in its
+[Morph tips](https://support.microsoft.com/en-gb/powerpoint/morph-transition-tips-and-tricks).
 
-Only findings that were tested in this project belong here.
+Static export omits Koma motion. Fade export adds a slide transition. Morph
+export uses Morph for continuous transitions that have no replace, fade-in or
+fade-out operation; other transitions use a slide fade. The file carries a
+fade fallback for readers that cannot use its Morph extension. Optional
+automatic advance uses the stored transition duration; without it the slides
+advance by click. The exporter validates before writing, returns warnings for
+known losses and writes through a temporary file so a failed export does not
+replace the destination.
 
-| Finding                                                                                               | How it was verified                    |
-| ----------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| The placeholder exporter returns the typed result `unsupported` and writes nothing to the destination | automated test in `packages/exporters` |
-| The application shows the PowerPoint exporter as not available                                        | application test, settings dialog      |
+Warnings cover unsupported or missing images, rounded image corners, font
+weight approximation, flattened groups, unequal group scaling, omitted static
+motion, Morph compatibility and transitions that fall back to fade. Unequal
+group scaling may alter text, strokes or rotation. WebP assets become
+placeholders. PowerPoint's fonts and layout may differ from the Koma canvas.
+Easing, staged timing and per-element fades are not preserved. Morph is an
+approximation of the Koma
+motion engine, not an export of its exact frames or choreography.
 
-**No finding about PowerPoint itself, about the file format or about any
-library has been verified yet.**
+The versions exercised in this prototype are locked in `pnpm-lock.yaml`:
 
-## Assumptions to be tested
+| Library    | Version | Licence                                 | Role                                        |
+| ---------- | ------- | --------------------------------------- | ------------------------------------------- |
+| PptxGenJS  | 4.0.1   | MIT                                     | Native editable PowerPoint objects          |
+| JSZip      | 3.10.2  | MIT or GPL-3.0-or-later; used under MIT | Add transition XML to the generated archive |
+| image-size | 2.0.4   | MIT                                     | Inspect embedded image dimensions           |
 
-These statements are common knowledge or expectations. None of them has been
-tested in this project. Each of them must be confirmed with a generated file
-that is opened in PowerPoint on macOS and on Windows before it is relied on.
+PptxGenJS fits the existing TypeScript/Node main process and produces editable
+objects without requiring an Office installation. Its [shape API](https://gitbrent.github.io/PptxGenJS/docs/api-shapes/)
+and [text API](https://gitbrent.github.io/PptxGenJS/docs/api-text/) describe the
+object properties. Position and corner-radius values are converted to inches;
+font and stroke sizes are converted to points. Tests cover drawing order,
+zero and nonzero corner radii, and text scaled within a group. This is a
+verified implementation choice, not a benchmark of all available libraries.
 
-- A `.pptx` file is a ZIP package of XML parts that follows the Office Open
-  XML standard.
-- PowerPoint has a transition called Morph that animates objects between two
-  consecutive slides.
-- Morph matches objects across slides and offers a naming convention to force
-  a match.
-- Slides can advance automatically after a set time.
+The writer uses `pptxgenjs` for editable objects and adds transition XML to
+the package. Microsoft's [Morph transition specification](https://learn.microsoft.com/en-us/openspecs/office_standards/ms-pptx/41ca8fbf-efc8-49ac-8a32-7bd0856544bd)
+describes the Morph element used here. Package and XML assertions test the
+output structure; they do not prove how every PowerPoint version renders it.
 
-## Open research questions
+## Verified in Windows PowerPoint
 
-### Editable PowerPoint generation
+On **2026-10-01**, a generated three-slide fixture was opened in **Windows
+PowerPoint 16.0.20430.20092** without a repair prompt. Native text was edited
+from “Presentations” to “Editable slides”, and a circle was moved. The result
+was saved as a separate `windows-edited-roundtrip.pptx`, closed and reopened;
+the edits remained. PowerPoint showed slide 2 with Morph duration **0.90 s**
+and advance after **1.20 s**, and slide 3 with Morph duration **1.20 s** and
+click advance. In Slide Show, automatic advance reached the final slide.
 
-- Can every element type of the document model be written as a native,
-  editable object: text as a text box, shapes as shapes, images as pictures?
-- Which properties are lost or changed when the file is opened and saved in
-  PowerPoint?
-- Is a generated file accepted by PowerPoint without a repair prompt?
+The local evidence for that manual check is under
+`D:\Code\KomaMotion-evidence\export-references-20261001\powerpoint-worker`
+(generated and edited decks plus timing and final-slide screenshots). These
+files are review evidence, not release assets. This test establishes that the
+fixture was accepted, editable, saved and playable in that Windows version.
+It does not establish pixel or font equality, exact Koma choreography or
+behavior in every deck.
 
-### Available open-source libraries
+**macOS PowerPoint has not been tested with this exporter.** Microsoft lists
+Morph support on Mac in its [PowerPoint Morph guidance](https://support.microsoft.com/en-us/powerpoint/use-the-morph-transition-in-powerpoint-for-mac-ipad-and-iphone),
+but that is not a verification of a Koma-generated file. Keynote, Google
+Slides, LibreOffice Impress and older PowerPoint versions are also unverified.
 
-- Which libraries can write `.pptx` files from Node.js, and which are
-  maintained?
-- Which of them give access to transitions, object names and timing, and
-  which only cover content?
-- Is direct generation of the XML parts a realistic alternative, and how much
-  of the standard would Koma Motion have to implement?
+## Remaining work
 
-Candidates have to be evaluated before one is named here.
+- Compare text wrapping, fonts, image fitting, rotation and rounded corners
+  against the Koma canvas using representative decks and installed fonts.
+- Verify generated files and edit/save/reopen behavior in PowerPoint for macOS
+  and other readers. Record product versions with each result.
+- Measure how each Koma operation appears under Morph, particularly colour
+  changes and object entry and exit. Do not infer exact choreography from the
+  presence of a Morph transition.
+- Test large decks, media combinations, file size and export time. Investigate
+  font embedding only with a clear licensing and fidelity case.
+- Research a separate Stop Motion Mode if exact intermediate frames become a
+  product requirement; it is not part of this exporter.
 
-### Slide object positioning
-
-- How do the logical units of the canvas (1920 x 1080 and 1440 x 1080) map to
-  the units of a slide?
-- Is the position of a rotated object defined in the same way: the top-left
-  corner of the unrotated box, rotation around the centre?
-- How are objects outside the slide handled?
-- How is the drawing order (`zIndex`) expressed?
-
-### Shape and text generation
-
-- Which shape kinds have a direct counterpart: rectangle, rounded rectangle,
-  circle, line?
-- How is the corner radius of a rounded rectangle expressed?
-- Does text wrap at the same positions as in the renderer of Koma Motion?
-  Differences in font metrics can move line breaks.
-- What happens when a font of the Brand Kit is not installed on the computer
-  that opens the file? Can fonts be embedded, and may they be?
-- How do font size, line height, alignment and vertical alignment map?
-
-### Image embedding
-
-- Which of the supported image types can be embedded without conversion: PNG,
-  JPEG, WebP, GIF?
-- How are `contain` and `cover` expressed? Is cropping needed?
-- How is the corner radius of an image expressed?
-
-### Native transition support
-
-- Which transitions can be written to a file, and with which parameters?
-- Can the duration of a transition be set, and in which range?
-- Can easing be set for a slide transition?
-
-### Object identity across slides
-
-- How does PowerPoint decide that two objects on consecutive slides are the
-  same object?
-- Can `persistentId` be written in a form that controls this decision?
-- What happens when the type of an object changes, as in a `replace`
-  operation?
-
-### PowerPoint Morph compatibility
-
-- Can Morph be written to a file by a program, or only set in PowerPoint?
-- Which operations of Koma Motion does Morph reproduce: move, scale, rotate,
-  fade, colour change?
-- How do entering and exiting objects behave under Morph?
-- Does Morph support anything comparable to the `staged` strategy, in which
-  objects leave, change and enter one after another?
-- Which versions and licences of PowerPoint play Morph, and what do versions
-  without it show?
-
-### Timing and auto-advance
-
-- Can slides advance automatically, and with which precision?
-- What is the shortest time per slide that PowerPoint plays reliably?
-- Does the timing behave the same in presenter view, in a window and in an
-  exported video?
-
-### Intermediate stop-motion frame generation
-
-- How many intermediate slides per second are needed for motion to look
-  continuous, and how many does PowerPoint play reliably?
-- How do file size and loading time grow with the number of slides?
-- How are intermediate slides kept out of the way when someone edits the
-  exported presentation?
-- How should the application warn before it generates a large number of
-  slides?
-
-See "Stop Motion Mode" in `MOTION_MODEL.md` for the concept.
-
-### macOS PowerPoint behaviour and Windows PowerPoint behaviour
-
-- Does the same file look and move the same in PowerPoint for macOS and
-  PowerPoint for Windows?
-- Which fonts are available on both?
-- Are there differences in transitions, in timing or in text layout?
-- How do other applications that open `.pptx` files behave, such as Keynote,
-  Google Slides and LibreOffice Impress?
-
-### Fallback strategies for unsupported effects
-
-- What is exported when an operation has no counterpart: a cut, a fade, or
-  intermediate slides?
-- How does the application tell the user which effects were replaced, before
-  and after the export?
-- Is a fallback chosen per transition or for the whole presentation?
-
-### Licensing implications
-
-- Under which licences are the candidate libraries released, and are they
-  compatible with the MIT licence of Koma Motion?
-- Are there licence terms or patents that concern the file format or
-  individual features?
-- May fonts and images of a Brand Kit be embedded in an exported file?
-- Which names and trademarks may the application and its documentation use?
-
-## How to work on this
-
-1. Pick one question.
-2. Build the smallest file that answers it.
-3. Open the file in PowerPoint on macOS and on Windows.
-4. Record the result under "Verified findings", with the versions that were
-   used and the way it was tested.
-
-The issues "Research editable PowerPoint export" and "Prototype the
-PowerPoint exporter" track this work.
+The [export and reference verification guide](../.agents/skills/verify-koma-motion/export-references.md)
+records the checks to run and the limits of each check.

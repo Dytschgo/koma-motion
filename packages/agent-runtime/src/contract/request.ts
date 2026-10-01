@@ -38,6 +38,29 @@ export const userRequestSchema = z
 export const MAX_AGENT_ELEMENTS_PER_KOMA = MAX_ELEMENTS_PER_KOMA;
 export const MAX_AGENT_TEXT_LENGTH = MAX_ELEMENT_TEXT_LENGTH;
 
+export const MAX_REFERENCE_FILES = 5;
+export const MAX_REFERENCE_TEXT_LENGTH = 100_000;
+export const MAX_TOTAL_REFERENCE_TEXT_LENGTH = 200_000;
+export const referenceTextSchema = z
+  .object({
+    id: z.uuid(),
+    name: z.string().trim().min(1).max(180),
+    format: z.enum(['txt', 'md', 'pdf']),
+    text: z.string().trim().min(1).max(MAX_REFERENCE_TEXT_LENGTH),
+    truncated: z.boolean(),
+  })
+  .strict();
+export type ReferenceText = z.infer<typeof referenceTextSchema>;
+export const referenceTextsSchema = z
+  .array(referenceTextSchema)
+  .max(MAX_REFERENCE_FILES)
+  .refine(
+    (references) =>
+      references.reduce((total, reference) => total + reference.text.length, 0) <=
+      MAX_TOTAL_REFERENCE_TEXT_LENGTH,
+    'The combined reference text exceeds the safety limit.',
+  );
+
 export const generationConstraintsSchema = z.object({
   maxKomas: z.number().int().min(1).nullable(),
   maxElementsPerKoma: z.number().int().min(1).max(MAX_AGENT_ELEMENTS_PER_KOMA),
@@ -85,6 +108,7 @@ export const presentationGenerationRequestSchema = z.object({
   allowedEasings: z.array(easingSchema).min(1),
   /** The only assets an agent may refer to. Agents never see or define paths. */
   availableAssets: z.array(z.object({ id: idSchema, name: z.string().max(260) })),
+  references: referenceTextsSchema.optional(),
   constraints: generationConstraintsSchema,
 });
 
@@ -98,6 +122,7 @@ export const generationInputSchema = z.object({
   objective: z.string().max(2000).nullable(),
   audience: z.string().max(1000).nullable(),
   requestedKomaCount: z.number().int().min(1).nullable(),
+  references: referenceTextsSchema.optional(),
 });
 export type GenerationInput = z.infer<typeof generationInputSchema>;
 
@@ -150,6 +175,7 @@ export function buildGenerationRequest(
     allowedTransitionStrategies: [...TRANSITION_STRATEGIES],
     allowedEasings: [...EASINGS],
     availableAssets,
+    references: input.references ?? [],
     constraints: {
       maxKomas: null,
       maxElementsPerKoma: MAX_AGENT_ELEMENTS_PER_KOMA,

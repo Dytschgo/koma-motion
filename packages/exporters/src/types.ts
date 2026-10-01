@@ -26,6 +26,10 @@ export type ExporterAvailability =
  */
 export interface ExportDestination {
   readonly filePath: string;
+  /** Static slides by default. Motion is an approximation of Koma transitions. */
+  readonly motion?: 'static' | 'fade' | 'morph';
+  /** Advance automatically after each transition when motion is requested. */
+  readonly autoAdvance?: boolean;
 }
 
 export type ExportIssueSeverity = 'error' | 'warning';

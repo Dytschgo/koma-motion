@@ -42,7 +42,12 @@ export interface FinishedRun extends RunningExecution {
 }
 
 export type ConversationEntry =
-  | { readonly id: number; readonly kind: 'request'; readonly text: string }
+  | {
+      readonly id: number;
+      readonly kind: 'request';
+      readonly text: string;
+      readonly referenceNames?: readonly string[];
+    }
   | {
       readonly id: number;
       readonly kind: 'result';
