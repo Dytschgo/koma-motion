@@ -208,15 +208,12 @@ function fidelityWarnings(project: KomaProject): ExportIssue[] {
       );
       const sx = element.size.width / element.content.referenceSize.width;
       const sy = element.size.height / element.content.referenceSize.height;
-      if (
-        Math.abs(sx - sy) > 1e-6 &&
-        element.content.children.some((child) => child.visible && child.rotation !== 0)
-      ) {
+      if (Math.abs(sx - sy) > 1e-6) {
         warnings.push(
           issue(
             'warning',
             'groupSkew',
-            `Group "${element.name}" has unequal scaling and rotated children; their skew is approximated.`,
+            `Group "${element.name}" has unequal scaling; text, strokes and rotated children may differ.`,
           ),
         );
       }
@@ -236,6 +233,7 @@ function addPlaced(
   const box = { x: x * scale, y: y * scale, w: w * scale, h: h * scale };
   const rotate = ((placed.rotation % 360) + 360) % 360;
   const transparency = (1 - opacity) * 100;
+  const groupScale = Math.min(w / element.size.width, h / element.size.height);
   const objectName = `!!${element.persistentId}`;
   if (element.type === 'text') {
     slide.addText(element.content.text, {
@@ -246,7 +244,7 @@ function addPlaced(
       margin: 0,
       fit: 'none',
       fontFace: element.style.fontFamily,
-      fontSize: element.style.fontSize * POINTS_PER_UNIT,
+      fontSize: element.style.fontSize * POINTS_PER_UNIT * (h / element.size.height),
       bold: element.style.fontWeight >= 600,
       color: colour(element.style.colour),
       transparency,
@@ -261,7 +259,7 @@ function addPlaced(
     const shape =
       kind === 'circle'
         ? pptx.ShapeType.ellipse
-        : kind === 'roundedRectangle'
+        : kind === 'roundedRectangle' && element.content.cornerRadius > 0
           ? pptx.ShapeType.roundRect
           : kind === 'line'
             ? pptx.ShapeType.line
@@ -273,7 +271,10 @@ function addPlaced(
       rotate,
       ...(kind === 'line' ? { y: (y + h / 2) * scale, h: 0 } : {}),
       ...(kind === 'roundedRectangle'
-        ? { rectRadius: Math.min(1, element.content.cornerRadius / Math.min(w, h)) }
+        ? {
+            rectRadius:
+              Math.min(Math.min(w, h) / 2, element.content.cornerRadius * groupScale) * scale,
+          }
         : {}),
       fill:
         element.style.fill === null || kind === 'line'
@@ -285,7 +286,7 @@ function addPlaced(
           : {
               color: colour(lineColour),
               transparency,
-              width: element.style.strokeWidth * POINTS_PER_UNIT,
+              width: element.style.strokeWidth * POINTS_PER_UNIT * groupScale,
             },
     });
     return;

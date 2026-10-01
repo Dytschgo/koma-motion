@@ -112,7 +112,11 @@ export function PowerPointExport(): ReactElement {
                   ...options,
                   motion: event.target.value,
                 });
-                if (parsed.success) setOptions(parsed.data);
+                if (parsed.success)
+                  setOptions({
+                    ...parsed.data,
+                    autoAdvance: parsed.data.motion !== 'static' && options.autoAdvance,
+                  });
               }}
             >
               <option value="static">Static slides</option>
@@ -128,7 +132,7 @@ export function PowerPointExport(): ReactElement {
             <input
               type="checkbox"
               checked={options.autoAdvance}
-              disabled={busy}
+              disabled={busy || options.motion === 'static'}
               onChange={(event) => setOptions({ ...options, autoAdvance: event.target.checked })}
             />
             <span>Advance automatically using transition timing</span>

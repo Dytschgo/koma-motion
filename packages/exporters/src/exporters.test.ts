@@ -128,6 +128,43 @@ async function slideXml(zip: JSZip, number: number): Promise<string> {
 describe('PowerPointExporter', () => {
   const exporter = new PowerPointExporter();
 
+  it('preserves rounded corner units and text size in scaled groups', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
+    try {
+      const group = threeKomas().presentation.komas[0]!.elements.find(
+        (element) => element.type === 'group',
+      );
+      if (group?.type !== 'group') throw new Error('Missing group fixture');
+      const project = buildProject();
+      project.presentation.komas[0]!.elements = [
+        buildShape({
+          size: { width: 100, height: 60 },
+          content: { shape: 'roundedRectangle', cornerRadius: 10 },
+        }),
+        buildShape({
+          id: 'square-corner',
+          persistentId: 'square-corner',
+          content: { shape: 'roundedRectangle', cornerRadius: 0 },
+        }),
+        {
+          ...group,
+          size: { width: 800, height: 600 },
+          content: { ...group.content, children: [buildText()] },
+        },
+      ];
+      const path = join(directory, 'scaled.pptx');
+      expect((await exporter.export(project, { filePath: path })).status).toBe('exported');
+      const xml = await slideXml(await JSZip.loadAsync(await readFile(path)), 1);
+      // Ten logical pixels is one sixth of this rectangle's 60-pixel short side.
+      expect(xml).toContain('name="adj" fmla="val 16667"');
+      expect(xml).toContain('prst="rect"');
+      // A 64-pixel font in a 2x group is 64 points on a 7.5-inch-high slide.
+      expect(xml).toContain('sz="6400"');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('writes three slides with editable text, shapes, image, stacking, and Morph identity', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
     try {
