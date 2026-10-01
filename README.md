@@ -8,9 +8,9 @@ An experimental open-source AI-native presentation motion studio.
 [![Licence: MIT](https://img.shields.io/badge/licence-MIT-blue.svg)](LICENSE)
 
 > **Koma Motion is an early-stage prototype.** It proves one idea: motion
-> that is derived from the identity of objects. It cannot export to
-> PowerPoint, its installers are not signed, and its file format can still
-> change.
+> that is derived from the identity of objects. Editable PowerPoint export is
+> available with documented motion approximations. Its installers are not
+> signed, and its file format can still change.
 
 ## Download
 
@@ -113,6 +113,11 @@ Everything in this list is implemented and covered by automated tests.
   any position, change the duration.
 - Undo and redo every change.
 - Cancel a running generation.
+- Attach TXT, Markdown or PDF source text to a generation in the current
+  session. Review the extracted text before sending it to an external provider.
+- Export editable PowerPoint slides as static slides or with fade or Morph
+  transitions. Windows PowerPoint has been tested; see
+  [export and reference limits](docs/POWERPOINT_EXPORT_RESEARCH.md).
 
 On the canvas, click to select and drag to move. Drag a corner to resize.
 Arrow keys move a selected element by one logical unit, or ten with Shift.
@@ -155,7 +160,8 @@ The screenshots are created from the running application with
 | Undo and redo                | available                                          |
 | Editing on the canvas        | move, resize, edit text, import and replace images |
 | Playing a whole presentation | not available, one transition at a time            |
-| PowerPoint export            | **not available**                                  |
+| PowerPoint export            | editable PPTX; static, fade and Morph options      |
+| Reference files              | TXT, Markdown and PDF; session only                |
 | Stop Motion Mode             | not available, concept only                        |
 | Installers                   | available for Windows and macOS, not signed        |
 | Stable and nightly updates   | available; installed by the app on Windows         |
@@ -171,7 +177,7 @@ packages/project-format reading and writing .koma files
 packages/motion-engine  motion between Komas
 packages/agent-runtime  agent providers
 packages/renderer       drawing Komas with React
-packages/exporters      exporter interface and placeholder
+packages/exporters      editable PowerPoint exporter
 ```
 
 The document model depends on nothing but a schema library. The renderer,
@@ -240,7 +246,11 @@ Save the resulting editable project as a `.koma` file.
 
 Providers that use an agent CLI send your request, project instructions, your
 Brand Kit, a text summary of existing Komas, and asset names to the online
-service of that CLI.
+service of that CLI. When you attach references, they also receive the extracted
+text with numbered source labels, format and truncation status. Original files,
+local paths, filenames and reference IDs are not sent in the reference section.
+The attachment list lets you inspect and remove text; sending it to an external
+provider requires a separate check in the composer.
 The application says so before you generate.
 Koma Motion stores no API keys.
 
@@ -249,6 +259,25 @@ validated against a schema and checked for invalid references before it
 becomes part of a project. It is never executed.
 
 Read more in [docs/AGENT_PROVIDERS.md](docs/AGENT_PROVIDERS.md).
+
+## PowerPoint export and reference files
+
+Use **Export** to create a `.pptx` from the presentation as it was when the
+export dialog opened. Text, supported shapes and pictures become editable
+PowerPoint objects. Choose static slides, slide fades or Morph. Morph matches
+eligible objects across slides; staged motion, replacements and individual
+fades use a slide fade. Easing and Koma's precise choreography are not
+preserved. The dialog reports losses and warnings before or after export.
+Auto advance is available with fade or Morph. The `.koma` project is unchanged.
+
+**Attach references** in the chat to select up to five TXT, Markdown or PDF
+files through a native dialog. Each file may be at most 10 MiB, with 20 MiB
+total; PDFs may have at most 40 pages. Extraction is limited to 100,000
+characters per file and 200,000 total, and PDF extraction times out after
+15 seconds. Clipped text is marked. References stay in the current project
+session and are not stored in `.koma` or included
+in PowerPoint export. See [PowerPoint export research](docs/POWERPOINT_EXPORT_RESEARCH.md)
+and [the verification guide](.agents/skills/verify-koma-motion/export-references.md).
 
 ## Native `.koma` project format
 
@@ -369,7 +398,11 @@ privately, as described there.
 
 ## Known limitations
 
-- PowerPoint export does not exist. No other export exists either.
+- PowerPoint export approximates motion and may change font layout. It has been
+  opened and edited in Windows PowerPoint; macOS PowerPoint is not verified.
+- WebP images cannot be embedded in PPTX and appear as placeholders. Image
+  corner rounding, some font weights and unequal group scaling can lose detail
+  in text, strokes or rotation.
 - The Codex CLI provider has never generated a presentation.
 - Claude Code and Grok have been tested on Windows only.
 - Grok stores a session transcript in its own data directory. Its sandbox
@@ -395,12 +428,11 @@ The complete list is in
 
 ## Roadmap
 
-1. **Editing:** move and resize elements on the canvas, add elements, play a
-   whole presentation.
-2. **Agents:** verify Codex, verify both CLIs on macOS, change single Komas,
-   reference files.
-3. **Export:** research and prototype an editable PowerPoint export.
-4. **Distribution:** packaged projects, installers, signing.
+1. **Editing:** add text and shapes directly, play a whole presentation.
+2. **Agents:** verify Codex, verify Claude Code and Grok on macOS, change
+   single Komas.
+3. **Export:** improve PPTX fidelity, verify macOS PowerPoint and other readers.
+4. **Distribution:** sign and notarise installers.
 5. **Research:** Stop Motion Mode and more kinds of motion.
 
 The [issues](https://github.com/Dytschgo/koma-motion/issues) contain the

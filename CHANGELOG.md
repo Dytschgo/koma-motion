@@ -10,6 +10,18 @@ changes to the project format.
 
 ### Added
 
+- Editable PowerPoint (`.pptx`) export from a native save dialog. Text, shapes
+  and supported pictures remain editable. Choose static slides, slide fades or
+  Morph for eligible continuous transitions, with optional automatic advance.
+  Validation and result warnings identify approximations and omitted effects.
+  The generated fixture opened without repair in Windows PowerPoint and
+  survived edits, save and reopen; macOS PowerPoint is not yet verified.
+- Session-only TXT, Markdown and PDF references for generation. A native dialog
+  selects bounded files and extracts text locally; the chat shows the text and
+  any truncation before sending. External providers require separate consent.
+  Prompts mark source text as untrusted and use numbered source labels without
+  sending reference filenames or IDs in that section. References are not saved
+  in `.koma` projects or PowerPoint exports.
 - Run activity in the chat: a pixel character follows the observed phases of a
   generation (starting, generating, checking, correcting, completed, failed,
   stopped), with the elapsed time. **Open run monitor** shows the same run with

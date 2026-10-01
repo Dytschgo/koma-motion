@@ -22,7 +22,7 @@ packages/
   motion-engine/        motion between Komas
   agent-runtime/        agent providers and the generation contract
   renderer/             drawing Komas with React
-  exporters/            exporter interface and placeholder
+  exporters/            exporter interface and editable PowerPoint writer
 docs/                   documentation
 examples/               example projects
 ```
@@ -42,7 +42,7 @@ makes every change visible immediately.
 | `motion-engine`  | comparing Komas, building and validating transitions, computing frames                                                       | everywhere                     |
 | `agent-runtime`  | request and response contract, prompts, validation, conversion, registry, runner, mock provider; CLI providers under `/node` | everywhere, `/node` in Node.js |
 | `renderer`       | React components that draw frames, asset loading, playback                                                                   | browser                        |
-| `exporters`      | exporter interface, placeholder PowerPoint exporter                                                                          | Node.js                        |
+| `exporters`      | exporter interface and editable PowerPoint writer with slide transitions                                                     | Node.js                        |
 
 ### Deviations from the proposed layout
 
@@ -186,12 +186,28 @@ runtime and are the same for every provider. See `docs/AGENT_PROVIDERS.md`.
 ## Exporter system
 
 `PresentationExporter` has two functions: `validate` reports whether a
-project can be exported, `export` writes it to a destination chosen by the
-user. Results are typed, including the result `unsupported`.
+project can be exported and what may lose fidelity; `export` writes it to a
+destination chosen through a native dialog. Results include warnings and are
+typed. `unsupported` remains in the interface for other exporters.
 
-The PowerPoint exporter is a placeholder. It reports that it is not
-available, and the application shows it that way. See
-`docs/POWERPOINT_EXPORT_RESEARCH.md`.
+The PowerPoint exporter writes editable text, shapes and supported pictures.
+Groups are flattened into editable children; unequal group scaling can change
+their text, strokes or rotation. It can add static slides, slide fades or Morph
+for eligible continuous transitions. Staged motion, replacement and individual
+fades fall back to a slide fade; easing and exact Koma
+choreography are not represented. It writes a temporary file before replacing
+the destination. See `docs/POWERPOINT_EXPORT_RESEARCH.md` for verified
+PowerPoint behavior and remaining gaps.
+
+Reference files are another main-process file boundary. A native dialog selects
+TXT, Markdown or PDF files. Text is extracted locally within bounds; PDF text
+parsing runs in a disposable sandboxed helper. The renderer receives extracted
+text without source paths and holds it for the current project session,
+outside the `.koma` model. Generation sends numbered source labels and text as
+marked untrusted prompt data, with separate consent before
+an external provider receives it. File names and reference IDs stay out of
+that prompt section. See
+`.agents/skills/verify-koma-motion/export-references.md`.
 
 ## Electron process boundaries
 
@@ -248,7 +264,10 @@ schema for the request and the response of every channel.
 | `koma:brand-kits:start-new`    | keep an unreadable library as a backup      |
 | `koma:providers:detect`        | detect all providers                        |
 | `koma:providers:list-models`   | list the models of a signed-in CLI          |
+| `koma:references:select`       | choose files and extract bounded text       |
 | `koma:providers:execute`       | run a generation                            |
+| `koma:export:validate`         | check PPTX export and fidelity warnings     |
+| `koma:export:powerpoint`       | choose destination and write PPTX           |
 | `koma:providers:cancel`        | stop a generation                           |
 | `koma:app:set-unsaved-changes` | tell the main process about unsaved changes |
 | `koma:app:confirm-close`       | close after saving                          |
@@ -290,6 +309,7 @@ sure that the channel list of the preload script equals the contract.
 | open Settings page       | `uiStore`                       | no                     |
 | preview                  | `uiStore` and the playback hook | no                     |
 | agent executions, chat   | `agentStore`                    | no                     |
+| extracted references     | `referenceStore`                | no                     |
 | chat sidebar width, open | `uiStore`, window local storage | no                     |
 | saved Brand Kit library  | `brandKitLibraryStore`, on disk | no, app data folder    |
 | unfinished editor input  | component state                 | no                     |
