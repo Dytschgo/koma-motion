@@ -1,7 +1,8 @@
 /** New, Open, Save and Save As: the steps between the interface and the main process. */
+import type { StarterPreset } from '@koma-motion/brand-kit';
 import { setBrandLogo, type KomaProject, type IdGenerator } from '@koma-motion/core';
 import { serialiseProject } from '@koma-motion/project-format';
-import { addKoma, importImage } from '../state/commands';
+import { addKoma, applyStarterPreset, importImage } from '../state/commands';
 import { useAgentStore } from '../state/agentStore';
 import {
   selectHasUnsavedChanges,
@@ -79,6 +80,49 @@ export async function createNewProject(): Promise<void> {
     showProject();
   } catch (error) {
     reportError('Creating the project', error);
+  }
+}
+
+/** Puts the first request of a starter into the chat and shows the chat. */
+function seedStarterRequest(preset: StarterPreset): void {
+  const ui = useUiStore.getState();
+  ui.seedComposer({ request: preset.request, komaCount: preset.komaCount });
+  ui.setAgentPanelOpen(true);
+}
+
+/**
+ * Creates a project that already has the Brand Kit and instructions of a
+ * starter, and puts its first request into the chat, ready to send.
+ */
+export async function createProjectFromStarter(preset: StarterPreset): Promise<void> {
+  if (!(await confirmReplacingProject('Creating a new project'))) {
+    return;
+  }
+  try {
+    const { project } = await invoke('koma:project:create', { name: preset.name });
+    // A new project has no logo, so the starter kit replaces its kit as a whole.
+    useProjectStore.getState().load(
+      {
+        ...project,
+        brandKit: { ...preset.brandKit, logoAssetId: null },
+        systemInstructions: preset.systemInstructions,
+      },
+      null,
+    );
+    showProject();
+    seedStarterRequest(preset);
+  } catch (error) {
+    reportError('Creating the project', error);
+  }
+}
+
+/** Applies a starter to the open project as one undoable change. */
+export function applyStarterToProject(preset: StarterPreset): void {
+  try {
+    useProjectStore.getState().apply(applyStarterPreset(preset));
+    seedStarterRequest(preset);
+  } catch (error) {
+    reportError('Applying the starter', error);
   }
 }
 

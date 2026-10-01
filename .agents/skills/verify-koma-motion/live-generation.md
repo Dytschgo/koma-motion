@@ -63,3 +63,17 @@ Open the original `.koma` file in the built app to try the generated deck.
 Open/Save dialogs in the automated test are stubbed; file handling is real.
 PowerPoint export is not implemented. Codex live generation and macOS Claude
 generation are not covered by this workflow.
+
+## Starters
+
+`starters.live.spec.ts` generates each built-in starter with the same opt-in
+variables and keeps `<starter>.koma`, a screenshot per Koma, two frames per
+transition, a video and `verification.json` in `KOMA_LIVE_OUTPUT_DIR/<starter>`.
+`KOMA_LIVE_STARTER=solar-system|finance-report|rapunzel` runs one starter.
+Each starter can take several minutes; the project time limit is 1500 seconds.
+
+```powershell
+$env:KOMA_LIVE_E2E = 'claude-code'
+$env:KOMA_LIVE_OUTPUT_DIR = 'D:/Code/KomaMotion-evidence/starters'
+pnpm --filter @koma-motion/desktop exec playwright test starters.live.spec.ts
+```
