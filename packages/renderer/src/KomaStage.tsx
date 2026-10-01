@@ -8,6 +8,7 @@ import {
   containsPointer,
   moveElement,
   pointerToLogical,
+  rotateElement,
   resizeElement,
   type CanvasRect,
   type ResizeCorner,
@@ -31,7 +32,7 @@ interface Gesture {
   readonly start: Position;
   readonly rect: CanvasRect;
   readonly captureTarget: HTMLElement;
-  readonly corner?: ResizeCorner | undefined;
+  readonly manipulation?: ResizeCorner | 'rotate' | undefined;
 }
 const controlStyle: CSSProperties = {
   background: '#182230',
@@ -99,7 +100,7 @@ export function KomaStage({
   const begin = (
     event: PointerEvent<HTMLElement>,
     element: KomaElement,
-    corner?: ResizeCorner,
+    manipulation?: ResizeCorner | 'rotate',
   ): void => {
     event.stopPropagation();
     if (
@@ -121,7 +122,7 @@ export function KomaStage({
       rect,
       captureTarget: event.currentTarget,
       start: pointerToLogical({ x: event.clientX, y: event.clientY }, rect, canvasSize),
-      corner,
+      manipulation,
     };
   };
   const nextElement = (event: PointerEvent<HTMLDivElement>): KomaElement | null => {
@@ -149,8 +150,11 @@ export function KomaStage({
     }
     const point = pointerToLogical({ x: event.clientX, y: event.clientY }, rect, canvasSize);
     const delta = { x: point.x - active.start.x, y: point.y - active.start.y };
-    return active.corner
-      ? resizeElement(active.original, delta, active.corner)
+    if (active.manipulation === 'rotate') {
+      return rotateElement(active.original, active.start, point);
+    }
+    return active.manipulation
+      ? resizeElement(active.original, delta, active.manipulation)
       : moveElement(active.original, delta);
   };
   return (
@@ -280,6 +284,40 @@ export function KomaStage({
             pointerEvents: 'none',
           }}
         >
+          <span
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              width: 2,
+              height: 8,
+              left: '50%',
+              top: -8,
+              transform: 'translateX(-50%)',
+              background: '#FF5A36',
+            }}
+          />
+          <button
+            type="button"
+            aria-label={`Rotate ${shown.name}`}
+            tabIndex={-1}
+            title="Drag to rotate. Exact degrees are also in the Inspector."
+            onPointerDown={(event) => begin(event, shown, 'rotate')}
+            style={{
+              position: 'absolute',
+              width: 16,
+              height: 16,
+              padding: 0,
+              border: '2px solid #FF5A36',
+              borderRadius: '50%',
+              background: '#fff',
+              pointerEvents: 'auto',
+              touchAction: 'none',
+              left: '50%',
+              top: -24,
+              transform: 'translateX(-50%)',
+              cursor: 'grab',
+            }}
+          />
           {(['nw', 'ne', 'sw', 'se'] as const).map((corner) => (
             <button
               key={corner}

@@ -3,7 +3,8 @@ import { launchApplication, showChat, type RunningApplication } from './applicat
 
 let running: RunningApplication;
 test.beforeEach(async () => {
-  running = await launchApplication();
+  // Keep each streamed phase visible long enough to observe on slower CI runners.
+  running = await launchApplication({ env: { KOMA_MOCK_DELAY_MS: '6000' } });
 });
 test.afterEach(async () => {
   await running.close();
@@ -28,6 +29,11 @@ test('streams what the provider writes into the chat and keeps it with the resul
   await kept.click();
   await expect(
     window.getByRole('log', { name: 'Conversation' }).getByText(/It outlines three Komas/),
+  ).toBeVisible();
+  await expect(
+    window
+      .getByRole('log', { name: 'Conversation' })
+      .getByText(/Then it picks a staged transition/),
   ).toBeVisible();
   expect(problems).toEqual([]);
 });

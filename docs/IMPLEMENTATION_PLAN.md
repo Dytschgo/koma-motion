@@ -80,7 +80,8 @@ before the next one depended on it.
 Interface:
 
 - Text and shape elements cannot be added by hand. Existing elements can be
-  moved, resized and edited on the canvas; images can be imported or replaced.
+  moved, resized, rotated and edited on the canvas; images can be imported or
+  replaced.
 - Komas are reordered with buttons, not by dragging.
 - The preview plays one transition at a time, not the whole presentation.
 - The window has a minimum size of 1120 x 700 and no layout for smaller
@@ -121,7 +122,6 @@ The order reflects dependencies, not dates.
 
 ### Editing: partly complete
 
-- Rotate elements on the canvas.
 - Create and remove text and shapes directly in the editor; expand image
   editing beyond import and replacement.
 - Play the whole presentation.

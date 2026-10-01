@@ -6,7 +6,7 @@ import { useUiStore, type BrandKitTab } from '../state/uiStore';
 import { BrandKitEditor } from './BrandKitEditor';
 import { BrandKitLibraryView } from './BrandKitLibrary';
 import { CloseIcon } from './icons';
-import { IconButton } from './ui';
+import { IconButton, SEGMENT_TRACK, segmentClass } from './ui';
 
 const TABS: readonly { readonly id: BrandKitTab; readonly label: string }[] = [
   { id: 'project', label: 'This project' },
@@ -56,11 +56,7 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
         </IconButton>
       </div>
 
-      <div
-        role="tablist"
-        aria-label="Brand Kit"
-        className="mx-3 mt-3 grid flex-none grid-cols-2 gap-0.5 rounded-control border border-line bg-surface-0 p-0.5"
-      >
+      <div role="tablist" aria-label="Brand Kit" className={`${SEGMENT_TRACK} flex-none p-2`}>
         {TABS.map((item) => {
           const selected = item.id === tab;
           return (
@@ -72,11 +68,7 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
               aria-selected={selected}
               aria-controls={`${idPrefix}-panel`}
               tabIndex={selected ? 0 : -1}
-              className={`h-7 rounded-[5px] px-3 text-sm transition-colors ${
-                selected
-                  ? 'bg-surface-3 font-semibold text-ink-100 shadow-raised'
-                  : 'text-ink-400 hover:bg-surface-2 hover:text-ink-100'
-              }`}
+              className={segmentClass(selected)}
               onClick={() => {
                 setTab(item.id);
               }}
@@ -84,7 +76,7 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
             >
               {item.label}
               {item.id === 'library' && kitCount > 0 && (
-                <span className="ml-1.5 text-sm text-ink-400 tabular-nums">{kitCount}</span>
+                <span className="text-ink-400 tabular-nums">{kitCount}</span>
               )}
             </button>
           );

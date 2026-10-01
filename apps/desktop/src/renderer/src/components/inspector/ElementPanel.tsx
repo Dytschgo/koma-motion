@@ -28,9 +28,9 @@ import {
   UnlockIcon,
   WarningIcon,
 } from '../icons';
-import { Button, Field, IconButton, NumberInput, Select, TextArea, TextInput } from '../ui';
+import { Badge, Button, Field, IconButton, NumberInput, Select, TextArea, TextInput } from '../ui';
 import { describeLayerState, ElementTypeIcon } from './LayersPanel';
-import { Chip, ColourField, Disclosure, Row, Section } from './parts';
+import { ColourField, Disclosure, Row, Section } from './parts';
 
 type Change = (next: KomaElement, field: string) => void;
 
@@ -599,9 +599,9 @@ export function ElementPanel({
         {state.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {state.map((item) => (
-              <Chip key={item} tone="warn">
+              <Badge key={item} tone="warn">
                 {item.charAt(0).toUpperCase() + item.slice(1)}
-              </Chip>
+              </Badge>
             ))}
           </div>
         )}

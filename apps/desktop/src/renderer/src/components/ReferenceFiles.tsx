@@ -18,7 +18,7 @@ export function ReferenceAttachmentButton({
       title="Attach references"
       disabled={disabled || selecting}
       onClick={() => void attachReferences()}
-      className="flex size-9 items-center justify-center rounded-control text-ink-300 hover:bg-surface-3 disabled:opacity-50"
+      className="chat-attach flex size-9 items-center justify-center rounded-control text-ink-300 hover:bg-surface-3 disabled:opacity-50"
     >
       <PlusIcon size={16} />
     </button>

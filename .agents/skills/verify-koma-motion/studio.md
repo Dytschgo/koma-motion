@@ -40,6 +40,8 @@ pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatBra
 - Canvas: open the fixture, select text and press Enter, type multiple lines,
   finish with Ctrl/Command+Enter, undo/redo, save and reopen. Escape discards a
   draft; invalid text retains its draft and prevents losing it on selection.
+  Drag the selected element's rotation handle and verify its Inspector value,
+  then verify Undo and Redo restore the previous and rotated angles.
 - Inspector: switch Element, Koma and Motion tabs with keyboard and pointer;
   select hidden and covered elements from Layers; change visibility and lock;
   verify restacking and Undo. Hide chat when the narrow layout replaces Inspector.

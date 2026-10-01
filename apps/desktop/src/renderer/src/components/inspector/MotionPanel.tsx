@@ -21,8 +21,8 @@ import { changeTransition, recalculateTransition } from '../../state/commands';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { CheckIcon, PlayIcon, RefreshIcon, WarningIcon } from '../icons';
-import { Button, Field, NumberInput, Select, TextArea, TextInput } from '../ui';
-import { Chip, Disclosure, Row, Section } from './parts';
+import { Badge, Button, Field, NumberInput, Select, TextArea, TextInput } from '../ui';
+import { Disclosure, Row, Section } from './parts';
 
 /** Effects listed before the rest is folded away. */
 const EFFECTS_SHOWN = 8;
@@ -116,9 +116,9 @@ function EffectList({
         <>
           <p className="flex flex-wrap gap-1" aria-label="Effect summary">
             {chips.map((kind) => (
-              <Chip key={kind}>
+              <Badge key={kind}>
                 {counts[kind]} {KIND_LABELS[kind]}
-              </Chip>
+              </Badge>
             ))}
           </p>
           {effects.length > EFFECTS_SHOWN && (
@@ -297,7 +297,7 @@ export function MotionPanel({
                 <option value="linear">Linear</option>
                 <option value="easeIn">Ease in</option>
                 <option value="easeOut">Ease out</option>
-                <option value="easeInOut">Ease in and out</option>
+                <option value="easeInOut">Ease in-out</option>
               </Select>
             )}
           </Field>

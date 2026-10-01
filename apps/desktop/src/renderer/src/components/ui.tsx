@@ -357,12 +357,20 @@ export function TextInput({
 export function TextArea({
   className,
   rows = 3,
+  style,
   ...rest
 }: ComponentPropsWithRef<'textarea'>): ReactElement {
+  // The field grows with its text, so a line is never cut in half; `rows`
+  // is the smallest height and a long text scrolls past twelve lines.
   return (
     <textarea
       rows={rows}
-      className={join(CONTROL, 'resize-none py-2 leading-relaxed', withDefaultWidth(className))}
+      className={join(
+        CONTROL,
+        'field-sizing-content max-h-[calc(12lh+1rem+2px)] resize-none py-2 leading-relaxed',
+        withDefaultWidth(className),
+      )}
+      style={{ minHeight: `calc(${String(rows)}lh + 1rem + 2px)`, ...style }}
       {...rest}
     />
   );
@@ -448,6 +456,131 @@ export function NumberInput({
   );
 }
 
+/*
+ * The vocabulary of the chat composer, shared by every panel: floating
+ * surfaces, segmented tabs, choice rows with an icon tile, and tinted badges.
+ */
+
+/** A menu, picker or popover that floats above a panel. */
+export const POPOVER_SURFACE = 'rounded-card border border-line-strong bg-surface-2 shadow-popover';
+
+/** The row of a segmented tab list. Pair each tab with `segmentClass`. */
+export const SEGMENT_TRACK = 'grid auto-cols-fr grid-flow-col gap-1';
+
+export function segmentClass(selected: boolean): string {
+  return join(
+    'relative flex min-h-8 items-center justify-center gap-1.5 rounded-control px-3 py-1.5 text-xs font-medium transition-colors duration-150 ease-standard',
+    selected ? 'bg-surface-3 text-ink-100' : 'text-ink-400 hover:text-ink-100',
+  );
+}
+
+/** A row that can be chosen from a list. The chosen row carries the accent tint. */
+export function choiceRowClass(selected: boolean): string {
+  return join(
+    'rounded-control transition-colors duration-150 ease-standard',
+    selected ? 'bg-accent-deep' : 'hover:bg-surface-3',
+  );
+}
+
+/** The square that holds the logo, icon or initial at the start of a choice row. */
+export function IconTile({
+  size = 'md',
+  className,
+  children,
+}: {
+  readonly size?: 'sm' | 'md';
+  readonly className?: string;
+  readonly children: ReactNode;
+}): ReactElement {
+  return (
+    <span
+      aria-hidden="true"
+      className={join(
+        'flex flex-none items-center justify-center rounded-control border border-line bg-surface-3',
+        size === 'sm' ? 'size-6' : 'size-7',
+        className,
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+const BADGE_TONES = {
+  neutral: 'bg-surface-3 text-ink-300',
+  accent: 'bg-accent-deep text-accent',
+  ok: 'bg-signal-ok/12 text-signal-ok',
+  warn: 'bg-signal-warn/12 text-signal-warn',
+} as const;
+
+/** A short status or scope label. */
+export function Badge({
+  tone = 'neutral',
+  children,
+}: {
+  readonly tone?: keyof typeof BADGE_TONES;
+  readonly children: ReactNode;
+}): ReactElement {
+  return (
+    <span
+      className={join(
+        'inline-flex h-5 flex-none items-center rounded-full px-2 text-xs font-medium whitespace-nowrap',
+        BADGE_TONES[tone],
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+export function SearchIcon({ size = 16 }: { readonly size?: number }): ReactElement {
+  return (
+    <svg
+      aria-hidden="true"
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      className="flex-none text-ink-400"
+    >
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="m16 16 5 5" />
+    </svg>
+  );
+}
+
+/**
+ * A search box with its icon. `bare` sits in the header of a popover, divided
+ * by a line; `field` stands alone in a panel like the other inputs.
+ */
+export function SearchField({
+  variant = 'field',
+  className,
+  ...rest
+}: Omit<ComponentPropsWithRef<'input'>, 'type'> & {
+  readonly variant?: 'field' | 'bare';
+}): ReactElement {
+  return (
+    <div
+      className={join(
+        'flex min-w-0 items-center gap-2',
+        variant === 'field' &&
+          'min-h-9 rounded-control border border-line-strong bg-surface-0 px-2.5 transition-[border-color,box-shadow] duration-150 ease-standard focus-within:border-accent focus-within:shadow-[0_0_0_3px_rgb(124_196_232/0.16)] hover:border-ink-400/70',
+        className,
+      )}
+    >
+      <SearchIcon />
+      <input
+        type="search"
+        className="min-w-0 flex-1 bg-transparent py-1 text-sm text-ink-100 placeholder:text-ink-400 focus-visible:outline-none"
+        {...rest}
+      />
+    </div>
+  );
+}
+
 export function PanelHeading({
   children,
   action,
@@ -502,7 +635,7 @@ export function ModalFrame({
       ref={reference}
       aria-labelledby={labelledBy}
       className={join(
-        'm-auto max-h-[85vh] max-w-[calc(100vw-2rem)] rounded-dialog border border-line bg-surface-2 p-0 text-ink-100 shadow-dialog',
+        'm-auto max-h-[85vh] max-w-[calc(100vw-2rem)] rounded-dialog border border-line-strong bg-surface-2 p-0 text-ink-100 shadow-dialog',
         className,
       )}
       onCancel={(event) => {
@@ -543,10 +676,13 @@ export function Modal({
       className={width === 'narrow' ? 'w-[440px]' : 'w-[640px]'}
     >
       <div className="flex max-h-[85vh] flex-col">
-        <h2 id={titleId} className="px-6 pt-5 text-xl font-semibold tracking-tight">
+        <h2
+          id={titleId}
+          className="border-b border-line px-6 pt-5 pb-4 text-lg font-semibold tracking-tight"
+        >
           {title}
         </h2>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
         {footer !== undefined && (
           <div className="flex justify-end gap-2 border-t border-line px-6 py-3">{footer}</div>
         )}

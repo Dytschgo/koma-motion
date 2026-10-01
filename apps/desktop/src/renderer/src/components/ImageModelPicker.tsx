@@ -5,6 +5,7 @@ import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { CheckIcon } from './icons';
 import { ProviderLogo } from './ProviderLogo';
+import { IconTile, choiceRowClass } from './ui';
 
 export function ImageModelPicker({
   project,
@@ -24,25 +25,25 @@ export function ImageModelPicker({
           type="button"
           aria-pressed={selected === value}
           disabled={disabled}
-          className={`flex w-full items-center gap-3 rounded-control px-3 py-3 text-left disabled:opacity-50 ${selected === value ? 'bg-accent-deep' : 'hover:bg-surface-3'}`}
+          className={`flex min-h-14 w-full items-center gap-2.5 px-2.5 py-2.5 text-left disabled:opacity-50 ${choiceRowClass(selected === value)}`}
           onClick={() =>
             apply(
               changeAgentConfiguration({ ...project.agentConfiguration, imageGeneration: value }),
             )
           }
         >
-          <span className="flex size-7 flex-none items-center justify-center rounded-control border border-line">
+          <IconTile>
             {value !== 'off' ? (
               <ProviderLogo providerId={value} />
             ) : (
               <span aria-hidden="true">—</span>
             )}
-          </span>
+          </IconTile>
           <span className="min-w-0 flex-1">
-            <strong className="block text-sm text-ink-100">
+            <strong className="block text-sm font-semibold text-ink-100">
               {value === 'off' ? 'Off' : value === 'codex' ? 'Codex' : 'Grok Imagine'}
             </strong>
-            <span className="mt-1 block text-xs text-ink-300">
+            <span className="mt-0.5 block text-xs text-ink-300">
               {value === 'off'
                 ? 'Existing images only'
                 : providers.some(
@@ -55,7 +56,7 @@ export function ImageModelPicker({
             </span>
           </span>
           {selected === value && (
-            <span className="text-accent">
+            <span className="flex-none text-accent">
               <CheckIcon size={14} />
             </span>
           )}

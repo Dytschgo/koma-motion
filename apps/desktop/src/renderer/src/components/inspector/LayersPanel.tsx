@@ -32,7 +32,7 @@ import {
   TextIcon,
   UnlockIcon,
 } from '../icons';
-import { Button, IconButton, TextInput } from '../ui';
+import { Button, IconButton, IconTile, SearchField, choiceRowClass } from '../ui';
 
 export function ElementTypeIcon({
   element,
@@ -100,8 +100,8 @@ function LayerRow({
 
   return (
     <li
-      className={`group flex items-center gap-1 rounded-md pr-0.5 ${
-        selected ? 'bg-accent-deep/55 text-ink-100' : 'text-ink-300 hover:bg-surface-2'
+      className={`group flex items-center gap-1 pr-0.5 ${choiceRowClass(selected)} ${
+        selected ? 'text-ink-100' : 'text-ink-300'
       }`}
     >
       <button
@@ -111,19 +111,16 @@ function LayerRow({
         aria-label={`${name}, ${kind}${state.length > 0 ? `, ${state.join(', ')}` : ''}`}
         tabIndex={tabStop ? 0 : -1}
         disabled={disabled}
-        className="flex min-w-0 flex-1 items-center gap-2 rounded-md py-1 pl-2 text-left disabled:cursor-not-allowed"
+        className="flex min-w-0 flex-1 items-center gap-2.5 rounded-control py-1 pl-1.5 text-left disabled:cursor-not-allowed"
         onClick={onSelect}
         onKeyDown={onKeyDown}
       >
-        <span
-          aria-hidden="true"
-          className={`flex-none ${selected ? 'text-accent' : 'text-ink-400'}`}
-        >
+        <IconTile size="sm" className={selected ? 'text-accent' : 'text-ink-400'}>
           <ElementTypeIcon element={element} />
-        </span>
+        </IconTile>
         <span aria-hidden="true" className="flex min-w-0 flex-col leading-tight">
           <span
-            className={`truncate ${element.visible ? '' : 'text-ink-400 italic'} ${
+            className={`truncate font-medium ${element.visible ? '' : 'text-ink-400 italic'} ${
               selected ? 'text-ink-100' : ''
             }`}
           >
@@ -234,7 +231,7 @@ export function LayersPanel({
             type="button"
             aria-expanded={open}
             aria-controls={listId}
-            className="-mx-1 flex h-8 w-full items-center gap-1.5 rounded-md px-1 text-left font-semibold text-ink-100 hover:bg-surface-3"
+            className="-mx-1 flex h-8 w-full items-center gap-1.5 rounded-control px-1 text-left font-semibold text-ink-100 hover:bg-surface-3"
             onClick={() => {
               setOpen(!open);
             }}
@@ -253,8 +250,7 @@ export function LayersPanel({
           <>
             {koma.elements.length > LAYER_FILTER_THRESHOLD && (
               <div className="flex-none px-3 pb-1.5">
-                <TextInput
-                  type="search"
+                <SearchField
                   aria-label="Filter layers"
                   placeholder="Filter layers"
                   value={query}

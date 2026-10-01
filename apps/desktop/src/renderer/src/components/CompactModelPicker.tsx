@@ -12,7 +12,7 @@ import { useModelFavoritesStore } from '../state/modelFavoritesStore';
 import { useProjectStore } from '../state/projectStore';
 import { CheckIcon, ChevronIcon, SettingsIcon } from './icons';
 import { ProviderLogo } from './ProviderLogo';
-import { Button } from './ui';
+import { Button, IconTile, SEGMENT_TRACK, SearchIcon, choiceRowClass, segmentClass } from './ui';
 import { ImageModelPicker } from './ImageModelPicker';
 
 export function CompactModelPicker({
@@ -102,7 +102,7 @@ export function CompactModelPicker({
       <div
         role="tablist"
         aria-label="Model type"
-        className="flex flex-none gap-1 border-b border-line p-2"
+        className={`${SEGMENT_TRACK} flex-none border-b border-line p-2`}
       >
         {(['text', 'images'] as const).map((value) => (
           <button
@@ -113,7 +113,7 @@ export function CompactModelPicker({
             aria-controls={panelId}
             aria-selected={tab === value}
             tabIndex={tab === value ? 0 : -1}
-            className={`flex-1 rounded-control px-3 py-1.5 text-xs font-medium ${tab === value ? 'bg-surface-3 text-ink-100' : 'text-ink-400 hover:text-ink-100'}`}
+            className={segmentClass(tab === value)}
             onClick={() => {
               setTab(value);
               setOptionsOpen(false);
@@ -164,19 +164,7 @@ export function CompactModelPicker({
         ) : (
           <>
             <div className="mx-2 flex flex-none items-center gap-2 border-b border-line px-2 py-3">
-              <svg
-                aria-hidden="true"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                className="flex-none text-ink-400"
-              >
-                <circle cx="10.5" cy="10.5" r="6.5" />
-                <path d="m16 16 5 5" />
-              </svg>
+              <SearchIcon />
               <input
                 ref={search}
                 type="search"
@@ -233,16 +221,14 @@ export function CompactModelPicker({
                 .filter((group) => group.entries.length > 0)
                 .map((group) => (
                   <section key={group.name} aria-label={group.name}>
-                    <h3 className="px-2 pt-4 pb-2 text-[10px] font-semibold tracking-wider text-ink-300 uppercase">
-                      {group.name}
-                    </h3>
+                    <h3 className="eyebrow px-2 pt-4 pb-2">{group.name}</h3>
                     {group.entries.map((entry) => {
                       const id = entry.provider.metadata.id;
                       const name = entry.provider.metadata.displayName;
                       return (
                         <div
                           key={`${id}:${entry.option.value}`}
-                          className={`group flex items-center rounded-control ${entry.selected ? 'bg-accent-deep' : 'hover:bg-surface-3'}`}
+                          className={`group flex items-center ${choiceRowClass(entry.selected)}`}
                         >
                           <button
                             type="button"
@@ -270,9 +256,9 @@ export function CompactModelPicker({
                               onClose();
                             }}
                           >
-                            <span className="flex size-7 flex-none items-center justify-center rounded-control border border-line bg-surface-3">
+                            <IconTile>
                               <ProviderLogo providerId={id} />
-                            </span>
+                            </IconTile>
                             <span className="min-w-0 flex-1">
                               <strong className="block break-words text-sm font-semibold text-ink-100">
                                 {entry.title}

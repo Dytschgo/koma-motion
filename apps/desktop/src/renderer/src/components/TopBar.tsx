@@ -52,7 +52,8 @@ function SaveIcon(): ReactElement {
 }
 
 export function TopBar(): ReactElement {
-  const hasProject = useProjectStore((state) => selectProject(state) !== null);
+  const projectName = useProjectStore((state) => selectProject(state)?.name ?? null);
+  const hasProject = projectName !== null;
   const hasUnsavedChanges = useProjectStore(selectHasUnsavedChanges);
   const canUndo = useProjectStore(selectCanUndo);
   const canRedo = useProjectStore(selectCanRedo);
@@ -124,8 +125,9 @@ export function TopBar(): ReactElement {
         {hasProject && (
           <div className="flex h-8 min-w-0 max-w-[min(32rem,100%)] items-center gap-2.5 rounded-full border border-line bg-surface-0/60 pr-3 pl-3.5">
             <span className="min-w-0 truncate font-medium text-ink-100" title={file?.displayPath}>
-              {file?.fileName ?? 'Not saved yet'}
+              {file?.fileName ?? (projectName.trim() === '' ? 'Untitled' : projectName)}
             </span>
+            {/* One status: the name already says which project this is. */}
             <span role="status" className="flex flex-none items-center gap-1.5 text-sm">
               {hasUnsavedChanges ? (
                 <>
@@ -133,7 +135,9 @@ export function TopBar(): ReactElement {
                   <span className="text-motion">Unsaved changes</span>
                 </>
               ) : (
-                <span className="text-ink-400">{file === null ? '' : 'All changes saved'}</span>
+                <span className="text-ink-400">
+                  {file === null ? 'Not saved yet' : 'All changes saved'}
+                </span>
               )}
             </span>
           </div>

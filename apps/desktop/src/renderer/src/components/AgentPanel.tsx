@@ -31,7 +31,7 @@ import { RunActivity, RunMonitor } from './RunActivity';
 import { ReferenceFiles, ReferenceAttachmentButton } from './ReferenceFiles';
 import { ChatBrandKitPicker } from './ChatBrandKitPicker';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
-import { Button, Help, IconButton, Select, TextInput } from './ui';
+import { Button, Help, IconButton, POPOVER_SURFACE, Select, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
   'Create three Komas introducing Koma Motion. Start with the complete system, focus on the motion engine, then show how the result stays editable in Koma Motion.';
@@ -827,7 +827,7 @@ export function AgentPanel({
               role="dialog"
               aria-label="Model"
               style={{ maxHeight: Math.min(pickerMaxHeight ?? 448, 448) }}
-              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(28rem,60vh)] w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-card border border-line-strong bg-surface-2 shadow-popover"
+              className={`absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(28rem,60vh)] w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden ${POPOVER_SURFACE}`}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -914,7 +914,7 @@ export function AgentPanel({
               id={countChoicesId}
               role="dialog"
               aria-label="Koma count"
-              className="absolute right-3 bottom-[calc(100%+0.5rem)] z-30 flex w-[min(16rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 rounded-card border border-line-strong bg-surface-2 p-3 shadow-popover"
+              className={`absolute right-3 bottom-[calc(100%+0.5rem)] z-30 flex w-[min(16rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 p-3 ${POPOVER_SURFACE}`}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
