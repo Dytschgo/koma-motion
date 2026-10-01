@@ -472,9 +472,17 @@ test('keeps editor bounds at zoom/resize and discards drafts when reopening the 
   await expect.poll(async () => (await stage.boundingBox())?.width).not.toBe(before.width);
   await expect.poll(async () => (await editor.boundingBox())?.width).not.toBe(beforeEditor.width);
   await expect(editor).toHaveValue('Resize draft');
-  const canvasBox = await stage.boundingBox();
-  const editBox = await editor.boundingBox();
-  if (!canvasBox || !editBox) throw new Error('Missing editor bounds');
+  // Read both rectangles in one layout snapshot; resize can move the stage
+  // between separate Playwright calls even after both widths have changed.
+  const { canvasBox, editBox } = await stage.evaluate((element) => {
+    const input = element.querySelector('textarea');
+    if (!input) throw new Error('Missing text editor');
+    const rect = (node: Element) => {
+      const { x, y, width, height } = node.getBoundingClientRect();
+      return { x, y, width, height };
+    };
+    return { canvasBox: rect(element), editBox: rect(input) };
+  });
   expect(editBox.x).toBeGreaterThanOrEqual(canvasBox.x);
   expect(editBox.y).toBeGreaterThanOrEqual(canvasBox.y);
   expect(editBox.x + editBox.width).toBeLessThanOrEqual(canvasBox.x + canvasBox.width + 1);

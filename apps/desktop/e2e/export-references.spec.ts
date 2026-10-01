@@ -279,6 +279,13 @@ test('extracts a local PDF for preview without exposing its path', async () => {
   const { window, application, problems } = running;
   const path = resolve('e2e/fixtures/decks/northstar.pdf');
   await window.getByRole('button', { name: 'Create a project' }).click();
+  await answerOpenDialog(application, resolve('e2e/fixtures/decks/encrypted.pdf'));
+  await window.getByRole('button', { name: 'Attach references' }).click();
+  await expect(window.getByRole('alert')).toContainText('password protected');
+  expect(
+    await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
+  ).toBe(1);
+  await expect(window.getByRole('list', { name: 'Attached references' })).toHaveCount(0);
   await answerOpenDialog(application, path);
   await window.getByRole('button', { name: 'Attach references' }).click();
   const references = window.getByRole('list', { name: 'Attached references' });
