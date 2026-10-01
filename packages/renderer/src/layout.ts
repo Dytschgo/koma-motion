@@ -77,7 +77,10 @@ export function rotateElement(
   let delta = currentAngle - startAngle;
   if (delta > Math.PI) delta -= Math.PI * 2;
   if (delta < -Math.PI) delta += Math.PI * 2;
-  return { ...element, rotation: element.rotation + (delta * 180) / Math.PI };
+  return {
+    ...element,
+    rotation: Math.max(-3600, Math.min(3600, element.rotation + (delta * 180) / Math.PI)),
+  };
 }
 
 /** Resizes in the element's rotated axes, keeping the opposite corner fixed. */

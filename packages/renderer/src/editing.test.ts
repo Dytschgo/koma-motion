@@ -1,3 +1,4 @@
+import { komaElementSchema } from '@koma-motion/core';
 import { buildShape } from '@koma-motion/core/testing';
 import { describe, expect, it } from 'vitest';
 import {
@@ -83,6 +84,21 @@ describe('canvas editing geometry', () => {
       1,
     );
     expect(shape.rotation).toBe(15);
+  });
+
+  it.each([3600, -3600])('keeps rotation within the document limit at %s degrees', (rotation) => {
+    const shape = buildShape({
+      position: { x: 100, y: 100 },
+      size: { width: 200, height: 100 },
+      rotation,
+    });
+    const result = rotateElement(
+      shape,
+      { x: 200, y: 100 },
+      { x: rotation > 0 ? 250 : 150, y: 150 },
+    );
+    expect(result.rotation).toBe(rotation);
+    expect(komaElementSchema.safeParse(result).success).toBe(true);
   });
 
   it('resizes the northwest corner around its fixed opposite corner with a minimum size', () => {
