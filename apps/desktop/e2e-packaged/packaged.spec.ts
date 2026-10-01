@@ -8,7 +8,12 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { answerSaveDialog, launchApplication, type RunningApplication } from '../e2e/application';
+import {
+  answerSaveDialog,
+  launchApplication,
+  openSettingsPage,
+  type RunningApplication,
+} from '../e2e/application';
 import { selectProvider } from '../e2e/composerControls';
 
 const executablePath = process.env['KOMA_APP_EXECUTABLE'] ?? '';
@@ -39,7 +44,7 @@ test('is the packaged application of the expected version', async () => {
   expect(facts).toEqual({ version: expectedVersion, packaged: true, name: 'Koma Motion' });
 
   await expect(window.getByRole('heading', { name: /Presentations are frames/ })).toBeVisible();
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await openSettingsPage(window, 'Updates');
   const updates = window.getByRole('region', { name: 'App updates' });
   await expect(updates.getByText(`Installed version: ${expectedVersion}`)).toBeVisible();
   await expect(updates.getByLabel('Update channel')).toHaveValue('stable');
@@ -51,7 +56,7 @@ test('is the packaged application of the expected version', async () => {
 
 test('does not use the network during a test', async () => {
   const { window } = running;
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await openSettingsPage(window, 'Updates');
   await window.getByRole('button', { name: 'Check for updates' }).click();
   await expect(
     window.getByText('Updates are available in installed versions of Koma Motion.'),
