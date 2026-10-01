@@ -77,13 +77,15 @@ export function TopBar(): ReactElement {
     update !== null && (update.state === 'available' || update.state === 'downloaded');
 
   return (
-    <header className="studio-topbar flex min-h-14 flex-none flex-wrap items-center gap-1 border-b border-desk-600 px-3 py-1">
-      <div className="mr-4 flex items-center gap-2.5">
-        <KomaMark />
-        <span className="whitespace-nowrap text-lg font-semibold tracking-tight">Koma Motion</span>
+    <header className="flex min-h-12 flex-none flex-wrap items-center gap-1 border-b border-line bg-surface-1 px-2.5 py-1">
+      <div className="mr-3 flex items-center gap-2 pl-1">
+        <KomaMark size={20} />
+        <span className="text-base font-semibold whitespace-nowrap tracking-tight">
+          Koma Motion
+        </span>
         {nightly && (
           <span
-            className="rounded-full border border-signal-warn/60 px-2 py-0.5 text-xs text-signal-warn"
+            className="rounded-full border border-signal-warn/50 bg-signal-warn/10 px-2 py-px text-xs font-medium text-signal-warn"
             title={`Nightly version ${update.currentVersion}`}
           >
             Nightly
@@ -91,26 +93,22 @@ export function TopBar(): ReactElement {
         )}
       </div>
 
-      <nav
-        aria-label="Project"
-        className="flex items-center gap-0.5 rounded-lg border border-desk-600/80 bg-desk-900/50 p-0.5"
-      >
+      <nav aria-label="Project" className="flex items-center gap-0.5">
         <IconButton label="New" onClick={() => void createNewProject()}>
           <PlusIcon />
         </IconButton>
         <IconButton label="Open" onClick={() => void openProject()}>
           <OpenIcon />
         </IconButton>
-        <span className="mx-0.5 h-4 w-px bg-desk-600" aria-hidden="true" />
         <IconButton label="Save" disabled={!hasProject} onClick={() => void saveProject()}>
           <SaveIcon />
         </IconButton>
-        <Button disabled={!hasProject} onClick={() => void saveProjectAs()}>
+        <Button compact disabled={!hasProject} onClick={() => void saveProjectAs()}>
           Save as
         </Button>
       </nav>
 
-      <div className="mx-2 h-5 w-px bg-desk-600" aria-hidden="true" />
+      <span className="mx-1.5 h-5 w-px bg-line" aria-hidden="true" />
 
       <IconButton label="Undo" disabled={!canUndo} onClick={undo}>
         <UndoIcon />
@@ -119,30 +117,30 @@ export function TopBar(): ReactElement {
         <RedoIcon />
       </IconButton>
 
-      <div className="flex min-w-0 flex-1 items-center justify-center gap-3 px-2">
+      <div className="flex min-w-0 flex-1 items-center justify-center px-3">
         {hasProject && (
-          <>
-            <span className="truncate text-ink-300" title={file?.displayPath}>
+          <div className="flex h-8 min-w-0 max-w-[min(32rem,100%)] items-center gap-2.5 rounded-full border border-line bg-surface-0/60 pr-3 pl-3.5">
+            <span className="min-w-0 truncate font-medium text-ink-100" title={file?.displayPath}>
               {file?.fileName ?? 'Not saved yet'}
             </span>
             <span role="status" className="flex flex-none items-center gap-1.5 text-sm">
               {hasUnsavedChanges ? (
                 <>
-                  <span className="size-2 rounded-full bg-pencil-red" aria-hidden="true" />
-                  <span className="text-pencil-red">Unsaved changes</span>
+                  <span className="size-1.5 rounded-full bg-motion" aria-hidden="true" />
+                  <span className="text-motion">Unsaved changes</span>
                 </>
               ) : (
                 <span className="text-ink-400">{file === null ? '' : 'All changes saved'}</span>
               )}
             </span>
-          </>
+          </div>
         )}
       </div>
 
       {updateReady && (
         <Button
           icon={<DownloadIcon size={14} />}
-          className="text-pencil-blue"
+          className="text-accent"
           onClick={() => {
             openSettings('updates');
           }}
@@ -152,8 +150,8 @@ export function TopBar(): ReactElement {
       )}
       <ProjectHealthButton />
       <Button
-        variant="outline"
-        icon={<PlayIcon size={14} />}
+        icon={<PlayIcon size={12} />}
+        className="border border-motion/40 bg-motion-deep/70 text-motion hover:border-motion/70 hover:bg-motion-deep disabled:border-line disabled:bg-transparent disabled:text-line-strong"
         disabled={transition === null || blocked}
         title={
           blocked
@@ -168,6 +166,7 @@ export function TopBar(): ReactElement {
       >
         Preview
       </Button>
+      <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
       <IconButton
         label="Settings"
         onClick={() => {

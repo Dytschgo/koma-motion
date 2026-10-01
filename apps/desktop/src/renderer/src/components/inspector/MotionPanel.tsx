@@ -55,7 +55,7 @@ export function MotionStatusBanner({
       role="status"
       aria-label="Motion status"
       className={`flex flex-col gap-2 rounded-lg border px-3 py-2 ${
-        ready ? 'border-signal-ok/40' : 'border-signal-warn/50 bg-desk-900'
+        ready ? 'border-signal-ok/40' : 'border-signal-warn/50 bg-surface-1'
       }`}
     >
       <p

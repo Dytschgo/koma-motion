@@ -9,13 +9,7 @@ import {
   clampChatWidth,
   type ChatLayout,
 } from '../lib/chatLayout';
-import {
-  DEFAULT_KOMA_COUNT,
-  DEFAULT_MODEL_VALUE,
-  getModelChoices,
-  parseKomaCount,
-  withProviderModel,
-} from '../lib/composerChoices';
+import { DEFAULT_KOMA_COUNT, parseKomaCount } from '../lib/composerChoices';
 import { useAgentStore, type ConversationEntry, type DetectedProvider } from '../state/agentStore';
 import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
@@ -29,6 +23,7 @@ import {
   SettingsIcon,
   WarningIcon,
 } from './icons';
+import { ModelPicker, useModelChoices } from './ModelPicker';
 import { Button, Help, IconButton, Select, TextInput } from './ui';
 
 export const EXAMPLE_REQUEST =
@@ -77,13 +72,13 @@ function Entry({
   if (entry.kind === 'request') {
     return (
       <li className="ml-auto flex max-w-full items-start justify-end gap-2 wrap-break-word select-text">
-        <div className="max-w-[calc(100%-2rem)] whitespace-pre-wrap rounded-2xl rounded-tr-sm border border-desk-600/70 bg-desk-700 px-3.5 py-2.5 text-ink-100">
+        <div className="max-w-[calc(100%-2rem)] whitespace-pre-wrap rounded-card rounded-tr-sm border border-line bg-surface-3 px-3.5 py-2.5 text-ink-100">
           <span className="sr-only">You asked: </span>
           {entry.text}
         </div>
         <span
           aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-desk-500 bg-desk-800 text-ink-300"
+          className="flex size-6 flex-none items-center justify-center rounded-full border border-line-strong bg-surface-2 text-ink-300"
         >
           <svg
             width="14"
@@ -105,7 +100,7 @@ function Entry({
       <li className="flex max-w-full items-start gap-2.5 wrap-break-word select-text">
         <span
           aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-desk-600 bg-desk-800"
+          className="flex size-6 flex-none items-center justify-center rounded-full border border-line bg-surface-2"
         >
           <KomaMark size={15} />
         </span>
@@ -133,7 +128,7 @@ function Entry({
       <li className="flex max-w-full items-start gap-2.5 wrap-break-word select-text">
         <span
           aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-desk-600 bg-desk-800"
+          className="flex size-6 flex-none items-center justify-center rounded-full border border-line bg-surface-2"
         >
           <KomaMark size={15} />
         </span>
@@ -151,10 +146,10 @@ function Entry({
   return (
     <li
       role="alert"
-      className="max-w-full rounded-lg border-l-2 border-pencil-red/70 py-1 pl-3 wrap-break-word select-text"
+      className="max-w-full rounded-lg border-l-2 border-motion/70 py-1 pl-3 wrap-break-word select-text"
     >
       <p className="text-sm text-ink-400">{entry.providerName}</p>
-      <p className="font-semibold text-pencil-red">{FAILURE_TITLES[entry.status]}</p>
+      <p className="font-semibold text-motion">{FAILURE_TITLES[entry.status]}</p>
       <p className="whitespace-pre-wrap">{error.message.split('\n')[0]}</p>
       {error.issues.length > 0 && (
         <ul className="mt-2 list-disc pl-5 text-sm text-ink-300">
@@ -288,8 +283,8 @@ function ResizeHandle({
         aria-hidden="true"
         className={
           'pointer-events-none absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 transition-colors ' +
-          'group-hover:bg-desk-500 group-focus-visible:w-1 group-focus-visible:bg-pencil-blue ' +
-          'group-data-dragging:bg-pencil-blue'
+          'group-hover:bg-line-strong group-focus-visible:w-1 group-focus-visible:bg-accent ' +
+          'group-data-dragging:bg-accent'
         }
       />
     </div>
@@ -316,9 +311,7 @@ export function AgentPanel({
   const [request, setRequest] = useState('');
   const [komaCount, setKomaCount] = useState(String(DEFAULT_KOMA_COUNT));
   const [autoKomaCount, setAutoKomaCount] = useState(false);
-  const [choice, setChoice] = useState<'provider' | 'count' | null>(null);
-  /** A model id chosen before Default, per project and provider, so it can be chosen again. */
-  const [previousModels, setPreviousModels] = useState<Readonly<Record<string, string>>>({});
+  const [choice, setChoice] = useState<'provider' | 'model' | 'count' | null>(null);
   const count = parseKomaCount(autoKomaCount, komaCount);
   const validCount = count !== undefined;
   const requestValidation = userRequestSchema.safeParse(request);
@@ -330,16 +323,17 @@ export function AgentPanel({
   const requestId = useId();
   const requestErrorId = useId();
   const providerId = useId();
-  const modelId = useId();
   const countId = useId();
   const countErrorId = useId();
   const providerChoicesId = useId();
+  const modelChoicesId = useId();
   const countChoicesId = useId();
   const section = useRef<HTMLElement>(null);
   const log = useRef<HTMLDivElement>(null);
   const requestField = useRef<HTMLTextAreaElement>(null);
   const showButton = useRef<HTMLButtonElement>(null);
   const providerButton = useRef<HTMLButtonElement>(null);
+  const modelButton = useRef<HTMLButtonElement>(null);
   const countButton = useRef<HTMLButtonElement>(null);
   const choicesPanel = useRef<HTMLDivElement>(null);
   const wasOpen = useRef(open);
@@ -348,12 +342,8 @@ export function AgentPanel({
   const selectedId = project.agentConfiguration.selectedProviderId;
   const selected = providers.find((provider) => provider.metadata.id === selectedId);
   const available = selected?.detection.availability === 'available';
-  const modelKey = `${project.id}:${selectedId}`;
-  const models = getModelChoices(
-    selected?.metadata,
-    project.agentConfiguration,
-    previousModels[modelKey] ?? null,
-  );
+  const models = useModelChoices(project, selected);
+  const providerName = selected?.metadata.displayName ?? selectedId;
   const running = execution !== null;
   const trimmed = request.trim();
   const canSubmit =
@@ -369,7 +359,12 @@ export function AgentPanel({
 
   useEffect(() => {
     if (choice === null) return;
-    const trigger = choice === 'provider' ? providerButton.current : countButton.current;
+    const trigger =
+      choice === 'provider'
+        ? providerButton.current
+        : choice === 'model'
+          ? modelButton.current
+          : countButton.current;
     choicesPanel.current
       ?.querySelector<HTMLElement>(
         'select:not(:disabled), input:not(:disabled), button:not(:disabled)',
@@ -435,7 +430,7 @@ export function AgentPanel({
     <section
       ref={section}
       aria-label="Agent chat"
-      className="relative flex min-h-0 flex-none flex-col border-l border-desk-600 bg-desk-950"
+      className="relative flex min-h-0 flex-none flex-col border-l border-line bg-surface-1"
       style={open ? { width: layout.width } : undefined}
     >
       {open ? (
@@ -454,7 +449,7 @@ export function AgentPanel({
           aria-expanded={false}
           aria-controls={bodyId}
           title="Show the chat"
-          className="flex w-11 flex-col items-center gap-3 py-3 text-ink-300 transition-colors hover:bg-desk-700 hover:text-ink-100"
+          className="flex w-11 flex-col items-center gap-3 py-3 text-ink-300 transition-colors hover:bg-surface-3 hover:text-ink-100"
           onClick={() => {
             setOpen(true);
           }}
@@ -466,14 +461,14 @@ export function AgentPanel({
           {running && (
             <span
               aria-hidden="true"
-              className="working-dot size-2 flex-none rounded-full bg-pencil-red"
+              className="working-dot size-2 flex-none rounded-full bg-motion"
             />
           )}
         </button>
       )}
 
       <div id={bodyId} hidden={!open} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div className="flex h-12 flex-none flex-col justify-center border-b border-desk-600/70 bg-desk-800/70 px-3">
+        <div className="flex h-11 flex-none flex-col justify-center border-b border-line bg-surface-1 pr-1.5 pl-3.5">
           <div className="flex items-center gap-2">
             <h2 className="min-w-0 flex-1 text-base font-semibold">Chat</h2>
             <IconButton
@@ -500,7 +495,7 @@ export function AgentPanel({
           ref={log}
           role="log"
           aria-label="Conversation"
-          className="chat-conversation flex min-h-32 flex-1 flex-col overflow-y-auto px-4 py-5"
+          className="flex min-h-32 flex-1 flex-col overflow-y-auto bg-surface-0 px-4 py-5"
           aria-live="polite"
         >
           {conversation.length === 0 && !running ? (
@@ -536,11 +531,11 @@ export function AgentPanel({
           {execution !== null && (
             <div
               role="status"
-              className="mt-5 flex items-start gap-3 rounded-lg border border-desk-600 bg-desk-800/70 px-3 py-2 wrap-break-word"
+              className="mt-5 flex items-start gap-3 rounded-lg border border-line bg-surface-2/70 px-3 py-2 wrap-break-word"
             >
               <span
                 aria-hidden="true"
-                className="working-dot mt-1.5 size-2 flex-none rounded-full bg-pencil-red"
+                className="working-dot mt-1.5 size-2 flex-none rounded-full bg-motion"
               />
               <div className="min-w-0 flex-1">
                 <p className="text-sm text-ink-400">{execution.providerName}</p>
@@ -562,13 +557,13 @@ export function AgentPanel({
         </div>
 
         <form
-          className="relative flex min-h-0 flex-none flex-col gap-2 overflow-visible border-t border-desk-600/70 bg-desk-900 px-3 pt-3 pb-2"
+          className="relative flex min-h-0 flex-none flex-col gap-2 overflow-visible border-t border-line bg-surface-1 px-3 pt-3 pb-2"
           onSubmit={(event) => {
             event.preventDefault();
             submit(request);
           }}
         >
-          <div className="chat-composer-box flex items-end gap-1 rounded-2xl border border-desk-500 bg-desk-800 p-1.5 focus-within:border-pencil-blue/70">
+          <div className="flex items-end gap-1 rounded-card border border-line-strong bg-surface-2 p-1.5 shadow-raised transition-[border-color,box-shadow] duration-150 focus-within:border-accent/70 focus-within:shadow-[0_0_0_3px_rgb(124_196_232/0.12)]">
             <label htmlFor={requestId} className="sr-only">
               Your request
             </label>
@@ -594,13 +589,13 @@ export function AgentPanel({
               aria-label="Generate Komas"
               title="Generate Komas (Ctrl/Command+Enter)"
               disabled={!canSubmit}
-              className="flex size-10 flex-none items-center justify-center rounded-full bg-pencil-blue text-desk-950 transition-colors hover:bg-[#a4d8f0] disabled:cursor-not-allowed disabled:bg-desk-600 disabled:text-ink-400"
+              className="flex size-10 flex-none items-center justify-center rounded-control bg-accent text-surface-0 transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-ink-400"
             >
               <SendIcon size={18} />
             </button>
           </div>
           {requestError !== undefined && (
-            <p id={requestErrorId} role="alert" className="text-sm text-pencil-red">
+            <p id={requestErrorId} role="alert" className="text-sm text-motion">
               Error: {requestError}
             </p>
           )}
@@ -613,23 +608,47 @@ export function AgentPanel({
             <button
               ref={providerButton}
               type="button"
-              aria-label="Provider and model"
-              aria-description={`${selected?.metadata.displayName ?? selectedId}${models.selectable && models.value !== DEFAULT_MODEL_VALUE ? `, model ${models.value}` : ''}${detection === 'running' ? ', checking availability' : detection === 'failed' || (detection === 'done' && !available) ? ', unavailable' : ''}`}
+              aria-label="Provider"
+              aria-description={`${providerName}${detection === 'running' ? ', checking availability' : detection === 'failed' || (detection === 'done' && !available) ? ', unavailable' : ''}`}
               aria-haspopup="dialog"
               aria-expanded={choice === 'provider'}
               aria-controls={choice === 'provider' ? providerChoicesId : undefined}
               disabled={running}
-              className="flex h-9 min-w-0 flex-1 items-center gap-1 rounded-md px-2 text-left text-sm text-ink-300 hover:bg-desk-700 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
+              className="flex h-9 min-w-10 flex-[1_1_0] items-center gap-1 rounded-control px-2 text-left text-sm text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
               onClick={() => setChoice(choice === 'provider' ? null : 'provider')}
             >
               <span className="min-w-0 flex-1 truncate">
-                {selected?.metadata.displayName ?? selectedId}
-                {models.selectable && models.value !== DEFAULT_MODEL_VALUE
-                  ? ` · ${models.value}`
-                  : ''}
+                {providerName}
                 {detection === 'running' ? ' · checking' : ''}
               </span>
               {(detection === 'failed' || (detection === 'done' && !available)) && (
+                <span className="flex-none text-signal-warn" aria-hidden="true">
+                  <WarningIcon size={14} />
+                </span>
+              )}
+              <ChevronIcon direction="down" size={14} />
+            </button>
+            <button
+              ref={modelButton}
+              type="button"
+              aria-label="Model"
+              aria-description={
+                models.selectable
+                  ? `Next run uses ${models.effectiveLabel}${models.availability === 'notListed' ? ', not listed for your sign-in' : ''}`
+                  : `${providerName} has no model choice`
+              }
+              aria-haspopup="dialog"
+              aria-expanded={choice === 'model'}
+              aria-controls={choice === 'model' ? modelChoicesId : undefined}
+              disabled={running}
+              title={`Next run uses ${models.effectiveLabel}`}
+              className="flex h-9 min-w-10 flex-[1_1_0] items-center gap-1 rounded-control px-2 text-left text-sm text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:cursor-not-allowed disabled:text-ink-400"
+              onClick={() => setChoice(choice === 'model' ? null : 'model')}
+            >
+              <span className="min-w-0 flex-1 truncate">
+                {models.effectiveModel ?? (models.selectable ? 'Default model' : 'Built-in')}
+              </span>
+              {models.availability === 'notListed' && (
                 <span className="flex-none text-signal-warn" aria-hidden="true">
                   <WarningIcon size={14} />
                 </span>
@@ -652,7 +671,7 @@ export function AgentPanel({
               aria-controls={choice === 'count' ? countChoicesId : undefined}
               aria-invalid={validCount ? undefined : true}
               aria-describedby={validCount ? undefined : countErrorId}
-              className={`flex h-9 flex-none items-center gap-1 rounded-md px-2 text-sm hover:bg-desk-700 ${validCount ? 'text-ink-300 hover:text-ink-100' : 'text-pencil-red'}`}
+              className={`flex h-9 flex-none items-center gap-1 rounded-md px-2 text-sm hover:bg-surface-3 ${validCount ? 'text-ink-300 hover:text-ink-100' : 'text-motion'}`}
               onClick={() => setChoice(choice === 'count' ? null : 'count')}
             >
               <span>
@@ -678,7 +697,7 @@ export function AgentPanel({
               <SettingsIcon />
               {project.systemInstructions.trim() !== '' && (
                 <span
-                  className="absolute right-0.5 bottom-0.5 size-1.5 rounded-full bg-pencil-blue"
+                  className="absolute right-0.5 bottom-0.5 size-1.5 rounded-full bg-accent"
                   aria-hidden="true"
                 />
               )}
@@ -702,8 +721,8 @@ export function AgentPanel({
               ref={choicesPanel}
               id={providerChoicesId}
               role="dialog"
-              aria-label="Provider and model"
-              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(22rem,55vh)] w-[min(18rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto rounded-xl border border-desk-500 bg-desk-800 p-3 shadow-[0_16px_40px_rgb(0_0_0/0.45)]"
+              aria-label="Provider"
+              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(22rem,55vh)] w-[min(18rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto rounded-card border border-line-strong bg-surface-2 p-3 shadow-popover"
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -744,42 +763,13 @@ export function AgentPanel({
                   </option>
                 ))}
               </Select>
-              <label htmlFor={modelId} className="text-xs font-medium text-ink-300">
-                Model
-              </label>
-              <Select
-                id={modelId}
-                value={models.value}
-                disabled={running || !models.selectable}
-                title={
-                  models.selectable
-                    ? 'Default lets the provider choose. Set another model id in Settings.'
-                    : `${selected?.metadata.displayName ?? selectedId} has no model choice.`
-                }
-                onChange={(event) => {
-                  const value = event.target.value;
-                  if (value === DEFAULT_MODEL_VALUE && models.value !== DEFAULT_MODEL_VALUE)
-                    setPreviousModels((current) => ({ ...current, [modelKey]: models.value }));
-                  apply(
-                    changeAgentConfiguration(
-                      withProviderModel(project.agentConfiguration, selectedId, value),
-                    ),
-                  );
-                }}
-              >
-                {models.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </Select>
               {detection === 'running' && (
                 <p role="status" className="text-xs text-ink-300">
                   Checking providers
                 </p>
               )}
               {detection === 'failed' && (
-                <p role="alert" className="text-xs text-pencil-red">
+                <p role="alert" className="text-xs text-motion">
                   Error: the providers could not be checked.
                 </p>
               )}
@@ -795,13 +785,40 @@ export function AgentPanel({
               )}
             </div>
           )}
+          {choice === 'model' && (
+            <div
+              ref={choicesPanel}
+              id={modelChoicesId}
+              role="dialog"
+              aria-label="Model"
+              className="absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(26rem,60vh)] w-[min(20rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 overflow-y-auto rounded-card border border-line-strong bg-surface-2 p-3 shadow-popover"
+              onKeyDown={(event) => {
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setChoice(null);
+                  modelButton.current?.focus();
+                }
+              }}
+              onBlur={(event) => {
+                if (
+                  event.relatedTarget instanceof Node &&
+                  !event.currentTarget.contains(event.relatedTarget) &&
+                  !modelButton.current?.contains(event.relatedTarget)
+                )
+                  setChoice(null);
+              }}
+            >
+              <ModelPicker project={project} provider={selected} label="Model" disabled={running} />
+            </div>
+          )}
           {choice === 'count' && (
             <div
               ref={choicesPanel}
               id={countChoicesId}
               role="dialog"
               aria-label="Koma count"
-              className="absolute right-3 bottom-[calc(100%+0.5rem)] z-30 flex w-[min(16rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 rounded-xl border border-desk-500 bg-desk-800 p-3 shadow-[0_16px_40px_rgb(0_0_0/0.45)]"
+              className="absolute right-3 bottom-[calc(100%+0.5rem)] z-30 flex w-[min(16rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col gap-2 rounded-card border border-line-strong bg-surface-2 p-3 shadow-popover"
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();
@@ -855,7 +872,7 @@ export function AgentPanel({
                 </Button>
               </div>
               {!validCount && (
-                <p role="alert" className="text-xs text-pencil-red">
+                <p role="alert" className="text-xs text-motion">
                   Enter a whole number from 1.
                 </p>
               )}

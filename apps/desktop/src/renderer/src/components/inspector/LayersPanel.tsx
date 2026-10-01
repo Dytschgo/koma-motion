@@ -101,7 +101,7 @@ function LayerRow({
   return (
     <li
       className={`group flex items-center gap-1 rounded-md pr-0.5 ${
-        selected ? 'bg-pencil-blue-deep text-ink-100' : 'text-ink-300 hover:bg-desk-700'
+        selected ? 'bg-accent-deep/55 text-ink-100' : 'text-ink-300 hover:bg-surface-2'
       }`}
     >
       <button
@@ -117,7 +117,7 @@ function LayerRow({
       >
         <span
           aria-hidden="true"
-          className={`flex-none ${selected ? 'text-pencil-blue' : 'text-ink-400'}`}
+          className={`flex-none ${selected ? 'text-accent' : 'text-ink-400'}`}
         >
           <ElementTypeIcon element={element} />
         </span>
@@ -226,7 +226,7 @@ export function LayersPanel({
   return (
     <section
       aria-label="Layers"
-      className={`flex min-h-0 flex-none flex-col border-t border-desk-600 ${open ? 'max-h-[42%]' : ''}`}
+      className={`flex min-h-0 flex-none flex-col border-t border-line ${open ? 'max-h-[42%]' : ''}`}
     >
       <div className="flex flex-none items-center gap-1 px-3 pt-1">
         <h2 className="min-w-0 flex-1">
@@ -234,7 +234,7 @@ export function LayersPanel({
             type="button"
             aria-expanded={open}
             aria-controls={listId}
-            className="-mx-1 flex h-8 w-full items-center gap-1.5 rounded-md px-1 text-left font-semibold text-ink-100 hover:bg-desk-700"
+            className="-mx-1 flex h-8 w-full items-center gap-1.5 rounded-md px-1 text-left font-semibold text-ink-100 hover:bg-surface-3"
             onClick={() => {
               setOpen(!open);
             }}

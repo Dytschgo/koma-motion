@@ -103,14 +103,14 @@ export function UpdateControl(): ReactElement {
       <p
         role="status"
         aria-live="polite"
-        className={status.state === 'error' ? 'text-pencil-red' : 'text-ink-100'}
+        className={status.state === 'error' ? 'text-motion' : 'text-ink-100'}
       >
         {status.state === 'error' && 'Error: '}
         {describe(status)}
       </p>
 
       {failure !== null && (
-        <p role="alert" className="flex gap-2 text-pencil-red">
+        <p role="alert" className="flex gap-2 text-motion">
           <span className="mt-0.5 flex-none">
             <WarningIcon size={14} />
           </span>
@@ -125,10 +125,10 @@ export function UpdateControl(): ReactElement {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(percent)}
-          className="h-1.5 overflow-hidden rounded-full bg-desk-600"
+          className="h-1.5 overflow-hidden rounded-full bg-line"
         >
           <div
-            className="h-full origin-left bg-pencil-blue"
+            className="h-full origin-left bg-accent"
             style={{ transform: `scaleX(${String(percent / 100)})` }}
           />
         </div>

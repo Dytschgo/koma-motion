@@ -22,8 +22,8 @@ function Sequence(): ReactElement {
             width="122"
             height="94"
             rx="8"
-            fill="var(--color-desk-800)"
-            stroke="var(--color-desk-500)"
+            fill="var(--color-surface-2)"
+            stroke="var(--color-line-strong)"
           />
           {index > 0 && (
             <circle
@@ -31,13 +31,13 @@ function Sequence(): ReactElement {
               cy={frames[index - 1]?.y}
               r={frames[index - 1]?.r}
               fill="none"
-              stroke="var(--color-pencil-blue)"
+              stroke="var(--color-accent)"
               strokeDasharray="3 3"
             />
           )}
-          <circle cx={frame.x} cy={frame.y} r={frame.r} fill="var(--color-pencil-red)" />
+          <circle cx={frame.x} cy={frame.y} r={frame.r} fill="var(--color-motion)" />
           {index < frames.length - 1 && (
-            <path d="M128 48h16" stroke="var(--color-desk-500)" strokeWidth="1.5" />
+            <path d="M128 48h16" stroke="var(--color-line-strong)" strokeWidth="1.5" />
           )}
         </g>
       ))}
@@ -47,24 +47,25 @@ function Sequence(): ReactElement {
 
 export function Welcome(): ReactElement {
   return (
-    <main className="studio-welcome flex min-h-0 flex-1 items-center justify-center overflow-y-auto bg-desk-950 p-8">
-      <div className="flex w-full max-w-2xl flex-col items-start gap-7">
-        <div className="studio-welcome-sequence w-full rounded-2xl border border-desk-600/80 p-7 sm:p-9">
+    <main className="studio-desk flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-8">
+      <div className="flex w-full max-w-2xl flex-col items-start gap-8">
+        <div className="w-full rounded-dialog border border-line bg-surface-1 p-7 shadow-raised sm:p-9">
           <Sequence />
         </div>
         <div>
-          <h1 className="max-w-[24ch] text-[2rem] leading-[1.14] font-semibold tracking-[-0.035em] text-ink-100">
+          <p className="eyebrow text-accent">Koma Motion</p>
+          <h1 className="mt-2 max-w-[22ch] text-[2.25rem] leading-[1.1] font-semibold tracking-[-0.035em] text-ink-100">
             Presentations are frames. Make them move.
           </h1>
           <p className="mt-3 max-w-[60ch] text-lg leading-relaxed text-ink-300">
             Each frame is a Koma. Motion connects one Koma to the next.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
-          <Button variant="primary" onClick={() => void createNewProject()}>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="primary" className="px-5" onClick={() => void createNewProject()}>
             Create a project
           </Button>
-          <Button variant="outline" onClick={() => void openProject()}>
+          <Button variant="outline" className="px-5" onClick={() => void openProject()}>
             Open a project
           </Button>
           <Help label="About Koma Motion project files">

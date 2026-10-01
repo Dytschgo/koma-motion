@@ -229,7 +229,7 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
           </>
         )}
         {busy && (
-          <div role="status" className="rounded-lg border border-pencil-blue p-3">
+          <div role="status" className="rounded-lg border border-accent p-3">
             <p>
               {busy === 'saving'
                 ? 'Saving to the Brand Kit library'
@@ -244,7 +244,7 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
           </div>
         )}
         {error && (
-          <p role="alert" className="text-pencil-red">
+          <p role="alert" className="text-motion">
             {error}
           </p>
         )}
@@ -262,7 +262,7 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
             ))}
             {!result && (
               <>
-                <div className="rounded-lg border border-desk-500 p-3 text-sm">
+                <div className="rounded-lg border border-line-strong p-3 text-sm">
                   {provider === 'claude-code' ? (
                     <p>
                       When you choose “Send selected content and analyze”, the extracted text and
@@ -289,7 +289,7 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
                         <img
                           alt={`Prepared slide ${slide.number}`}
                           src={`data:image/png;base64,${slide.preview}`}
-                          className="w-full rounded border border-desk-600"
+                          className="w-full rounded border border-line"
                         />
                         <pre className="max-h-36 overflow-auto whitespace-pre-wrap text-xs text-ink-300">
                           {slide.text || 'No extractable text; the preview will be analyzed.'}
@@ -424,7 +424,7 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
               )}
             </Field>
             {validation && !validation.success && (
-              <p role="alert" className="text-pencil-red">
+              <p role="alert" className="text-motion">
                 {validation.error.issues
                   .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
                   .join('; ')}
@@ -446,7 +446,7 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
                 .map((candidate) => (
                   <label
                     key={candidate.id}
-                    className="flex flex-col gap-2 rounded border border-desk-500 p-3"
+                    className="flex flex-col gap-2 rounded border border-line-strong p-3"
                   >
                     <img
                       alt="Extracted logo candidate"

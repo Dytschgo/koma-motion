@@ -119,7 +119,7 @@ export function useInstructionSettings(
   const feedback = (
     <>
       {error !== '' && (
-        <p role="alert" className="text-pencil-red">
+        <p role="alert" className="text-motion">
           {error}
         </p>
       )}

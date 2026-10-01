@@ -10,6 +10,10 @@ changes to the project format.
 
 ### Added
 
+- Model selection in the chat composer: the provider and the model are two
+  controls, and the footer names the model the next run uses. Claude Code
+  offers its aliases and model names, Grok lists the models of your sign-in on
+  request, and any provider that accepts one takes a validated model id.
 - Settings is organised into categories. **This project** holds the
   instructions, the time limit and the models, which are saved in the .koma
   file and can be undone. **Koma Motion** holds templates, providers, updates
@@ -44,6 +48,11 @@ changes to the project format.
 
 ### Changed
 
+- A consistent visual system across the application: flat panels on one
+  surface level with 44-pixel headers, a quieter top bar with the file name
+  and save state in one chip, segmented tabs in the Inspector and the Brand
+  Kit, a dot-grid desk under the canvas, and shared radius, shadow and focus
+  styles. Decorative gradients were removed.
 - The chat header no longer has the two help buttons. A time limit, when one
   is set, is shown under the composer; it is changed under Settings,
   Generation.

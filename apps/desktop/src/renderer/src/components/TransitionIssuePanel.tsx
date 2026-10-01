@@ -59,8 +59,8 @@ export function TransitionIssuePanel({
     <section
       aria-labelledby={headingId}
       aria-describedby={`${id}-reason`}
-      className={`flex-none border-t bg-desk-800 px-3 py-2 ${
-        assessment.blocked ? 'border-signal-warn/50' : 'border-desk-600'
+      className={`flex-none border-t bg-surface-2 px-3 py-2 ${
+        assessment.blocked ? 'border-signal-warn/50' : 'border-line'
       }`}
     >
       <div className="flex items-start gap-2">
@@ -89,7 +89,7 @@ export function TransitionIssuePanel({
               </span>
             )}
             {ended !== null && (
-              <span className="text-pencil-red">
+              <span className="text-motion">
                 {ended.status === 'failed' ? `Regeneration failed. ${endedSummary}` : endedSummary}{' '}
                 The transition still cannot play.
               </span>

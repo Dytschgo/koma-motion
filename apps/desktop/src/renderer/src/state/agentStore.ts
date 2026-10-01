@@ -3,6 +3,7 @@ import type {
   AgentError,
   ExecutionDiagnostics,
   ExecutionStatusEvent,
+  ProviderModelListing,
 } from '@koma-motion/agent-runtime';
 import { create } from 'zustand';
 import type { IpcResponse } from '../../../shared/ipc';
@@ -54,6 +55,13 @@ interface AgentState {
   readonly detection: 'idle' | 'running' | 'done' | 'failed';
   readonly execution: RunningExecution | null;
   readonly conversation: readonly ConversationEntry[];
+  /** Models a provider's CLI listed for the signed-in account, per provider. */
+  readonly modelListings: Readonly<Record<string, ProviderModelListing | 'loading'>>;
+  /**
+   * A model id chosen before Default, per project and provider, so it can be
+   * chosen again. Kept for the session only.
+   */
+  readonly rememberedModels: Readonly<Record<string, string>>;
 
   readonly setDetection: (
     detection: AgentState['detection'],
@@ -68,6 +76,8 @@ interface AgentState {
   readonly finishExecution: (executionId: string) => void;
   readonly addEntry: (entry: NewEntry) => void;
   readonly clearConversation: () => void;
+  readonly setModelListing: (providerId: string, listing: ProviderModelListing | 'loading') => void;
+  readonly rememberModel: (key: string, model: string) => void;
 }
 
 let nextEntryId = 1;
@@ -77,6 +87,8 @@ export const useAgentStore = create<AgentState>((set) => ({
   detection: 'idle',
   execution: null,
   conversation: [],
+  modelListings: {},
+  rememberedModels: {},
 
   setDetection(detection, providers) {
     set((state) => ({ detection, providers: providers ?? state.providers }));
@@ -108,5 +120,11 @@ export const useAgentStore = create<AgentState>((set) => ({
   },
   clearConversation() {
     set({ conversation: [] });
+  },
+  setModelListing(providerId, listing) {
+    set((state) => ({ modelListings: { ...state.modelListings, [providerId]: listing } }));
+  },
+  rememberModel(key, model) {
+    set((state) => ({ rememberedModels: { ...state.rememberedModels, [key]: model } }));
   },
 }));

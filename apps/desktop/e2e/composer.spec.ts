@@ -9,8 +9,11 @@ import {
   openSettingsPage,
 } from './application';
 import {
+  chooseModel,
   countTrigger,
+  modelTrigger,
   openCountChoices,
+  openModelChoices,
   openProviderChoices,
   providerTrigger,
   selectProvider,
@@ -36,19 +39,24 @@ async function expectChoicesFit(page: Page): Promise<void> {
   const chat = page.getByRole('region', { name: 'Agent chat' });
   const chatBox = await box(chat);
   const provider = providerTrigger(page);
+  const model = modelTrigger(page);
   const count = countTrigger(page);
   const send = page.getByRole('button', { name: 'Generate Komas' });
-  for (const control of [provider, count, send]) {
+  for (const control of [provider, model, count, send]) {
     const bounds = await box(control);
     expect(bounds.width).toBeGreaterThanOrEqual(40);
     expect(bounds.x).toBeGreaterThanOrEqual(chatBox.x - 0.5);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(chatBox.x + chatBox.width + 0.5);
   }
   const providerBox = await box(provider);
+  const modelBox = await box(model);
   const countBox = await box(count);
   expect(Math.abs(providerBox.y - countBox.y)).toBeLessThan(2);
-  expect(providerBox.x + providerBox.width).toBeLessThanOrEqual(countBox.x);
-  for (const openChoices of [openProviderChoices, openCountChoices]) {
+  expect(Math.abs(modelBox.y - countBox.y)).toBeLessThan(2);
+  // Provider, then model, then the Koma count, side by side.
+  expect(providerBox.x + providerBox.width).toBeLessThanOrEqual(modelBox.x);
+  expect(modelBox.x + modelBox.width).toBeLessThanOrEqual(countBox.x);
+  for (const openChoices of [openProviderChoices, openModelChoices, openCountChoices]) {
     const dialog = await openChoices(page);
     const bounds = await box(dialog);
     expect(bounds.x).toBeGreaterThanOrEqual(chatBox.x - 0.5);
@@ -63,43 +71,84 @@ test('chooses provider, model and Komas from the compact footer without an audie
   await expect(window.getByText(/Audience/)).toHaveCount(0);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '5 Komas');
   await expect(providerTrigger(window)).toHaveAttribute('aria-description', 'Mock provider');
+  await expect(modelTrigger(window)).toHaveAttribute(
+    'aria-description',
+    'Mock provider has no model choice',
+  );
   await expectChoicesFit(window);
 
   let choices = await openProviderChoices(window);
   const provider = choices.getByLabel('Provider', { exact: true });
-  let model = choices.getByLabel('Model', { exact: true });
   await expect(provider).toHaveValue('mock');
-  await expect(model).toBeDisabled();
-  await expect(model.locator('option:checked')).toHaveText('Default');
   await expect(choices.getByText('Demo only · 3 Komas')).toBeVisible();
-  await provider.selectOption('claude-code');
-  await expect(model).toBeEnabled();
-  await expect(model.locator('option')).toHaveText(['Default']);
+  let models = await openModelChoices(window);
+  await expect(models.getByLabel('Model', { exact: true })).toBeDisabled();
+  choices = await openProviderChoices(window);
+  await choices.getByLabel('Provider', { exact: true }).selectOption('claude-code');
   await expect(choices.getByText(/^Claude Code sends your request.*online\.$/)).toBeVisible();
   await providerTrigger(window).click();
 
-  await openSettingsPage(window, 'Generation');
-  await window.getByLabel('Model for Claude Code').fill('opus');
-  await window.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(providerTrigger(window)).toHaveAttribute(
+  // Before a run, the footer names the model that will run.
+  await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
-    /^Claude Code, model opus/,
+    'Next run uses the default model of Claude Code',
   );
-  choices = await openProviderChoices(window);
-  model = choices.getByLabel('Model', { exact: true });
-  await expect(model).toHaveValue('opus');
-  await choices.getByLabel('Provider', { exact: true }).selectOption('codex');
+  await expect(modelTrigger(window)).toHaveText('Default model');
+  models = await openModelChoices(window);
+  const model = models.getByLabel('Model', { exact: true });
+  await expect(model).toBeEnabled();
   await expect(model).toHaveValue('');
-  await choices.getByLabel('Provider', { exact: true }).selectOption('claude-code');
-  await expect(model).toHaveValue('opus');
+  expect(
+    await model
+      .locator('optgroup')
+      .evaluateAll((groups) => groups.map((group) => group.getAttribute('label'))),
+  ).toEqual(['Aliases', 'Model names']);
+  await expect(model.locator('option[value="opus"]')).toHaveCount(1);
+  await expect(model.locator('option[value="claude-opus-5-5"]')).toHaveCount(1);
+  await expect(models.getByText(/cannot list the models of your sign-in/)).toBeVisible();
+  await model.selectOption('opus');
+  await expect(modelTrigger(window)).toHaveAttribute('aria-description', 'Next run uses opus');
+
+  // An invalid model id is explained and not stored.
+  await model.selectOption('__custom__');
+  const custom = models.getByLabel('Model id', { exact: true });
+  await custom.fill('two words');
+  await expect(models.getByRole('alert')).toContainText('without spaces');
+  await expect(models.getByRole('button', { name: 'Use' })).toBeDisabled();
+  await custom.press('Enter');
+  await expect(modelTrigger(window)).toHaveAttribute('aria-description', 'Next run uses opus');
+  await custom.fill('claude-opus-5-5[1m]');
+  await custom.press('Enter');
+  await expect(modelTrigger(window)).toHaveAttribute(
+    'aria-description',
+    'Next run uses claude-opus-5-5[1m]',
+  );
+  await expect(model).toHaveValue('claude-opus-5-5[1m]');
+  // An entered model stays in the list after choosing Default.
   await model.selectOption('');
-  await expect(model.locator('option')).toHaveText(['Default', 'opus']);
+  await expect(modelTrigger(window)).toHaveText('Default model');
+  await expect(model.locator('option[value="claude-opus-5-5[1m]"]')).toHaveCount(1);
   await providerTrigger(window).click();
+
+  // Settings shows the same choice for the project.
+  await openSettingsPage(window, 'Generation');
+  const settingsModel = window.getByLabel('Model for Claude Code', { exact: true });
+  await expect(settingsModel).toHaveValue('');
+  await chooseModel(window, 'Model for Claude Code', 'opus');
+  await window.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(modelTrigger(window)).toHaveText('opus');
+
+  // Each provider keeps its own model.
+  await selectProvider(window, 'codex');
+  await expect(modelTrigger(window)).toHaveText('Default model');
+  await selectProvider(window, 'claude-code');
+  await expect(modelTrigger(window)).toHaveText('opus');
+  models = await openModelChoices(window);
+  await models.getByLabel('Model', { exact: true }).selectOption('');
+  await expect(modelTrigger(window)).toHaveText('Default model');
+  await window.keyboard.press('Escape');
   await window.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(
-    (await openProviderChoices(window)).getByLabel('Model', { exact: true }),
-  ).toHaveValue('opus');
-  await providerTrigger(window).click();
+  await expect(modelTrigger(window)).toHaveText('opus');
 
   await selectProvider(window, 'mock');
   await window.getByLabel('Your request').fill('Present the bee lifecycle to a school class.');
@@ -172,6 +221,8 @@ test('keeps both pickers usable at 300 pixels, including invalid count and keybo
   await window.keyboard.press('Escape');
   await expect(providerTrigger(window)).toBeFocused();
   await window.keyboard.press('Tab');
+  await expect(modelTrigger(window)).toBeFocused();
+  await window.keyboard.press('Tab');
   await expect(countTrigger(window)).toBeFocused();
   await window.keyboard.press('Enter');
   const choices = await openCountChoices(window);
@@ -213,9 +264,9 @@ test('keeps both pickers usable at 300 pixels, including invalid count and keybo
   await providerTrigger(window).click();
   await window.getByRole('button', { name: 'Hide the chat' }).click();
   await window.getByRole('button', { name: 'Show the chat' }).click();
-  await expect(window.getByRole('dialog', { name: 'Provider and model' })).toHaveCount(0);
+  await expect(window.getByRole('dialog', { name: 'Provider', exact: true })).toHaveCount(0);
   await providerTrigger(window).click();
   await window.getByRole('button', { name: 'New', exact: true }).click();
-  await expect(window.getByRole('dialog', { name: 'Provider and model' })).toHaveCount(0);
+  await expect(window.getByRole('dialog', { name: 'Provider', exact: true })).toHaveCount(0);
   expect(problems).toEqual([]);
 });

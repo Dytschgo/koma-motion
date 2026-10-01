@@ -14,7 +14,7 @@ export function Section({
   readonly children: ReactNode;
 }): ReactElement {
   return (
-    <section className="border-t border-desk-600 px-3 pt-2 pb-3 first:border-t-0">
+    <section className="border-t border-line px-3 pt-2 pb-3 first:border-t-0">
       <div className="flex min-h-7 items-center justify-between gap-2 pb-1">
         <h3 className="text-sm font-semibold tracking-wide text-ink-300 uppercase">{title}</h3>
         {action}
@@ -49,13 +49,13 @@ export function Disclosure({
   const [open, setOpen] = useState(defaultOpen);
   const id = useId();
   return (
-    <section className="border-t border-desk-600 px-3 py-1 first:border-t-0">
+    <section className="border-t border-line px-3 py-1 first:border-t-0">
       <h3>
         <button
           type="button"
           aria-expanded={open}
           aria-controls={id}
-          className="-mx-1 flex h-8 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-md px-1 text-left text-sm font-semibold tracking-wide text-ink-300 uppercase hover:bg-desk-700 hover:text-ink-100"
+          className="-mx-1 flex h-8 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-md px-1 text-left text-sm font-semibold tracking-wide text-ink-300 uppercase hover:bg-surface-3 hover:text-ink-100"
           onClick={() => {
             setOpen(!open);
           }}
@@ -78,7 +78,7 @@ export function Disclosure({
 }
 
 const CHIP_TONES = {
-  neutral: 'border-desk-500 text-ink-300',
+  neutral: 'border-line-strong text-ink-300',
   warn: 'border-signal-warn/50 text-signal-warn',
   ok: 'border-signal-ok/50 text-signal-ok',
 } as const;
@@ -120,7 +120,7 @@ export function ColourField({
         <div className="flex items-center gap-2">
           <span
             aria-hidden="true"
-            className="size-8 flex-none rounded-md border border-desk-500"
+            className="size-8 flex-none rounded-md border border-line-strong"
             style={{ background: parsed.ok ? parsed.value : 'transparent' }}
           />
           <TextInput
