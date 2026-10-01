@@ -11,6 +11,7 @@ import {
   getCanvasSize,
   flattenElements,
   komaElementSchema,
+  komaProjectSchema,
   MAX_ELEMENTS_PER_KOMA,
   MAX_PROJECT_ASSETS,
   createKoma,
@@ -324,9 +325,20 @@ function rebuildTransition(presentation: Presentation, transitionId: string): Pr
 
 /** Replaces the presentation with a generated one and records the generation. */
 export const applyGeneration =
-  (presentation: Presentation, entry: GenerationHistoryEntry): ProjectCommand =>
+  (
+    presentation: Presentation,
+    entry: GenerationHistoryEntry,
+    assets: readonly AssetReference[] = [],
+  ): ProjectCommand =>
   (project) =>
-    appendGenerationHistory({ ...project, presentation }, entry);
+    assets.length === 0
+      ? appendGenerationHistory({ ...project, presentation }, entry)
+      : komaProjectSchema.parse(
+          appendGenerationHistory(
+            { ...project, presentation, assets: [...project.assets, ...assets] },
+            entry,
+          ),
+        );
 
 export const recordGeneration =
   (entry: GenerationHistoryEntry): ProjectCommand =>

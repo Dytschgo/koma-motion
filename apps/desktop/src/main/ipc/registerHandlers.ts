@@ -11,7 +11,8 @@ import {
 } from '@koma-motion/agent-runtime';
 import { createRandomIdGenerator } from '@koma-motion/core';
 import { createExporters } from '@koma-motion/exporters';
-import { app, dialog, ipcMain, type BrowserWindow } from 'electron';
+import { app, dialog, ipcMain, nativeImage, type BrowserWindow } from 'electron';
+import { setTimeout as delay } from 'node:timers/promises';
 import { DeckAnalysisService } from '../services/deckAnalysis';
 import {
   ipcContract,
@@ -78,6 +79,7 @@ function getPlatform(): IpcResponse<'koma:app:get-info'>['platform'] {
 export function readMockOptions(environment: NodeJS.ProcessEnv): MockAgentProviderOptions {
   const delay = Number(environment['KOMA_MOCK_DELAY_MS']);
   return {
+    ...(environment['KOMA_MOCK_IMAGES'] ? { imageRequests: true } : {}),
     ...(Number.isSafeInteger(delay) && delay >= 0 && delay <= 60_000 ? { delayMs: delay } : {}),
     ...(environment['KOMA_MOCK_OUTCOME'] === 'invalid' ? { outcome: 'invalid' as const } : {}),
   };
@@ -97,6 +99,11 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     new GrokCliProvider(),
   ]);
   const runner = new GenerationRunner({ registry });
+  const imageExecutions = new Map<string, AbortController>();
+  const cancelAllGenerations = (): void => {
+    runner.cancelAll();
+    for (const controller of imageExecutions.values()) controller.abort();
+  };
   const idGenerator = createRandomIdGenerator();
 
   const send = <C extends IpcEventChannel>(channel: C, payload: IpcEventPayload<C>): void => {
@@ -164,7 +171,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
 
   handle('koma:project:create', ({ name }) => {
     void decks.cancel();
-    runner.cancelAll();
+    cancelAllGenerations();
     const response = createNewProject(session, name, new Date());
     context.projectStateChanged();
     return response;
@@ -174,7 +181,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     const response = await openProject(window, session);
     if (response.status === 'opened') {
       void decks.cancel();
-      runner.cancelAll();
+      cancelAllGenerations();
     }
     context.projectStateChanged();
     return response;
@@ -256,6 +263,16 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   });
 
   handle('koma:providers:execute', async ({ executionId, providerId, project, input }) => {
+    if (imageExecutions.has(executionId)) throw new Error('This execution is already running.');
+    const controller = new AbortController();
+    imageExecutions.set(executionId, controller);
+    const signal =
+      project.agentConfiguration.timeoutSeconds === null
+        ? controller.signal
+        : AbortSignal.any([
+            controller.signal,
+            AbortSignal.timeout(project.agentConfiguration.timeoutSeconds * 1000),
+          ]);
     const output = createOutputBatcher((event) => {
       send('koma:providers:output', event);
     });
@@ -266,6 +283,19 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
         providerId,
         project,
         input,
+        signal,
+        ...(!app.isPackaged && providerId === 'mock' && process.env['KOMA_MOCK_IMAGES']
+          ? {
+              generateImage: async (_prompt: string, imageSignal: AbortSignal) => {
+                await delay(1000, undefined, { signal: imageSignal });
+                if (process.env['KOMA_MOCK_IMAGES'] === 'failure')
+                  throw new Error('Mock image generation failed.');
+                return nativeImage
+                  .createFromBitmap(Buffer.alloc(32 * 32 * 4, 180), { width: 32, height: 32 })
+                  .toPNG();
+              },
+            }
+          : {}),
         idGenerator,
         now: () => new Date(),
         onStatus: (status) => {
@@ -276,6 +306,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
         onOutput: output.push,
       });
     } finally {
+      imageExecutions.delete(executionId);
       // Nothing is sent after the outcome: the window ignores late output anyway.
       output.close();
     }
@@ -297,9 +328,11 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
       }),
   );
 
-  handle('koma:providers:cancel', ({ executionId }) => ({
-    cancelled: runner.cancel(executionId),
-  }));
+  handle('koma:providers:cancel', ({ executionId }) => {
+    const images = imageExecutions.get(executionId);
+    images?.abort();
+    return { cancelled: runner.cancel(executionId) || images !== undefined };
+  });
 
   handle('koma:app:set-unsaved-changes', ({ hasUnsavedChanges }) => {
     session.hasUnsavedChanges = hasUnsavedChanges;
@@ -366,7 +399,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   return {
     dispose() {
       void decks.cancel();
-      runner.cancelAll();
+      cancelAllGenerations();
       listing.abort();
       for (const channel of Object.keys(ipcContract)) {
         ipcMain.removeHandler(channel);

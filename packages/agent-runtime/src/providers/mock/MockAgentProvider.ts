@@ -41,6 +41,8 @@ const TRANSITION_NARRATION = [
 ] as const;
 
 export interface MockAgentProviderOptions {
+  /** Isolated integration fixture; never enabled by the ordinary demo. */
+  readonly imageRequests?: boolean;
   /**
    * Time the provider pretends to work, in milliseconds. It exists so that
    * progress and cancellation can be seen in the application.
@@ -124,11 +126,13 @@ export class MockAgentProvider implements AgentProvider {
   readonly #delayMs: number;
   readonly #now: () => Date;
   readonly #outcome: 'valid' | 'invalid';
+  readonly #imageRequests: boolean;
 
   constructor(options: MockAgentProviderOptions = {}) {
     this.#delayMs = Math.max(0, options.delayMs ?? 1200);
     this.#now = options.now ?? (() => new Date());
     this.#outcome = options.outcome ?? 'valid';
+    this.#imageRequests = options.imageRequests ?? false;
   }
 
   detect(): Promise<ProviderDetectionResult> {
@@ -145,7 +149,23 @@ export class MockAgentProvider implements AgentProvider {
     request: PresentationGenerationRequest,
     context: AgentExecutionContext,
   ): Promise<ProviderExecutionResult> {
-    return this.#answer(PROGRESS_STEPS, DEMO_NARRATION, context, () => buildMockResponse(request));
+    return this.#answer(PROGRESS_STEPS, DEMO_NARRATION, context, () => {
+      const response = buildMockResponse(request);
+      if (this.#imageRequests && request.imageGenerationEnabled) {
+        const shape = response.komas[0]?.elements.find((element) => element.type === 'shape');
+        if (shape)
+          return {
+            ...response,
+            imageRequests: [
+              {
+                persistentId: shape.persistentId,
+                prompt: 'A blue geometric illustration, no text. Local test fixture.',
+              },
+            ],
+          };
+      }
+      return response;
+    });
   }
 
   async generateTransition(

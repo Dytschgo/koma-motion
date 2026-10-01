@@ -127,7 +127,7 @@ function didNotStart(startError: string | null, aborted = false): ProcessResult 
 }
 
 /** Stops a process together with the processes it started. */
-function terminate(child: ChildProcess): void {
+export function terminate(child: ChildProcess): void {
   const { pid } = child;
   if (pid === undefined) {
     return;

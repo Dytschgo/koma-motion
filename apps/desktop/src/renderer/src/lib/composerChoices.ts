@@ -176,6 +176,15 @@ export function withProviderModel(
   };
 }
 
+/** The combined picker changes provider and model in one undoable project command. */
+export function withSelectedProviderModel(
+  configuration: AgentConfiguration,
+  providerId: string,
+  value: string,
+): AgentConfiguration {
+  return { ...withProviderModel(configuration, providerId, value), selectedProviderId: providerId };
+}
+
 /**
  * Reads the Koma count field. `null` asks the agent to choose a suitable
  * number (Auto). Text that is not a positive whole number is `undefined`.

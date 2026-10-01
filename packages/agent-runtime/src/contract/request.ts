@@ -108,6 +108,8 @@ export const presentationGenerationRequestSchema = z.object({
   allowedEasings: z.array(easingSchema).min(1),
   /** The only assets an agent may refer to. Agents never see or define paths. */
   availableAssets: z.array(z.object({ id: idSchema, name: z.string().max(260) })),
+  imageGenerationEnabled: z.boolean().optional(),
+  imageProvider: z.enum(['codex', 'grok']).optional(),
   references: referenceTextsSchema.optional(),
   constraints: generationConstraintsSchema,
 });
@@ -168,6 +170,13 @@ export function buildGenerationRequest(
     audience: input.audience,
     brandKit: toBrandKitContext(project.brandKit, project.assets),
     requestedKomaCount: input.requestedKomaCount,
+    imageGenerationEnabled: ['codex', 'grok'].includes(
+      project.agentConfiguration.imageGeneration ?? 'off',
+    ),
+    ...(project.agentConfiguration.imageGeneration === 'codex' ||
+    project.agentConfiguration.imageGeneration === 'grok'
+      ? { imageProvider: project.agentConfiguration.imageGeneration }
+      : {}),
     existingPresentation: summariseExistingPresentation(project),
     canvas: { aspectRatio: project.presentation.aspectRatio, ...canvas },
     allowedElementTypes: availableAssets.length > 0 ? [...AGENT_ELEMENT_TYPES] : ['text', 'shape'],

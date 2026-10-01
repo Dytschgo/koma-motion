@@ -74,6 +74,7 @@ const generationOutcome = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('succeeded'),
     presentation: presentationSchema,
+    assets: z.array(assetReferenceSchema).max(4).optional(),
     historyEntry: generationHistoryEntrySchema,
     warnings: z.array(z.string()),
     repaired: z.boolean(),

@@ -193,7 +193,8 @@ export class GrokCliProvider implements AgentProvider {
     defaultModel: null,
     modelCatalog: {
       source: 'cli',
-      models: [],
+      // https://docs.x.ai/developers/models/grok-4.7 (checked 2026-10-01).
+      models: [{ id: 'grok-4.7', label: 'Grok 4.7', kind: 'id' }],
       note: 'Grok can list the models of your sign-in. Load them to choose one, or enter a model id.',
     },
     acceptsCustomModel: true,

@@ -264,6 +264,26 @@ export function validateAgentResponse(
   }
 
   const issues = checkSemantics(parsed.data, request);
+  const imageIds = new Set<string>();
+  for (const image of parsed.data.imageRequests ?? []) {
+    const targets = parsed.data.komas
+      .flatMap((koma) => koma.elements)
+      .filter((element) => element.persistentId === image.persistentId);
+    if (
+      !request.imageGenerationEnabled ||
+      imageIds.has(image.persistentId) ||
+      !targets.length ||
+      targets.some((element) => element.type !== 'shape')
+    ) {
+      issues.push({
+        code: 'invalidReference',
+        path: 'imageRequests',
+        message:
+          'Image requests require enabled image generation and a unique persistentId used only by shape placeholders.',
+      });
+    }
+    imageIds.add(image.persistentId);
+  }
   if (issues.length > 0) {
     return fail(issues);
   }

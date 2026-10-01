@@ -88,6 +88,7 @@ export function ModelPicker({
     if (parsed?.ok !== true) return;
     choose(parsed.model);
     setCustom(null);
+    document.getElementById(selectId)?.focus();
   };
 
   return (

@@ -195,7 +195,10 @@ export async function generate(input: GenerationInput): Promise<void> {
       if (currentProject === null) {
         return;
       }
-      const issues = unavailableImageIssues(outcome.presentation, currentProject);
+      const issues = unavailableImageIssues(outcome.presentation, {
+        ...currentProject,
+        assets: [...currentProject.assets, ...(outcome.assets ?? [])],
+      });
       if (issues.length > 0) {
         result = 'failed';
         const error = agentError(
@@ -220,7 +223,9 @@ export async function generate(input: GenerationInput): Promise<void> {
         });
         return;
       }
-      useProjectStore.getState().apply(applyGeneration(outcome.presentation, outcome.historyEntry));
+      useProjectStore
+        .getState()
+        .apply(applyGeneration(outcome.presentation, outcome.historyEntry, outcome.assets));
       useUiStore.getState().selectKoma(outcome.presentation.komas[0]?.id ?? null);
       useAgentStore.getState().addEntry({
         ...streamed(),

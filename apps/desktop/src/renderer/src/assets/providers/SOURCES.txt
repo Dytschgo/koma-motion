@@ -1,0 +1,11 @@
+Provider marks bundled from Lobe Icons (MIT; see LICENSE-lobe-icons.txt).
+https://github.com/lobehub/lobe-icons
+Source files retrieved 2026-10-01:
+https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/claude-color.svg
+https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/openai.svg
+https://raw.githubusercontent.com/lobehub/lobe-icons/master/packages/static-svg/icons/grok.svg
+
+Claude/Anthropic, OpenAI, and Grok/xAI marks belong to their respective owners.
+Used only to identify the corresponding provider in the model chooser.
+Geometry is preserved. Monochrome marks display in white on the dark UI.
+No affiliation or endorsement is implied. No assets are loaded remotely at runtime.

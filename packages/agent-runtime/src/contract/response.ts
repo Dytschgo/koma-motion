@@ -85,6 +85,16 @@ export const agentTransitionSchema = z.object({
 });
 
 export const agentPresentationResponseSchema = z.object({
+  /** Each request replaces shape placeholders with the same persistent identity. */
+  imageRequests: z
+    .array(
+      z.object({
+        persistentId: keySchema,
+        prompt: z.string().trim().min(1).max(2000),
+      }),
+    )
+    .max(4)
+    .optional(),
   presentation: z.object({
     title: z.string().max(300),
     objective: z.string().max(2000),
@@ -106,7 +116,10 @@ export type AgentPresentationResponse = z.infer<typeof agentPresentationResponse
 export type JsonSchema = Readonly<Record<string, unknown>>;
 
 /** The response contract as JSON Schema, for prompts and structured output options. */
-export function getResponseJsonSchema(): JsonSchema {
-  const { $schema: _dialect, ...schema } = z.toJSONSchema(agentPresentationResponseSchema);
+export function getResponseJsonSchema(images = false): JsonSchema {
+  const response = images
+    ? agentPresentationResponseSchema.required({ imageRequests: true })
+    : agentPresentationResponseSchema.omit({ imageRequests: true });
+  const { $schema: _dialect, ...schema } = z.toJSONSchema(response);
   return schema;
 }
