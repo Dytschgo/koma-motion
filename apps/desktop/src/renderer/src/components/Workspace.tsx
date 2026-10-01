@@ -28,7 +28,7 @@ import { useTransitionRegenerationStore } from '../state/transitionRegenerationS
 import { useUiStore } from '../state/uiStore';
 import { ImageIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
 import { TransitionIssuePanel } from './TransitionIssuePanel';
-import { Button, Help, IconButton, NumberInput } from './ui';
+import { Button, Help, IconButton, NumberInput, POPOVER_SURFACE } from './ui';
 
 const CANVAS_PADDING = 32;
 const ZOOM_STEP = 1.25;
@@ -305,7 +305,9 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           </p>
         )}
 
-        <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-card border border-line bg-surface-2 p-0.5 shadow-popover">
+        <div
+          className={`absolute right-3 bottom-3 flex items-center gap-0.5 p-0.5 ${POPOVER_SURFACE}`}
+        >
           <Button
             aria-label="Zoom out"
             compact

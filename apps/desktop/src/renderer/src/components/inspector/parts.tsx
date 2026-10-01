@@ -16,7 +16,7 @@ export function Section({
   return (
     <section className="border-t border-line px-3 pt-2 pb-3 first:border-t-0">
       <div className="flex min-h-7 items-center justify-between gap-2 pb-1">
-        <h3 className="text-sm font-semibold tracking-wide text-ink-300 uppercase">{title}</h3>
+        <h3 className="eyebrow">{title}</h3>
         {action}
       </div>
       <div className="flex flex-col gap-3">{children}</div>
@@ -55,7 +55,7 @@ export function Disclosure({
           type="button"
           aria-expanded={open}
           aria-controls={id}
-          className="-mx-1 flex h-8 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-md px-1 text-left text-sm font-semibold tracking-wide text-ink-300 uppercase hover:bg-surface-3 hover:text-ink-100"
+          className="eyebrow -mx-1 flex h-8 w-[calc(100%+0.5rem)] items-center gap-1.5 rounded-control px-1 text-left hover:bg-surface-3 hover:text-ink-100"
           onClick={() => {
             setOpen(!open);
           }}
@@ -74,28 +74,6 @@ export function Disclosure({
         {open && children}
       </div>
     </section>
-  );
-}
-
-const CHIP_TONES = {
-  neutral: 'border-line-strong text-ink-300',
-  warn: 'border-signal-warn/50 text-signal-warn',
-  ok: 'border-signal-ok/50 text-signal-ok',
-} as const;
-
-export function Chip({
-  tone = 'neutral',
-  children,
-}: {
-  readonly tone?: keyof typeof CHIP_TONES;
-  readonly children: ReactNode;
-}): ReactElement {
-  return (
-    <span
-      className={`inline-flex h-5 items-center rounded-full border px-2 text-xs whitespace-nowrap ${CHIP_TONES[tone]}`}
-    >
-      {children}
-    </span>
   );
 }
 

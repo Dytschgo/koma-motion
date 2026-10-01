@@ -34,16 +34,20 @@ import {
 } from './icons';
 import { NoProject, useInstructionSettings } from './InstructionSettings';
 import {
+  Badge,
   Button,
   Field,
   IconButton,
+  IconTile,
   ModalFrame,
   NumberInput,
   SettingRow,
   SettingsCard,
   Switch,
+  choiceRowClass,
 } from './ui';
 import { ModelPicker } from './ModelPicker';
+import { ProviderLogo } from './ProviderLogo';
 import { UpdateControl } from './UpdateControl';
 
 const REPOSITORY_URL = 'https://github.com/Dytschgo/koma-motion';
@@ -59,19 +63,9 @@ const PAGE_ICONS: Readonly<Record<SettingsPageId, (props: { size?: number }) => 
   about: InfoIcon,
 };
 
-const SCOPE_TONES: Readonly<Record<SettingsScope, string>> = {
-  project: 'border-accent/40 bg-accent-deep/60 text-accent',
-  app: 'border-line-strong bg-surface-3 text-ink-300',
-  computer: 'border-line-strong bg-surface-3 text-ink-300',
-};
-
 function ScopeBadge({ scope }: { readonly scope: SettingsScope }): ReactElement {
   return (
-    <span
-      className={`inline-flex h-5 flex-none items-center rounded-full border px-2 text-xs font-medium ${SCOPE_TONES[scope]}`}
-    >
-      {SETTINGS_SCOPES[scope].badge}
-    </span>
+    <Badge tone={scope === 'project' ? 'accent' : 'neutral'}>{SETTINGS_SCOPES[scope].badge}</Badge>
   );
 }
 
@@ -196,22 +190,22 @@ function ProvidersPage({
           const available = provider.detection.availability === 'available';
           return (
             <li key={provider.metadata.id} className="flex gap-3 py-3 first:pt-0 last:pb-0">
-              <span
-                className={`mt-0.5 flex size-5 flex-none items-center justify-center rounded-full ${available ? 'bg-signal-ok/15 text-signal-ok' : 'bg-signal-warn/15 text-signal-warn'}`}
-                aria-hidden="true"
-              >
-                {available ? <CheckIcon size={12} /> : <WarningIcon size={12} />}
-              </span>
+              <IconTile>
+                <ProviderLogo providerId={provider.metadata.id} />
+              </IconTile>
               <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-baseline gap-x-2">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="font-semibold">{provider.metadata.displayName}</span>
-                  <span className={`text-sm ${available ? 'text-signal-ok' : 'text-signal-warn'}`}>
+                  <Badge tone={available ? 'ok' : 'warn'}>
+                    <span aria-hidden="true" className="mr-1 inline-flex">
+                      {available ? <CheckIcon size={12} /> : <WarningIcon size={12} />}
+                    </span>
                     {available
                       ? provider.detection.version === null
                         ? 'Ready'
                         : `Ready · version ${provider.detection.version}`
                       : 'Not available'}
-                  </span>
+                  </Badge>
                 </p>
                 <p className="mt-0.5 text-ink-300">{provider.metadata.description}</p>
                 <p className="mt-1 text-sm text-ink-400">{provider.detection.message}</p>
@@ -360,10 +354,8 @@ export function SettingsDialog({
                     type="button"
                     data-settings-page={item.id}
                     aria-current={current ? 'page' : undefined}
-                    className={`relative flex h-9 items-center gap-2.5 rounded-control px-2.5 text-left transition-colors ${
-                      current
-                        ? 'bg-surface-3 font-medium text-ink-100 before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-accent'
-                        : 'text-ink-300 hover:bg-surface-2/70 hover:text-ink-100'
+                    className={`flex h-9 items-center gap-2.5 px-2.5 text-left ${choiceRowClass(current)} ${
+                      current ? 'font-medium text-ink-100' : 'text-ink-300 hover:text-ink-100'
                     }`}
                     onClick={() => setPage(item.id)}
                     onKeyDown={(event) => {

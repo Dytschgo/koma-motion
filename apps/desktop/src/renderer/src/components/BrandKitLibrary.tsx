@@ -16,7 +16,7 @@ import {
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
 import { useUiStore } from '../state/uiStore';
 import { CheckIcon, PlusIcon, TrashIcon, WarningIcon } from './icons';
-import { Button, TextInput } from './ui';
+import { Badge, Button, IconTile, TextInput, choiceRowClass } from './ui';
 import { DeckBrandKit } from './DeckBrandKit';
 import { useProjectStore } from '../state/projectStore';
 
@@ -62,7 +62,7 @@ export function BrandKitSource({ project }: { readonly project: KomaProject }): 
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface-1 p-3">
+    <div className="flex flex-col gap-2 rounded-card border border-line-strong bg-surface-1 p-3 shadow-raised">
       <p role="status" className="text-sm text-ink-300">
         {description}
       </p>
@@ -172,57 +172,59 @@ function KitItem({
 
   return (
     <li>
-      <div
-        className={`rounded-lg border p-2 ${
-          selected ? 'border-accent/70 bg-accent-deep/45' : 'border-line hover:bg-surface-2'
-        }`}
-      >
+      <div className={`p-2 ${choiceRowClass(selected)}`}>
         <button
           type="button"
           aria-pressed={selected}
           aria-label={kit.name}
           aria-describedby={detailsId}
-          className="flex w-full min-w-0 flex-col items-start gap-1.5 rounded-md text-left"
+          className="flex w-full min-w-0 items-start gap-2.5 rounded-control text-left"
           onClick={() => {
             select(selected ? null : kit.id);
             setRenaming(false);
           }}
         >
-          <span className="flex w-full min-w-0 items-center gap-2">
-            <Swatches brandKit={brandKit} />
-            <span className="min-w-0 flex-1 truncate font-semibold">{kit.name}</span>
-            {inUse && (
-              <span className="flex flex-none items-center gap-1 text-sm text-signal-ok">
-                <CheckIcon size={12} /> In use
-              </span>
-            )}
-          </span>
-          <span id={detailsId} className="flex w-full flex-wrap gap-x-3 text-sm text-ink-400">
-            <span className="truncate">
-              {brandKit.typography.headingFont} and {brandKit.typography.bodyFont}
+          <IconTile className="font-semibold text-accent">
+            {kit.name.slice(0, 1).toLocaleUpperCase()}
+          </IconTile>
+          <span className="flex min-w-0 flex-1 flex-col gap-1">
+            <span className="flex w-full min-w-0 items-center gap-2">
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{kit.name}</span>
+              {inUse && (
+                <Badge tone="ok">
+                  <CheckIcon size={12} />
+                  <span className="ml-1">In use</span>
+                </Badge>
+              )}
+              <Swatches brandKit={brandKit} size="size-3.5" />
             </span>
-            {logo === null ? (
-              <span>No logo</span>
-            ) : logo.available ? (
-              <span>Logo: {logo.name}</span>
-            ) : (
-              <span className="flex items-center gap-1 text-signal-warn">
-                <WarningIcon size={12} /> Logo missing from the library
+            <span id={detailsId} className="flex w-full flex-wrap gap-x-3 text-xs text-ink-300">
+              <span className="truncate">
+                {brandKit.typography.headingFont} and {brandKit.typography.bodyFont}
               </span>
-            )}
-            {inUse && <span className="sr-only">Used by this project.</span>}
-            {kit.provenance && (
-              <span>
-                From {kit.provenance.fileName} ·{' '}
-                {new Date(kit.provenance.analyzedAt).toLocaleDateString()} ·{' '}
-                {kit.provenance.analyzedSlides.length}/{kit.provenance.totalSlides} slides
-              </span>
-            )}
+              {logo === null ? (
+                <span>No logo</span>
+              ) : logo.available ? (
+                <span>Logo: {logo.name}</span>
+              ) : (
+                <span className="flex items-center gap-1 text-signal-warn">
+                  <WarningIcon size={12} /> Logo missing from the library
+                </span>
+              )}
+              {inUse && <span className="sr-only">Used by this project.</span>}
+              {kit.provenance && (
+                <span>
+                  From {kit.provenance.fileName} ·{' '}
+                  {new Date(kit.provenance.analyzedAt).toLocaleDateString()} ·{' '}
+                  {kit.provenance.analyzedSlides.length}/{kit.provenance.totalSlides} slides
+                </span>
+              )}
+            </span>
           </span>
         </button>
 
         {selected && (
-          <div className="mt-2 border-t border-line pt-2">
+          <div className="mt-2 border-t border-line pt-2 pl-9.5">
             {renaming ? (
               <RenameForm
                 kit={kit}
@@ -364,7 +366,7 @@ export function BrandKitLibraryView({ project }: { readonly project: KomaProject
       )}
 
       {library.kits.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-line-strong p-4">
+        <div className="rounded-card border border-dashed border-line-strong p-4">
           <p className="font-semibold">No saved Brand Kits yet</p>
           <p className="mt-1 text-sm text-ink-300">
             Save the Brand Kit of this project to reuse its colours, fonts, logo and descriptions in
@@ -373,7 +375,7 @@ export function BrandKitLibraryView({ project }: { readonly project: KomaProject
           </p>
         </div>
       ) : (
-        <ul aria-label="Saved Brand Kits" className="flex flex-col gap-2">
+        <ul aria-label="Saved Brand Kits" className="-mx-2 flex flex-col gap-1">
           {library.kits.map((kit) => (
             <KitItem
               key={kit.id}

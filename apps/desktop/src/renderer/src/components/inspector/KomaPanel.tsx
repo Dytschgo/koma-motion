@@ -5,9 +5,9 @@ import { changeKomaDetails } from '../../state/commands';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { PlusIcon } from '../icons';
-import { Button, Field, TextArea, TextInput } from '../ui';
+import { Badge, Button, Field, TextArea, TextInput } from '../ui';
 import type { TransitionHealth } from './MotionPanel';
-import { Chip, ColourField, Disclosure, Section } from './parts';
+import { ColourField, Disclosure, Section } from './parts';
 
 function firstLine(text: string): string {
   const line = text.trim().split('\n')[0] ?? '';
@@ -83,9 +83,9 @@ export function KomaPanel({
               <span className="text-ink-400">None: this is the only Koma</span>
             ) : (
               <>
-                <Chip tone={health.status.health === 'ready' ? 'ok' : 'warn'}>
+                <Badge tone={health.status.health === 'ready' ? 'ok' : 'warn'}>
                   {health.status.title}
-                </Chip>
+                </Badge>
                 <Button
                   compact
                   onClick={() => {

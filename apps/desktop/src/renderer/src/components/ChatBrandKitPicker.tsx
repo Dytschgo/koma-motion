@@ -4,7 +4,7 @@ import { applySavedBrandKitToProject, loadBrandKitLibrary } from '../lib/brandKi
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
 import { useMatchingKits } from '../lib/useMatchingKits';
 import { CheckIcon, ChevronIcon } from './icons';
-import { Button } from './ui';
+import { Button, IconTile, POPOVER_SURFACE, choiceRowClass } from './ui';
 
 function Swatches({ kit }: { readonly kit: BrandKit }): ReactElement {
   return (
@@ -97,7 +97,7 @@ export function ChatBrandKitPicker({
           style={{ maxHeight }}
           tabIndex={-1}
           aria-busy={busy}
-          className="chat-brand-menu absolute bottom-[calc(100%+0.5rem)] z-30 flex max-h-[min(24rem,55vh)] right-0 w-[17rem] max-w-[calc(100cqw-1.5rem)] flex-col overflow-hidden rounded-card border border-line-strong bg-surface-3 shadow-popover"
+          className={`chat-brand-menu absolute right-0 bottom-[calc(100%+0.5rem)] z-30 flex max-h-[min(24rem,55vh)] w-[17rem] max-w-[calc(100cqw-1.5rem)] flex-col overflow-hidden ${POPOVER_SURFACE}`}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault();
@@ -128,7 +128,7 @@ export function ChatBrandKitPicker({
             }
           }}
         >
-          <div className="flex items-center justify-between gap-2 px-3.5 pt-3.5 pb-2 text-sm">
+          <div className="flex items-center justify-between gap-2 border-b border-line px-3.5 py-3 text-sm">
             <span className="font-medium">Brand Kit</span>
             <span className="text-xs text-ink-300">
               {library.status === 'ready' ? `${String(library.kits.length)} available` : ''}
@@ -140,7 +140,7 @@ export function ChatBrandKitPicker({
             </p>
           )}
           {library.status === 'ready' ? (
-            <div className="min-h-0 overflow-y-auto px-1.5 pb-1.5">
+            <div className="min-h-0 overflow-y-auto p-1.5">
               {library.kits.length === 0 && (
                 <p className="px-2 py-3 text-sm text-ink-300">
                   No saved Brand Kits yet. Save a kit in the Brand Kit library to choose it here.
@@ -155,19 +155,16 @@ export function ChatBrandKitPicker({
                     data-kit-choice
                     aria-pressed={selected}
                     disabled={busy || disabled}
-                    className={`flex min-h-12 w-full items-center gap-2.5 rounded-control px-2 py-2 text-left text-sm disabled:opacity-50 ${selected ? 'bg-accent/15' : 'hover:bg-surface-2'}`}
+                    className={`flex min-h-12 w-full items-center gap-2.5 px-2 py-2 text-left text-sm disabled:opacity-50 ${choiceRowClass(selected)}`}
                     onClick={() => {
                       onOpenChange(false);
                       trigger.current?.focus();
                       void applySavedBrandKitToProject(kit.id);
                     }}
                   >
-                    <span
-                      aria-hidden="true"
-                      className="flex size-7 flex-none items-center justify-center rounded-md border border-line-strong bg-surface-2 font-semibold text-accent"
-                    >
+                    <IconTile className="font-semibold text-accent">
                       {kit.name.slice(0, 1).toLocaleUpperCase()}
-                    </span>
+                    </IconTile>
                     <span className="min-w-0 flex-1 break-words">{kit.name}</span>
                     <Swatches kit={kit.brandKit} />
                     <span className="w-3.5 flex-none text-accent">
@@ -199,7 +196,7 @@ export function ChatBrandKitPicker({
               </div>
             )
           )}
-          <p className="border-t border-line-strong px-3.5 py-2.5 text-xs text-ink-300">
+          <p className="border-t border-line px-3 py-2 text-xs text-ink-400">
             Used for your next generation
           </p>
         </div>

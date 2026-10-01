@@ -14,6 +14,7 @@ import { ElementPanel } from './inspector/ElementPanel';
 import { KomaPanel } from './inspector/KomaPanel';
 import { LayersPanel } from './inspector/LayersPanel';
 import { MotionPanel, type TransitionHealth } from './inspector/MotionPanel';
+import { SEGMENT_TRACK, segmentClass } from './ui';
 
 const TABS: readonly { readonly id: InspectorTab; readonly label: string }[] = [
   { id: 'element', label: 'Element' },
@@ -107,13 +108,8 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
         </div>
       ) : (
         <>
-          <div className="flex-none px-3 pt-3 pb-2">
-            <div
-              ref={tabs}
-              role="tablist"
-              aria-label="Inspector context"
-              className="grid grid-cols-3 gap-0.5 rounded-control border border-line bg-surface-0 p-0.5"
-            >
+          <div className="flex-none p-2">
+            <div ref={tabs} role="tablist" aria-label="Inspector context" className={SEGMENT_TRACK}>
               {TABS.map((item, position) => {
                 const selected = item.id === tab;
                 const label =
@@ -133,11 +129,7 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
                     aria-selected={selected}
                     aria-controls={`${id}-panel`}
                     tabIndex={selected ? 0 : -1}
-                    className={`relative flex h-7 items-center justify-center gap-1.5 rounded-md text-sm ${
-                      selected
-                        ? 'bg-surface-3 font-semibold text-ink-100 shadow-raised'
-                        : 'text-ink-400 hover:bg-surface-2 hover:text-ink-100'
-                    }`}
+                    className={segmentClass(selected)}
                     onClick={() => {
                       setTab(item.id);
                     }}
