@@ -270,6 +270,22 @@ describe('PowerPointExporter', () => {
     }
   });
 
+  it('keeps filesystem error paths out of export failures', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
+    try {
+      const result = await exporter.export(threeKomas(), {
+        filePath: join(directory, 'private-directory', 'confidential-deck.pptx'),
+      });
+      expect(result.status).toBe('failed');
+      expect(JSON.stringify(result)).not.toContain(directory);
+      expect(JSON.stringify(result)).not.toContain('private-directory');
+      expect(JSON.stringify(result)).not.toContain('confidential-deck');
+      expect(await readdir(directory)).toEqual([]);
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('preserves an existing destination if file generation fails', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
     try {
@@ -291,8 +307,8 @@ describe('PowerPointExporter', () => {
 });
 
 describe('exporter registry', () => {
-  it('keeps export gated until native PowerPoint verification', () => {
+  it('offers the verified PowerPoint exporter', () => {
     expect(createExporters().map((exporter) => exporter.id)).toEqual(['powerpoint']);
-    expect(getAvailableExporters()).toEqual([]);
+    expect(getAvailableExporters().map((exporter) => exporter.id)).toEqual(['powerpoint']);
   });
 });

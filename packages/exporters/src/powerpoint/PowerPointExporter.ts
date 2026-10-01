@@ -399,10 +399,8 @@ export class PowerPointExporter implements PresentationExporter {
   readonly id = 'powerpoint';
   readonly displayName = 'PowerPoint';
   readonly fileExtension = 'pptx';
-  // Enable after native PowerPoint inspection of a generated file.
   readonly availability: ExporterAvailability = {
-    status: 'unavailable',
-    reason: 'PowerPoint export awaits native PowerPoint verification.',
+    status: 'available',
   };
 
   validate(project: KomaProject): Promise<ExportValidationResult> {
@@ -542,10 +540,10 @@ export class PowerPointExporter implements PresentationExporter {
       await addMotion(temp, project, destination);
       await rename(temp, destination.filePath);
       return { status: 'exported', filePath: destination.filePath, warnings };
-    } catch (cause) {
+    } catch {
       return {
         status: 'failed',
-        message: cause instanceof Error ? cause.message : 'PowerPoint export failed.',
+        message: 'PowerPoint export failed. Check the destination and try again.',
         issues: [
           issue(
             'error',
