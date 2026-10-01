@@ -8,7 +8,13 @@
  * security settings than production.
  */
 import { build } from 'vite';
-import { mainConfig, preloadConfig, deckPreloadConfig, rendererConfig } from './config.mjs';
+import {
+  mainConfig,
+  preloadConfig,
+  deckPreloadConfig,
+  referencePdfPreloadConfig,
+  rendererConfig,
+} from './config.mjs';
 import { startElectron } from './electron.mjs';
 
 const RESTART_DELAY_MS = 150;
@@ -79,6 +85,7 @@ watchers = [
   await watch(mainConfig(mode)),
   await watch(preloadConfig(mode)),
   await watch(deckPreloadConfig(mode)),
+  await watch(referencePdfPreloadConfig(mode)),
   await watch(rendererConfig(mode)),
 ];
 ready = true;

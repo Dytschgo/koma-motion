@@ -6,14 +6,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { referenceSelectionOutcomeSchema } from '../../shared/references';
 import { MAX_REFERENCE_FILE_BYTES, prepareReference, selectReferenceFiles } from './referenceFiles';
 
-const mocks = vi.hoisted(() => ({ dialog: vi.fn() }));
+const mocks = vi.hoisted(() => ({ dialog: vi.fn(), pdf: vi.fn() }));
 vi.mock('electron', () => ({ dialog: { showOpenDialog: mocks.dialog } }));
+vi.mock('./referencePdf', () => ({
+  extractReferencePdf: mocks.pdf,
+  ReferencePdfError: class extends Error {},
+}));
 
 describe('reference file selection', () => {
   const parent = {} as BrowserWindow;
   let folder: string;
   beforeEach(async () => {
     mocks.dialog.mockReset();
+    mocks.pdf.mockReset();
     folder = await mkdtemp(join(tmpdir(), 'koma-references-'));
   });
   afterEach(async () => {
@@ -111,9 +116,18 @@ describe('reference file selection', () => {
     const bytes = await readFile(
       resolve(import.meta.dirname, '../../../e2e/fixtures/decks/northstar.pdf'),
     );
-    const reference = await prepareReference('source.pdf', bytes);
+    const path = join(folder, 'source.pdf');
+    await writeFile(path, bytes);
+    mocks.dialog.mockResolvedValue({ canceled: false, filePaths: [path] });
+    mocks.pdf.mockResolvedValue({ text: 'Clear thinking from the source PDF.', truncated: false });
+    const selected = await selectReferenceFiles(parent);
+    expect(selected.status).toBe('selected');
+    expect(mocks.pdf).toHaveBeenCalledWith(parent, expect.any(Uint8Array));
+    if (selected.status !== 'selected') throw new Error('Expected selected PDF');
+    const reference = selected.references[0];
+    if (reference === undefined) throw new Error('Expected PDF reference');
     expect(reference.format).toBe('pdf');
-    expect(reference.text.length).toBeGreaterThan(20);
+    expect(reference.text).toContain('Clear thinking');
     await expect(prepareReference('broken.pdf', Buffer.from('%PDF-\nbroken'))).rejects.toThrow();
   });
 });

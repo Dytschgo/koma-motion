@@ -10,11 +10,11 @@ import {
 } from '@koma-motion/agent-runtime';
 import { dialog, type BrowserWindow } from 'electron';
 import type { ReferenceSelectionOutcome } from '../../shared/references';
+import { extractReferencePdf, ReferencePdfError } from './referencePdf';
 
 export const MAX_REFERENCE_FILE_BYTES = 10 * 1024 * 1024;
 export const MAX_TOTAL_REFERENCE_FILE_BYTES = 20 * 1024 * 1024;
 export const MAX_REFERENCE_PDF_PAGES = 40;
-const PDF_TIMEOUT_MS = 15_000;
 
 type ReferenceFormat = ReferenceText['format'];
 
@@ -44,67 +44,12 @@ function clipText(text: string): { text: string; truncated: boolean } {
   return { text: normalized.slice(0, MAX_REFERENCE_TEXT_LENGTH).trim(), truncated };
 }
 
-async function pdfText(bytes: Uint8Array): Promise<{ text: string; truncated: boolean }> {
-  if (!Buffer.from(bytes.subarray(0, 1024)).includes(Buffer.from('%PDF-'))) {
-    throw new ReferenceFileError('The selected PDF is invalid. Export a new copy.');
-  }
-  const { getDocument } = await import('pdfjs-dist/legacy/build/pdf.mjs');
-  const loadingTask = getDocument({
-    data: new Uint8Array(bytes),
-    enableXfa: false,
-    useSystemFonts: false,
-    stopAtErrors: true,
-  });
-  let timeout: ReturnType<typeof setTimeout> | undefined;
-  try {
-    const extraction = (async () => {
-      const pdf = await loadingTask.promise;
-      if (pdf.numPages > MAX_REFERENCE_PDF_PAGES) {
-        throw new ReferenceFileError(
-          `A PDF reference may have at most ${String(MAX_REFERENCE_PDF_PAGES)} pages.`,
-        );
-      }
-      let text = '';
-      let truncated = false;
-      for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
-        const page = await pdf.getPage(pageNumber);
-        const content = await page.getTextContent();
-        const pageText = content.items
-          .filter((item): item is typeof item & { str: string } => 'str' in item)
-          .map((item) => item.str)
-          .join(' ');
-        text += `${pageText}\n`;
-        if (text.length > MAX_REFERENCE_TEXT_LENGTH) {
-          truncated = true;
-          break;
-        }
-      }
-      const clipped = clipText(text);
-      return { text: clipped.text, truncated: truncated || clipped.truncated };
-    })();
-    return await Promise.race([
-      extraction,
-      new Promise<never>((_, reject) => {
-        timeout = setTimeout(
-          () =>
-            reject(
-              new ReferenceFileError('PDF text extraction took too long. Choose a smaller PDF.'),
-            ),
-          PDF_TIMEOUT_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timeout !== undefined) clearTimeout(timeout);
-    await loadingTask.destroy();
-  }
-}
-
 /** Only decoded text enters IPC and the provider request. No PDF scripts or links are run. */
 export async function prepareReference(
   fileName: string,
   bytes: Uint8Array,
   id = randomUUID(),
+  extractPdf?: (bytes: Uint8Array) => Promise<{ text: string; truncated: boolean }>,
 ): Promise<ReferenceText> {
   if (bytes.byteLength > MAX_REFERENCE_FILE_BYTES) {
     throw new ReferenceFileError('A reference file may be at most 10 MiB.');
@@ -112,7 +57,13 @@ export async function prepareReference(
   const format = formatOf(fileName);
   let extracted: { text: string; truncated: boolean };
   if (format === 'pdf') {
-    extracted = await pdfText(bytes);
+    if (!Buffer.from(bytes.subarray(0, 1024)).includes(Buffer.from('%PDF-'))) {
+      throw new ReferenceFileError('The selected PDF is invalid. Export a new copy.');
+    }
+    if (extractPdf === undefined) throw new ReferenceFileError('PDF processing is unavailable.');
+    const pdf = await extractPdf(bytes);
+    const clipped = clipText(pdf.text);
+    extracted = { text: clipped.text, truncated: pdf.truncated || clipped.truncated };
   } else {
     let text: string;
     try {
@@ -185,7 +136,11 @@ export async function selectReferenceFiles(
       if (totalBytes > MAX_TOTAL_REFERENCE_FILE_BYTES) {
         throw new ReferenceFileError('Reference files may total at most 20 MiB.');
       }
-      references.push(await prepareReference(filePath, bytes));
+      references.push(
+        await prepareReference(filePath, bytes, randomUUID(), (file) =>
+          extractReferencePdf(window, file),
+        ),
+      );
       if (
         references.reduce((total, reference) => total + reference.text.length, 0) >
         MAX_TOTAL_REFERENCE_TEXT_LENGTH
@@ -200,7 +155,7 @@ export async function selectReferenceFiles(
     return {
       status: 'failed',
       message:
-        error instanceof ReferenceFileError
+        error instanceof ReferenceFileError || error instanceof ReferencePdfError
           ? error.message
           : 'The reference could not be read. Check that it still exists and is supported.',
     };

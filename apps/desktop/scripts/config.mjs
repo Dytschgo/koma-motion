@@ -59,6 +59,10 @@ export function deckPreloadConfig(mode) {
   return nodeBundle('deck-preload', 'src/preload/deckRender.ts', mode);
 }
 
+export function referencePdfPreloadConfig(mode) {
+  return nodeBundle('reference-pdf-preload', 'src/preload/referencePdf.ts', mode);
+}
+
 export function rendererConfig(mode) {
   return {
     configFile: false,
@@ -79,6 +83,7 @@ export function rendererConfig(mode) {
         input: {
           main: resolve(root, 'src/renderer/index.html'),
           deck: resolve(root, 'src/renderer/deck-render.html'),
+          referencePdf: resolve(root, 'src/renderer/reference-pdf.html'),
         },
       },
     },
