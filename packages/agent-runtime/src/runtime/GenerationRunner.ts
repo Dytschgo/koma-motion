@@ -15,8 +15,8 @@ import {
   type TransitionRegenerationRequest,
 } from '../contract/transition';
 import {
-  presentationGenerationPromptV4,
-  presentationRepairPromptV4,
+  presentationGenerationPromptV5,
+  presentationRepairPromptV5,
   type AgentPrompt,
 } from '../prompts/presentationGeneration';
 import {
@@ -140,8 +140,8 @@ const PRESENTATION_TASK: Task<PresentationGenerationRequest, AgentPresentationRe
   parseRequest: parseWith(presentationGenerationRequestSchema),
   responseJsonSchema: getResponseJsonSchema,
   render: (request, responseJsonSchema) =>
-    presentationGenerationPromptV4.render({ request, responseJsonSchema }),
-  renderRepair: (input) => presentationRepairPromptV4.render(input),
+    presentationGenerationPromptV5.render({ request, responseJsonSchema }),
+  renderRepair: (input) => presentationRepairPromptV5.render(input),
   invoke: (provider, request, context) => provider.generatePresentation(request, context),
   validate: validateAgentResponse,
 };

@@ -106,7 +106,7 @@ describe('GenerationRunner', () => {
       expect(result.response.komas).toHaveLength(3);
       expect(result.repaired).toBe(false);
       expect(result.diagnostics.attempts).toHaveLength(1);
-      expect(result.diagnostics.promptTemplate).toBe('presentation-generation@4');
+      expect(result.diagnostics.promptTemplate).toBe('presentation-generation@5');
     }
     expect([...new Set(events.map((event) => event.phase))]).toEqual([
       'preparing',
@@ -198,7 +198,7 @@ describe('GenerationRunner', () => {
     const { run, provider } = setup([valid]);
     await run({ model: 'claude-opus-5-5' });
     expect(provider.contexts[0]?.model).toBe('claude-opus-5-5');
-    expect(provider.contexts[0]?.prompt.templateVersion).toBe(4);
+    expect(provider.contexts[0]?.prompt.templateVersion).toBe(5);
     expect(provider.contexts[0]?.prompt.user).toContain('# Brand Kit');
     expect(provider.contexts[0]?.prompt.user).toContain('"primary": "#FF5A36"');
     expect(provider.contexts[0]?.prompt.user).toContain(
@@ -303,7 +303,7 @@ describe('GenerationRunner', () => {
     expect(events.map((event) => event.phase)).toContain('repairing');
     const repairPrompt = provider.contexts[1]?.prompt;
     expect(repairPrompt?.templateId).toBe('presentation-repair');
-    expect(repairPrompt?.templateVersion).toBe(4);
+    expect(repairPrompt?.templateVersion).toBe(5);
     expect(repairPrompt?.user).toContain('# Correction required');
     expect(repairPrompt?.user).toContain('{"komas": 3}');
     expect(repairPrompt?.user).toContain('<<<UNTRUSTED_DATA>>>');
