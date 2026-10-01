@@ -114,6 +114,35 @@ test('moves, resizes, cancels and edits text with one undo per committed gesture
   await window.getByRole('button', { name: 'Redo', exact: true }).click();
   await expect(window.getByLabel('Width', { exact: true })).toHaveValue('300');
 
+  const rotateHandle = stage.getByRole('button', { name: 'Rotate Shape', exact: true });
+  await rotateHandle.hover();
+  const rotationBox = await shape.boundingBox();
+  const handleBox = await rotateHandle.boundingBox();
+  if (!rotationBox || !handleBox) throw new Error('No rotation handle');
+  const centre = {
+    x: rotationBox.x + rotationBox.width / 2,
+    y: rotationBox.y + rotationBox.height / 2,
+  };
+  const handleCentre = {
+    x: handleBox.x + handleBox.width / 2,
+    y: handleBox.y + handleBox.height / 2,
+  };
+  const radius = Math.hypot(handleCentre.x - centre.x, handleCentre.y - centre.y);
+  await window.mouse.move(handleCentre.x, handleCentre.y);
+  await window.mouse.down();
+  await window.mouse.move(centre.x + radius, centre.y, { steps: 8 });
+  await window.mouse.up();
+  const rotation = Number(
+    await window.getByLabel('Rotation in degrees', { exact: true }).inputValue(),
+  );
+  expect(rotation).toBeCloseTo(90, 0);
+  await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(window.getByLabel('Rotation in degrees', { exact: true })).toHaveValue('0');
+  await window.getByRole('button', { name: 'Redo', exact: true }).click();
+  expect(
+    Number(await window.getByLabel('Rotation in degrees', { exact: true }).inputValue()),
+  ).toBeCloseTo(90, 0);
+
   const moved = await shape.boundingBox();
   if (!moved) throw new Error('No shape');
   await window.mouse.move(moved.x + moved.width / 2, moved.y + moved.height / 2);

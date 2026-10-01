@@ -62,6 +62,24 @@ export function moveElement(element: KomaElement, delta: Position): KomaElement 
   };
 }
 
+/** Rotates an element by the angle swept around its centre. */
+export function rotateElement(
+  element: KomaElement,
+  start: Position,
+  current: Position,
+): KomaElement {
+  const centre = {
+    x: element.position.x + element.size.width / 2,
+    y: element.position.y + element.size.height / 2,
+  };
+  const startAngle = Math.atan2(start.y - centre.y, start.x - centre.x);
+  const currentAngle = Math.atan2(current.y - centre.y, current.x - centre.x);
+  let delta = currentAngle - startAngle;
+  if (delta > Math.PI) delta -= Math.PI * 2;
+  if (delta < -Math.PI) delta += Math.PI * 2;
+  return { ...element, rotation: element.rotation + (delta * 180) / Math.PI };
+}
+
 /** Resizes in the element's rotated axes, keeping the opposite corner fixed. */
 export function resizeElement(
   element: KomaElement,
