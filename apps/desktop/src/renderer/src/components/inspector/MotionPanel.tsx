@@ -297,7 +297,7 @@ export function MotionPanel({
                 <option value="linear">Linear</option>
                 <option value="easeIn">Ease in</option>
                 <option value="easeOut">Ease out</option>
-                <option value="easeInOut">Ease in and out</option>
+                <option value="easeInOut">Ease in-out</option>
               </Select>
             )}
           </Field>

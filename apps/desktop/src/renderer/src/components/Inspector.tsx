@@ -99,7 +99,12 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
       className="flex w-[304px] flex-none flex-col border-l border-line bg-surface-1"
     >
       {koma === null ? (
-        <p className="p-4 text-ink-400">Select a Koma to see its details.</p>
+        <div className="m-auto flex max-w-64 flex-col items-center gap-1.5 px-4 text-center">
+          <p className="font-medium text-ink-300">Select a Koma to see its details.</p>
+          <p className="text-sm text-ink-400">
+            Its elements, layers and the motion to the next Koma appear here.
+          </p>
+        </div>
       ) : (
         <>
           <div className="flex-none px-3 pt-3 pb-2">

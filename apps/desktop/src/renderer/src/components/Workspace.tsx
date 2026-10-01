@@ -22,6 +22,7 @@ import {
 import { chooseKomaImage } from '../lib/projectActions';
 import { assessTransition } from '../lib/transitionIssues';
 import { changeElement, changeTransition } from '../state/commands';
+import { useAgentStore } from '../state/agentStore';
 import { useProjectStore } from '../state/projectStore';
 import { useTransitionRegenerationStore } from '../state/transitionRegenerationStore';
 import { useUiStore } from '../state/uiStore';
@@ -48,6 +49,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const setZoom = useUiStore((state) => state.setZoom);
   const chatOpen = useUiStore((state) => state.agentPanelOpen);
   const setChatOpen = useUiStore((state) => state.setAgentPanelOpen);
+  const generating = useAgentStore((state) => state.execution !== null);
 
   const koma = useSelectedKoma();
   // The stage follows only a preview whose recorded ends are still valid.
@@ -239,8 +241,20 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
       >
         {frame === null ? (
           <div className="max-w-md rounded-dialog border border-dashed border-line-strong bg-surface-1/80 px-8 py-7 text-center">
-            <p className="text-xl font-semibold tracking-tight">Start your presentation</p>
-            <p className="mt-2 text-ink-300">Describe it in the chat, or add a Koma.</p>
+            {generating ? (
+              <>
+                <p className="flex items-center justify-center gap-2 text-xl font-semibold tracking-tight">
+                  <span aria-hidden="true" className="working-dot size-2 rounded-full bg-motion" />
+                  Drawing your Komas
+                </p>
+                <p className="mt-2 text-ink-300">They appear here when the agent is done.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xl font-semibold tracking-tight">Start your presentation</p>
+                <p className="mt-2 text-ink-300">Describe it in the chat, or add a Koma.</p>
+              </>
+            )}
             {!chatOpen && (
               <Button
                 variant="outline"
@@ -295,7 +309,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           <Button
             aria-label="Zoom out"
             compact
-            disabled={(zoom ?? 1) <= MIN_ZOOM}
+            disabled={frame === null || (zoom ?? 1) <= MIN_ZOOM}
             onClick={() => {
               setZoom((zoom ?? 1) / ZOOM_STEP);
             }}
@@ -306,6 +320,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
             aria-label={`Zoom ${String(Math.round((zoom ?? 1) * 100))} percent. Fit the canvas to the window`}
             compact
             className="min-w-14 tabular-nums"
+            disabled={frame === null}
             onClick={() => {
               setZoom(null);
             }}
@@ -315,7 +330,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           <Button
             aria-label="Zoom in"
             compact
-            disabled={(zoom ?? 1) >= MAX_ZOOM}
+            disabled={frame === null || (zoom ?? 1) >= MAX_ZOOM}
             onClick={() => {
               setZoom((zoom ?? 1) * ZOOM_STEP);
             }}

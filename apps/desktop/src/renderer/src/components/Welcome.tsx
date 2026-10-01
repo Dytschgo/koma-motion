@@ -78,7 +78,7 @@ export function Welcome(): ReactElement {
             <h2 id="starters-heading" className="eyebrow">
               Or begin with a starter
             </h2>
-            <p className="mt-1 text-sm text-ink-400">
+            <p className="mt-1 text-sm text-pretty text-ink-400">
               Each starter brings a Brand Kit and instructions for richly animated Komas, and puts a
               first request into the chat. Choose a provider and send it.
             </p>
