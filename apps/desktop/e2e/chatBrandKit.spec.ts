@@ -346,16 +346,19 @@ test('matches Compact 01 with provider logos beside Brand Kit at wide and narrow
       picker.getByRole('region', { name: 'Favorites' }).locator('[data-provider-id="codex"]'),
     ).toHaveCount(1);
     await expect(picker.locator('img')).not.toHaveCount(0);
-    expect(
-      await picker
-        .locator('img')
-        .evaluateAll((images) =>
-          images.every(
-            (image) =>
-              image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+    // Reopening mounts new image elements; their bundled SVGs may still be decoding.
+    await expect
+      .poll(() =>
+        picker
+          .locator('img')
+          .evaluateAll((images) =>
+            images.every(
+              (image) =>
+                image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0,
+            ),
           ),
-        ),
-    ).toBe(true);
+      )
+      .toBe(true);
     await expect(picker.locator('[data-provider-logo="claude-code"]').first()).toBeVisible();
     await expect(picker.locator('[data-provider-logo="codex"]').first()).toBeVisible();
     await expect(picker.locator('[data-model-value="claude-opus-5-5"]')).toHaveAttribute(
