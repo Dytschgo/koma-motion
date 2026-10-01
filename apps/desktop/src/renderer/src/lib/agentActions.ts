@@ -192,16 +192,23 @@ export async function generate(input: GenerationInput): Promise<void> {
       const issues = unavailableImageIssues(outcome.presentation, currentProject);
       if (issues.length > 0) {
         result = 'failed';
+        const error = agentError(
+          'invalidResponse',
+          'The generated Komas use images that are no longer available in this project. Generate again with the current assets.',
+          issues,
+        );
+        useAgentStore.getState().addStatus({
+          executionId,
+          phase: 'failed',
+          message: error.message,
+          timestamp: new Date().toISOString(),
+        });
         useAgentStore.getState().addEntry({
           ...streamed(),
           kind: 'failure',
           providerName,
           status: 'failed',
-          error: agentError(
-            'invalidResponse',
-            'The generated Komas use images that are no longer available in this project. Generate again with the current assets.',
-            issues,
-          ),
+          error,
           diagnostics: outcome.diagnostics,
           request: input.userRequest,
         });
@@ -232,16 +239,20 @@ export async function generate(input: GenerationInput): Promise<void> {
     if (!stillThisProject()) {
       return;
     }
+    result = 'failed';
+    const error = agentError('internalError', 'The application could not complete the request.');
+    useAgentStore.getState().addStatus({
+      executionId,
+      phase: 'failed',
+      message: error.message,
+      timestamp: new Date().toISOString(),
+    });
     useAgentStore.getState().addEntry({
       ...streamed(),
       kind: 'failure',
       providerName,
       status: 'failed',
-      error: {
-        code: 'internalError',
-        message: 'The application could not complete the request.',
-        issues: [],
-      },
+      error,
       diagnostics: {
         providerId,
         startedAt: new Date().toISOString(),

@@ -42,6 +42,10 @@ For a changed implementation, also run the repository's format, lint, typecheck,
 
 ## Feature paths
 
+- [Settings and instructions](settings.md): category navigation, project model choices,
+  time limits, templates, and draft recovery.
+- [Generation activity](generation-activity.md): streamed output, run monitoring,
+  cancellation, failure, and reduced motion.
 - [Brand Kit from deck](deck-brand-kit.md): local PPTX/PDF preparation, disclosure,
   isolated review, library save, logo confirmation, cancellation, and optional live Opus analysis.
 
