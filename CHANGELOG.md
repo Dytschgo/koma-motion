@@ -10,6 +10,24 @@ changes to the project format.
 
 ### Added
 
+- Run activity in the chat: a pixel character follows the observed phases of a
+  generation (starting, generating, checking, correcting, completed, failed,
+  stopped), with the elapsed time. **Open run monitor** shows the same run with
+  a timeline and the streamed text; it starts nothing new. Reduced motion
+  shows a still pose.
+- The chat shows what Claude writes while it generates. Only its visible text is
+  streamed; thinking, tool input and error output are never shown. The text
+  stays with the result. The mock provider streams a short demo narration;
+  Codex and Grok show their phases.
+- Model selection in the chat composer: the provider and the model are two
+  controls, and the footer names the model the next run uses. Claude Code
+  offers its aliases and model names, Grok lists the models of your sign-in on
+  request, and any provider that accepts one takes a validated model id.
+- Settings is organised into categories. **This project** holds the
+  instructions, the time limit and the models, which are saved in the .koma
+  file and can be undone. **Koma Motion** holds templates, providers, updates
+  and About, which apply to every project. Each page names where its values
+  are stored. Arrow keys, Home and End move between categories.
 - Grok CLI provider. Detection and generation were verified on Windows with
   Grok 1.0.44. The CLI keeps its own sign-in. Koma Motion does not store an
   API key.
@@ -39,6 +57,14 @@ changes to the project format.
 
 ### Changed
 
+- A consistent visual system across the application: flat panels on one
+  surface level with 44-pixel headers, a quieter top bar with the file name
+  and save state in one chip, segmented tabs in the Inspector and the Brand
+  Kit, a dot-grid desk under the canvas, and shared radius, shadow and focus
+  styles. Decorative gradients were removed.
+- The chat header no longer has the two help buttons. A time limit, when one
+  is set, is shown under the composer; it is changed under Settings,
+  Generation.
 - The chat composer puts the provider, its model and the number of Komas
   side by side. The Koma count starts at 5 and offers Auto. The model list
   shows Default and the model id configured for the provider. The Audience

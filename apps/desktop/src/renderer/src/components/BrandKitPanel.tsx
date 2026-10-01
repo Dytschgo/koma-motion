@@ -42,10 +42,10 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
   return (
     <aside
       aria-label="Brand Kit"
-      className="flex w-[clamp(360px,32vw,480px)] flex-none flex-col border-l border-desk-600 bg-desk-800"
+      className="flex w-[clamp(360px,32vw,480px)] flex-none flex-col border-l border-line bg-surface-1"
     >
-      <div className="flex h-12 flex-none items-center justify-between gap-2 border-b border-desk-600 pr-2 pl-4">
-        <h2 className="text-lg font-semibold">Brand Kit</h2>
+      <div className="flex h-11 flex-none items-center justify-between gap-2 border-b border-line pr-1.5 pl-3.5">
+        <h2 className="text-base font-semibold">Brand Kit</h2>
         <IconButton
           label="Close panel"
           onClick={() => {
@@ -56,7 +56,11 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
         </IconButton>
       </div>
 
-      <div role="tablist" aria-label="Brand Kit" className="flex flex-none gap-1 px-3 pt-2">
+      <div
+        role="tablist"
+        aria-label="Brand Kit"
+        className="mx-3 mt-3 grid flex-none grid-cols-2 gap-0.5 rounded-control border border-line bg-surface-0 p-0.5"
+      >
         {TABS.map((item) => {
           const selected = item.id === tab;
           return (
@@ -68,10 +72,10 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
               aria-selected={selected}
               aria-controls={`${idPrefix}-panel`}
               tabIndex={selected ? 0 : -1}
-              className={`h-8 rounded-t-md border-b-2 px-3 transition-colors ${
+              className={`h-7 rounded-[5px] px-3 text-sm transition-colors ${
                 selected
-                  ? 'border-pencil-blue text-ink-100'
-                  : 'border-transparent text-ink-400 hover:text-ink-100'
+                  ? 'bg-surface-3 font-semibold text-ink-100 shadow-raised'
+                  : 'text-ink-400 hover:bg-surface-2 hover:text-ink-100'
               }`}
               onClick={() => {
                 setTab(item.id);
@@ -91,7 +95,7 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
         id={`${idPrefix}-panel`}
         role="tabpanel"
         aria-labelledby={`${idPrefix}-tab-${tab}`}
-        className="min-h-0 flex-1 overflow-y-auto border-t border-desk-600"
+        className="min-h-0 flex-1 overflow-y-auto border-t border-line"
       >
         {tab === 'project' ? (
           <BrandKitEditor project={project} />

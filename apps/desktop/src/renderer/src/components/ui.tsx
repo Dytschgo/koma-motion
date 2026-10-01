@@ -27,13 +27,13 @@ function withDefaultWidth(className: string | undefined): string {
 
 const BUTTON_VARIANTS = {
   primary:
-    'border border-[#a4dcf5] bg-pencil-blue text-desk-950 font-semibold shadow-[0_1px_0_rgb(255_255_255/0.18)_inset,0_2px_10px_rgb(14_87_123/0.2)] hover:bg-[#a4d8f0] disabled:border-desk-600 disabled:bg-desk-600 disabled:text-ink-400 disabled:shadow-none',
+    'bg-accent text-surface-0 font-semibold shadow-raised hover:bg-accent-hover disabled:bg-surface-3 disabled:text-ink-400 disabled:shadow-none',
   quiet:
-    'text-ink-300 hover:bg-desk-700 hover:text-ink-100 disabled:text-desk-500 disabled:hover:bg-transparent',
+    'text-ink-300 hover:bg-surface-3 hover:text-ink-100 disabled:text-line-strong disabled:hover:bg-transparent',
   outline:
-    'border border-desk-500 bg-desk-800/70 text-ink-100 shadow-[0_1px_0_rgb(255_255_255/0.04)_inset] hover:border-pencil-blue/60 hover:bg-desk-700 disabled:border-desk-600 disabled:bg-transparent disabled:text-desk-500 disabled:shadow-none disabled:hover:bg-transparent',
+    'border border-line-strong bg-surface-2 text-ink-100 shadow-raised hover:border-ink-400/60 hover:bg-surface-3 disabled:border-line disabled:bg-transparent disabled:text-line-strong disabled:shadow-none disabled:hover:bg-transparent',
   danger:
-    'border border-[#f58d7c] bg-pencil-red text-desk-950 font-semibold hover:bg-[#f48673] disabled:border-desk-600 disabled:bg-desk-600 disabled:text-ink-400',
+    'bg-motion text-surface-0 font-semibold shadow-raised hover:bg-[#f48673] disabled:bg-surface-3 disabled:text-ink-400 disabled:shadow-none',
 } as const;
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -59,10 +59,10 @@ export function Button({
     <button
       type={type}
       className={join(
-        'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md whitespace-nowrap',
-        'transition-[background-color,border-color,color,box-shadow] duration-150 disabled:cursor-not-allowed',
+        'inline-flex min-h-9 items-center justify-center gap-1.5 rounded-control whitespace-nowrap',
+        'transition-[background-color,border-color,color,box-shadow] duration-150 ease-standard disabled:cursor-not-allowed',
         compact ? 'px-2' : 'px-3.5',
-        active ? 'bg-desk-700 text-pencil-blue' : BUTTON_VARIANTS[variant],
+        active ? 'bg-surface-3 text-accent' : BUTTON_VARIANTS[variant],
         className,
       )}
       {...rest}
@@ -82,8 +82,8 @@ export interface IconButtonProps extends ButtonHTMLAttributes<HTMLButtonElement>
 }
 
 const ICON_BUTTON_TONES = {
-  default: 'text-ink-300 hover:bg-desk-700 hover:text-ink-100',
-  motion: 'bg-pencil-red-deep text-pencil-red hover:bg-pencil-red hover:text-desk-950',
+  default: 'text-ink-300 hover:bg-surface-3 hover:text-ink-100',
+  motion: 'bg-motion-deep text-motion hover:bg-motion hover:text-surface-0',
 } as const;
 
 export function IconButton({
@@ -101,10 +101,10 @@ export function IconButton({
       aria-label={label}
       title={label}
       className={join(
-        'inline-flex size-9 flex-none items-center justify-center rounded-md transition-[background-color,color] duration-150',
-        'disabled:cursor-not-allowed disabled:bg-transparent disabled:text-desk-500',
-        'disabled:hover:bg-transparent disabled:hover:text-desk-500',
-        active ? 'bg-desk-700 text-pencil-blue' : ICON_BUTTON_TONES[tone],
+        'inline-flex size-9 flex-none items-center justify-center rounded-control transition-[background-color,color] duration-150 ease-standard',
+        'disabled:cursor-not-allowed disabled:bg-transparent disabled:text-line-strong',
+        'disabled:hover:bg-transparent disabled:hover:text-line-strong',
+        active ? 'bg-surface-3 text-accent' : ICON_BUTTON_TONES[tone],
         className,
       )}
       {...rest}
@@ -228,7 +228,7 @@ export function Help({
         aria-describedby={open ? id : undefined}
         aria-expanded={open}
         className={join(
-          'inline-flex size-6 flex-none items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-desk-700 hover:text-pencil-blue focus:text-pencil-blue',
+          'inline-flex size-6 flex-none items-center justify-center rounded-full text-ink-400 transition-colors hover:bg-surface-3 hover:text-accent focus:text-accent',
           className,
         )}
         onPointerEnter={(event) => {
@@ -278,7 +278,7 @@ export function Help({
             ref={tooltip}
             id={id}
             role="tooltip"
-            className="fixed z-[100] max-h-[min(12rem,calc(100vh-32px))] w-[min(280px,calc(100vw-32px))] overflow-y-auto rounded-lg border border-desk-500 bg-desk-700 px-3 py-2 text-sm leading-relaxed text-ink-100 shadow-[0_12px_32px_rgb(0_0_0/0.38)]"
+            className="fixed z-[100] max-h-[min(12rem,calc(100vh-32px))] w-[min(280px,calc(100vw-32px))] overflow-y-auto rounded-card border border-line-strong bg-surface-3 px-3 py-2 text-sm leading-relaxed text-ink-100 shadow-popover"
             style={{ top: position.top, left: position.left }}
             onPointerEnter={() => {
               if (leaveTimer.current !== null) clearTimeout(leaveTimer.current);
@@ -295,10 +295,10 @@ export function Help({
 }
 
 const CONTROL =
-  'rounded-md border border-desk-500 bg-desk-950/80 px-2.5 text-ink-100 shadow-[0_1px_2px_rgb(0_0_0/0.18)_inset] placeholder:text-ink-400 ' +
-  'transition-[border-color,background-color,box-shadow] duration-150 hover:border-ink-400 focus:border-pencil-blue focus:bg-desk-900 ' +
-  'disabled:cursor-not-allowed disabled:border-desk-600 disabled:bg-desk-900 disabled:text-ink-400 disabled:hover:border-desk-600 ' +
-  'aria-invalid:border-pencil-red';
+  'rounded-control border border-line-strong bg-surface-0 px-2.5 text-ink-100 shadow-[0_1px_2px_rgb(0_0_0/0.2)_inset] placeholder:text-ink-400 ' +
+  'transition-[border-color,background-color,box-shadow] duration-150 ease-standard hover:border-ink-400/70 focus:border-accent focus:shadow-[0_0_0_3px_rgb(124_196_232/0.16)] ' +
+  'disabled:cursor-not-allowed disabled:border-line disabled:bg-surface-1 disabled:text-ink-400 disabled:hover:border-line ' +
+  'aria-invalid:border-motion';
 
 export interface FieldProps {
   readonly label: string;
@@ -331,7 +331,7 @@ export function Field({ label, error, hint, className, children }: FieldProps): 
         <p
           id={messageId}
           role={error === undefined ? undefined : 'alert'}
-          className={join('text-sm', error === undefined ? 'text-ink-400' : 'text-pencil-red')}
+          className={join('text-sm', error === undefined ? 'text-ink-400' : 'text-motion')}
         >
           {error !== undefined && 'Error: '}
           {message}
@@ -463,26 +463,27 @@ export function PanelHeading({
   );
 }
 
-export interface ModalProps {
-  readonly title: string;
+export interface ModalFrameProps {
   readonly open: boolean;
   readonly onClose: () => void;
+  /** Id of the element that names the dialog. */
+  readonly labelledBy: string;
+  readonly className?: string;
   readonly children: ReactNode;
-  readonly footer?: ReactNode;
-  readonly width?: 'narrow' | 'wide';
 }
 
-/** A modal dialog. Focus stays inside it and Escape closes it. */
-export function Modal({
-  title,
+/**
+ * The native modal dialog without a layout. Focus stays inside it, Escape
+ * closes it and focus returns to the control that opened it.
+ */
+export function ModalFrame({
   open,
   onClose,
+  labelledBy,
+  className,
   children,
-  footer,
-  width = 'narrow',
-}: ModalProps): ReactElement {
+}: ModalFrameProps): ReactElement {
   const reference = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
 
   useEffect(() => {
     const dialog = reference.current;
@@ -499,30 +500,155 @@ export function Modal({
   return (
     <dialog
       ref={reference}
-      aria-labelledby={titleId}
+      aria-labelledby={labelledBy}
       className={join(
-        'm-auto max-h-[85vh] max-w-[calc(100vw-2rem)] rounded-xl border border-desk-600 bg-desk-800 p-0 text-ink-100',
-        'shadow-[0_24px_80px_rgb(0_0_0/0.55)]',
-        width === 'narrow' ? 'w-[440px]' : 'w-[640px]',
+        'm-auto max-h-[85vh] max-w-[calc(100vw-2rem)] rounded-dialog border border-line bg-surface-2 p-0 text-ink-100 shadow-dialog',
+        className,
       )}
       onCancel={(event) => {
         event.preventDefault();
         onClose();
       }}
     >
-      {open && (
-        <div className="flex max-h-[85vh] flex-col">
-          <h2 id={titleId} className="px-6 pt-5 text-xl font-semibold">
+      {open && children}
+    </dialog>
+  );
+}
+
+export interface ModalProps {
+  readonly title: string;
+  readonly open: boolean;
+  readonly onClose: () => void;
+  readonly children: ReactNode;
+  readonly footer?: ReactNode;
+  readonly width?: 'narrow' | 'wide';
+}
+
+/** A modal dialog with a title, a scrolling body and a footer. */
+export function Modal({
+  title,
+  open,
+  onClose,
+  children,
+  footer,
+  width = 'narrow',
+}: ModalProps): ReactElement {
+  const titleId = useId();
+
+  return (
+    <ModalFrame
+      open={open}
+      onClose={onClose}
+      labelledBy={titleId}
+      className={width === 'narrow' ? 'w-[440px]' : 'w-[640px]'}
+    >
+      <div className="flex max-h-[85vh] flex-col">
+        <h2 id={titleId} className="px-6 pt-5 text-xl font-semibold tracking-tight">
+          {title}
+        </h2>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
+        {footer !== undefined && (
+          <div className="flex justify-end gap-2 border-t border-line px-6 py-3">{footer}</div>
+        )}
+      </div>
+    </ModalFrame>
+  );
+}
+
+export interface SwitchProps extends Omit<
+  InputHTMLAttributes<HTMLInputElement>,
+  'type' | 'role' | 'onChange'
+> {
+  readonly checked: boolean;
+  readonly onCheckedChange: (checked: boolean) => void;
+}
+
+/** An on/off control. It is a checkbox with the switch role, so labels and forms work as usual. */
+export function Switch({
+  checked,
+  onCheckedChange,
+  className,
+  ...rest
+}: SwitchProps): ReactElement {
+  return (
+    <input
+      type="checkbox"
+      role="switch"
+      className={join('studio-switch', className)}
+      checked={checked}
+      onChange={(event) => onCheckedChange(event.target.checked)}
+      {...rest}
+    />
+  );
+}
+
+/**
+ * One setting: its name and an explanation on the left, the control on the
+ * right. `children` receives the ids that connect the control with the text.
+ */
+export function SettingRow({
+  label,
+  description,
+  children,
+}: {
+  readonly label: string;
+  readonly description?: ReactNode;
+  readonly children: (ids: { id: string; 'aria-describedby': string | undefined }) => ReactNode;
+}): ReactElement {
+  const id = useId();
+  const descriptionId = `${id}-description`;
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-6 py-3">
+      <div className="min-w-0">
+        <label htmlFor={id} className="block font-medium text-ink-100">
+          {label}
+        </label>
+        {description !== undefined && (
+          <p id={descriptionId} className="mt-0.5 text-sm leading-relaxed text-ink-400">
+            {description}
+          </p>
+        )}
+      </div>
+      <div className="flex flex-none items-center">
+        {children({
+          id,
+          'aria-describedby': description === undefined ? undefined : descriptionId,
+        })}
+      </div>
+    </div>
+  );
+}
+
+/** A titled group of settings on a card. */
+export function SettingsCard({
+  title,
+  description,
+  action,
+  children,
+}: {
+  readonly title: string;
+  readonly description?: ReactNode;
+  readonly action?: ReactNode;
+  readonly children: ReactNode;
+}): ReactElement {
+  const id = useId();
+  return (
+    <section
+      aria-labelledby={id}
+      className="min-w-0 rounded-card border border-line bg-surface-1/70 px-4 pt-3.5 pb-4"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 id={id} className="font-semibold text-ink-100">
             {title}
-          </h2>
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">{children}</div>
-          {footer !== undefined && (
-            <div className="flex justify-end gap-2 border-t border-desk-600 px-6 py-3">
-              {footer}
-            </div>
+          </h4>
+          {description !== undefined && (
+            <p className="mt-0.5 text-sm leading-relaxed text-ink-400">{description}</p>
           )}
         </div>
-      )}
-    </dialog>
+        {action}
+      </div>
+      <div className="mt-3 min-w-0">{children}</div>
+    </section>
   );
 }

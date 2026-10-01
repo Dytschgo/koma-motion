@@ -6,7 +6,7 @@
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchApplication } from './application';
+import { launchApplication, openSettingsPage } from './application';
 
 const OUTPUT_DIRECTORY = resolve(import.meta.dirname, '../../../docs/screenshots');
 
@@ -79,7 +79,7 @@ test('documentation screenshots', async () => {
     await capture('brand-kit-library');
     await window.getByRole('button', { name: 'Close panel' }).click();
 
-    await window.getByRole('button', { name: 'Settings' }).click();
+    await openSettingsPage(window, 'Updates');
     await expect(window.getByRole('region', { name: 'App updates' })).toBeVisible();
     await capture('settings');
   } finally {

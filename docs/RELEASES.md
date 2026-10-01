@@ -97,7 +97,7 @@ signature: whoever can change a release can change its checksums.
 
 ## Update channels
 
-The channel is chosen in **Settings, App updates**. Stable is the default.
+The channel is chosen in **Settings, Updates**. Stable is the default.
 Choosing Nightly asks for confirmation. The choice is stored on the computer,
 in the data folder of the application, and belongs to no project.
 

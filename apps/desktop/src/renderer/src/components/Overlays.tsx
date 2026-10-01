@@ -64,12 +64,12 @@ function NoticeItem({ notice }: { readonly notice: Notice }): ReactElement {
   return (
     <li
       role={isError ? 'alert' : 'status'}
-      className={`flex w-96 items-start gap-2 rounded-lg border bg-desk-700 py-2 pr-1 pl-3 shadow-[0_8px_32px_rgb(0_0_0/0.5)] ${
-        isError ? 'border-pencil-red' : 'border-desk-500'
+      className={`flex w-96 items-start gap-2 rounded-card border border-l-[3px] bg-surface-3 py-2 pr-1 pl-3 shadow-popover ${
+        isError ? 'border-motion/60 border-l-motion' : 'border-line-strong border-l-accent'
       }`}
     >
       <p className="min-w-0 flex-1 py-1 whitespace-pre-wrap select-text">
-        {isError && <span className="font-semibold text-pencil-red">Error: </span>}
+        {isError && <span className="font-semibold text-motion">Error: </span>}
         {notice.message}
       </p>
       <IconButton
@@ -87,7 +87,7 @@ function NoticeItem({ notice }: { readonly notice: Notice }): ReactElement {
 export function Notices(): ReactElement {
   const notices = useUiStore((state) => state.notices);
   return (
-    <ul aria-label="Messages" className="fixed top-14 right-3 z-50 flex flex-col gap-2">
+    <ul aria-label="Messages" className="fixed top-13 right-3 z-50 flex flex-col gap-2">
       {notices.map((notice) => (
         <NoticeItem key={notice.id} notice={notice} />
       ))}

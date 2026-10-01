@@ -6,6 +6,7 @@ import {
   answerOpenDialog,
   answerSaveDialog,
   launchApplication,
+  openSettingsPage,
   type RunningApplication,
 } from './application';
 
@@ -23,9 +24,8 @@ test('creates an app template before opening a project and keeps controls usable
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800);
   });
   await window.getByRole('button', { name: 'Settings', exact: true }).click();
-  await expect(
-    window.getByText('Create or open a project to edit its instructions or apply a template.'),
-  ).toBeVisible();
+  await expect(window.getByText('No project is open').filter({ visible: true })).toBeVisible();
+  await openSettingsPage(window, 'Templates');
   await window.getByLabel('New template name').fill('First template');
   await window.getByLabel('New template instructions').fill('Use clear language.');
   const save = window.getByRole('button', { name: 'Save new template' });
@@ -40,8 +40,12 @@ test('creates an app template before opening a project and keeps controls usable
   await expect(shortcut).toBeInViewport({ ratio: 1 });
   await expect(window.getByLabel('Your request')).toBeInViewport({ ratio: 1 });
   await shortcut.click();
+  // The shortcut opens the project instructions.
+  await expect(window.getByLabel('Project system instructions')).toBeVisible();
+  await openSettingsPage(window, 'Templates');
   await window.getByLabel('Saved instruction template').selectOption({ label: 'First template' });
   await window.getByRole('button', { name: 'Apply to project' }).click();
+  await openSettingsPage(window, 'Instructions');
   await expect(window.getByLabel('Project system instructions')).toHaveValue('Use clear language.');
   expect(running.problems).toEqual([]);
 });
@@ -51,13 +55,14 @@ test('saves project instructions and reuses app templates with undo and redo', a
   const { window, application, directory } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
   await window.getByRole('button', { name: 'Instructions & templates' }).click();
-  await expect(
-    window.getByText('No saved templates yet. Save your first template below.'),
-  ).toBeVisible();
   const field = window.getByLabel('Project system instructions');
   await expect(field).toHaveValue('');
   const instructions = '  Use concise language.\nExplain technical terms. 日本語  ';
   await field.fill(instructions);
+  await openSettingsPage(window, 'Templates');
+  await expect(
+    window.getByText('No saved templates yet. Save your first template below.'),
+  ).toBeVisible();
   await window.getByRole('button', { name: 'Copy project text into template draft' }).click();
   await window.getByLabel('New template name').fill('Technical');
   await window.getByRole('button', { name: 'Save new template' }).click();
@@ -74,7 +79,7 @@ test('saves project instructions and reuses app templates with undo and redo', a
   expect(JSON.stringify(source)).not.toContain('Technical');
   expect(source).not.toHaveProperty('templates');
 
-  await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await openSettingsPage(window, 'Templates');
   const select = window.getByLabel('Saved instruction template');
   await select.selectOption({ label: 'Technical' });
   await window.getByLabel('Template name', { exact: true }).fill('Copy');
@@ -94,8 +99,13 @@ test('saves project instructions and reuses app templates with undo and redo', a
   await window.getByRole('button', { name: 'New', exact: true }).click();
   await window.getByRole('button', { name: 'Instructions & templates' }).click();
   await expect(field).toHaveValue('');
+  await openSettingsPage(window, 'Templates');
   await select.selectOption({ label: 'Plain language' });
   await window.getByRole('button', { name: 'Apply to project' }).click();
+  await expect(
+    window.getByRole('status').filter({ hasText: 'Template applied to this project' }),
+  ).toBeVisible();
+  await openSettingsPage(window, 'Instructions');
   await expect(field).toHaveValue(instructions);
   await window.screenshot({ path: testInfo.outputPath('instructions-and-templates.png') });
   await window.getByRole('button', { name: 'Done', exact: true }).click();
@@ -126,6 +136,7 @@ test('saves project instructions and reuses app templates with undo and redo', a
       { exact: true },
     ),
   ).toHaveCount(0);
+  await openSettingsPage(window, 'Templates');
   await select.selectOption({ label: 'Plain language' });
   await expect(window.getByLabel('Saved template instructions')).toHaveValue(instructions);
   expect(running.problems).toEqual([]);
@@ -147,6 +158,7 @@ test('retains invalid drafts and failed template and project saves', async () =>
   await window.getByRole('button', { name: 'Instructions & templates' }).click();
   await expect(field).toHaveValue(overlong);
   await field.fill('Last valid instructions');
+  await openSettingsPage(window, 'Templates');
   await window.getByLabel('New template name').fill('My template');
   await window.getByLabel('New template instructions').fill(overlong);
   await expect(window.getByRole('button', { name: 'Save new template' })).toBeDisabled();
@@ -160,6 +172,7 @@ test('retains invalid drafts and failed template and project saves', async () =>
   await window.screenshot({ path: testInfo.outputPath('template-save-failure.png') });
   await window.getByRole('button', { name: 'Done', exact: true }).click();
   await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await openSettingsPage(window, 'Templates');
   await expect(window.getByLabel('New template name')).toHaveValue('My template');
   await expect(window.getByLabel('New template instructions')).toHaveValue(
     'Keep this template draft',

@@ -93,7 +93,7 @@ function Swatches({
   return (
     <span
       aria-hidden="true"
-      className="flex flex-none overflow-hidden rounded-sm outline outline-1 outline-desk-500"
+      className="flex flex-none overflow-hidden rounded-sm outline outline-1 outline-line-strong"
     >
       {BRAND_COLOUR_ROLES.map((role) => (
         <span key={role} className={size} style={{ background: brandKit.colours[role] }} />
@@ -125,7 +125,7 @@ export function BrandKitSource({ project }: { readonly project: KomaProject }): 
   }
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-desk-600 bg-desk-900 p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-line bg-surface-1 p-3">
       <p role="status" className="text-sm text-ink-300">
         {description}
       </p>
@@ -202,7 +202,7 @@ function RenameForm({
         }}
       />
       {empty && (
-        <p id={messageId} role="alert" className="text-sm text-pencil-red">
+        <p id={messageId} role="alert" className="text-sm text-motion">
           Error: A saved Brand Kit needs a name.
         </p>
       )}
@@ -237,7 +237,7 @@ function KitItem({
     <li>
       <div
         className={`rounded-lg border p-2 ${
-          selected ? 'border-pencil-blue bg-pencil-blue-deep' : 'border-desk-600 hover:bg-desk-700'
+          selected ? 'border-accent/70 bg-accent-deep/45' : 'border-line hover:bg-surface-2'
         }`}
       >
         <button
@@ -285,7 +285,7 @@ function KitItem({
         </button>
 
         {selected && (
-          <div className="mt-2 border-t border-desk-600 pt-2">
+          <div className="mt-2 border-t border-line pt-2">
             {renaming ? (
               <RenameForm
                 kit={kit}
@@ -427,7 +427,7 @@ export function BrandKitLibraryView({ project }: { readonly project: KomaProject
       )}
 
       {library.kits.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-desk-500 p-4">
+        <div className="rounded-lg border border-dashed border-line-strong p-4">
           <p className="font-semibold">No saved Brand Kits yet</p>
           <p className="mt-1 text-sm text-ink-300">
             Save the Brand Kit of this project to reuse its colours, fonts, logo and descriptions in

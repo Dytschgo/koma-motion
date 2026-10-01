@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchApplication, type RunningApplication } from './application';
+import { launchApplication, type RunningApplication, openSettingsPage } from './application';
 
 let running: RunningApplication;
 
@@ -21,7 +21,7 @@ async function readStoredChannel(): Promise<unknown> {
 
 test('shows the version and uses the stable channel by default', async () => {
   const { window, application } = running;
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await openSettingsPage(window, 'Updates');
 
   const updates = window.getByRole('region', { name: 'App updates' });
   const version = await application.evaluate(({ app }) => app.getVersion());
@@ -35,7 +35,7 @@ test('does not check for updates in a version that is not installed', async () =
   const requests: string[] = [];
   window.on('request', (request) => requests.push(request.url()));
 
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await openSettingsPage(window, 'Updates');
   await window.getByRole('button', { name: 'Check for updates' }).click();
 
   await expect(
@@ -46,7 +46,7 @@ test('does not check for updates in a version that is not installed', async () =
 
 test('asks before switching to nightly and keeps stable when declined', async () => {
   const { window } = running;
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await openSettingsPage(window, 'Updates');
   const channel = window.getByLabel('Update channel');
 
   await channel.selectOption('nightly');
@@ -59,7 +59,7 @@ test('asks before switching to nightly and keeps stable when declined', async ()
 
 test('stores the chosen channel and uses it after a restart', async () => {
   const { window } = running;
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await openSettingsPage(window, 'Updates');
   await window.getByLabel('Update channel').selectOption('nightly');
   await window.getByRole('button', { name: 'Use nightly' }).click();
 

@@ -219,7 +219,7 @@ function ShapeControls({
       <label className="flex items-center gap-2">
         <input
           type="checkbox"
-          className="size-4 accent-pencil-blue"
+          className="size-4 accent-accent"
           checked={element.style.fill !== null}
           disabled={locked}
           onChange={(event) => {
@@ -247,7 +247,7 @@ function ShapeControls({
       <label className="flex items-center gap-2">
         <input
           type="checkbox"
-          className="size-4 accent-pencil-blue"
+          className="size-4 accent-accent"
           checked={element.style.stroke !== null}
           disabled={locked}
           onChange={(event) => {
@@ -522,7 +522,7 @@ export function ElementPanel({
     <div className="flex flex-col">
       <div className="flex flex-col gap-2 px-3 pt-2 pb-3">
         <div className="flex items-center gap-2">
-          <span aria-hidden="true" className="flex-none text-pencil-blue">
+          <span aria-hidden="true" className="flex-none text-accent">
             <ElementTypeIcon element={element} size={16} />
           </span>
           <h2 className="min-w-0 flex-1 truncate text-base font-semibold text-ink-100">
@@ -573,7 +573,7 @@ export function ElementPanel({
           >
             {locked ? <LockIcon /> : <UnlockIcon />}
           </IconButton>
-          <span aria-hidden="true" className="mx-1 h-5 w-px bg-desk-600" />
+          <span aria-hidden="true" className="mx-1 h-5 w-px bg-line" />
           <IconButton
             label="Bring forward"
             disabled={locked || place <= 0}

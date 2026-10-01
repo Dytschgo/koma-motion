@@ -10,6 +10,7 @@ import type {
   ProviderDetectionResult,
   ProviderExecutionResult,
   ProviderMetadata,
+  ProviderModelListing,
 } from '../providers/types';
 import {
   createCliEnvironment,
@@ -130,6 +131,53 @@ export function parseGrokEnvelope(standardOutput: string): GrokEnvelope | null {
   };
 }
 
+/** Time allowed for `grok models`. It contacts the service of the signed-in account. */
+const LIST_MODELS_TIMEOUT_MS = 20_000;
+const MAX_LIST_OUTPUT_BYTES = 64 * 1024;
+
+/**
+ * Reads the output of `grok models`. Grok 1.0.44 prints, for example:
+ *
+ * ```text
+ * Default model: grok-4.7
+ *
+ * Available models:
+ *   * grok-4.7 (default)
+ *   - grok-4.6
+ * ```
+ *
+ * Lines that do not look like a model entry are ignored, and every id must
+ * be a valid model name. Returns `null` when no model could be read.
+ */
+export function parseGrokModelList(
+  output: string,
+): { readonly models: string[]; readonly defaultModel: string | null } | null {
+  const lines = output.split(/\r?\n/);
+  const start = lines.findIndex((line) => /^\s*available models:\s*$/i.test(line));
+  if (start === -1) {
+    return null;
+  }
+  const models: string[] = [];
+  let defaultModel: string | null = null;
+  for (const line of lines.slice(start + 1)) {
+    const match = /^\s*[*-]\s+(\S+)(\s+\(default\))?\s*$/.exec(line);
+    if (match === null) {
+      if (line.trim() === '') continue;
+      break;
+    }
+    const id = match[1] ?? '';
+    if (!modelNameSchema.safeParse(id).success || models.includes(id)) continue;
+    models.push(id);
+    if (match[2] !== undefined) defaultModel = id;
+    if (models.length === 50) break;
+  }
+  if (defaultModel === null) {
+    const stated = /^\s*default model:\s*(\S+)\s*$/im.exec(output)?.[1] ?? null;
+    defaultModel = stated !== null && models.includes(stated) ? stated : null;
+  }
+  return models.length === 0 ? null : { models, defaultModel };
+}
+
 /** Generates presentations with a locally installed Grok CLI. */
 export class GrokCliProvider implements AgentProvider {
   readonly id = GROK_PROVIDER_ID;
@@ -143,6 +191,13 @@ export class GrokCliProvider implements AgentProvider {
     usesExternalService: true,
     supportsModelSelection: true,
     defaultModel: null,
+    modelCatalog: {
+      source: 'cli',
+      models: [],
+      note: 'Grok can list the models of your sign-in. Load them to choose one, or enter a model id.',
+    },
+    acceptsCustomModel: true,
+    streamsOutput: false,
   };
 
   readonly #environment: CliEnvironment;
@@ -160,6 +215,46 @@ export class GrokCliProvider implements AgentProvider {
         'Install Grok from https://x.ai/cli and sign in with grok login, then check again.',
       environment: this.#environment,
     });
+  }
+
+  /** Runs `grok models`, which lists the models of the signed-in account. */
+  async listModels(signal: AbortSignal): Promise<ProviderModelListing> {
+    const executable = await this.#environment.resolveExecutable(EXECUTABLE_NAME);
+    if (executable === null) {
+      return { status: 'failed', message: `${this.displayName} is not installed.` };
+    }
+    const workingDirectory = await this.#environment.createWorkingDirectory();
+    try {
+      const outcome = await this.#environment.runProcess({
+        executable,
+        arguments: ['models'],
+        input: '',
+        workingDirectory,
+        signal: AbortSignal.any([signal, AbortSignal.timeout(LIST_MODELS_TIMEOUT_MS)]),
+        maxOutputBytes: MAX_LIST_OUTPUT_BYTES,
+        env: this.#environment.childEnvironment(),
+      });
+      const parsed =
+        outcome.exitCode === 0 && !outcome.aborted && !outcome.outputLimitExceeded
+          ? parseGrokModelList(outcome.standardOutput)
+          : null;
+      if (parsed === null) {
+        return {
+          status: 'failed',
+          message: outcome.aborted
+            ? 'Grok did not list its models in time. Try again.'
+            : 'Grok could not list its models. Check that you are signed in (grok login), then try again.',
+        };
+      }
+      return {
+        status: 'listed',
+        models: parsed.models,
+        defaultModel: parsed.defaultModel,
+        checkedAt: this.#environment.now().toISOString(),
+      };
+    } finally {
+      await this.#environment.removeWorkingDirectory(workingDirectory).catch(() => undefined);
+    }
   }
 
   generatePresentation(

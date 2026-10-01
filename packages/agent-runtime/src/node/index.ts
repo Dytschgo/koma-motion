@@ -1,4 +1,5 @@
 export * from './ClaudeCodeProvider';
+export * from './claudeStream';
 export * from './cliEnvironment';
 export * from './CodexCliProvider';
 export * from './GrokCliProvider';

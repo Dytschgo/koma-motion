@@ -3,7 +3,12 @@ import { join } from 'node:path';
 import { komaProjectSchema } from '@koma-motion/core';
 import { buildKoma, buildProject } from '@koma-motion/core/testing';
 import { expect, test } from '@playwright/test';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  launchApplication,
+  type RunningApplication,
+  openSettingsPage,
+} from './application';
 import { countTrigger, setKomaCount } from './composerControls';
 
 let running: RunningApplication;
@@ -71,8 +76,8 @@ for (const count of [250, 1000]) {
     const brief = 'Detailed request. '.repeat(300);
     await window.getByLabel('Your request').fill(brief);
     await expect(window.getByLabel('Your request')).toHaveValue(brief);
-    await window.getByRole('button', { name: 'Settings', exact: true }).click();
-    const deadline = window.getByRole('checkbox', { name: 'Stop generation after a time limit' });
+    await openSettingsPage(window, 'Generation');
+    const deadline = window.getByRole('switch', { name: 'Stop generation after a time limit' });
     await expect(deadline).not.toBeChecked();
     await deadline.check();
     await window.getByLabel('Time limit in seconds').fill('7200');

@@ -213,8 +213,8 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const progressPercent = Math.round((previewing ? playback.progress : 0) * 100);
 
   return (
-    <section aria-label="Canvas" className="flex min-h-0 min-w-0 flex-1 flex-col bg-desk-950">
-      <div className="flex flex-none items-center gap-3 border-b border-desk-600 px-3 py-1.5">
+    <section aria-label="Canvas" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-0">
+      <div className="flex h-11 flex-none items-center gap-2 border-b border-line bg-surface-1 px-2.5">
         <IconButton
           label="Add image"
           disabled={koma === null || preview !== null}
@@ -235,11 +235,11 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
       </div>
       <div
         ref={attachArea}
-        className="relative flex min-h-0 flex-1 items-center justify-center overflow-auto"
+        className="studio-desk relative flex min-h-0 flex-1 items-center justify-center overflow-auto"
       >
         {frame === null ? (
-          <div className="max-w-md px-6 text-center">
-            <p className="text-xl font-semibold">Start your presentation</p>
+          <div className="max-w-md rounded-dialog border border-dashed border-line-strong bg-surface-1/80 px-8 py-7 text-center">
+            <p className="text-xl font-semibold tracking-tight">Start your presentation</p>
             <p className="mt-2 text-ink-300">Describe it in the chat, or add a Koma.</p>
             {!chatOpen && (
               <Button
@@ -255,7 +255,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           </div>
         ) : (
           scale > 0 && (
-            <div className="shadow-[0_12px_48px_rgb(0_0_0/0.5)]">
+            <div className="rounded-[2px] shadow-[0_18px_60px_rgb(0_0_0/0.55),0_0_0_1px_rgb(255_255_255/0.06)]">
               <KomaStage
                 key={`${String(sessionId)}:${koma?.id ?? ''}:${String(preview !== null)}`}
                 onCommitElement={
@@ -284,14 +284,14 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           // the position control for space and one of them disappeared.
           <p
             role="note"
-            className="absolute bottom-3 left-3 max-w-[60%] rounded-lg border border-desk-600 bg-desk-800 px-3 py-1.5 text-sm text-ink-300"
+            className="absolute bottom-3 left-3 max-w-[60%] rounded-card border border-line bg-surface-2 px-3 py-1.5 text-sm text-ink-300 shadow-raised"
           >
             Reduced motion is on: previews cut instead of moving (
             {formatSeconds(REDUCED_MOTION_DURATION_MS)}).
           </p>
         )}
 
-        <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-lg border border-desk-600 bg-desk-800 p-0.5">
+        <div className="absolute right-3 bottom-3 flex items-center gap-0.5 rounded-card border border-line bg-surface-2 p-0.5 shadow-popover">
           <Button
             aria-label="Zoom out"
             compact
@@ -342,7 +342,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
         aria-label="Transition preview"
         // A container, so that the labels give way before the position control
         // when the canvas is narrow.
-        className="@container flex-none border-t border-desk-600 bg-desk-800"
+        className="@container flex-none border-t border-line bg-surface-1"
       >
         <div className="flex h-14 items-center gap-1 px-3">
           <IconButton

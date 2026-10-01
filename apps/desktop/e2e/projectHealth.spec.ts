@@ -12,6 +12,7 @@ import {
   answerOpenDialog,
   answerSaveDialog,
   launchApplication,
+  openSettingsPage,
   showInspector,
   showChat,
   type RunningApplication,
@@ -166,18 +167,14 @@ test('Save current format writes version 3; optional generation timing stays in 
   );
   await health().getByRole('button', { name: 'Close', exact: true }).click();
   await showChat(running.window);
-  await running.window.getByRole('button', { name: 'Generation settings', exact: true }).focus();
-  await expect(
-    running.window.getByText('No time limit. Cancel generation at any time.', { exact: false }),
-  ).toBeVisible();
-  await running.window.getByRole('button', { name: 'Settings', exact: true }).click();
+  // No time limit: the composer shows no stop time.
+  await expect(running.window.getByText('Stops after', { exact: false })).toHaveCount(0);
+  await openSettingsPage(running.window, 'Generation');
   const settings = running.window.getByRole('dialog', { name: 'Settings', exact: true });
   await settings.getByLabel('Stop generation after a time limit', { exact: true }).check();
   await settings.getByLabel('Time limit in seconds', { exact: true }).fill('45');
   await settings.getByRole('button', { name: 'Done' }).click();
-  await running.window.getByRole('button', { name: 'Generation settings', exact: true }).focus();
-  await expect(running.window.getByRole('tooltip')).toContainText('Stops after 45 seconds');
-  await running.window.keyboard.press('Escape');
+  await expect(running.window.getByText('Stops after 45 seconds.', { exact: false })).toBeVisible();
   await showHealth();
   await expect(health()).toContainText('No project issues found');
   expect(running.problems).toEqual([]);

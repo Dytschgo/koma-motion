@@ -5,7 +5,7 @@ import { connect, createServer, type Server } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { launchApplication, type RunningApplication } from './application';
+import { launchApplication, type RunningApplication, openSettingsPage } from './application';
 
 const RENDERER_DIRECTORY = resolve(import.meta.dirname, '../out/renderer');
 const PNG_BASE64 =
@@ -554,7 +554,7 @@ test('opens only the repository in the system browser', async () => {
   }
   await openFromPage(application, REPOSITORY);
   await openFromPage(application, `${REPOSITORY}/issues#readme`);
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await openSettingsPage(window, 'About');
   await window.getByRole('link', { name: 'Koma Motion on GitHub' }).click();
 
   await expect

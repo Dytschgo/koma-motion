@@ -32,6 +32,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
   'koma:brand-kits:load',
   'koma:brand-kits:start-new',
   'koma:providers:detect',
+  'koma:providers:list-models',
   'koma:providers:execute',
   'koma:providers:regenerate-transition',
   'koma:providers:cancel',
@@ -48,6 +49,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
 const EVENT_CHANNELS: ReadonlySet<string> = new Set([
   'koma:deck:progress',
   'koma:providers:status',
+  'koma:providers:output',
   'koma:app:save-and-close',
   'koma:updates:status',
 ]);

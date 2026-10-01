@@ -247,6 +247,7 @@ schema for the request and the response of every channel.
 | `koma:brand-kits:load`         | read a saved kit and its logo to apply it   |
 | `koma:brand-kits:start-new`    | keep an unreadable library as a backup      |
 | `koma:providers:detect`        | detect all providers                        |
+| `koma:providers:list-models`   | list the models of a signed-in CLI          |
 | `koma:providers:execute`       | run a generation                            |
 | `koma:providers:cancel`        | stop a generation                           |
 | `koma:app:set-unsaved-changes` | tell the main process about unsaved changes |
@@ -259,6 +260,8 @@ schema for the request and the response of every channel.
 | `koma:updates:install`         | restart and install the downloaded update   |
 
 Events from the main process: `koma:providers:status`,
+`koma:providers:output` (text a provider writes during a chat generation, at
+most 4000 characters per event and one event per 50 ms),
 `koma:app:save-and-close` and `koma:updates:status`.
 
 The update channels carry no addresses. The window chooses a channel; which
@@ -284,6 +287,7 @@ sure that the channel list of the preload script equals the contract.
 | project and undo history | `projectStore`                  | the project, yes       |
 | unsaved changes          | derived in `projectStore`       | no                     |
 | selection, view, zoom    | `uiStore`                       | no                     |
+| open Settings page       | `uiStore`                       | no                     |
 | preview                  | `uiStore` and the playback hook | no                     |
 | agent executions, chat   | `agentStore`                    | no                     |
 | chat sidebar width, open | `uiStore`, window local storage | no                     |

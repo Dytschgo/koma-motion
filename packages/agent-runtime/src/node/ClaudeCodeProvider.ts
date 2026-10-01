@@ -7,6 +7,7 @@ import type {
   AgentProvider,
   ProviderDetectionResult,
   ProviderExecutionResult,
+  ModelCatalog,
   ProviderMetadata,
 } from '../providers/types';
 import {
@@ -18,6 +19,11 @@ import {
 } from './cliEnvironment';
 import { redactDiagnostics } from './redact';
 import { analyzeBrandKitWithClaude } from './claudeBrandKitAnalysis';
+import {
+  ClaudeStreamParser,
+  findClaudeResultLine,
+  type ClaudeStreamHandlers,
+} from './claudeStream';
 import type {
   BrandKitAnalysisContext,
   BrandKitAnalysisRequest,
@@ -25,6 +31,28 @@ import type {
 } from '../contract/brandKitAnalysis';
 
 export const CLAUDE_CODE_PROVIDER_ID = 'claude-code';
+
+/**
+ * Models offered for Claude Code. `claude --help` documents the aliases
+ * `fable`, `opus` and `sonnet` and accepts a model's full name; `haiku` was
+ * accepted by Claude Code 2.1.285 on 30 September 2026. Claude Code has no
+ * command that lists the models of a sign-in, so this list is curated and
+ * the CLI decides at run time whether a model is available.
+ */
+export const CLAUDE_MODEL_CATALOG: ModelCatalog = {
+  source: 'curated',
+  models: [
+    { id: 'fable', label: 'Fable (latest)', kind: 'alias' },
+    { id: 'opus', label: 'Opus (latest)', kind: 'alias' },
+    { id: 'sonnet', label: 'Sonnet (latest)', kind: 'alias' },
+    { id: 'haiku', label: 'Haiku (latest)', kind: 'alias' },
+    { id: 'claude-fable-5-1', label: 'Claude Fable 5.1', kind: 'id' },
+    { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', kind: 'id' },
+    { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', kind: 'id' },
+    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', kind: 'id' },
+  ],
+  note: 'A list of Claude Code aliases and model names. Claude Code cannot list the models of your sign-in; it reports a model it cannot use when the run starts.',
+};
 const EXECUTABLE_NAME = 'claude';
 
 /**
@@ -38,7 +66,11 @@ const EXECUTABLE_NAME = 'claude';
  * keychain are never read. That would drop the existing sign-in.
  *
  * - `--print` answers once and exits.
- * - `--output-format json` wraps the answer in one JSON envelope.
+ * - `--output-format stream-json --verbose --include-partial-messages` prints
+ *   one JSON event per line while Claude works. The last line is a `result`
+ *   event with the same fields as the `--output-format json` envelope,
+ *   `structured_output` included (checked with Claude Code 2.1.285 on
+ *   30 September 2026). `--verbose` is required for stream-json in print mode.
  * - `--tools ""` names no tools.
  * - `--strict-mcp-config` without `--mcp-config` loads no MCP servers.
  * - `--disable-slash-commands` disables skills.
@@ -52,7 +84,9 @@ const EXECUTABLE_NAME = 'claude';
 const FIXED_ARGUMENTS = [
   '--print',
   '--output-format',
-  'json',
+  'stream-json',
+  '--verbose',
+  '--include-partial-messages',
   '--input-format',
   'text',
   '--tools',
@@ -89,7 +123,18 @@ interface ClaudeEnvelope {
   readonly structuredOutput: unknown;
 }
 
-/** Reads the JSON envelope printed by `--output-format json`. */
+/**
+ * Lets Claude write a few visible sentences before its structured answer, so
+ * the person can follow the run. The structured answer itself is unchanged:
+ * Claude Code returns it as `structured_output`.
+ */
+export const CLAUDE_VISIBLE_PROGRESS_INSTRUCTION = [
+  '# Visible progress',
+  'The person watches your visible text while you work. Before you return the structured answer, write one to three short plain sentences that say what you are about to create for them.',
+  'Do not repeat the structured answer, do not use Markdown, and do not describe private reasoning. "No commentary" applies to the structured answer only.',
+].join('\n');
+
+/** Reads the JSON envelope printed by `--output-format json`, or the `result` line of stream-json. */
 export function parseClaudeEnvelope(standardOutput: string): ClaudeEnvelope | null {
   let envelope: unknown;
   try {
@@ -111,6 +156,62 @@ export function parseClaudeEnvelope(standardOutput: string): ClaudeEnvelope | nu
   };
 }
 
+/**
+ * Whether an error result says that the chosen model cannot be used. Claude
+ * Code words this in several ways ("model not found", "may not exist or you
+ * may not have access", "invalid model"); all name the model.
+ */
+export function describesUnavailableModel(result: string): boolean {
+  return (
+    /\bmodel\b/i.test(result) &&
+    /(not[ _]found|not exist|does not exist|not have access|no access|invalid model|unknown model|not available)/i.test(
+      result,
+    )
+  );
+}
+
+/** Bytes of structured answer between two progress updates while Claude writes it. */
+const WRITING_PROGRESS_STEP = 4096;
+
+/**
+ * Forwards visible text as output and turns stream activity into progress
+ * sentences. Progress while the answer is written is reported in steps, not
+ * for every delta, so status events stay few.
+ */
+function createStreamHandlers(context: AgentExecutionContext): ClaudeStreamHandlers {
+  let reportedWriting = -1;
+  return {
+    onText: (text) => {
+      context.reportOutput?.(text);
+    },
+    onActivity: (activity) => {
+      switch (activity.kind) {
+        case 'thinking':
+          context.reportProgress('Claude is thinking');
+          return;
+        case 'writing': {
+          const step = Math.floor(activity.characters / WRITING_PROGRESS_STEP);
+          if (step === reportedWriting) return;
+          reportedWriting = step;
+          context.reportProgress(
+            step === 0
+              ? 'Claude is writing the Komas'
+              : `Claude is writing the Komas (${String(step * 4)} KB so far)`,
+          );
+          return;
+        }
+        case 'retrying':
+          context.reportProgress(
+            activity.maxRetries > 0
+              ? `Claude Code is retrying after a ${activity.reason} (attempt ${String(activity.attempt)} of ${String(activity.maxRetries)})`
+              : `Claude Code is retrying after a ${activity.reason}`,
+          );
+          return;
+      }
+    },
+  };
+}
+
 /** Generates presentations with a locally installed Claude Code CLI. */
 export class ClaudeCodeProvider implements AgentProvider {
   readonly id = CLAUDE_CODE_PROVIDER_ID;
@@ -124,6 +225,9 @@ export class ClaudeCodeProvider implements AgentProvider {
     usesExternalService: true,
     supportsModelSelection: true,
     defaultModel: null,
+    modelCatalog: CLAUDE_MODEL_CATALOG,
+    acceptsCustomModel: true,
+    streamsOutput: true,
   };
 
   readonly #environment: CliEnvironment;
@@ -187,10 +291,11 @@ export class ClaudeCodeProvider implements AgentProvider {
     const workingDirectory = await this.#environment.createWorkingDirectory();
     try {
       context.reportProgress(progress);
+      const parser = new ClaudeStreamParser(createStreamHandlers(context));
       const outcome = await this.#environment.runProcess({
         executable,
         arguments: buildClaudeCodeArguments({
-          systemPrompt: context.prompt.system,
+          systemPrompt: `${context.prompt.system}\n\n${CLAUDE_VISIBLE_PROGRESS_INSTRUCTION}`,
           responseJsonSchema: JSON.stringify(context.prompt.responseJsonSchema),
           model: context.model,
         }),
@@ -199,7 +304,11 @@ export class ClaudeCodeProvider implements AgentProvider {
         signal: context.signal,
         maxOutputBytes: MAX_CLI_OUTPUT_BYTES,
         env: this.#environment.childEnvironment(),
+        onStandardOutput: (text) => {
+          parser.push(text);
+        },
       });
+      parser.end();
       const details = {
         exitCode: outcome.exitCode,
         errorOutput: redactDiagnostics(outcome.standardError),
@@ -210,8 +319,21 @@ export class ClaudeCodeProvider implements AgentProvider {
         if (failure !== null)
           return { ok: false, error: agentError(failure.code, failure.message), details };
       }
-      const envelope = parseClaudeEnvelope(outcome.standardOutput);
+      // stream-json ends with a result line; a plain JSON envelope is read as it is.
+      const envelope = parseClaudeEnvelope(
+        findClaudeResultLine(outcome.standardOutput) ?? outcome.standardOutput,
+      );
       if (envelope?.isError === true) {
+        if (context.model !== null && describesUnavailableModel(envelope.result)) {
+          return {
+            ok: false,
+            error: agentError(
+              'executionFailed',
+              `The model "${context.model}" is not available to your Claude Code sign-in. Choose another model or use the default.`,
+            ),
+            details,
+          };
+        }
         const reason = redactDiagnostics(envelope.result, 300);
         return {
           ok: false,
@@ -227,8 +349,16 @@ export class ClaudeCodeProvider implements AgentProvider {
         return { ok: false, error: agentError(failure.code, failure.message), details };
       }
       if (envelope === null) {
-        // Not the expected envelope: hand the text to validation as it is.
-        return { ok: true, output: { rawText: outcome.standardOutput }, details };
+        // The event stream is not an answer. Handing it to validation would
+        // send thinking and tool events back to Claude in a repair prompt.
+        return {
+          ok: false,
+          error: agentError(
+            'noStructuredOutput',
+            `${this.displayName} ended without a result. Try again.`,
+          ),
+          details,
+        };
       }
       const hasStructuredOutput =
         typeof envelope.structuredOutput === 'object' && envelope.structuredOutput !== null;

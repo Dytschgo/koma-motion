@@ -134,9 +134,10 @@ test('keeps the canvas and the chat usable in a narrow window', async () => {
 
   // The chat takes the column of the Inspector instead of covering the canvas.
   await expect(inspector).toBeHidden();
-  await window.getByRole('button', { name: 'About the chat', exact: true }).focus();
-  await expect(window.getByRole('tooltip')).toContainText('Hide the chat to see the Inspector');
-  await window.keyboard.press('Escape');
+  // The chat header offers only actions: no help buttons.
+  await expect(chat.getByRole('button', { name: 'About the chat' })).toHaveCount(0);
+  await expect(chat.getByRole('button', { name: 'Generation settings' })).toHaveCount(0);
+  await expect(chat.getByRole('button', { name: 'Hide the chat' })).toBeVisible();
   const viewport = await window.evaluate(() => innerWidth);
   const canvasBox = await getBox(canvas);
   const chatBox = await getBox(chat);

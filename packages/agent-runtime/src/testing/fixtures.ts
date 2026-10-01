@@ -63,6 +63,9 @@ export class ScriptedProvider implements AgentProvider {
       usesExternalService: false,
       supportsModelSelection: false,
       defaultModel: null,
+      modelCatalog: { source: 'none' as const, models: [], note: '' },
+      acceptsCustomModel: false,
+      streamsOutput: false,
     };
     this.detection = {
       providerId: id,

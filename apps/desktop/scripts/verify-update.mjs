@@ -87,7 +87,13 @@ async function update(executable, userData, channel, expectedVersion) {
   const window = await application.firstWindow();
   await window.waitForLoadState('domcontentloaded');
 
-  await window.getByRole('button', { name: 'Settings' }).click();
+  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  // Versions with categorised Settings show updates on their own page. Older
+  // installed versions show them directly, so the category is optional.
+  const updatesPage = window
+    .getByRole('navigation', { name: 'Settings categories' })
+    .getByRole('button', { name: 'Updates', exact: true });
+  if ((await updatesPage.count()) > 0) await updatesPage.click();
   const updates = window.getByRole('region', { name: 'App updates' });
   const status = updates.getByRole('status');
   if (channel !== 'stable') {

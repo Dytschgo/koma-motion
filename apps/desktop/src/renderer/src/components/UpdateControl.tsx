@@ -48,8 +48,8 @@ export function UpdateControl(): ReactElement {
 
   if (status === null) {
     return (
-      <section className="flex flex-col gap-3">
-        <h3 className="text-lg font-semibold">App updates</h3>
+      <section className="flex flex-col gap-3 rounded-card border border-line bg-surface-1/70 p-4">
+        <h4 className="font-semibold">App updates</h4>
         <p className="text-ink-400">Loading</p>
       </section>
     );
@@ -61,8 +61,11 @@ export function UpdateControl(): ReactElement {
     (status.state === 'available' || status.state === 'not-available');
 
   return (
-    <section className="flex flex-col gap-3" aria-label="App updates">
-      <h3 className="text-lg font-semibold">App updates</h3>
+    <section
+      className="flex flex-col gap-3 rounded-card border border-line bg-surface-1/70 p-4"
+      aria-label="App updates"
+    >
+      <h4 className="font-semibold">App updates</h4>
       <p className="text-ink-300">
         Installed version: <span className="select-text">{status.currentVersion}</span>
       </p>
@@ -100,14 +103,14 @@ export function UpdateControl(): ReactElement {
       <p
         role="status"
         aria-live="polite"
-        className={status.state === 'error' ? 'text-pencil-red' : 'text-ink-100'}
+        className={status.state === 'error' ? 'text-motion' : 'text-ink-100'}
       >
         {status.state === 'error' && 'Error: '}
         {describe(status)}
       </p>
 
       {failure !== null && (
-        <p role="alert" className="flex gap-2 text-pencil-red">
+        <p role="alert" className="flex gap-2 text-motion">
           <span className="mt-0.5 flex-none">
             <WarningIcon size={14} />
           </span>
@@ -122,10 +125,10 @@ export function UpdateControl(): ReactElement {
           aria-valuemin={0}
           aria-valuemax={100}
           aria-valuenow={Math.round(percent)}
-          className="h-1.5 overflow-hidden rounded-full bg-desk-600"
+          className="h-1.5 overflow-hidden rounded-full bg-line"
         >
           <div
-            className="h-full origin-left bg-pencil-blue"
+            className="h-full origin-left bg-accent"
             style={{ transform: `scaleX(${String(percent / 100)})` }}
           />
         </div>

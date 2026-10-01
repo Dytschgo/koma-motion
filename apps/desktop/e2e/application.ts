@@ -43,7 +43,11 @@ export function getApplicationEnvironment(): Record<string, string> {
  * `executablePath`, a packaged application is started instead.
  */
 export async function launchApplication(
-  options: { readonly executablePath?: string } = {},
+  options: {
+    readonly executablePath?: string;
+    /** Added to the environment, for example KOMA_MOCK_DELAY_MS. */
+    readonly env?: Readonly<Record<string, string>>;
+  } = {},
 ): Promise<RunningApplication> {
   const directory = await mkdtemp(join(tmpdir(), 'koma-motion-e2e-'));
   const userData = `--user-data-dir=${join(directory, 'user-data')}`;
@@ -58,7 +62,7 @@ export async function launchApplication(
       ? {
           args: [APPLICATION_DIRECTORY, userData, ...scale],
           cwd: APPLICATION_DIRECTORY,
-          env: getApplicationEnvironment(),
+          env: { ...getApplicationEnvironment(), ...options.env },
         }
       : {
           executablePath: options.executablePath,
@@ -144,4 +148,19 @@ export async function showChat(window: Page): Promise<void> {
     await show.click();
   }
   await expect(window.getByRole('button', { name: 'Hide the chat' })).toBeVisible();
+}
+
+/**
+ * Opens Settings on one of its categories, for example 'Generation' or
+ * 'Updates'. Settings remembers the last page, so tests name the page they need.
+ */
+export async function openSettingsPage(window: Page, page: string): Promise<void> {
+  const dialog = window.getByRole('dialog', { name: 'Settings', exact: true });
+  if (!(await dialog.isVisible())) {
+    await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  }
+  await dialog
+    .getByRole('navigation', { name: 'Settings categories' })
+    .getByRole('button', { name: page, exact: true })
+    .click();
 }

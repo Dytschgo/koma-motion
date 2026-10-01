@@ -129,6 +129,47 @@ like a generation. The model is the one configured for the selected provider.
 | no metadata                                   | `metadata` describes the provider     | The interface shows whether a provider sends data to an online service and whether it supports model selection.         |
 | the provider builds its own prompt            | the prompt is rendered by the runtime | Prompts are versioned in one place and are the same for every provider.                                                 |
 
+## Model selection
+
+The model is chosen per provider and stored in the project
+(`agentConfiguration.providers[id].model`); `null` leaves the choice to the
+provider. The chat composer shows the provider and the model as two separate
+controls and names the model the next run uses before it starts. Settings,
+Generation offers the same choice for every provider.
+
+Where the choices come from is part of the provider metadata
+(`modelCatalog`):
+
+| Provider    | Source    | Choices                                                                                                                                                                                                                                                      |
+| ----------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Claude Code | `curated` | The aliases `fable`, `opus`, `sonnet` and `haiku` and the model names `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-4-5-20251001`. Claude Code cannot list the models of a sign-in, so the list is not read from the account. |
+| Grok        | `cli`     | On request, `grok models` lists the models of the signed-in account (`koma:providers:list-models`). The list is kept for the session only. A chosen model that is not in the list is marked before the run.                                                  |
+| Codex       | `none`    | Codex has no list command. A model id can be entered.                                                                                                                                                                                                        |
+| Mock        | `none`    | No model choice.                                                                                                                                                                                                                                             |
+
+A typed model id must match the restricted model pattern before it is stored
+or passed as `--model`. When Claude Code answers that a chosen model does not
+exist or is not available to the sign-in, the failure names the model and
+suggests another model or the default.
+
+## Run activity and monitor
+
+The chat shows each generation with a small pixel character, the elapsed
+time, the latest status message and the streamed text. The character has one
+pose for each phase Koma Motion observes from status events: starting,
+generating, validating, repairing, completed, failed and cancelled. It does
+not claim to know internal steps of a model. With reduced motion it shows the
+still pose of the phase, and in forced colours it is hidden; the phase remains
+as text. A finished run stays in the chat, with how it ended and its duration,
+until the next run or another project.
+
+**Open run monitor** opens a larger view of the same run: phase, elapsed time,
+attempt, run id, a timeline of status messages and the streamed text, with a
+Cancel button. It reads the same state as the chat and starts no process and
+no request. It is not an attached terminal: Claude Code runs in print mode
+without a saved session, and `claude attach` only opens sessions started with
+`claude --bg`.
+
 ## Provider detection
 
 `detect()` reports one of three states:
@@ -488,7 +529,8 @@ Codex CLI 0.157.1.
 **Claude Code:**
 
 ```text
-claude --print --output-format json --input-format text
+claude --print --output-format stream-json --verbose --include-partial-messages
+       --input-format text
        --tools "" --strict-mcp-config --disable-slash-commands
        --permission-prompts none --no-session-persistence
        --safe-mode --restricted --no-chrome
@@ -497,10 +539,41 @@ claude --print --output-format json --input-format text
 
 The request is read from standard input. The system instructions and the
 response schema are arguments: both are fixed text of Koma Motion and contain
-nothing the user or a project wrote. The output is one JSON object. Koma
-Motion passes `result` and `structured_output` to validation, which rejects
-the output when the two disagree, and reports an error when `is_error` is
-true.
+nothing the user or a project wrote. The output is one JSON event per line.
+The last line is a `result` event with the same fields as the
+`--output-format json` envelope; Koma Motion passes its `result` and
+`structured_output` to validation, which rejects the output when the two
+disagree, and reports an error when `is_error` is true. A stream without a
+result line fails as "ended without a result"; the event stream itself is
+never handed to validation or to a repair prompt.
+
+### Streaming
+
+With Claude Code 2.1.285 on Windows (30 September 2026), one probe with a
+small schema showed that `stream-json` with `--json-schema` still ends with a
+`result` line that carries `structured_output`. The stream also contains
+`thinking_delta` blocks and the structured answer as `input_json_delta` of a
+`StructuredOutput` tool call.
+
+While the process runs, Koma Motion reads standard output line by line
+(`ClaudeStreamParser`). Characters split between chunks are decoded only when
+complete. Only `text_delta` events of text blocks in the main conversation
+reach the chat. Thinking, signatures, tool inputs, tool results, subagent
+messages and unknown events are dropped; the size of the structured answer and
+the category of an API retry become progress sentences. Control characters
+are removed, lines longer than 1 MB are skipped, malformed lines are counted
+and skipped. The system prompt asks Claude for one to three plain sentences
+before the structured answer so there is text to follow.
+
+The main process batches output into `koma:providers:output` events of at
+most 4000 characters, at most one per 50 ms, and sends nothing after the
+generation returns. The window keeps the newest 16,000 characters of a run,
+ignores output of any other execution and keeps the text with the outcome.
+Codex and Grok do not stream; the chat shows their phases only.
+
+Koma Motion cannot attach a terminal to this process. `claude attach` opens
+sessions started with `claude --bg`, which `--print` rejects, and
+`--no-session-persistence` keeps the run out of the session list.
 
 `--bare` is not used. Its help text says Anthropic auth is strictly
 `ANTHROPIC_API_KEY` or `apiKeyHelper` via `--settings`, and that OAuth and
@@ -680,6 +753,12 @@ application can be used with it.
   another number was requested.
 - It pretends to work for 1.2 seconds and reports three progress messages, so
   that progress and cancellation can be seen.
+- It streams one demo sentence per progress message, so streamed output can be
+  seen and tested.
+- In builds that are not packaged, `KOMA_MOCK_DELAY_MS` (0 to 60000) changes
+  how long it works, and `KOMA_MOCK_OUTCOME=invalid` makes every answer fail
+  validation, so the repair attempt and a failed run can be tested. A packaged
+  application ignores both.
 - Its output passes through the same validation as the output of every other
   provider.
 - To regenerate a transition, it keeps the current strategy, duration and
