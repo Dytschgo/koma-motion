@@ -87,7 +87,10 @@ function NoticeItem({ notice }: { readonly notice: Notice }): ReactElement {
 export function Notices(): ReactElement {
   const notices = useUiStore((state) => state.notices);
   return (
-    <ul aria-label="Messages" className="fixed top-25 right-3 z-50 flex flex-col gap-2">
+    <ul
+      aria-label="Messages"
+      className="fixed top-25 right-3 z-50 flex flex-col gap-2 max-[1360px]:top-34"
+    >
       {notices.map((notice) => (
         <NoticeItem key={notice.id} notice={notice} />
       ))}
