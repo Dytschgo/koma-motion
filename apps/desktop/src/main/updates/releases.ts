@@ -86,6 +86,8 @@ export interface ReleaseCandidate {
   readonly url: string;
   /** Folder that contains the assets of this release, with a trailing slash. */
   readonly feedUrl: string;
+  /** Checksum manifest in the same release as the selected installer. */
+  readonly checksumUrl: string;
   /** The installers for this platform. */
   readonly assetUrls: readonly string[];
   readonly sourceChannel: UpdateChannel;
@@ -150,14 +152,17 @@ export function selectRelease(
       asset.browser_download_url === feedUrl + encodeURIComponent(asset.name),
   );
   const hasManifest = own.some((asset) => asset.name === getManifestName(channel, platform));
+  const checksumUrl = `${feedUrl}SHA256SUMS.txt`;
+  const hasChecksum = own.some((asset) => asset.name === 'SHA256SUMS.txt');
   const updateFile = platform === 'darwin' ? '-mac.zip' : '.exe';
-  if (!hasManifest || !own.some((asset) => asset.name.endsWith(updateFile))) {
+  if (!hasManifest || !hasChecksum || !own.some((asset) => asset.name.endsWith(updateFile))) {
     return null;
   }
   return {
     version,
     url: `${REPOSITORY_URL}/releases/tag/${release.tag_name}`,
     feedUrl,
+    checksumUrl,
     assetUrls: own
       .filter((asset) => isInstaller(asset.name, platform))
       .map((asset) => asset.browser_download_url),

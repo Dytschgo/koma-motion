@@ -28,7 +28,9 @@ export const updateStatusSchema = z.object({
   sourceChannel: updateChannelSchema.optional(),
   /** Page of the release on GitHub. */
   releaseUrl: z.string().max(300).optional(),
-  /** `true` when this build cannot install updates itself and opens the download page. */
+  /** A prepared macOS update command, shown for running or copying in Terminal. */
+  terminalCommand: z.string().max(4096).optional(),
+  /** `true` when this build uses a platform-specific update action instead of electron-updater. */
   manualDownload: z.boolean().optional(),
   /** 0 to 100 while downloading. */
   percent: z.number().min(0).max(100).optional(),

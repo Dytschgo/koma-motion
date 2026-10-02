@@ -3,6 +3,7 @@ import { UPDATE_CHANNELS, type UpdateStatus } from '../../../shared/updates';
 import {
   checkForUpdates,
   chooseUpdateChannel,
+  copyUpdateCommand,
   downloadUpdate,
   installUpdate,
 } from '../lib/updateActions';
@@ -58,6 +59,7 @@ export function UpdateControl(): ReactElement {
   const percent = Math.max(0, Math.min(100, status.percent ?? 0));
   const canOpenPage =
     status.manualDownload === true &&
+    status.terminalCommand === undefined &&
     (status.state === 'available' || status.state === 'not-available');
 
   return (
@@ -155,6 +157,12 @@ export function UpdateControl(): ReactElement {
           </Button>
         )}
 
+        {status.state === 'available' && status.terminalCommand !== undefined && (
+          <Button variant="primary" disabled={busy} onClick={() => void downloadUpdate()}>
+            Run update in Terminal
+          </Button>
+        )}
+
         {canOpenPage && (
           <Button
             variant={status.state === 'available' ? 'primary' : 'outline'}
@@ -176,6 +184,23 @@ export function UpdateControl(): ReactElement {
         )}
       </div>
 
+      {status.state === 'available' && status.terminalCommand !== undefined && (
+        <div className="flex flex-col gap-2 rounded-control border border-line bg-surface-0/70 p-3">
+          <p className="text-sm text-ink-300">
+            Terminal downloads and verifies this release, asks Koma Motion to close, then installs
+            and reopens it. A rollback copy is kept.
+          </p>
+          <code className="select-text break-all whitespace-pre-wrap text-xs text-ink-100">
+            {status.terminalCommand}
+          </code>
+          <div>
+            <Button variant="outline" disabled={busy} onClick={() => void copyUpdateCommand()}>
+              Copy command
+            </Button>
+          </div>
+        </div>
+      )}
+
       {status.state === 'downloaded' && hasUnsavedChanges && (
         <p className="text-sm text-signal-warn">
           Save your project first. Installing restarts Koma Motion.
@@ -192,7 +217,9 @@ export function UpdateControl(): ReactElement {
         </p>
         <p className="mt-1 max-w-[62ch]">
           {status.manualDownload === true
-            ? 'This version cannot install updates by itself. It opens the download page, and you replace the application.'
+            ? status.terminalCommand !== undefined
+              ? 'On macOS, the update runs in Terminal. It verifies the selected release, closes and replaces the app, then reopens it.'
+              : 'This version opens the release download page for a manual update.'
             : 'An update is downloaded when you choose to, and installed when you choose to restart.'}
         </p>
       </details>

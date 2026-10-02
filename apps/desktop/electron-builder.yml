@@ -13,6 +13,7 @@ directories:
 
 files:
   - out/**/*
+  - scripts/update-macos.sh
   - build/icon.png
   - package.json
   - '!**/*.map'

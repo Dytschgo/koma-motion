@@ -268,6 +268,7 @@ function openHandlers(
       setChannel: () =>
         Promise.resolve({ state: 'idle', channel: 'stable', currentVersion: '0.1.0' }),
       download: () => Promise.resolve(),
+      copyCommand: () => Promise.resolve(),
       install: () => Promise.resolve(),
       dispose: () => undefined,
     },

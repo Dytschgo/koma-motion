@@ -5,13 +5,16 @@ export interface UpdateOperations {
   readonly currentVersion: string;
   /** `false` in builds that are not installed, where updating makes no sense. */
   readonly enabled: boolean;
-  /** `true` when this build cannot install updates and opens the download page instead. */
+  /** `true` when Electron's native updater cannot install this build's updates. */
   readonly manual: boolean;
   discover(channel: UpdateChannel): Promise<ReleaseCandidate | null>;
   /** Points the native updater at the release. Not called for manual builds. */
   prepare(release: ReleaseCandidate): Promise<void>;
   download(): Promise<unknown>;
   install(): void | Promise<void>;
+  prepareTerminal?(
+    release: ReleaseCandidate,
+  ): Promise<{ command: string; run: () => Promise<void> }>;
   /** Opens the page of a release in the browser. */
   open(url: string): Promise<unknown>;
   emit(status: UpdateStatus): void;
@@ -35,6 +38,9 @@ export class UpdateController {
   #pending: Promise<void> | null = null;
   #pendingIsBackground = false;
   #switching = false;
+  #terminalUpdate: { command: string; run: () => Promise<void> } | null = null;
+  #terminalUpdateKey: string | null = null;
+  #launchingTerminal = false;
 
   constructor(channel: UpdateChannel, ops: UpdateOperations) {
     this.#ops = ops;
@@ -44,6 +50,10 @@ export class UpdateController {
 
   getStatus(): UpdateStatus {
     return { ...this.#status };
+  }
+
+  getTerminalCommand(): string | null {
+    return this.#status.state === 'available' ? (this.#status.terminalCommand ?? null) : null;
   }
 
   #send(change: StatusChange): void {
@@ -65,6 +75,8 @@ export class UpdateController {
       await persist();
       this.#channel = channel;
       this.#candidate = null;
+      this.#terminalUpdate = null;
+      this.#terminalUpdateKey = null;
       this.#send({ state: 'idle' });
     } finally {
       this.#switching = false;
@@ -104,7 +116,12 @@ export class UpdateController {
       return Promise.resolve();
     }
 
-    const previous = { status: this.getStatus(), candidate: this.#candidate };
+    const previous = {
+      status: this.getStatus(),
+      candidate: this.#candidate,
+      terminalUpdate: this.#terminalUpdate,
+      terminalUpdateKey: this.#terminalUpdateKey,
+    };
     let preparationStarted = false;
     this.#candidate = null;
     this.#pendingIsBackground = background;
@@ -118,10 +135,14 @@ export class UpdateController {
         // A native updater may already point at the new release once preparation started.
         if (this.#pendingIsBackground && !preparationStarted) {
           this.#candidate = previous.candidate;
+          this.#terminalUpdate = previous.terminalUpdate;
+          this.#terminalUpdateKey = previous.terminalUpdateKey;
           this.#status = previous.status;
           return;
         }
         this.#candidate = null;
+        this.#terminalUpdate = null;
+        this.#terminalUpdateKey = null;
         this.#send({
           state: 'error',
           message:
@@ -138,6 +159,8 @@ export class UpdateController {
   async #performCheck(onPreparationStart: () => void): Promise<void> {
     const candidate = await this.#ops.discover(this.#channel);
     if (candidate === null) {
+      this.#terminalUpdate = null;
+      this.#terminalUpdateKey = null;
       this.#send({
         state: 'not-available',
         message: `No ${this.#channel} version has been published yet.`,
@@ -155,6 +178,8 @@ export class UpdateController {
 
     if (comparison <= 0) {
       this.#candidate = candidate;
+      this.#terminalUpdate = null;
+      this.#terminalUpdateKey = null;
       let message = `You have the latest ${this.#channel} version.`;
       if (comparison < 0) {
         message = `Your version is newer than ${candidate.sourceChannel} ${candidate.version}. Koma Motion never installs an older version by itself.`;
@@ -168,12 +193,23 @@ export class UpdateController {
     if (!this.#ops.manual) {
       onPreparationStart();
       await this.#ops.prepare(candidate);
+    } else if (this.#ops.prepareTerminal !== undefined) {
+      const terminalKey = `${candidate.sourceChannel}:${candidate.version}:${candidate.url}`;
+      if (this.#terminalUpdate === null || this.#terminalUpdateKey !== terminalKey) {
+        onPreparationStart();
+        this.#terminalUpdate = await this.#ops.prepareTerminal(candidate);
+        this.#terminalUpdateKey = terminalKey;
+      }
+    } else {
+      this.#terminalUpdate = null;
+      this.#terminalUpdateKey = null;
     }
     this.#candidate = candidate;
     this.#send({
       state: 'available',
       ...found,
       manualDownload: this.#ops.manual,
+      ...(this.#terminalUpdate === null ? {} : { terminalCommand: this.#terminalUpdate.command }),
       ...(stableOnNightly
         ? {
             message: `Stable ${candidate.version} is newer than the latest nightly. Nightly stays selected.`,
@@ -201,6 +237,17 @@ export class UpdateController {
       throw new Error('There is no update to download.');
     }
     if (this.#status.manualDownload === true) {
+      if (this.#terminalUpdate !== null && this.#status.terminalCommand !== undefined) {
+        if (!this.#launchingTerminal) {
+          this.#launchingTerminal = true;
+          try {
+            await this.#terminalUpdate.run();
+          } finally {
+            this.#launchingTerminal = false;
+          }
+        }
+        return;
+      }
       await this.#ops.open(this.#candidate.url);
       return;
     }

@@ -20,7 +20,7 @@ when they are opened. See [Installing](#installing).
 | Application icon           | available                                                                   |
 | Stable and nightly channel | available                                                                   |
 | Updates on Windows         | available: downloaded and installed when the user chooses                   |
-| Updates on macOS           | the application opens the download page; it cannot install updates          |
+| Updates on macOS           | available: verified update runs in Terminal, then replaces and reopens app  |
 | `.koma` file association   | registered by the installers; opening a project this way is not implemented |
 | Code signing               | not set up                                                                  |
 | Notarisation               | not set up                                                                  |
@@ -63,10 +63,11 @@ installs into `~/Applications`, keeping a previous version as a backup:
 curl -fsSL https://raw.githubusercontent.com/Dytschgo/koma-motion/main/scripts/install.sh | bash
 ```
 
-`KOMA_MOTION_RELEASE_TAG=v0.1.0` in front of the command installs that
-release instead of the latest. The script does not remove the quarantine of
-the download, so the "Open Anyway" step above is still needed the first
-time.
+Set `KOMA_MOTION_RELEASE_TAG=v0.1.0` before the command to install that
+stable release instead of the latest. Nightly release pages include a
+Terminal command that installs the specific nightly. The script does not
+remove the quarantine of the download, so the "Open Anyway" step above is
+still needed the first time.
 
 The application is signed ad hoc. That lets it start on Apple silicon, but
 it is no proof of where the application comes from.
@@ -107,7 +108,11 @@ in the data folder of the application, and belongs to no project.
 - Nothing is downloaded or installed without a click. On Windows, "Download
   update" downloads the installer and "Restart to install" installs it. The
   restart is refused while a project has unsaved changes.
-- On macOS, "Open the download page" opens the release in the browser.
+- On macOS, "Run update in Terminal" opens a command for the exact release.
+  Terminal verifies its checksum and app bundle, asks Koma Motion to quit,
+  replaces the app with rollback protection, and reopens it. Settings also
+  shows the command with a copy button. Install Koma Motion in a writable
+  Applications folder before updating.
 - Koma Motion never installs an older version by itself. After switching
   from Nightly back to Stable, the installed nightly stays until a newer
   stable version exists.
@@ -172,6 +177,10 @@ This **publishes a prerelease** when all checks pass. The workflow
    expected version from the inside and complete the main workflow,
 5. checks that the update manifests describe exactly the packaged files,
 6. creates a draft with the checked files and publishes it as a prerelease.
+
+Each nightly release page includes a macOS Terminal command to install that
+specific nightly with `scripts/install.sh`. The script verifies the disk
+image against the release checksums before replacing the application.
 
 A nightly is never marked as the latest release, and it has no files with
 names that a link to the latest release could use.

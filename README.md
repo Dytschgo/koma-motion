@@ -31,8 +31,9 @@ On Windows, in PowerShell:
 irm https://raw.githubusercontent.com/Dytschgo/koma-motion/main/scripts/install.ps1 | iex
 ```
 
-Both check the download against the published checksums. The installers are
-not signed, so Windows and macOS warn when you open them.
+Both show download progress and check the installer against the published
+checksums. The installers are not signed, so Windows and macOS warn when you
+open them.
 [docs/RELEASES.md](docs/RELEASES.md#installing) explains how to install and
 how to switch to nightly previews.
 
@@ -151,26 +152,26 @@ The screenshots are created from the running application with
 
 ## Key features
 
-| Feature                      | State                                              |
-| ---------------------------- | -------------------------------------------------- |
-| Persistent object identity   | available                                          |
-| Deterministic motion engine  | available                                          |
-| Transition preview           | available                                          |
-| Presentation player          | available                                          |
-| Brand Kit                    | available                                          |
-| Mock provider                | available                                          |
-| Claude Code provider         | available, tested on Windows                       |
-| Codex CLI provider           | experimental, generation has never been tested     |
-| Grok provider                | available, tested on Windows with Grok 1.0.44      |
-| Undo and redo                | available                                          |
-| Editing on the canvas        | move, resize, edit text, import and replace images |
-| Playing a whole presentation | not available, one transition at a time            |
-| PowerPoint export            | editable PPTX; static, fade and Morph options      |
-| Reference files              | TXT, Markdown and PDF; session only                |
-| Stop Motion Mode             | not available, concept only                        |
-| Installers                   | available for Windows and macOS, not signed        |
-| Stable and nightly updates   | available; installed by the app on Windows         |
-| `koma` command line tool     | not available, the name is reserved                |
+| Feature                      | State                                                  |
+| ---------------------------- | ------------------------------------------------------ |
+| Persistent object identity   | available                                              |
+| Deterministic motion engine  | available                                              |
+| Transition preview           | available                                              |
+| Presentation player          | available                                              |
+| Brand Kit                    | available                                              |
+| Mock provider                | available                                              |
+| Claude Code provider         | available, tested on Windows                           |
+| Codex CLI provider           | experimental, generation has never been tested         |
+| Grok provider                | available, tested on Windows with Grok 1.0.44          |
+| Undo and redo                | available                                              |
+| Editing on the canvas        | move, resize, edit text, import and replace images     |
+| Playing a whole presentation | not available, one transition at a time                |
+| PowerPoint export            | editable PPTX; static, fade and Morph options          |
+| Reference files              | TXT, Markdown and PDF; session only                    |
+| Stop Motion Mode             | not available, concept only                            |
+| Installers                   | available for Windows and macOS, not signed            |
+| Stable and nightly updates   | available; app installer on Windows, Terminal on macOS |
+| `koma` command line tool     | not available, the name is reserved                    |
 
 ## Architecture overview
 
@@ -422,10 +423,8 @@ privately, as described there.
   the project.
 - The installers are not signed and not notarised. Windows and macOS warn
   when they are opened.
-- On macOS the application cannot install updates. It opens the download
-  page.
-- Installing an update from one published version to the next has not been
-  tested yet.
+- On macOS, updates run in Terminal. The helper verifies the selected release,
+  asks the app to quit, replaces it with rollback protection, and reopens it.
 - The project format can change before version 1.0.
 
 The complete list is in

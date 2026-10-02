@@ -14,8 +14,13 @@ try {
   $installer = Join-Path $work 'Koma-Motion-Setup.exe'
   $sums = Join-Path $work 'SHA256SUMS.txt'
   Write-Host 'Downloading the latest stable release of Koma Motion...'
-  Invoke-WebRequest -Uri "$base/Koma-Motion-Setup.exe" -OutFile $installer
-  Invoke-WebRequest -Uri "$base/SHA256SUMS.txt" -OutFile $sums
+  $curl = Get-Command 'curl.exe' -ErrorAction SilentlyContinue
+  if (-not $curl) { throw 'curl.exe is required to download Koma Motion with visible progress. Install a current Windows version that includes curl.exe.' }
+
+  & $curl.Source --fail --location --retry 3 --progress-bar --output $installer "$base/Koma-Motion-Setup.exe"
+  if ($LASTEXITCODE -ne 0) { throw 'The download failed. Nothing was installed.' }
+  & $curl.Source --fail --location --retry 3 --silent --show-error --output $sums "$base/SHA256SUMS.txt"
+  if ($LASTEXITCODE -ne 0) { throw 'Downloading the published checksums failed. Nothing was installed.' }
 
   $line = Get-Content $sums | Where-Object { $_ -match '^([0-9a-f]{64})  Koma-Motion-Setup\.exe$' }
   if (-not $line) { throw 'The published checksums do not list Koma-Motion-Setup.exe.' }
