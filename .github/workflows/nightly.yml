@@ -161,6 +161,17 @@ jobs:
         run: node apps/desktop/scripts/stage-release-assets.mjs release-assets "$VERSION" nightly
       - name: Create a draft with the checked files
         run: |
+          cat > release-notes.md <<EOF
+          Nightly preview built from \`$SHA\`. It contains unfinished changes. Keep copies of your projects. The installers are not signed.
+
+          ## Install or update on macOS
+
+          Run this in Terminal to install this nightly:
+
+          \`\`\`sh
+          curl -fsSL https://raw.githubusercontent.com/Dytschgo/koma-motion/main/scripts/install.sh | KOMA_MOTION_RELEASE_TAG=$TAG bash
+          \`\`\`
+          EOF
           gh release create "$TAG" release-assets/* \
             --repo "$GITHUB_REPOSITORY" \
             --target "$SHA" \
@@ -168,7 +179,7 @@ jobs:
             --prerelease \
             --latest=false \
             --title "Koma Motion $VERSION (nightly)" \
-            --notes "Nightly preview built from \`$SHA\`. It contains unfinished changes. Keep copies of your projects. The installers are not signed."
+            --notes-file release-notes.md
       - name: Publish as a prerelease
         run: |
           gh release edit "$TAG" \

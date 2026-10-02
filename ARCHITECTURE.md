@@ -291,6 +291,7 @@ schema for the request and the response of every channel.
 | `koma:updates:check`           | check for an update                         |
 | `koma:updates:set-channel`     | choose the stable or the nightly channel    |
 | `koma:updates:download`        | download the update that was found          |
+| `koma:updates:copy-command`    | copy the prepared macOS update command      |
 | `koma:updates:install`         | restart and install the downloaded update   |
 
 Events from the main process: `koma:brand-profile:progress`,

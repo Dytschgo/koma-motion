@@ -9,6 +9,7 @@ const ACTION_FAILED = 'The update action failed. Try again.';
 type UpdateAction =
   | 'koma:updates:check'
   | 'koma:updates:download'
+  | 'koma:updates:copy-command'
   | 'koma:updates:install'
   | 'koma:updates:set-channel';
 
@@ -62,6 +63,10 @@ export function checkForUpdates(): Promise<void> {
 
 export function downloadUpdate(): Promise<void> {
   return request('koma:updates:download');
+}
+
+export function copyUpdateCommand(): Promise<void> {
+  return request('koma:updates:copy-command');
 }
 
 export function installUpdate(): Promise<void> {

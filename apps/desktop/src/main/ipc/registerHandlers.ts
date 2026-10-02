@@ -428,6 +428,8 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
 
   handle('koma:updates:download', () => act(() => context.updates.download()));
 
+  handle('koma:updates:copy-command', () => act(() => context.updates.copyCommand()));
+
   handle('koma:updates:install', () =>
     act(() => {
       // Installing restarts the application. Unsaved work must not be lost to it.

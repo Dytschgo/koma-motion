@@ -18,6 +18,8 @@ changes to the project format.
   cancelled regeneration leaves both Komas unchanged.
 ### Added
 
+- macOS updates can be started from the app in Terminal. The release archive
+  and app bundle are verified before replacement, and a rollback copy is kept.
 - **Present** plays the whole presentation in the window or full screen, from
   the beginning (F5) or from the selected Koma (Shift+F5). Each Koma plays in
   order with its transition. Previous, next, pause and resume, replay, the

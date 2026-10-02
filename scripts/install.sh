@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Installs the latest stable release of Koma Motion on macOS.
+# Installs the latest stable release of Koma Motion on macOS, or a selected
+# stable or nightly release when KOMA_MOTION_RELEASE_TAG is set.
 #
 #   curl -fsSL https://raw.githubusercontent.com/Dytschgo/koma-motion/main/scripts/install.sh | bash
 #
 # KOMA_MOTION_RELEASE_TAG=v0.1.0 installs that release instead of the latest.
+# Nightly release pages include a command that sets this to that nightly tag.
 # The disk image is checked against the published checksums, the application
 # is checked for its ad hoc signature and the required macOS version, and an
 # existing application in ~/Applications is kept as a backup.
@@ -18,8 +20,8 @@ if [ "$(uname -s)" != "Darwin" ]; then
 fi
 
 if [ -n "$release_tag" ]; then
-  if ! [[ "$release_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
-    echo "KOMA_MOTION_RELEASE_TAG must be a stable tag such as v0.1.0." >&2
+  if ! [[ "$release_tag" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-nightly\.[1-9][0-9]{7}\.[1-9][0-9]*(\.[1-9][0-9]*)?)?$ ]]; then
+    echo "KOMA_MOTION_RELEASE_TAG must be a stable or nightly tag such as v0.1.0 or v0.1.1-nightly.20261002.1234." >&2
     exit 1
   fi
   download_base="https://github.com/${repository}/releases/download/${release_tag}"
@@ -43,7 +45,7 @@ cleanup() {
 trap cleanup EXIT
 
 echo "Downloading Koma Motion, ${description}..."
-if ! curl --fail --location --retry 3 --silent --show-error \
+if ! curl --fail --location --retry 3 --progress-bar --show-error \
   --output "$work/$image_name" "${download_base}/${image_name}"; then
   echo "The download failed. Nothing was changed. See https://github.com/${repository}/releases" >&2
   exit 1

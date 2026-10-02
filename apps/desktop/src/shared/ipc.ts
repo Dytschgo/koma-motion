@@ -453,6 +453,10 @@ export const ipcContract = {
     request: empty,
     response: actionResult,
   },
+  'koma:updates:copy-command': {
+    request: empty,
+    response: actionResult,
+  },
   'koma:updates:install': {
     request: empty,
     response: actionResult,

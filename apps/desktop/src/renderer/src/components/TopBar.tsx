@@ -10,6 +10,7 @@ import {
   useProjectStore,
 } from '../state/projectStore';
 import { isNightlyVersion } from '../../../shared/updates';
+import { downloadUpdate } from '../lib/updateActions';
 import { useQuickStartStore } from '../state/quickStartStore';
 import { useUiStore } from '../state/uiStore';
 import { useUpdateStore } from '../state/updateStore';
@@ -77,6 +78,7 @@ export function TopBar(): ReactElement {
     context !== null &&
     assessTransition(presentation, context.transition, context.from, context.to)?.blocked === true;
   const update = useUpdateStore((state) => state.status);
+  const updateBusy = useUpdateStore((state) => state.busy);
   const nightly = update !== null && isNightlyVersion(update.currentVersion);
   const updateReady =
     update !== null && (update.state === 'available' || update.state === 'downloaded');
@@ -150,11 +152,20 @@ export function TopBar(): ReactElement {
         <Button
           icon={<DownloadIcon size={14} />}
           className="text-accent"
+          disabled={updateBusy}
           onClick={() => {
-            openSettings('updates');
+            if (update.terminalCommand !== undefined && update.state === 'available') {
+              void downloadUpdate();
+            } else {
+              openSettings('updates');
+            }
           }}
         >
-          {update.state === 'downloaded' ? 'Update ready' : 'Update available'}
+          {update.terminalCommand !== undefined && update.state === 'available'
+            ? 'Update in Terminal'
+            : update.state === 'downloaded'
+              ? 'Update ready'
+              : 'Update available'}
         </Button>
       )}
       <ProjectHealthButton />

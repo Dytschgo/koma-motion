@@ -50,6 +50,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
   'koma:updates:check',
   'koma:updates:set-channel',
   'koma:updates:download',
+  'koma:updates:copy-command',
   'koma:updates:install',
   'koma:app:get-info',
 ]);

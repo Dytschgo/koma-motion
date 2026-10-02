@@ -91,6 +91,7 @@ describe('selectRelease', () => {
       version: '0.1.0',
       url: 'https://github.com/Dytschgo/koma-motion/releases/tag/v0.1.0',
       feedUrl: `${DOWNLOADS}/v0.1.0/`,
+      checksumUrl: `${DOWNLOADS}/v0.1.0/SHA256SUMS.txt`,
       assetUrls: [`${DOWNLOADS}/v0.1.0/Koma-Motion-Setup-0.1.0.exe`],
       sourceChannel: 'stable',
     });
@@ -126,6 +127,13 @@ describe('selectRelease', () => {
         release('0.1.0', { assets: ['Koma-Motion-Setup-0.1.0.exe', 'latest.yml'] }),
         'stable',
         'darwin',
+      ),
+    ).toBeNull();
+    expect(
+      selectRelease(
+        release('0.1.0', { assets: ['Koma-Motion-Setup-0.1.0.exe', 'latest.yml'] }),
+        'stable',
+        'win32',
       ),
     ).toBeNull();
   });
@@ -259,6 +267,7 @@ describe('prepareNativeUpdate', () => {
     version: NIGHTLY,
     url: `https://github.com/Dytschgo/koma-motion/releases/tag/v${NIGHTLY}`,
     feedUrl: `${DOWNLOADS}/v${NIGHTLY}/`,
+    checksumUrl: `${DOWNLOADS}/v${NIGHTLY}/SHA256SUMS.txt`,
     assetUrls: [`${DOWNLOADS}/v${NIGHTLY}/Koma-Motion-Setup-${NIGHTLY}.exe`],
     sourceChannel: 'nightly',
   };
@@ -333,6 +342,7 @@ describe('UpdateController', () => {
     version: '0.2.0',
     url: 'https://github.com/Dytschgo/koma-motion/releases/tag/v0.2.0',
     feedUrl: `${DOWNLOADS}/v0.2.0/`,
+    checksumUrl: `${DOWNLOADS}/v0.2.0/SHA256SUMS.txt`,
     assetUrls: [`${DOWNLOADS}/v0.2.0/Koma-Motion-Setup-0.2.0.exe`],
     sourceChannel: 'stable',
   };
@@ -409,7 +419,7 @@ describe('UpdateController', () => {
     });
   });
 
-  it('opens the page of the release when the build cannot install updates', async () => {
+  it('opens the release page when no platform-specific installer is prepared', async () => {
     const { controller, ops, last } = setup({ manual: true });
     await controller.check();
     expect(last()).toMatchObject({ state: 'available', manualDownload: true });
@@ -419,6 +429,28 @@ describe('UpdateController', () => {
     expect(ops.open).toHaveBeenCalledWith(stable.url);
     expect(ops.download).not.toHaveBeenCalled();
     expect(last().state).toBe('available');
+  });
+
+  it('runs the selected macOS release in Terminal when a prepared command is available', async () => {
+    const run = vi.fn(() => Promise.resolve());
+    const prepareTerminal = vi.fn(() =>
+      Promise.resolve({ command: '/bin/bash update.command', run }),
+    );
+    const { controller, ops, last } = setup({ manual: true, prepareTerminal });
+    await controller.check();
+
+    expect(prepareTerminal).toHaveBeenCalledWith(stable);
+    expect(last()).toMatchObject({
+      state: 'available',
+      manualDownload: true,
+      terminalCommand: '/bin/bash update.command',
+    });
+    expect(controller.getTerminalCommand()).toBe('/bin/bash update.command');
+
+    await controller.download();
+    expect(run).toHaveBeenCalledOnce();
+    expect(ops.open).not.toHaveBeenCalled();
+    expect(ops.download).not.toHaveBeenCalled();
   });
 
   it('does nothing in a build that is not installed', async () => {
