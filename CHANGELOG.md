@@ -8,8 +8,28 @@ changes to the project format.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-02
+
+Projects now use format 3. Older projects are upgraded in memory and marked
+unsaved until saved in the current format. Keep a copy before upgrading.
+The installers remain unsigned, and macOS updates still use the download page.
+
 ### Added
 
+- Create a reusable Brand Kit from a local PDF or PPTX using Claude Code's
+  Opus model. Preview the prepared content before sending, review and edit
+  the proposal, and confirm any logo before saving a new library kit. PPTX
+  preparation requires a local LibreOffice installation. Saving the kit does
+  not change the open project; applying it is a separate undoable action.
+- Project health and recovery: review format upgrades, missing images and
+  motion issues, repair individual images or the Brand Kit logo, and save
+  an upgraded copy. A failed open preserves the current editor session.
+- Image generation through the Codex and Grok CLIs, with an image backend
+  choice in the composer and validated image imports. Mock-provider tests
+  cover generation, failure and cancellation; live image generation has
+  not been verified.
+- Compact model and Brand Kit pickers in the chat, with model search,
+  favourites, and saved-kit previews and application.
 - Three starters on the welcome screen and under **Settings, Templates**:
   **Solar system** (Deep Orbit), **Quarterly results** for the fictional
   Northwind Labs, and **Rapunzel story** (Golden Tower Tales). Each brings a
@@ -55,8 +75,8 @@ changes to the project format.
   any project. The library is stored in the data folder of the application,
   outside project files. Applying a kit is undoable and marks the project as
   changed.
-- Canvas editing: move and resize elements on the canvas, and edit text and
-  replace images in place.
+- Canvas editing: move, resize and rotate elements on the canvas, and edit
+  text and replace images in place. Rotation stays within document limits.
 - Project instructions, sent with every generation request, and reusable
   instruction templates stored by the application.
 - A transition that cannot play is explained in one warning between the canvas
@@ -76,6 +96,9 @@ changes to the project format.
 
 ### Changed
 
+- The composer adapts to the sidebar width, Inspector text areas grow with
+  their content, and empty-project states explain what appears after
+  generation. Zoom is disabled until a Koma exists.
 - A consistent visual system across the application: flat panels on one
   surface level with 44-pixel headers, a quieter top bar with the file name
   and save state in one chip, segmented tabs in the Inspector and the Brand
@@ -121,6 +144,13 @@ changes to the project format.
 
 ### Fixed
 
+- Saving refuses to overwrite a project changed or removed outside the
+  application. Local edits can be saved as a copy instead.
+- Generation rechecks project edits and image assets before applying a
+  result, so a pending response cannot silently replace newer edits.
+- Replacing a Brand Kit logo preserves assets still used by canvas images
+  and rejects replacements that would make the project impossible to save.
+- The chat returns after closing the Brand Kit in a narrow window.
 - Explicit model choices stay selected even when they match the provider's
   current default. Choosing Default still leaves model selection to the provider.
 - The run monitor reports failure when generated Komas cannot be applied,
