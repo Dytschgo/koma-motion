@@ -269,6 +269,31 @@ test('reviews transitions that cannot play: return to edit, or cut across them b
   expect(problems).toEqual([]);
 });
 
+test('returns from presentation review to regenerate the transition in the Koma strip', async () => {
+  const { window, problems } = running;
+  await openProject(deckWithStaleTransition('last'));
+  await present(window, 'From the beginning');
+  await window
+    .getByRole('dialog', { name: '1 transition cannot play' })
+    .getByRole('button', { name: 'Return to edit' })
+    .click();
+  const issue = window.getByRole('region', { name: /Transition 2 to 3\./ });
+  await issue.getByRole('button', { name: /^Regenerate transition/ }).click();
+  await expect(issue).toHaveCount(0);
+  await present(window, 'From the beginning');
+  await expect(position(window)).toHaveText('1 of 3');
+  await window.keyboard.press('End');
+  await expect(playerStage(window)).toHaveAttribute('aria-label', 'Koma 3 of 3: End');
+  await expect(
+    controls(window).getByRole('button', { name: 'Replay the transition' }),
+  ).toBeEnabled();
+  await window.keyboard.press('r');
+  await expect(playerStage(window)).toHaveAttribute('aria-label', 'Transition from Middle to End');
+  await expect(playerStage(window)).toHaveAttribute('aria-label', 'Koma 3 of 3: End');
+  await window.keyboard.press('Escape');
+  expect(problems).toEqual([]);
+});
+
 test('stops at a transition that cannot play when it was not reviewed', async () => {
   const { window, problems } = running;
   await openProject(deckWithStaleTransition('first'));

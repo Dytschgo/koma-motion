@@ -323,10 +323,10 @@ sure that the channel list of the preload script equals the contract.
 | unsaved changes          | derived in `projectStore`               | no                     |
 | selection, view, zoom    | `uiStore`                               | no                     |
 | open Settings page       | `uiStore`                               | no                     |
-| presentation, autoplay | `presenterStore` | no |
+| presentation, autoplay   | `presenterStore`                        | no                     |
 | preview                  | `uiStore` and the playback hook         | no                     |
 | agent executions, chat   | `agentStore`                            | no                     |
-| attached brand material | `brandProfileStore` | no |
+| attached brand material  | `brandProfileStore`                     | no                     |
 | extracted references     | `referenceStore`                        | no                     |
 | quick-start completion   | `quickStartStore`, window local storage | no                     |
 | chat sidebar width, open | `uiStore`, window local storage         | no                     |

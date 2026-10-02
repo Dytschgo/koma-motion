@@ -168,7 +168,7 @@ test('links to real workflows without changing the project and preserves complet
   await expect(window.getByRole('tab', { name: 'Motion', exact: true })).toBeFocused();
   await reopen(window);
   await step(window, '6. Play');
-  await expect(guide(window).getByText(/full-presentation player is not available/)).toBeVisible();
+  await expect(guide(window).getByText('Present plays the whole presentation.')).toBeVisible();
   await guide(window).getByRole('button', { name: 'Go to preview controls' }).click();
   await expect(window.getByRole('group', { name: 'Transition preview' })).toBeFocused();
   await window.getByRole('button', { name: 'Play', exact: true }).click();

@@ -146,8 +146,16 @@ export function QuickStartGuide(): ReactElement {
                     keep no logo. Choose Save new Brand Kit.
                   </li>
                   <li>
+                    <strong>Create from brand material:</strong> in the chat Brand Kit picker,
+                    choose Attach brand material, then Create Brand Kit and instructions. Review the
+                    listed content before sending it, edit the proposal, then save or apply the kit
+                    and instructions together.
+                  </li>
+                  <li>
                     <strong>Reuse:</strong> select the saved kit and Apply to this project, or
-                    choose it beside Model in chat. Saving the proposal alone does not apply it.
+                    choose it beside Model in chat. Kits with instructions offer Apply kit and
+                    instructions or Apply kit only in the library. Saving the proposal alone does
+                    not apply it.
                   </li>
                 </ol>
                 <p>
@@ -269,9 +277,9 @@ export function QuickStartGuide(): ReactElement {
                 <p>
                   When motion is out of date, playback is blocked. Select its source Koma and open{' '}
                   <strong>Motion → Recalculate motion</strong> to repair it locally while preserving
-                  timing. If offered, <strong>Regenerate transition</strong> in the canvas warning
-                  asks the selected provider for new timing. Read Details or inspect the source and
-                  destination if repair is unavailable.
+                  timing. If offered, <strong>Regenerate transition</strong> in the Koma strip,
+                  between the source and destination Komas, asks the selected provider for new
+                  timing. Open Details on that transition to inspect the reason and both Komas.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -304,11 +312,11 @@ export function QuickStartGuide(): ReactElement {
                   cut instead of moving.
                 </p>
                 <p>
-                  <strong>
-                    A continuous, full-presentation player is not available in this version.
-                  </strong>{' '}
-                  To present the complete deck, export to PowerPoint and run its slide show.
-                  Exported motion has the limitations described in the next step.
+                  <strong>Present plays the whole presentation.</strong> Choose Present in the top
+                  bar, F5 from the beginning, or Shift+F5 from the selected Koma. Advance with the
+                  arrow keys or turn on Autoplay, and choose Full screen when needed. Escape returns
+                  to editing. If a transition cannot play, review it before choosing to return to
+                  edit or cut across it.
                 </p>
                 <Button
                   variant="outline"
