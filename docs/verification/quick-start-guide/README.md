@@ -1,8 +1,10 @@
 # Quick-start guide verification
 
-Source revision: `5e629d251a7e4d22cbb5250ca26f9f1d08cad6d1`.
-The checks ran on this exact source tree before committing it; the later
-documentation commit adds only this report and screenshots.
+Application source revision: `5e629d251a7e4d22cbb5250ca26f9f1d08cad6d1`.
+The checks ran on this exact application source tree before committing it.
+Later changes add the report and screenshots and move the Welcome capture
+after the first guide dismissal, when the native window has finished painting.
+The focused guide suite passed again after that capture-only test adjustment.
 
 Base: `origin/main` at `89be0a5917f49ff31d8b6850e247eda74e78b48c`.
 Task worktree: `D:/Code/KomaMotion-worktrees/quick-start-guide`, branch
@@ -75,7 +77,7 @@ CSS-pixel scale. Normal windows use the system motion preference; the narrow
 run explicitly emulates reduced motion. Dimensions below are observed native
 content sizes, not requested sizes.
 
-Welcome entry point, 1448 × 842:
+Welcome entry point, 1448 × 816:
 
 ![Welcome with the quick-start link and persistent Getting started action](welcome-guide.png)
 

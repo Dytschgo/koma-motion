@@ -31,7 +31,6 @@ const step = async (window: Page, name: string) => {
 test('opens on demand, supports keyboard navigation, dismisses and reopens at narrow sizes', async () => {
   const { window, application } = running;
   await expect(guide(window)).toBeHidden();
-  await window.screenshot({ scale: 'css', path: test.info().outputPath('welcome-guide.png') });
   const welcomeLink = window.getByRole('button', { name: 'Open quick-start guide' });
   await welcomeLink.focus();
   await window.keyboard.press('Enter');
@@ -51,6 +50,8 @@ test('opens on demand, supports keyboard navigation, dismisses and reopens at na
   await window.keyboard.press('Escape');
   await expect(guide(window)).toBeHidden();
   await expect(welcomeLink).toBeFocused();
+  await window.mouse.move(0, 0);
+  await window.screenshot({ scale: 'css', path: test.info().outputPath('welcome-guide.png') });
   await reopen(window);
   await expect(
     guide(window).getByRole('heading', { name: '2. Brand Kit', exact: true }),
@@ -190,6 +191,7 @@ test('links to real workflows without changing the project and preserves complet
   const saved = await readFile(filePath, 'utf8');
   await reopen(window);
   await step(window, '2. Brand Kit');
+  await window.mouse.move(0, 0);
   await window.screenshot({ scale: 'css', path: test.info().outputPath('guide-brand-kit.png') });
   await guide(window).getByRole('checkbox').check();
   await expect(guide(window).getByText('Completed', { exact: true })).toBeVisible();
