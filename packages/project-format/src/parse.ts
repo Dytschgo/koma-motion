@@ -105,7 +105,7 @@ export function parseProject(text: string): Result<LoadedProject, ProjectFormatE
   }
   // Transitions that cannot play are not load warnings. Whether a transition
   // plays depends on the document as it is edited, so the application checks
-  // it continuously and explains it next to the preview controls.
+  // it continuously and explains it on that transition in the Koma strip.
 
   return ok({
     project: validated.data,

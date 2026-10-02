@@ -619,6 +619,57 @@ describe('buildCliChildEnvironment', () => {
     });
   });
 
+  it('passes only Vertex connection values from the existing Claude settings file', async () => {
+    const home = join(directory, 'home');
+    const settings = join(home, '.claude', 'settings.json');
+    await mkdir(join(home, '.claude'), { recursive: true });
+    await writeFile(
+      settings,
+      JSON.stringify({
+        model: 'opus',
+        env: {
+          CLAUDE_CODE_USE_VERTEX: '1',
+          ANTHROPIC_VERTEX_PROJECT_ID: 'koma-motion-test-123',
+          CLOUD_ML_REGION: 'global',
+          GOOGLE_APPLICATION_CREDENTIALS: 'C:\\Users\\test\\gcp.json',
+          ANTHROPIC_API_KEY: 'must-not-be-copied',
+          CLAUDE_CODE_USE_BEDROCK: '1',
+        },
+      }),
+      'utf8',
+    );
+
+    expect(buildCliChildEnvironment({ HOME: home })).toEqual({
+      HOME: home,
+      CLAUDE_CODE_USE_VERTEX: '1',
+      ANTHROPIC_VERTEX_PROJECT_ID: 'koma-motion-test-123',
+      CLOUD_ML_REGION: 'global',
+      GOOGLE_APPLICATION_CREDENTIALS: 'C:\\Users\\test\\gcp.json',
+    });
+  });
+
+  it('validates Vertex values and lets explicit environment values override settings', async () => {
+    const home = join(directory, 'home');
+    await mkdir(join(home, '.claude'), { recursive: true });
+    await writeFile(
+      join(home, '.claude', 'settings.json'),
+      JSON.stringify({
+        env: {
+          CLAUDE_CODE_USE_VERTEX: 'true',
+          ANTHROPIC_VERTEX_PROJECT_ID: 'invalid project id',
+          CLOUD_ML_REGION: 'global',
+        },
+      }),
+      'utf8',
+    );
+
+    expect(buildCliChildEnvironment({ HOME: home, CLAUDE_CODE_USE_VERTEX: '1' })).toEqual({
+      HOME: home,
+      CLAUDE_CODE_USE_VERTEX: '1',
+      CLOUD_ML_REGION: 'global',
+    });
+  });
+
   it('passes PATH through to a child and drops a sentinel', async () => {
     const parent: NodeJS.ProcessEnv = {
       PATH: 'C:\\synthetic\\koma-path',

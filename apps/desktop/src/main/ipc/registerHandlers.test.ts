@@ -248,13 +248,16 @@ describe('Brand Kit library IPC', () => {
   });
 });
 
-function openHandlers(brandKitDirectory = join(tmpdir(), 'koma-unused-brand-kits')): {
+function openHandlers(
+  brandKitDirectory = join(tmpdir(), 'koma-unused-brand-kits'),
+  windowParts: Partial<BrowserWindow> = {},
+): {
   event: IpcMainInvokeEvent;
   invoke: (channel: string, event: IpcMainInvokeEvent, payload: unknown) => Promise<unknown>;
 } {
   const frame = { url: APP_URL };
   const webContents = { mainFrame: frame } as WebContents;
-  const window = { webContents, isDestroyed: () => false } as BrowserWindow;
+  const window = { webContents, isDestroyed: () => false, ...windowParts } as BrowserWindow;
   const registered = registerHandlers({
     window,
     session: createProjectSession(),
@@ -287,6 +290,63 @@ function openHandlers(brandKitDirectory = join(tmpdir(), 'koma-unused-brand-kits
     },
   };
 }
+
+describe('presentation full screen', () => {
+  afterEach(() => {
+    for (const registration of registrations.splice(0)) {
+      registration.dispose();
+    }
+  });
+
+  function fullScreenWindow(initially: boolean) {
+    const state = { fullScreen: initially, calls: [] as boolean[] };
+    const parts: Partial<BrowserWindow> = {
+      isFullScreen: () => state.fullScreen,
+      setFullScreen: (value: boolean) => {
+        state.calls.push(value);
+        state.fullScreen = value;
+      },
+    };
+    return { state, parts };
+  }
+
+  it('gives a window back the state it had before the presentation', async () => {
+    const { state, parts } = fullScreenWindow(false);
+    const { event, invoke } = openHandlers(undefined, parts);
+    await expect(invoke('koma:app:set-full-screen', event, { mode: 'enter' })).resolves.toEqual({
+      fullScreen: true,
+    });
+    // A second request does not forget that the window was not full screen.
+    await invoke('koma:app:set-full-screen', event, { mode: 'enter' });
+    await expect(invoke('koma:app:set-full-screen', event, { mode: 'restore' })).resolves.toEqual({
+      fullScreen: false,
+    });
+    expect(state.fullScreen).toBe(false);
+  });
+
+  it('leaves a window full screen that already was', async () => {
+    const { state, parts } = fullScreenWindow(true);
+    const { event, invoke } = openHandlers(undefined, parts);
+    await invoke('koma:app:set-full-screen', event, { mode: 'enter' });
+    await expect(invoke('koma:app:set-full-screen', event, { mode: 'restore' })).resolves.toEqual({
+      fullScreen: true,
+    });
+    expect(state.fullScreen).toBe(true);
+    // Restoring without a presentation changes nothing.
+    await invoke('koma:app:set-full-screen', event, { mode: 'restore' });
+    expect(state.calls).toEqual([true]);
+  });
+
+  it('accepts only the three modes', async () => {
+    const { parts } = fullScreenWindow(false);
+    const { event, invoke } = openHandlers(undefined, parts);
+    for (const payload of [{}, { mode: 'kiosk' }, { mode: 'enter', fullScreen: true }]) {
+      await expect(invoke('koma:app:set-full-screen', event, payload)).rejects.toThrow(
+        'Invalid request',
+      );
+    }
+  });
+});
 
 describe('mock provider test settings', () => {
   it('reads a bounded delay and the invalid outcome, and ignores anything else', () => {

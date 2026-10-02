@@ -1,6 +1,7 @@
 import type { BrandKit, KomaProject } from '@koma-motion/core';
 import { useEffect, useId, useRef, type ReactElement } from 'react';
 import { applySavedBrandKitToProject, loadBrandKitLibrary } from '../lib/brandKitLibraryActions';
+import { attachBrandMaterial } from '../lib/brandProfileActions';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
 import { useMatchingKits } from '../lib/useMatchingKits';
 import { CheckIcon, ChevronIcon } from './icons';
@@ -159,13 +160,20 @@ export function ChatBrandKitPicker({
                     onClick={() => {
                       onOpenChange(false);
                       trigger.current?.focus();
-                      void applySavedBrandKitToProject(kit.id);
+                      void applySavedBrandKitToProject(kit.id, {
+                        withInstructions: kit.instructions !== undefined,
+                      });
                     }}
                   >
                     <IconTile className="font-semibold text-accent">
                       {kit.name.slice(0, 1).toLocaleUpperCase()}
                     </IconTile>
-                    <span className="min-w-0 flex-1 break-words">{kit.name}</span>
+                    <span className="min-w-0 flex-1 break-words">
+                      {kit.name}
+                      {kit.instructions !== undefined && (
+                        <span className="block text-xs text-ink-400">with instructions</span>
+                      )}
+                    </span>
                     <Swatches kit={kit.brandKit} />
                     <span className="w-3.5 flex-none text-accent">
                       {selected && <CheckIcon size={14} />}
@@ -196,9 +204,22 @@ export function ChatBrandKitPicker({
               </div>
             )
           )}
-          <p className="border-t border-line px-3 py-2 text-xs text-ink-400">
-            Used for your next generation
-          </p>
+          <div className="flex flex-col gap-1.5 border-t border-line px-3 py-2">
+            <p className="text-xs text-ink-400">Used for your next generation</p>
+            <Button
+              compact
+              variant="outline"
+              disabled={disabled}
+              title="Create a Brand Kit and project instructions from images, PDF or PowerPoint files"
+              onClick={() => {
+                onOpenChange(false);
+                trigger.current?.focus();
+                void attachBrandMaterial();
+              }}
+            >
+              Attach brand material…
+            </Button>
+          </div>
         </div>
       )}
     </div>

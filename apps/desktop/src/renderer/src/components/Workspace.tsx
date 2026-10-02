@@ -27,7 +27,6 @@ import { useProjectStore } from '../state/projectStore';
 import { useTransitionRegenerationStore } from '../state/transitionRegenerationStore';
 import { useUiStore } from '../state/uiStore';
 import { ImageIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
-import { TransitionIssuePanel } from './TransitionIssuePanel';
 import { Button, Help, IconButton, NumberInput, POPOVER_SURFACE } from './ui';
 
 const CANVAS_PADDING = 32;
@@ -215,7 +214,12 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const progressPercent = Math.round((previewing ? playback.progress : 0) * 100);
 
   return (
-    <section aria-label="Canvas" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-0">
+    <section
+      data-guide-target="canvas"
+      tabIndex={-1}
+      aria-label="Canvas"
+      className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-0"
+    >
       <div className="flex h-11 flex-none items-center gap-2 border-b border-line bg-surface-1 px-2.5">
         <IconButton
           label="Add image"
@@ -342,21 +346,12 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
         </div>
       </div>
 
-      {assessment !== null && transportContext !== null && (
-        <TransitionIssuePanel
-          key={transportContext.transition.id}
-          transitionId={transportContext.transition.id}
-          from={transportContext.from}
-          to={transportContext.to}
-          fromNumber={transportContext.fromIndex + 1}
-          assessment={assessment}
-        />
-      )}
-
       <div
         ref={transportRef}
         role="group"
         aria-label="Transition preview"
+        data-guide-target="preview"
+        tabIndex={-1}
         // A container, so that the labels give way before the position control
         // when the canvas is narrow.
         className="@container flex-none border-t border-line bg-surface-1"

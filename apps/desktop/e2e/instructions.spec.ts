@@ -145,6 +145,13 @@ test('saves project instructions and reuses app templates with undo and redo', a
 test('retains invalid drafts and failed template and project saves', async () => {
   const testInfo = test.info();
   const { window, application, directory } = running;
+  // The compact toolbar must leave the chat controls reachable even while a
+  // persistent save-error notification is visible.
+  await application.evaluate(({ BrowserWindow }) => {
+    const native = BrowserWindow.getAllWindows()[0];
+    native?.setMinimumSize(800, 600);
+    native?.setContentSize(1024, 700);
+  });
   await window.getByRole('button', { name: 'Create a project' }).click();
   await window.getByRole('button', { name: 'Instructions & templates' }).click();
   const field = window.getByLabel('Project system instructions');
@@ -189,6 +196,7 @@ test('retains invalid drafts and failed template and project saves', async () =>
   await window.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(window.getByText(/could not be saved|could not be written/i)).toBeVisible();
   await expect(window.getByText('Unsaved changes', { exact: true })).toBeVisible();
+  await window.screenshot({ path: testInfo.outputPath('project-save-failure-compact.png') });
   await window.getByRole('button', { name: 'Instructions & templates' }).click();
   await expect(field).toHaveValue('Last valid instructions');
   expect(running.problems).toEqual([]);

@@ -10,6 +10,7 @@ import {
   useProjectStore,
 } from '../state/projectStore';
 import { isNightlyVersion } from '../../../shared/updates';
+import { useQuickStartStore } from '../state/quickStartStore';
 import { useUiStore } from '../state/uiStore';
 import { useUpdateStore } from '../state/updateStore';
 import {
@@ -24,6 +25,7 @@ import {
 import { Button, IconButton } from './ui';
 import { ProjectHealthButton } from './ProjectHealth';
 import { PowerPointExport } from './PowerPointExport';
+import { PresentButton } from './PresentButton';
 
 function OpenIcon(): ReactElement {
   return (
@@ -69,7 +71,7 @@ export function TopBar(): ReactElement {
     transition === null || presentation === null
       ? null
       : getTransitionContext(presentation, transition.id);
-  // The warning next to the preview controls explains why.
+  // The Koma strip explains a transition that cannot play, on that transition.
   const blocked =
     presentation !== null &&
     context !== null &&
@@ -121,7 +123,7 @@ export function TopBar(): ReactElement {
         <RedoIcon />
       </IconButton>
 
-      <div className="flex min-w-0 flex-1 items-center justify-center px-3">
+      <div className="flex min-w-64 flex-1 items-center justify-center px-3 max-[1360px]:order-last max-[1360px]:basis-full max-[1360px]:justify-start">
         {hasProject && (
           <div className="flex h-8 min-w-0 max-w-[min(32rem,100%)] items-center gap-2.5 rounded-full border border-line bg-surface-0/60 pr-3 pl-3.5">
             <span className="min-w-0 truncate font-medium text-ink-100" title={file?.displayPath}>
@@ -162,7 +164,7 @@ export function TopBar(): ReactElement {
         disabled={transition === null || blocked}
         title={
           blocked
-            ? 'This transition cannot play. See the warning above the preview controls.'
+            ? 'This transition cannot play. Use Regenerate transition in the Koma strip.'
             : undefined
         }
         onClick={() => {
@@ -173,7 +175,11 @@ export function TopBar(): ReactElement {
       >
         Preview
       </Button>
+      <PresentButton />
       <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
+      <Button compact onClick={() => useQuickStartStore.getState().setOpen(true)}>
+        Getting started
+      </Button>
       <IconButton
         label="Settings"
         onClick={() => {

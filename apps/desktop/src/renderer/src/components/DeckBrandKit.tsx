@@ -1,19 +1,11 @@
 import { useEffect, useRef, useState, type ReactElement } from 'react';
-import { BRAND_COLOUR_ROLES, brandKitSchema, type BrandKit } from '@koma-motion/core';
+import type { BrandKit } from '@koma-motion/core';
 import { savedBrandKitNameSchema } from '@koma-motion/brand-kit';
 import type { DeckProgress, DeckProposal, PreparedDeck } from '../../../shared/deckAnalysis';
 import { invoke, subscribe } from '../lib/api';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
-import { Button, Field, Modal, Select, TextArea, TextInput } from './ui';
-import { BrandPreview } from './BrandKitEditor';
-
-const descriptions = [
-  ['tone', 'Tone'],
-  ['visualStyle', 'Visual style'],
-  ['iconStyle', 'Icon style'],
-  ['preferredImagery', 'Preferred imagery'],
-  ['referenceNotes', 'Reference notes'],
-] as const;
+import { Button, Field, Modal, Select, TextInput } from './ui';
+import { BrandKitProposalFields, validateProposalDraft } from './BrandKitProposalFields';
 
 export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): ReactElement {
   const [sessionId] = useState(() => crypto.randomUUID());
@@ -106,17 +98,7 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
       if (alive.current) setBusy(null);
     }
   };
-  const kit =
-    draft === null
-      ? null
-      : {
-          ...draft,
-          preferredTopics: topics
-            .split('\n')
-            .map((topic) => topic.trim())
-            .filter(Boolean),
-        };
-  const validation = kit === null ? null : brandKitSchema.safeParse(kit);
+  const validation = draft === null ? null : validateProposalDraft(draft, topics);
   const nameValidation = savedBrandKitNameSchema.safeParse(name);
   const save = async (): Promise<void> => {
     if (!validation?.success || !nameValidation.success) return;
@@ -148,8 +130,6 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
     provider === 'mock'
       ? 'Mock provider · local demonstration'
       : 'Claude Code · Opus (opus, latest alias)';
-  const change = (field: keyof BrandKit, value: string) =>
-    setDraft((current) => (current === null ? null : { ...current, [field]: value }));
 
   return (
     <Modal
@@ -339,97 +319,13 @@ export function DeckBrandKit({ onClose }: { readonly onClose: () => void }): Rea
                 />
               )}
             </Field>
-            <Field label="Brand name">
-              {(ids) => (
-                <TextInput
-                  {...ids}
-                  value={draft.name}
-                  maxLength={120}
-                  onChange={(event) => change('name', event.target.value)}
-                />
-              )}
-            </Field>
-            {validation?.success && (
-              <BrandPreview
-                brandKit={validation.data}
-                logoUrl={selectedLogo ? `data:image/png;base64,${selectedLogo.image.data}` : null}
-              />
-            )}
-            <div className="grid grid-cols-2 gap-3">
-              {BRAND_COLOUR_ROLES.map((role) => (
-                <Field key={role} label={`${role[0]?.toUpperCase()}${role.slice(1)} colour`}>
-                  {(ids) => (
-                    <TextInput
-                      {...ids}
-                      value={draft.colours[role]}
-                      maxLength={7}
-                      onChange={(event) =>
-                        setDraft({
-                          ...draft,
-                          colours: { ...draft.colours, [role]: event.target.value },
-                        })
-                      }
-                    />
-                  )}
-                </Field>
-              ))}
-            </div>
-            <Field label="Heading font">
-              {(ids) => (
-                <TextInput
-                  {...ids}
-                  value={draft.typography.headingFont}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      typography: { ...draft.typography, headingFont: event.target.value },
-                    })
-                  }
-                />
-              )}
-            </Field>
-            <Field label="Body font">
-              {(ids) => (
-                <TextInput
-                  {...ids}
-                  value={draft.typography.bodyFont}
-                  onChange={(event) =>
-                    setDraft({
-                      ...draft,
-                      typography: { ...draft.typography, bodyFont: event.target.value },
-                    })
-                  }
-                />
-              )}
-            </Field>
-            {descriptions.map(([field, label]) => (
-              <Field key={field} label={label}>
-                {(ids) => (
-                  <TextArea
-                    {...ids}
-                    value={draft[field]}
-                    maxLength={field === 'referenceNotes' ? 5000 : 1000}
-                    onChange={(event) => change(field, event.target.value)}
-                  />
-                )}
-              </Field>
-            ))}
-            <Field label="Preferred topics (one per line)">
-              {(ids) => (
-                <TextArea
-                  {...ids}
-                  value={topics}
-                  onChange={(event) => setTopics(event.target.value)}
-                />
-              )}
-            </Field>
-            {validation && !validation.success && (
-              <p role="alert" className="text-motion">
-                {validation.error.issues
-                  .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
-                  .join('; ')}
-              </p>
-            )}
+            <BrandKitProposalFields
+              draft={draft}
+              onDraft={setDraft}
+              topics={topics}
+              onTopics={setTopics}
+              logoUrl={selectedLogo ? `data:image/png;base64,${selectedLogo.image.data}` : null}
+            />
             <fieldset className="flex flex-col gap-3">
               <legend className="font-semibold">Logo</legend>
               <label>

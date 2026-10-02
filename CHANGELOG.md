@@ -8,6 +8,26 @@ changes to the project format.
 
 ## [Unreleased]
 
+### Changed
+
+- An out-of-date transition shows a compact status in the Koma strip, between
+  its source and destination Komas, with **Regenerate transition** on that
+  transition. The explanation and links to both Komas open from a disclosure
+  there. Regeneration reports running, failed and cancelled states on the
+  transition and announces success when it can play again. A failed or
+  cancelled regeneration leaves both Komas unchanged.
+### Added
+
+- **Present** plays the whole presentation in the window or full screen, from
+  the beginning (F5) or from the selected Koma (Shift+F5). Each Koma plays in
+  order with its transition. Previous, next, pause and resume, replay, the
+  position ("3 of 8") and exit are on screen and on the keyboard; Escape
+  exits. A presentation advances on request; autoplay with a time per Koma
+  is a setting of the open window and is not saved in the project.
+  Transitions that cannot play are listed before the presentation starts:
+  return to edit them, or cut across exactly the listed transitions. Edits,
+  deletions, reordering and undo while presenting are followed.
+
 ## [0.1.1] - 2026-10-02
 
 Projects now use format 3. Older projects are upgraded in memory and marked

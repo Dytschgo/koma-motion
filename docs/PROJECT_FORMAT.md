@@ -280,7 +280,7 @@ from upgrade information and offers targeted image and logo repairs.
 A transition that cannot play is not a load warning. The file opens with the
 stored motion unchanged. The application checks every transition against its
 Komas while the project is edited and explains a transition that cannot play
-next to the preview controls, where it can be regenerated. See
+on that transition in the Koma strip, where it can be regenerated. See
 [Motion model](MOTION_MODEL.md#transitions-that-cannot-play).
 
 ## Schema versions and migration

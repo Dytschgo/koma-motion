@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -54,9 +55,68 @@ export const CLI_CHILD_ENVIRONMENT_ALLOWLIST = [
   'GROK_HOME',
 ] as const;
 
+const VERTEX_ENVIRONMENT_NAMES = [
+  'CLAUDE_CODE_USE_VERTEX',
+  'ANTHROPIC_VERTEX_PROJECT_ID',
+  'CLOUD_ML_REGION',
+  'GOOGLE_APPLICATION_CREDENTIALS',
+] as const;
+
+type VertexEnvironmentName = (typeof VERTEX_ENVIRONMENT_NAMES)[number];
+
+function isValidVertexValue(name: VertexEnvironmentName, value: string): boolean {
+  if (name === 'CLAUDE_CODE_USE_VERTEX') return value === '1';
+  if (name === 'ANTHROPIC_VERTEX_PROJECT_ID') {
+    return /^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(value);
+  }
+  if (name === 'CLOUD_ML_REGION') return /^(global|[a-z0-9]+(?:-[a-z0-9]+)*)$/.test(value);
+  return (
+    value.length > 0 && !value.includes('\u0000') && !value.includes('\r') && !value.includes('\n')
+  );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function vertexSettingsEnvironment(
+  home: string | undefined,
+  configDirectory: string | undefined,
+): Partial<Record<VertexEnvironmentName, string>> {
+  if (
+    (configDirectory === undefined || configDirectory === '') &&
+    (home === undefined || home === '')
+  ) {
+    return {};
+  }
+  try {
+    const settingsPath =
+      configDirectory === undefined || configDirectory === ''
+        ? join(home ?? '', '.claude', 'settings.json')
+        : join(configDirectory, 'settings.json');
+    const text = readFileSync(settingsPath, 'utf8');
+    if (text.length > 256 * 1024) return {};
+    const document: unknown = JSON.parse(text);
+    if (!isRecord(document)) return {};
+    const settings = document;
+    const env = settings['env'];
+    if (!isRecord(env)) return {};
+    const values = env;
+    const selected: Partial<Record<VertexEnvironmentName, string>> = {};
+    for (const name of VERTEX_ENVIRONMENT_NAMES) {
+      const value = values[name];
+      if (typeof value === 'string' && isValidVertexValue(name, value)) selected[name] = value;
+    }
+    return selected;
+  } catch {
+    return {};
+  }
+}
+
 /** Builds the environment passed to a CLI. The result is not merged with the parent. */
 export function buildCliChildEnvironment(
   parent: Readonly<NodeJS.ProcessEnv>,
+  options: { readonly claudeHome?: string } = {},
 ): Record<string, string> {
   const child: Record<string, string> = {};
   for (const name of CLI_CHILD_ENVIRONMENT_ALLOWLIST) {
@@ -64,6 +124,12 @@ export function buildCliChildEnvironment(
     if (typeof value === 'string') {
       child[name] = value;
     }
+  }
+  const home = options.claudeHome ?? parent['HOME'] ?? parent['USERPROFILE'];
+  const configuredVertex = vertexSettingsEnvironment(home, parent['CLAUDE_CONFIG_DIR']);
+  for (const name of VERTEX_ENVIRONMENT_NAMES) {
+    const value = parent[name] ?? configuredVertex[name];
+    if (typeof value === 'string' && isValidVertexValue(name, value)) child[name] = value;
   }
   return child;
 }

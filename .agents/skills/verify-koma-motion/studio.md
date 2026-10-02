@@ -45,14 +45,19 @@ pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatBra
 - Inspector: switch Element, Koma and Motion tabs with keyboard and pointer;
   select hidden and covered elements from Layers; change visibility and lock;
   verify restacking and Undo. Hide chat when the narrow layout replaces Inspector.
-- Motion: an edit can make stored motion stale. Verify blocked playback and the
-  warning, then use Recalculate motion to preserve timing locally or Regenerate
-  transition to request new timing from the selected provider. Verify cancellation
-  and edits while a request is in flight. Unsupported future effects are skipped
-  without labeling the entire transition blocked.
+- Motion: an edit can make stored motion stale. The Koma strip shows a compact
+  status on that transition, between its source and destination Komas, with
+  Regenerate transition. The explanation and links to both Komas are in the
+  disclosure. Verify blocked playback, then use Recalculate motion in the
+  Inspector to preserve timing locally or Regenerate transition to request new
+  timing from the selected provider. Verify running, succeeded, failed and
+  cancelled states, and that a failed or cancelled regeneration keeps both
+  Komas. Unsupported future effects are skipped without labeling the entire
+  transition blocked.
 - Project health: open damaged or older fixtures, inspect format and asset issues,
   repair only the selected asset, and verify save-copy recovery. General project
-  warnings live in Project health; transition status remains visible by the canvas.
+  warnings live in Project health; transition status stays on the transition in
+  the Koma strip.
 
 Preserve screenshots and failure traces outside the worktree before cleanup.
 Record actual native content dimensions and source commit. macOS uses different

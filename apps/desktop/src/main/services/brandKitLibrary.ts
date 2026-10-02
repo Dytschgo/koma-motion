@@ -49,6 +49,9 @@ export interface BrandKitContent {
   readonly brandKit: BrandKit;
   readonly logo: BrandKitLogoData | null;
   readonly provenance?: SavedBrandKit['provenance'];
+  /** Project instructions saved with the kit, in the same entry. */
+  readonly instructions?: SavedBrandKit['instructions'];
+  readonly referenceProvenance?: SavedBrandKit['referenceProvenance'];
 }
 
 export interface BrandKitLibrary {
@@ -384,7 +387,7 @@ export function createBrandKitLibrary(
   return {
     list: () => serial(async () => toState(await read(), null)),
 
-    create: ({ name, brandKit, logo, provenance }) =>
+    create: ({ name, brandKit, logo, provenance, instructions, referenceProvenance }) =>
       change(async ({ kits }) => {
         ensureRoom(kits);
         const timestamp = now().toISOString();
@@ -396,6 +399,8 @@ export function createBrandKitLibrary(
           brandKit: toLibraryBrandKit(brandKit),
           logo: logo === null ? null : await storeLogo(logo),
           ...(provenance === undefined ? {} : { provenance }),
+          ...(instructions === undefined ? {} : { instructions }),
+          ...(referenceProvenance === undefined ? {} : { referenceProvenance }),
         };
         return { kits: [kit, ...kits], kitId: kit.id };
       }),

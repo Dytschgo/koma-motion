@@ -1,5 +1,40 @@
 import { expect, test } from '@playwright/test';
-import { launchApplication } from './application';
+import { join } from 'node:path';
+import { answerSaveDialog, launchApplication } from './application';
+
+test('keeps the saved filename and toolbar actions visible on smaller screens', async () => {
+  const running = await launchApplication();
+  const { window, application, directory } = running;
+  try {
+    await window.getByRole('button', { name: 'Create a project' }).click();
+    await answerSaveDialog(application, join(directory, 'introduction.koma'));
+    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    const header = window.getByRole('banner');
+    for (const width of [1280, 1120, 1024]) {
+      await application.evaluate(({ BrowserWindow }, contentWidth) => {
+        const native = BrowserWindow.getAllWindows()[0];
+        native?.setMinimumSize(800, 600);
+        native?.setContentSize(contentWidth, 700);
+      }, width);
+      const filename = header.getByText('introduction.koma', { exact: true });
+      await expect(filename).toBeVisible();
+      await expect.poll(async () => (await filename.boundingBox())?.width ?? 0).toBeGreaterThan(80);
+      await expect(header.getByText('All changes saved')).toBeVisible();
+      for (const name of ['Save', 'Present', 'Getting started', 'Settings']) {
+        await expect(header.getByRole('button', { name, exact: true })).toBeInViewport({
+          ratio: 1,
+        });
+      }
+      await window.screenshot({
+        path: test.info().outputPath(`toolbar-${width}.png`),
+        scale: 'css',
+      });
+    }
+    expect(running.problems).toEqual([]);
+  } finally {
+    await running.close();
+  }
+});
 
 test('keeps the position control usable in a narrow window with reduced motion', async () => {
   const running = await launchApplication();

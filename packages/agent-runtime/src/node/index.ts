@@ -1,4 +1,5 @@
 export * from './ClaudeCodeProvider';
+export * from './claudeBrandProfileAnalysis';
 export * from './claudeStream';
 export * from './cliEnvironment';
 export * from './CodexCliProvider';

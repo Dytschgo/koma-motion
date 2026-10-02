@@ -1,4 +1,3 @@
-import { z } from 'zod';
 import {
   BRAND_KIT_ANALYSIS_SYSTEM,
   brandKitAnalysisRequestSchema,
@@ -9,6 +8,10 @@ import {
   type BrandKitAnalysisResponse,
 } from '../contract/brandKitAnalysis';
 import type { CliEnvironment } from './cliEnvironment';
+import {
+  runClaudeStructuredAnalysis,
+  structuredAnalysisArguments,
+} from './claudeStructuredAnalysis';
 
 /** Inline images over the authenticated CLI stream. No image paths or Read tool. */
 export function buildBrandKitAnalysisInput(input: BrandKitAnalysisRequest): string {
@@ -49,40 +52,8 @@ export function buildBrandKitAnalysisInput(input: BrandKitAnalysisRequest): stri
 }
 
 export function brandKitAnalysisArguments(): string[] {
-  return [
-    '--print',
-    '--verbose',
-    '--input-format',
-    'stream-json',
-    '--output-format',
-    'stream-json',
-    '--tools',
-    '',
-    '--strict-mcp-config',
-    '--disable-slash-commands',
-    '--permission-prompts',
-    'none',
-    '--no-session-persistence',
-    '--safe-mode',
-    '--restricted',
-    '--no-chrome',
-    '--model',
-    'opus',
-    '--system-prompt',
-    BRAND_KIT_ANALYSIS_SYSTEM,
-    '--json-schema',
-    JSON.stringify(
-      z.toJSONSchema(brandKitAnalysisResponseSchema, { io: 'input', target: 'draft-7' }),
-    ),
-  ];
+  return structuredAnalysisArguments(BRAND_KIT_ANALYSIS_SYSTEM, brandKitAnalysisResponseSchema);
 }
-
-const eventSchema = z.object({
-  type: z.string(),
-  subtype: z.string().optional(),
-  is_error: z.boolean().optional(),
-  structured_output: z.unknown().optional(),
-});
 
 export async function analyzeBrandKitWithClaude(
   environment: CliEnvironment,
@@ -90,64 +61,19 @@ export async function analyzeBrandKitWithClaude(
   context: BrandKitAnalysisContext,
 ): Promise<BrandKitAnalysisResponse> {
   context.signal.throwIfAborted();
-  const input = buildBrandKitAnalysisInput(request);
-  if (Buffer.byteLength(input) > 24 * 1024 * 1024)
-    throw new Error('The prepared deck exceeds the 24 MiB analysis limit.');
-  const executable = await environment.resolveExecutable('claude');
-  if (executable === null)
-    throw new Error(
-      'Claude Code is not installed. Install it and sign in before analyzing a deck.',
-    );
-  const workingDirectory = await environment.createWorkingDirectory();
-  try {
-    const outcome = await environment.runProcess({
-      executable,
-      arguments: brandKitAnalysisArguments(),
-      input,
-      workingDirectory,
-      signal: context.signal,
-      maxOutputBytes: 2 * 1024 * 1024,
-      env: {
-        ...environment.childEnvironment(),
-        CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
-        CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
-      },
-    });
-    context.signal.throwIfAborted();
-    // Never expose arbitrary CLI stderr: it may contain deck data or credentials.
-    if (
-      outcome.aborted ||
-      outcome.outputLimitExceeded ||
-      outcome.startError !== null ||
-      outcome.exitCode !== 0
-    ) {
-      throw new Error(
+  const output = await runClaudeStructuredAnalysis(environment, {
+    input: buildBrandKitAnalysisInput(request),
+    arguments: brandKitAnalysisArguments(),
+    signal: context.signal,
+    messages: {
+      tooLarge: 'The prepared deck exceeds the 24 MiB analysis limit.',
+      notInstalled: 'Claude Code is not installed. Install it and sign in before analyzing a deck.',
+      failed:
         'Claude Code could not complete deck analysis. Check your sign-in and CLI version, then retry. No Brand Kit was saved.',
-      );
-    }
-    let results;
-    try {
-      results = outcome.standardOutput
-        .split('\n')
-        .filter((line) => line.trim() !== '')
-        .map((line) => eventSchema.parse(JSON.parse(line)))
-        .filter((event) => event.type === 'result');
-    } catch {
-      throw new Error('Claude Code returned malformed analysis output. Nothing was saved.');
-    }
-    const result = results[0];
-    if (
-      results.length !== 1 ||
-      result?.subtype !== 'success' ||
-      result.is_error === true ||
-      result.structured_output === undefined
-    ) {
-      throw new Error(
+      malformed: 'Claude Code returned malformed analysis output. Nothing was saved.',
+      incomplete:
         'Claude Code did not return a complete structured Brand Kit proposal. Nothing was saved.',
-      );
-    }
-    return validateBrandKitAnalysis(result.structured_output, request);
-  } finally {
-    await environment.removeWorkingDirectory(workingDirectory);
-  }
+    },
+  });
+  return validateBrandKitAnalysis(output, request);
 }

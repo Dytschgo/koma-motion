@@ -209,6 +209,16 @@ an external provider receives it. File names and reference IDs stay out of
 that prompt section. See
 `.agents/skills/verify-koma-motion/export-references.md`.
 
+Brand material is a third file boundary. A native dialog selects up to eight
+images, PDFs or PPTX decks. The main process checks count, size and type,
+prepares bounded previews and text, and decodes images in the disposable
+sandboxed renderer. The renderer receives display names and prepared content
+without paths and shows exactly what an analysis would send. One analysis by
+Claude Code with Opus proposes a Brand Kit and project instructions; the
+validated proposal is reviewed and edited before it is saved as one library
+entry or applied as one project command. See
+`docs/BRAND_PROFILE_FROM_REFERENCES.md`.
+
 ## Electron process boundaries
 
 ```text
@@ -265,12 +275,17 @@ schema for the request and the response of every channel.
 | `koma:providers:detect`        | detect all providers                        |
 | `koma:providers:list-models`   | list the models of a signed-in CLI          |
 | `koma:references:select`       | choose files and extract bounded text       |
+| `koma:brand-profile:attach`    | choose brand material and prepare it        |
+| `koma:brand-profile:analyze`   | propose a Brand Kit and instructions        |
+| `koma:brand-profile:cancel`    | stop the analysis or discard the draft      |
+| `koma:brand-profile:save`      | save kit and instructions as one entry      |
 | `koma:providers:execute`       | run a generation                            |
 | `koma:export:validate`         | check PPTX export and fidelity warnings     |
 | `koma:export:powerpoint`       | choose destination and write PPTX           |
 | `koma:providers:cancel`        | stop a generation                           |
 | `koma:app:set-unsaved-changes` | tell the main process about unsaved changes |
 | `koma:app:confirm-close`       | close after saving                          |
+| `koma:app:set-full-screen`     | full screen for a presentation, and restore |
 | `koma:app:get-info`            | version, platform, exporters                |
 | `koma:updates:get-status`      | the state of updating                       |
 | `koma:updates:check`           | check for an update                         |
@@ -278,10 +293,11 @@ schema for the request and the response of every channel.
 | `koma:updates:download`        | download the update that was found          |
 | `koma:updates:install`         | restart and install the downloaded update   |
 
-Events from the main process: `koma:providers:status`,
+Events from the main process: `koma:brand-profile:progress`,
+`koma:providers:status`,
 `koma:providers:output` (text a provider writes during a chat generation, at
 most 4000 characters per event and one event per 50 ms),
-`koma:app:save-and-close` and `koma:updates:status`.
+`koma:app:save-and-close`, `koma:app:full-screen` and `koma:updates:status`.
 
 The update channels carry no addresses. The window chooses a channel; which
 release, manifest and installer that means is decided in the main process
@@ -301,18 +317,21 @@ sure that the channel list of the preload script equals the contract.
 
 ## Application state
 
-| State                    | Where                           | Saved with the project |
-| ------------------------ | ------------------------------- | ---------------------- |
-| project and undo history | `projectStore`                  | the project, yes       |
-| unsaved changes          | derived in `projectStore`       | no                     |
-| selection, view, zoom    | `uiStore`                       | no                     |
-| open Settings page       | `uiStore`                       | no                     |
-| preview                  | `uiStore` and the playback hook | no                     |
-| agent executions, chat   | `agentStore`                    | no                     |
-| extracted references     | `referenceStore`                | no                     |
-| chat sidebar width, open | `uiStore`, window local storage | no                     |
-| saved Brand Kit library  | `brandKitLibraryStore`, on disk | no, app data folder    |
-| unfinished editor input  | component state                 | no                     |
+| State                    | Where                                   | Saved with the project |
+| ------------------------ | --------------------------------------- | ---------------------- |
+| project and undo history | `projectStore`                          | the project, yes       |
+| unsaved changes          | derived in `projectStore`               | no                     |
+| selection, view, zoom    | `uiStore`                               | no                     |
+| open Settings page       | `uiStore`                               | no                     |
+| presentation, autoplay   | `presenterStore`                        | no                     |
+| preview                  | `uiStore` and the playback hook         | no                     |
+| agent executions, chat   | `agentStore`                            | no                     |
+| attached brand material  | `brandProfileStore`                     | no                     |
+| extracted references     | `referenceStore`                        | no                     |
+| quick-start completion   | `quickStartStore`, window local storage | no                     |
+| chat sidebar width, open | `uiStore`, window local storage         | no                     |
+| saved Brand Kit library  | `brandKitLibraryStore`, on disk         | no, app data folder    |
+| unfinished editor input  | component state                         | no                     |
 
 Changes to the document are commands: pure functions from a project to a
 project (`state/commands.ts`). The store applies a command and records the
@@ -329,7 +348,9 @@ of the application (`brand-kits/library.json`, logos in `brand-kits/logos/`
 named by the SHA-256 of their bytes), is read and written by the main process
 only, and changes to it are not undoable. Applying a saved kit is a project
 command: it copies the logo into the project's assets, reusing an asset with
-the same bytes, and can be undone.
+the same bytes, and can be undone. A saved kit can carry project instructions.
+Applying such a brand profile replaces the Brand Kit, the logo and the
+instructions in one command, so one undo step restores all three.
 
 Unsaved changes are detected by comparing the current document with the
 document that was last saved or loaded. Undoing back to the saved state

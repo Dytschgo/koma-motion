@@ -11,6 +11,7 @@ import {
   imageMediaTypeSchema,
   MAX_EMBEDDED_ASSET_BYTES,
   MAX_EMBEDDED_ASSET_CHARACTERS,
+  systemInstructionsSchema,
   type BrandKit,
   type ImageMediaType,
 } from '@koma-motion/core';
@@ -74,6 +75,31 @@ export const deckProvenanceSchema = z
   })
   .strict();
 
+const provenanceFileNameSchema = deckProvenanceSchema.shape.fileName;
+
+/** Where a brand profile came from: display names of the analyzed files, never paths. */
+export const referenceProvenanceSchema = z
+  .object({
+    analyzedAt: timestampSchema,
+    provider: z.enum(['claude-code', 'mock']),
+    model: z.string().max(120),
+    files: z
+      .array(
+        z
+          .object({
+            fileName: provenanceFileNameSchema,
+            kind: z.enum(['image', 'pdf', 'pptx']),
+            /** Images, slides or pages of this file that were analyzed, and how many it has. */
+            analyzed: z.number().int().min(1).max(200),
+            total: z.number().int().min(1).max(200),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(8),
+  })
+  .strict();
+
 export const savedBrandKitSchema = z.object({
   id: idSchema,
   name: savedBrandKitNameSchema,
@@ -82,6 +108,13 @@ export const savedBrandKitSchema = z.object({
   brandKit: libraryBrandKitSchema,
   logo: savedBrandKitLogoSchema.nullable(),
   provenance: deckProvenanceSchema.optional(),
+  /**
+   * Project instructions that belong to this kit. A kit with instructions is
+   * a brand profile: both are stored in one entry, so they are saved together
+   * or not at all.
+   */
+  instructions: systemInstructionsSchema.optional(),
+  referenceProvenance: referenceProvenanceSchema.optional(),
 });
 
 export type SavedBrandKitLogo = z.infer<typeof savedBrandKitLogoSchema>;

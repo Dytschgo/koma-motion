@@ -14,7 +14,7 @@ import { createRandomIdGenerator } from '@koma-motion/core';
 import { serialiseProject } from '@koma-motion/project-format';
 import type { BrandKitLibraryState } from '../../../shared/ipc';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
-import { applySavedBrandKit } from '../state/commands';
+import { applyBrandProfile, applySavedBrandKit } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { selectBrandKitRawDraft, useUiStore } from '../state/uiStore';
 import { invoke } from './api';
@@ -183,28 +183,39 @@ export async function deleteSavedBrandKit(id: string, name: string): Promise<voi
 }
 
 /**
+ * Asks before invalid text in the Brand Kit editor is replaced by an applied
+ * kit. Resolves to true when there is no such text or the user agreed.
+ */
+export async function confirmReplacingBrandKitDraft(): Promise<boolean> {
+  if (!hasInvalidDraft()) return true;
+  return useUiStore.getState().confirm({
+    title: 'Replace the fields with errors?',
+    message:
+      'Some Brand Kit fields contain text that is not valid and was never stored. Applying the saved kit replaces that text.',
+    confirmLabel: 'Apply saved kit',
+    cancelLabel: 'Keep editing',
+    destructive: true,
+  });
+}
+
+/**
  * Makes a saved kit the Brand Kit of the open project. This is one undoable
  * project change. A reply that arrives after the project was replaced is
- * ignored, so the kit never lands in a different project.
+ * ignored, so the kit never lands in a different project. With
+ * `withInstructions`, the instructions saved with the kit replace those of
+ * the project in the same change.
  */
-export async function applySavedBrandKitToProject(id: string): Promise<void> {
+export async function applySavedBrandKitToProject(
+  id: string,
+  options: { readonly withInstructions?: boolean } = {},
+): Promise<void> {
   const { sessionId } = useProjectStore.getState();
   if (selectProject(useProjectStore.getState()) === null) {
     return;
   }
   const replacesDraft = hasInvalidDraft();
-  if (replacesDraft) {
-    const confirmed = await useUiStore.getState().confirm({
-      title: 'Replace the fields with errors?',
-      message:
-        'Some Brand Kit fields contain text that is not valid and was never stored. Applying the saved kit replaces that text.',
-      confirmLabel: 'Apply saved kit',
-      cancelLabel: 'Keep editing',
-      destructive: true,
-    });
-    if (!confirmed) {
-      return;
-    }
+  if (!(await confirmReplacingBrandKitDraft())) {
+    return;
   }
 
   const store = useBrandKitLibraryStore.getState();
@@ -220,7 +231,12 @@ export async function applySavedBrandKitToProject(id: string): Promise<void> {
       return;
     }
     const { kit, logo, logoProblem } = response;
-    const updated = applySavedBrandKit(kit.brandKit, logo)(project, idGenerator);
+    const instructions = options.withInstructions === true ? kit.instructions : undefined;
+    const updated = (
+      instructions === undefined
+        ? applySavedBrandKit(kit.brandKit, logo)
+        : applyBrandProfile(kit.brandKit, logo, instructions)
+    )(project, idGenerator);
     if (updated === project) {
       // Nothing to undo, but the confirmed replacement of the invalid text still happens.
       if (replacesDraft) {
@@ -239,7 +255,12 @@ export async function applySavedBrandKitToProject(id: string): Promise<void> {
     // The editor shows the applied kit, not text typed for the previous one.
     useUiStore.getState().setBrandKitDraft(project.id, {});
     useProjectStore.getState().apply(() => updated);
-    notify('info', `Applied "${kit.name}" to this project. Use Undo to go back.`);
+    notify(
+      'info',
+      instructions === undefined
+        ? `Applied "${kit.name}" to this project. Use Undo to go back.`
+        : `Applied "${kit.name}" and its instructions to this project. Use Undo to go back.`,
+    );
     if (logoProblem !== null) {
       notify('error', logoProblem);
     }
