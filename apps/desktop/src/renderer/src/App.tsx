@@ -9,6 +9,7 @@ import { ConfirmDialog, Notices } from './components/Overlays';
 import { SettingsDialog } from './components/SettingsDialog';
 import { TopBar } from './components/TopBar';
 import { ProjectHealth } from './components/ProjectHealth';
+import { QuickStartGuide } from './components/QuickStartGuide';
 import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
 import { detectProviders } from './lib/agentActions';
@@ -179,6 +180,7 @@ export function App(): ReactElement {
       <TopBar />
       {project === null ? <Welcome /> : <ProjectLayout project={project} />}
       <SettingsDialog project={project} />
+      <QuickStartGuide />
       <ConfirmDialog />
       <ProjectHealth />
       <Notices />
