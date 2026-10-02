@@ -123,7 +123,7 @@ export function TopBar(): ReactElement {
         <RedoIcon />
       </IconButton>
 
-      <div className="flex min-w-64 flex-1 items-center justify-center px-3 max-xl:order-last max-xl:basis-full max-xl:justify-start">
+      <div className="flex min-w-64 flex-1 items-center justify-center px-3 max-[1360px]:order-last max-[1360px]:basis-full max-[1360px]:justify-start">
         {hasProject && (
           <div className="flex h-8 min-w-0 max-w-[min(32rem,100%)] items-center gap-2.5 rounded-full border border-line bg-surface-0/60 pr-3 pl-3.5">
             <span className="min-w-0 truncate font-medium text-ink-100" title={file?.displayPath}>
