@@ -16,6 +16,7 @@ import { deleteKoma, renameProject, reorderKoma } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { DownIcon, PlusIcon, TrashIcon, UpIcon, WarningIcon } from './icons';
+import { TransitionStripStatus } from './TransitionStripStatus';
 import { Button, IconButton, TextInput } from './ui';
 
 const THUMBNAIL_WIDTH = 184;
@@ -51,64 +52,57 @@ function InBetween({
   readonly active: boolean;
 }): ReactElement {
   const startPreview = useUiStore((state) => state.startPreview);
-  const selectKoma = useUiStore((state) => state.selectKoma);
-  const setView = useUiStore((state) => state.setView);
   const changes = countChanges(transition);
   const assessment = assessTransition(presentation, transition, fromKoma, toKoma);
-  if (assessment?.blocked === true) {
-    // Nothing to preview. The button shows the explanation next to the
-    // preview controls instead, by selecting the Koma the transition leaves.
-    return (
-      <li className="flex items-stretch gap-2 pl-[18px]">
-        <span aria-hidden="true" className="w-px flex-none bg-signal-warn" />
-        <button
-          type="button"
-          aria-label={`Transition from Koma ${String(from)} to Koma ${String(to)}: ${assessment.label.toLowerCase()}. It cannot play. Show the problem`}
-          className="my-1 flex min-w-0 flex-1 items-center gap-1.5 rounded-md border border-signal-warn/40 px-2 py-1 text-left text-sm text-signal-warn hover:bg-surface-3"
-          onClick={() => {
-            setView('canvas');
-            selectKoma(fromKoma.id);
-          }}
-        >
-          <span aria-hidden="true" className="flex-none">
-            <WarningIcon size={14} />
-          </span>
-          <span className="truncate">{assessment.label}</span>
-        </button>
-      </li>
-    );
+  const blocked = assessment?.blocked === true;
+  let spine = 'bg-line-strong';
+  if (active) {
+    spine = 'bg-motion';
+  }
+  if (blocked) {
+    spine = 'bg-signal-warn';
   }
   return (
     <li className="flex items-stretch gap-2 pl-[18px]">
-      <span
-        aria-hidden="true"
-        className={`w-px flex-none ${active ? 'bg-motion' : 'bg-line-strong'}`}
-      />
-      <button
-        type="button"
-        aria-label={`Preview the transition from Koma ${String(from)} to Koma ${String(to)}`}
-        className={`my-1 flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors ${
-          active
-            ? 'bg-motion-deep text-ink-100'
-            : 'text-ink-400 hover:bg-surface-3 hover:text-ink-100'
-        }`}
-        onClick={() => {
-          startPreview(transition.id);
-        }}
-      >
-        <span className="truncate">
-          {formatSeconds(transition.duration)}, {transition.strategy}
-        </span>
-        <span className="flex flex-none items-center gap-1 tabular-nums">
-          {assessment !== null && (
-            <span className="text-ink-400" title={assessment.headline}>
-              <WarningIcon size={12} />
-              <span className="sr-only">{assessment.label}.</span>
+      <span aria-hidden="true" className={`w-px flex-none ${spine}`} />
+      <div className="my-1 flex min-w-0 flex-1 flex-col gap-1">
+        {!blocked && (
+          <button
+            type="button"
+            aria-label={`Preview the transition from Koma ${String(from)} to Koma ${String(to)}`}
+            className={`flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors ${
+              active
+                ? 'bg-motion-deep text-ink-100'
+                : 'text-ink-400 hover:bg-surface-3 hover:text-ink-100'
+            }`}
+            onClick={() => {
+              startPreview(transition.id);
+            }}
+          >
+            <span className="truncate">
+              {formatSeconds(transition.duration)}, {transition.strategy}
             </span>
-          )}
-          {changes} {changes === 1 ? 'change' : 'changes'}
-        </span>
-      </button>
+            <span className="flex flex-none items-center gap-1 tabular-nums">
+              {assessment !== null && (
+                <span className="text-ink-400" title={assessment.headline}>
+                  <WarningIcon size={12} />
+                  <span className="sr-only">{assessment.label}.</span>
+                </span>
+              )}
+              {changes} {changes === 1 ? 'change' : 'changes'}
+            </span>
+          </button>
+        )}
+        {assessment !== null && (
+          <TransitionStripStatus
+            transitionId={transition.id}
+            from={fromKoma}
+            to={toKoma}
+            fromNumber={from}
+            assessment={assessment}
+          />
+        )}
+      </div>
     </li>
   );
 }

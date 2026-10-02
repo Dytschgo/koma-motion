@@ -223,11 +223,13 @@ The application then:
 
 - disables Play, Restart, the position control and Preview for that
   transition, and says "Cannot play" next to them,
-- marks the in-between in the Koma strip ("Out of date" or "Cannot play");
-  selecting it shows the explanation instead of a preview,
-- shows one warning between the canvas and the preview controls. It names
-  the source and destination Komas, gives the reason (for a stale transition,
-  the objects whose motion no longer matches) and offers what helps.
+- shows a compact status on that transition in the Koma strip, between its
+  source and destination Komas ("Out of date" or "Cannot play"), with
+  **Regenerate transition** when regeneration can rebuild it. The status
+  reports regeneration while it runs, and when it fails or is cancelled.
+  Success is announced when the transition can play again,
+- keeps the explanation, and links to both Komas, in a disclosure on that
+  same transition. The action is not placed on a Koma card.
 
 What helps depends on the issue (`getMotionIssueRemedy`):
 
@@ -245,9 +247,9 @@ and the warning says so. A failure, a cancellation or an invalid answer
 leaves the transition and all edits unchanged and offers a retry. See
 [Agent providers](AGENT_PROVIDERS.md#transition-regeneration).
 
-The Inspector points to this warning instead of repeating it. Transition
-problems are not load warnings: the Inspector's warnings list keeps showing
-project problems such as missing assets.
+The Inspector can recalculate the same transition locally. It does not repeat
+the strip's explanation as a project warning. Transition problems are not
+load warnings.
 
 ### Reduced motion
 

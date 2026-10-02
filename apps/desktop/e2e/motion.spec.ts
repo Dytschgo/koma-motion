@@ -155,8 +155,8 @@ test('blocks a false element reference until the transition is regenerated', asy
   await openProject(window, filePath);
   await expect(window.getByLabel('Project name')).toHaveValue('False reference');
   const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
-  await expect(warning).toContainText('The stored motion is damaged.');
   await warning.getByRole('button', { name: 'Details' }).click();
+  await expect(warning).toContainText('The stored motion is damaged.');
   await expect(warning).toContainText('missing-shape');
 
   // Damaged motion is not played and cannot be scrubbed.

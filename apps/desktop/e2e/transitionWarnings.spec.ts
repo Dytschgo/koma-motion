@@ -109,19 +109,27 @@ test('explains a stale transition, links its Komas and regenerates it from the k
   const { window, directory, problems } = running;
   const text = await openStaleProject();
 
+  const strip = window.getByRole('complementary', { name: 'Project' });
   const panel = warning(window);
   await expect(panel).toBeVisible();
-  await expect(panel.getByRole('heading')).toContainText(
-    'The transition from "Start" to "End" cannot play',
-  );
-  await expect(panel).toContainText(STALE_REASON);
+  await expect(strip.getByRole('region', { name: /Transition 1 to 2\./ })).toBeVisible();
+  await expect(panel.getByText('Out of date', { exact: true })).toBeVisible();
+  await expect(panel.getByRole('button', { name: 'Regenerate transition' })).toBeVisible();
   await expectBlocked(window);
-  // The Koma strip marks the in-between instead of offering a preview.
+  // The action sits on the transition, between the two Koma cards.
+  const sourceCard = await strip.getByRole('button', { name: 'Koma 1: Start' }).boundingBox();
+  const destinationCard = await strip.getByRole('button', { name: 'Koma 2: End' }).boundingBox();
+  const regenerate = await panel
+    .getByRole('button', { name: 'Regenerate transition' })
+    .boundingBox();
+  if (sourceCard === null || destinationCard === null || regenerate === null) {
+    throw new Error('The transition action is not on screen');
+  }
+  expect(regenerate.y).toBeGreaterThanOrEqual(sourceCard.y + sourceCard.height - 1);
+  expect(regenerate.y + regenerate.height).toBeLessThanOrEqual(destinationCard.y + 1);
   await expect(
-    window.getByRole('button', {
-      name: 'Transition from Koma 1 to Koma 2: out of date. It cannot play. Show the problem',
-    }),
-  ).toBeVisible();
+    strip.getByRole('button', { name: 'Koma 1: Start' }).getByRole('button'),
+  ).toHaveCount(0);
   // Transition problems are no longer repeated in the Inspector's project warnings.
   await showInspector(window);
   await expect(window.getByRole('heading', { name: /^Warnings/ })).toHaveCount(0);
@@ -130,6 +138,10 @@ test('explains a stale transition, links its Komas and regenerates it from the k
   await details.focus();
   await window.keyboard.press('Enter');
   await expect(details).toHaveAttribute('aria-expanded', 'true');
+  await expect(panel.getByRole('heading')).toContainText(
+    'The transition from "Start" to "End" cannot play',
+  );
+  await expect(panel).toContainText(STALE_REASON);
   await expect(panel).toContainText('no longer matches the content of the Komas');
 
   await panel.getByRole('button', { name: 'Open destination Koma “End”' }).focus();
@@ -193,6 +205,10 @@ test('keeps the warning after cancellation and rejects a result when an endpoint
   await expect(panel.getByRole('status')).toContainText(
     '"Start, edited" changed while the transition was being regenerated. The result was discarded',
   );
+  const details = panel.getByRole('button', { name: 'Details' });
+  if ((await details.getAttribute('aria-expanded')) !== 'true') {
+    await details.click();
+  }
   await expect(panel.getByRole('heading')).toContainText('from "Start, edited" to "End"');
   await expectBlocked(window);
   await expect(window.getByLabel('Title', { exact: true })).toHaveValue('Start, edited');
@@ -256,25 +272,31 @@ test('fits the warning and its actions into a narrow window', async () => {
   });
   await openStaleProject();
   const panel = warning(window);
+  await panel.getByRole('button', { name: 'Details' }).click();
   const viewport = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  const strip = await window.getByRole('complementary', { name: 'Project' }).boundingBox();
+  if (strip === null) throw new Error('The Koma strip is not on screen');
   for (const name of [
     'Regenerate transition',
     'Open source Koma “Start”',
     'Open destination Koma “End”',
     'Details',
   ]) {
-    const box = await panel.getByRole('button', { name }).boundingBox();
+    const control = panel.getByRole('button', { name });
+    await control.scrollIntoViewIfNeeded();
+    const box = await control.boundingBox();
     expect(box).not.toBeNull();
+    expect(box?.x ?? 0).toBeGreaterThanOrEqual(strip.x - 1);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(strip.x + strip.width + 1);
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(viewport.width);
     expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(viewport.height);
   }
-  // The canvas keeps most of the height: the warning does not cover it.
-  const canvas = await window
-    .getByRole('region', { name: 'Canvas' })
-    .locator('[data-koma-stage]')
-    .boundingBox();
+  // The warning lives in the strip, so it does not cover the canvas.
+  const canvas = await window.getByRole('region', { name: 'Canvas' }).boundingBox();
   const panelBox = await panel.boundingBox();
-  expect((canvas?.y ?? 0) + (canvas?.height ?? 0)).toBeLessThanOrEqual(panelBox?.y ?? 0);
+  expect(canvas).not.toBeNull();
+  expect(panelBox).not.toBeNull();
+  expect((panelBox?.x ?? 0) + (panelBox?.width ?? 0)).toBeLessThanOrEqual((canvas?.x ?? 0) + 1);
   const evidence = process.env['KOMA_EVIDENCE_DIR'];
   if (evidence !== undefined) {
     await window.screenshot({ path: join(evidence, 'transition-warning-narrow.png') });
