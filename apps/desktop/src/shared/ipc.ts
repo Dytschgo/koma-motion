@@ -375,6 +375,15 @@ export const ipcContract = {
     request: empty,
     response: empty,
   },
+  /**
+   * Full screen for a presentation. `enter` remembers whether the window was
+   * full screen before; `restore` returns it to that state when the
+   * presentation ends; `leave` is the presenter's own choice.
+   */
+  'koma:app:set-full-screen': {
+    request: z.object({ mode: z.enum(['enter', 'leave', 'restore']) }).strict(),
+    response: z.object({ fullScreen: z.boolean() }),
+  },
   'koma:updates:get-status': {
     request: empty,
     response: updateStatusSchema,
@@ -426,6 +435,8 @@ export const ipcEvents = {
   'koma:providers:output': executionOutputEventSchema,
   /** The window is about to close and the user chose to save first. */
   'koma:app:save-and-close': empty,
+  /** The window entered or left full screen, by any means. */
+  'koma:app:full-screen': z.object({ fullScreen: z.boolean() }),
   /** The state of updating changed. */
   'koma:updates:status': updateStatusSchema,
 } as const;

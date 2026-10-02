@@ -51,6 +51,7 @@ For a changed implementation, also run the repository's format, lint, typecheck,
 
 - [Brand Kit drafts](brand-kit.md): character-by-character input, independent validation, navigation, undo, and project replacement.
 - [Preview controls](preview.md): transition identity, scrubbing, document edits, duration, and reduced motion at supported window sizes.
+- [Presentation player](presentation.md): whole-deck playback, keyboard, full screen, autoplay, the review of transitions that cannot play, and edits while presenting.
 - [Persisted motion](persisted-motion.md): warnings, blocked interpolation, stacking, and unchanged source files.
 - [Mock project workflow](project-workflow.md): create, generate, edit, save, and reopen.
 - [External file conflicts](file-conflicts.md): refuse a stale save and keep local edits in a copy.

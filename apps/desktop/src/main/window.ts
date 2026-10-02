@@ -141,6 +141,18 @@ export function createMainWindow(
       });
   });
 
+  // The presentation player shows whether the window is full screen, however it got there.
+  const reportFullScreen = (): void => {
+    if (!window.isDestroyed()) {
+      window.webContents.send(
+        'koma:app:full-screen',
+        ipcEvents['koma:app:full-screen'].parse({ fullScreen: window.isFullScreen() }),
+      );
+    }
+  };
+  window.on('enter-full-screen', reportFullScreen);
+  window.on('leave-full-screen', reportFullScreen);
+
   window.on('closed', () => {
     handlers.dispose();
   });

@@ -227,7 +227,11 @@ The application then:
   selecting it shows the explanation instead of a preview,
 - shows one warning between the canvas and the preview controls. It names
   the source and destination Komas, gives the reason (for a stale transition,
-  the objects whose motion no longer matches) and offers what helps.
+  the objects whose motion no longer matches) and offers what helps,
+- lists it before a presentation starts. The presenter returns to edit it or
+  chooses to cut across it by name. A transition that stops being playable
+  during a presentation is stopped on its source Koma, and the player asks
+  again before it moves on. It is never played and never skipped silently.
 
 What helps depends on the issue (`getMotionIssueRemedy`):
 
