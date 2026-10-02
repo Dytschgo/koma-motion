@@ -301,18 +301,19 @@ sure that the channel list of the preload script equals the contract.
 
 ## Application state
 
-| State                    | Where                           | Saved with the project |
-| ------------------------ | ------------------------------- | ---------------------- |
-| project and undo history | `projectStore`                  | the project, yes       |
-| unsaved changes          | derived in `projectStore`       | no                     |
-| selection, view, zoom    | `uiStore`                       | no                     |
-| open Settings page       | `uiStore`                       | no                     |
-| preview                  | `uiStore` and the playback hook | no                     |
-| agent executions, chat   | `agentStore`                    | no                     |
-| extracted references     | `referenceStore`                | no                     |
-| chat sidebar width, open | `uiStore`, window local storage | no                     |
-| saved Brand Kit library  | `brandKitLibraryStore`, on disk | no, app data folder    |
-| unfinished editor input  | component state                 | no                     |
+| State                    | Where                                   | Saved with the project |
+| ------------------------ | --------------------------------------- | ---------------------- |
+| project and undo history | `projectStore`                          | the project, yes       |
+| unsaved changes          | derived in `projectStore`               | no                     |
+| selection, view, zoom    | `uiStore`                               | no                     |
+| open Settings page       | `uiStore`                               | no                     |
+| preview                  | `uiStore` and the playback hook         | no                     |
+| agent executions, chat   | `agentStore`                            | no                     |
+| extracted references     | `referenceStore`                        | no                     |
+| quick-start completion   | `quickStartStore`, window local storage | no                     |
+| chat sidebar width, open | `uiStore`, window local storage         | no                     |
+| saved Brand Kit library  | `brandKitLibraryStore`, on disk         | no, app data folder    |
+| unfinished editor input  | component state                         | no                     |
 
 Changes to the document are commands: pure functions from a project to a
 project (`state/commands.ts`). The store applies a command and records the

@@ -10,6 +10,7 @@ import {
   useProjectStore,
 } from '../state/projectStore';
 import { isNightlyVersion } from '../../../shared/updates';
+import { useQuickStartStore } from '../state/quickStartStore';
 import { useUiStore } from '../state/uiStore';
 import { useUpdateStore } from '../state/updateStore';
 import {
@@ -174,6 +175,9 @@ export function TopBar(): ReactElement {
         Preview
       </Button>
       <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
+      <Button compact onClick={() => useQuickStartStore.getState().setOpen(true)}>
+        Getting started
+      </Button>
       <IconButton
         label="Settings"
         onClick={() => {

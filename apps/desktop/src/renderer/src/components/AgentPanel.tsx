@@ -686,6 +686,7 @@ export function AgentPanel({
               Your request
             </label>
             <textarea
+              data-guide-target="request"
               id={requestId}
               ref={requestField}
               rows={1}

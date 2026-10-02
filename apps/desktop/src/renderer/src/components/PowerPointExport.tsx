@@ -70,6 +70,7 @@ export function PowerPointExport(): ReactElement {
     <>
       <Button
         compact
+        data-guide-target="export"
         icon={<DownloadIcon size={14} />}
         disabled={project === null || project.presentation.komas.length === 0}
         onClick={() => void open()}

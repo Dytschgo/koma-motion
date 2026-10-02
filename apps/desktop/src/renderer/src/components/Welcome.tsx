@@ -1,5 +1,6 @@
 import type { ReactElement } from 'react';
 import { createNewProject, createProjectFromStarter, openProject } from '../lib/projectActions';
+import { useQuickStartStore } from '../state/quickStartStore';
 import { StarterList } from './Starters';
 import { Button, Help } from './ui';
 
@@ -68,6 +69,9 @@ export function Welcome(): ReactElement {
           </Button>
           <Button variant="outline" className="px-5" onClick={() => void openProject()}>
             Open a project
+          </Button>
+          <Button onClick={() => useQuickStartStore.getState().setOpen(true)}>
+            Open quick-start guide
           </Button>
           <Help label="About Koma Motion project files">
             Koma Motion is an early prototype. Projects are stored on your computer as .koma files.
