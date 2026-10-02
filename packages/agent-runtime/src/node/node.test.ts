@@ -629,9 +629,12 @@ describe('buildCliChildEnvironment', () => {
         model: 'opus',
         env: {
           CLAUDE_CODE_USE_VERTEX: '1',
+          CLAUDE_CODE_SKIP_VERTEX_AUTH: '1',
+          ANTHROPIC_VERTEX_BASE_URL: 'https://proxy.example/gvai/v1',
           ANTHROPIC_VERTEX_PROJECT_ID: 'koma-motion-test-123',
           CLOUD_ML_REGION: 'global',
           GOOGLE_APPLICATION_CREDENTIALS: 'C:\\Users\\test\\gcp.json',
+          ANTHROPIC_CUSTOM_HEADERS: 'api-key: synthetic-proxy-key',
           ANTHROPIC_API_KEY: 'must-not-be-copied',
           CLAUDE_CODE_USE_BEDROCK: '1',
         },
@@ -642,9 +645,12 @@ describe('buildCliChildEnvironment', () => {
     expect(buildCliChildEnvironment({ HOME: home })).toEqual({
       HOME: home,
       CLAUDE_CODE_USE_VERTEX: '1',
+      CLAUDE_CODE_SKIP_VERTEX_AUTH: '1',
+      ANTHROPIC_VERTEX_BASE_URL: 'https://proxy.example/gvai/v1',
       ANTHROPIC_VERTEX_PROJECT_ID: 'koma-motion-test-123',
       CLOUD_ML_REGION: 'global',
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\Users\\test\\gcp.json',
+      ANTHROPIC_CUSTOM_HEADERS: 'api-key: synthetic-proxy-key',
     });
   });
 
@@ -656,6 +662,9 @@ describe('buildCliChildEnvironment', () => {
       JSON.stringify({
         env: {
           CLAUDE_CODE_USE_VERTEX: 'true',
+          CLAUDE_CODE_SKIP_VERTEX_AUTH: 'true',
+          ANTHROPIC_VERTEX_BASE_URL: 'file:///not-a-proxy',
+          ANTHROPIC_CUSTOM_HEADERS: `api-key: synthetic\u0000key`,
           ANTHROPIC_VERTEX_PROJECT_ID: 'invalid project id',
           CLOUD_ML_REGION: 'global',
         },
@@ -667,6 +676,35 @@ describe('buildCliChildEnvironment', () => {
       HOME: home,
       CLAUDE_CODE_USE_VERTEX: '1',
       CLOUD_ML_REGION: 'global',
+    });
+  });
+
+  it('lets explicit Claude proxy settings override values from settings.json', async () => {
+    const home = join(directory, 'home');
+    await mkdir(join(home, '.claude'), { recursive: true });
+    await writeFile(
+      join(home, '.claude', 'settings.json'),
+      JSON.stringify({
+        env: {
+          CLAUDE_CODE_SKIP_VERTEX_AUTH: '1',
+          ANTHROPIC_VERTEX_BASE_URL: 'https://settings-proxy.example/v1',
+          ANTHROPIC_CUSTOM_HEADERS: 'api-key: settings-key',
+        },
+      }),
+      'utf8',
+    );
+
+    expect(
+      buildCliChildEnvironment({
+        HOME: home,
+        ANTHROPIC_VERTEX_BASE_URL: 'https://shell-proxy.example/gvai/v1',
+        ANTHROPIC_CUSTOM_HEADERS: 'api-key: shell-key',
+      }),
+    ).toEqual({
+      HOME: home,
+      CLAUDE_CODE_SKIP_VERTEX_AUTH: '1',
+      ANTHROPIC_VERTEX_BASE_URL: 'https://shell-proxy.example/gvai/v1',
+      ANTHROPIC_CUSTOM_HEADERS: 'api-key: shell-key',
     });
   });
 
