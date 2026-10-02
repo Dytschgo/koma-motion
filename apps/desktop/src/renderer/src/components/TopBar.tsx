@@ -69,7 +69,7 @@ export function TopBar(): ReactElement {
     transition === null || presentation === null
       ? null
       : getTransitionContext(presentation, transition.id);
-  // The warning next to the preview controls explains why.
+  // The Koma strip explains a transition that cannot play, on that transition.
   const blocked =
     presentation !== null &&
     context !== null &&
@@ -162,7 +162,7 @@ export function TopBar(): ReactElement {
         disabled={transition === null || blocked}
         title={
           blocked
-            ? 'This transition cannot play. See the warning above the preview controls.'
+            ? 'This transition cannot play. Use Regenerate transition in the Koma strip.'
             : undefined
         }
         onClick={() => {

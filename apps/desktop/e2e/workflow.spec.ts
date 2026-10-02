@@ -251,15 +251,12 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
       .getByRole('button', { name: 'Motion engine (shape)' })
       .click();
     await window.getByLabel('X', { exact: true }).fill('300');
-    // The stored motion no longer matches, so the in-between is marked and not played.
-    const stale = window.getByRole('button', {
-      name: 'Transition from Koma 1 to Koma 2: out of date. It cannot play. Show the problem',
-    });
-    await expect(stale).toBeVisible();
+    // The stored motion no longer matches, so the in-between offers regeneration.
+    const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
+    await expect(warning.getByRole('button', { name: 'Regenerate transition' })).toBeVisible();
     await expect(window.getByLabel('X', { exact: true })).toHaveValue('300');
 
-    await stale.click();
-    const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
+    await warning.getByRole('button', { name: 'Details' }).click();
     await expect(warning).toContainText('no longer matches "Motion engine"');
     await warning.getByRole('button', { name: 'Regenerate transition' }).click();
     await expect(warning).toHaveCount(0);

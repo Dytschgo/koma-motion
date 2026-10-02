@@ -8,6 +8,15 @@ changes to the project format.
 
 ## [Unreleased]
 
+### Changed
+
+- An out-of-date transition shows a compact status in the Koma strip, between
+  its source and destination Komas, with **Regenerate transition** on that
+  transition. The explanation and links to both Komas open from a disclosure
+  there. Regeneration reports running, failed and cancelled states on the
+  transition and announces success when it can play again. A failed or
+  cancelled regeneration leaves both Komas unchanged.
+
 ## [0.1.1] - 2026-10-02
 
 Projects now use format 3. Older projects are upgraded in memory and marked

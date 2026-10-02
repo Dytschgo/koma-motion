@@ -27,7 +27,6 @@ import { useProjectStore } from '../state/projectStore';
 import { useTransitionRegenerationStore } from '../state/transitionRegenerationStore';
 import { useUiStore } from '../state/uiStore';
 import { ImageIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
-import { TransitionIssuePanel } from './TransitionIssuePanel';
 import { Button, Help, IconButton, NumberInput, POPOVER_SURFACE } from './ui';
 
 const CANVAS_PADDING = 32;
@@ -341,17 +340,6 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           </Button>
         </div>
       </div>
-
-      {assessment !== null && transportContext !== null && (
-        <TransitionIssuePanel
-          key={transportContext.transition.id}
-          transitionId={transportContext.transition.id}
-          from={transportContext.from}
-          to={transportContext.to}
-          fromNumber={transportContext.fromIndex + 1}
-          assessment={assessment}
-        />
-      )}
 
       <div
         ref={transportRef}

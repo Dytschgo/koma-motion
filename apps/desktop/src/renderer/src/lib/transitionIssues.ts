@@ -1,7 +1,7 @@
 /**
  * Explains why a transition cannot play, or plays only in part, and what the
  * user can do about it. This is the only place that turns motion issues into
- * the words of the warning next to the preview controls and the Koma strip.
+ * the words of the compact status on that transition in the Koma strip.
  */
 import type { Koma, KomaTransition, Presentation } from '@koma-motion/core';
 import {
