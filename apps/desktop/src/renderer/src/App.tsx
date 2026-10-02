@@ -10,12 +10,14 @@ import { SettingsDialog } from './components/SettingsDialog';
 import { TopBar } from './components/TopBar';
 import { ProjectHealth } from './components/ProjectHealth';
 import { QuickStartGuide } from './components/QuickStartGuide';
+import { PresentationMode } from './components/PresentationPlayer';
 import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
 import { detectProviders } from './lib/agentActions';
 import { invoke, subscribe } from './lib/api';
 import { getBrandKitPanelWidth, getChatLayout, INSPECTOR_WIDTH } from './lib/chatLayout';
 import { followUpdates } from './lib/updateActions';
+import { followFullScreen } from './lib/presentationActions';
 import {
   createNewProject,
   openProject,
@@ -26,6 +28,7 @@ import {
 import { useAgentStore } from './state/agentStore';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from './state/projectStore';
 import { useTransitionRegenerationStore } from './state/transitionRegenerationStore';
+import { usePresenterStore } from './state/presenterStore';
 import { useUiStore } from './state/uiStore';
 
 function isEditingText(target: EventTarget | null): boolean {
@@ -57,7 +60,9 @@ function useApplicationEvents(): void {
       void saveAndClose();
     });
     const unfollowUpdates = followUpdates();
+    const unfollowFullScreen = followFullScreen();
     return () => {
+      unfollowFullScreen();
       unsubscribeStatus();
       unsubscribeOutput();
       unsubscribeClose();
@@ -71,6 +76,18 @@ function useApplicationEvents(): void {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent): void => {
+      // As in PowerPoint: F5 presents from the beginning, Shift+F5 from the selected Koma.
+      if (
+        event.key === 'F5' &&
+        !(event.ctrlKey || event.metaKey || event.altKey) &&
+        usePresenterStore.getState().session === null &&
+        useProjectStore.getState().history !== null &&
+        useUiStore.getState().confirmation === null
+      ) {
+        event.preventDefault();
+        usePresenterStore.getState().start(event.shiftKey ? 'selected' : 'beginning');
+        return;
+      }
       if (!(event.ctrlKey || event.metaKey) || event.altKey) {
         return;
       }
@@ -183,6 +200,7 @@ export function App(): ReactElement {
       <QuickStartGuide />
       <ConfirmDialog />
       <ProjectHealth />
+      <PresentationMode />
       <Notices />
     </div>
   );

@@ -229,7 +229,11 @@ The application then:
   reports regeneration while it runs, and when it fails or is cancelled.
   Success is announced when the transition can play again,
 - keeps the explanation, and links to both Komas, in a disclosure on that
-  same transition. The action is not placed on a Koma card.
+  same transition. The action is not placed on a Koma card,
+- lists it before a presentation starts. The presenter returns to edit it or
+  chooses to cut across it by name. A transition that stops being playable
+  during a presentation is stopped on its source Koma, and the player asks
+  again before it moves on. It is never played and never skipped silently.
 
 What helps depends on the issue (`getMotionIssueRemedy`):
 

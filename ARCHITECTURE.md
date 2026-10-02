@@ -271,6 +271,7 @@ schema for the request and the response of every channel.
 | `koma:providers:cancel`        | stop a generation                           |
 | `koma:app:set-unsaved-changes` | tell the main process about unsaved changes |
 | `koma:app:confirm-close`       | close after saving                          |
+| `koma:app:set-full-screen`     | full screen for a presentation, and restore |
 | `koma:app:get-info`            | version, platform, exporters                |
 | `koma:updates:get-status`      | the state of updating                       |
 | `koma:updates:check`           | check for an update                         |
@@ -281,7 +282,7 @@ schema for the request and the response of every channel.
 Events from the main process: `koma:providers:status`,
 `koma:providers:output` (text a provider writes during a chat generation, at
 most 4000 characters per event and one event per 50 ms),
-`koma:app:save-and-close` and `koma:updates:status`.
+`koma:app:save-and-close`, `koma:app:full-screen` and `koma:updates:status`.
 
 The update channels carry no addresses. The window chooses a channel; which
 release, manifest and installer that means is decided in the main process
@@ -307,6 +308,7 @@ sure that the channel list of the preload script equals the contract.
 | unsaved changes          | derived in `projectStore`               | no                     |
 | selection, view, zoom    | `uiStore`                               | no                     |
 | open Settings page       | `uiStore`                               | no                     |
+| presentation, autoplay | `presenterStore` | no |
 | preview                  | `uiStore` and the playback hook         | no                     |
 | agent executions, chat   | `agentStore`                            | no                     |
 | extracted references     | `referenceStore`                        | no                     |

@@ -41,6 +41,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
   'koma:providers:cancel',
   'koma:app:set-unsaved-changes',
   'koma:app:confirm-close',
+  'koma:app:set-full-screen',
   'koma:updates:get-status',
   'koma:updates:check',
   'koma:updates:set-channel',
@@ -54,6 +55,7 @@ const EVENT_CHANNELS: ReadonlySet<string> = new Set([
   'koma:providers:status',
   'koma:providers:output',
   'koma:app:save-and-close',
+  'koma:app:full-screen',
   'koma:updates:status',
 ]);
 

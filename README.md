@@ -111,6 +111,10 @@ Everything in this list is implemented and covered by automated tests.
 - Add, copy, reorder and delete Komas.
 - Preview the transition between two Komas: play, pause, restart, move to
   any position, change the duration.
+- Present the whole presentation from the beginning (F5) or from the selected
+  Koma (Shift+F5): each Koma in order with its transition, previous, next,
+  pause, replay, optional autoplay and full screen. Transitions that cannot
+  play are listed first; repair them or cut across them by name.
 - Undo and redo every change.
 - Cancel a running generation.
 - Attach TXT, Markdown or PDF source text to a generation in the current
@@ -152,6 +156,7 @@ The screenshots are created from the running application with
 | Persistent object identity   | available                                          |
 | Deterministic motion engine  | available                                          |
 | Transition preview           | available                                          |
+| Presentation player          | available                                          |
 | Brand Kit                    | available                                          |
 | Mock provider                | available                                          |
 | Claude Code provider         | available, tested on Windows                       |
@@ -223,8 +228,8 @@ See [formats, privacy, limits and platform coverage](docs/BRAND_KIT_FROM_DECK.md
 - Operations: hold, move, scale, rotate, fade in, fade out, colour change and
   replace.
 - Strategies: continuous, or staged (objects leave, then change, then enter).
-- When the operating system asks for reduced motion, previews cut from one
-  Koma to the next instead of moving objects.
+- When the operating system asks for reduced motion, previews and
+  presentations cut from one Koma to the next instead of moving objects.
 
 Read more in [docs/MOTION_MODEL.md](docs/MOTION_MODEL.md).
 

@@ -25,6 +25,7 @@ import {
 import { Button, IconButton } from './ui';
 import { ProjectHealthButton } from './ProjectHealth';
 import { PowerPointExport } from './PowerPointExport';
+import { PresentButton } from './PresentButton';
 
 function OpenIcon(): ReactElement {
   return (
@@ -174,6 +175,7 @@ export function TopBar(): ReactElement {
       >
         Preview
       </Button>
+      <PresentButton />
       <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
       <Button compact onClick={() => useQuickStartStore.getState().setOpen(true)}>
         Getting started

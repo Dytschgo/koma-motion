@@ -350,6 +350,27 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     return {};
   });
 
+  // Set while a presentation made the window full screen: true when it was
+  // not full screen before, so ending the presentation gives it back.
+  let windowedBeforePresentation: boolean | null = null;
+  handle('koma:app:set-full-screen', ({ mode }) => {
+    if (mode === 'enter') {
+      windowedBeforePresentation ??= !window.isFullScreen();
+      window.setFullScreen(true);
+      return { fullScreen: true };
+    }
+    if (mode === 'leave') {
+      window.setFullScreen(false);
+      return { fullScreen: false };
+    }
+    const restore = windowedBeforePresentation === true;
+    windowedBeforePresentation = null;
+    if (restore) {
+      window.setFullScreen(false);
+    }
+    return { fullScreen: restore ? false : window.isFullScreen() };
+  });
+
   /** Runs an update action and turns a failure into a message for the user. */
   const act = async (
     action: () => Promise<unknown>,

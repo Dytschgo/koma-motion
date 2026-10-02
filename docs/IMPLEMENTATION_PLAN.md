@@ -83,7 +83,9 @@ Interface:
   moved, resized, rotated and edited on the canvas; images can be imported or
   replaced.
 - Komas are reordered with buttons, not by dragging.
-- The preview plays one transition at a time, not the whole presentation.
+- The preview plays one transition at a time. **Present** plays the whole
+  presentation; it advances on request, or with autoplay after a fixed time
+  per Koma for this window. Komas have no stored display time.
 - The window has a minimum size of 1120 x 700 and no layout for smaller
   sizes.
 
