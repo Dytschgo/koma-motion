@@ -516,6 +516,20 @@ A name is copied only when the parent already has a string value:
 - Auth named by the installed help or by this document: `ANTHROPIC_API_KEY`,
   `OPENAI_API_KEY`, `CODEX_HOME`, `XAI_API_KEY` and `GROK_HOME`.
 
+Claude Code also receives the four Vertex connection variables
+`CLAUDE_CODE_USE_VERTEX`, `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`
+and `GOOGLE_APPLICATION_CREDENTIALS`. They may come from the parent
+environment or from the `env` object of `~/.claude/settings.json`. Values are
+validated and no other Claude settings are loaded: Koma keeps its isolated
+working directory, disabled tools and restricted invocation. The project ID,
+region and Vertex switch are not credentials. If a credential file path is
+configured, only that path is passed to Claude Code; Koma does not read or
+copy the file. Otherwise Claude Code uses the user's Google Application
+Default Credentials. When `CLAUDE_CONFIG_DIR` is set, Koma reads that
+directory's `settings.json` instead. Koma does not run `gcpAuthRefresh` or
+other configured commands. Set up Vertex access as described in Anthropic's
+[Google Vertex AI guide](https://code.claude.com/docs/en/google-vertex-ai).
+
 No other `*_TOKEN` or `*_KEY` variables are copied. `CODEX_HOME` is not
 repointed. On Windows, Node keeps one spelling of a case-insensitive name,
 and the platform also adds `LOGONSERVER`. That name is not on the allowlist
