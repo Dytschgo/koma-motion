@@ -30,6 +30,7 @@ import { ProviderLogo } from './ProviderLogo';
 import { RunActivity, RunMonitor } from './RunActivity';
 import { ReferenceFiles, ReferenceAttachmentButton } from './ReferenceFiles';
 import { ChatBrandKitPicker } from './ChatBrandKitPicker';
+import { BrandMaterial, BrandProfileDialogHost } from './BrandMaterial';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
 import { Button, Help, IconButton, POPOVER_SURFACE, Select, TextInput } from './ui';
 
@@ -672,6 +673,7 @@ export function AgentPanel({
           open={monitorOpen}
           onClose={() => setMonitorOpen(false)}
         />
+        <BrandProfileDialogHost />
 
         <form
           ref={composer}
@@ -815,6 +817,7 @@ export function AgentPanel({
               <span>Send the extracted reference text to {providerName} with this request.</span>
             </label>
           )}
+          <BrandMaterial disabled={running} />
           {references.length > 0 && selectedId === 'mock' && (
             <p className="text-xs text-ink-400">
               Mock repeats its demo and does not use reference content.

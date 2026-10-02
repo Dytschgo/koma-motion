@@ -18,6 +18,10 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
   'koma:deck:analyze',
   'koma:deck:cancel',
   'koma:deck:save',
+  'koma:brand-profile:attach',
+  'koma:brand-profile:analyze',
+  'koma:brand-profile:cancel',
+  'koma:brand-profile:save',
   'koma:instruction-templates:list',
   'koma:instruction-templates:change',
   'koma:project:create',
@@ -52,6 +56,7 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
 
 const EVENT_CHANNELS: ReadonlySet<string> = new Set([
   'koma:deck:progress',
+  'koma:brand-profile:progress',
   'koma:providers:status',
   'koma:providers:output',
   'koma:app:save-and-close',

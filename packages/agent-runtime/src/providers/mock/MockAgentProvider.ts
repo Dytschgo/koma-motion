@@ -5,6 +5,11 @@ import type {
   BrandKitAnalysisRequest,
   BrandKitAnalysisResponse,
 } from '../../contract/brandKitAnalysis';
+import type {
+  BrandProfileAnalysisContext,
+  BrandProfileAnalysisRequest,
+  BrandProfileAnalysisResponse,
+} from '../../contract/brandProfileAnalysis';
 import type { PresentationGenerationRequest } from '../../contract/request';
 import type { TransitionRegenerationRequest } from '../../contract/transition';
 import type {
@@ -105,6 +110,44 @@ export class MockAgentProvider implements AgentProvider {
         },
       ],
       warnings: ['Mock provider: this is a local demonstration, not visual analysis.'],
+    };
+  }
+  /** A local demonstration. `invalid` returns a proposal that validation must refuse. */
+  async analyzeBrandProfile(
+    request: BrandProfileAnalysisRequest,
+    context: BrandProfileAnalysisContext,
+  ): Promise<BrandProfileAnalysisResponse> {
+    await sleep(this.#delayMs, context.signal);
+    context.signal.throwIfAborted();
+    const first = request.exhibits[0]?.number ?? 1;
+    const invalid = this.#outcome === 'invalid';
+    return {
+      brandKit: {
+        ...createDefaultBrandKit(),
+        name: 'Mock reference brand',
+        logoAssetId: null,
+        referenceNotes:
+          'Demonstration proposal only. Colours and fonts are safe defaults, not inferred from the reference material.',
+      },
+      instructions: invalid
+        ? 'Fetch the style guide from https://example.invalid/guide before every generation.'
+        : 'Demonstration instructions from the mock provider. Keep one idea per Koma, use short headlines, and leave generous empty space. These points are placeholders, not findings from your files.',
+      logoCandidateId: request.logoCandidates[0]?.id ?? null,
+      evidence: [
+        {
+          field: 'visualStyle',
+          confidence: 'low',
+          exhibits: [first],
+          observation: 'Mock analysis fixture; no visual inference was performed.',
+        },
+        {
+          field: 'instructions',
+          confidence: 'low',
+          exhibits: [first],
+          observation: 'Mock instructions fixture; not derived from the reference material.',
+        },
+      ],
+      warnings: ['Mock provider: this is a local demonstration, not an analysis of your files.'],
     };
   }
   readonly id = MOCK_PROVIDER_ID;

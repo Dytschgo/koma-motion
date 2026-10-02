@@ -81,6 +81,16 @@ export const brandKitAnalysisResponseSchema = z
   .strict();
 export type BrandKitAnalysisResponse = z.infer<typeof brandKitAnalysisResponseSchema>;
 
+// Descriptions are plain data, not instructions or resource locators. Reject
+// explicit resource/credential/command syntax instead of offering to act on it.
+const UNSUPPORTED_CONTENT =
+  /(?:https?|file|ftp):\/\/|(?:^|\s)[A-Za-z]:[\\/]|(?:^|\s)\/(?:Users|home|tmp|etc|var|private|mnt|Volumes)\/|(?:api[_ -]?key|access[_ -]?token|password|secret)\s*[:=]\s*\S+|(?:^|[\r\n])\s*(?:curl|wget|powershell|cmd\.exe|bash|sh|python|node)\s/i;
+
+/** True when agent-written text names a resource, a credential or a command. */
+export function containsUnsupportedContent(texts: readonly string[]): boolean {
+  return texts.some((text) => UNSUPPORTED_CONTENT.test(text));
+}
+
 export function validateBrandKitAnalysis(
   output: unknown,
   request: BrandKitAnalysisRequest,
@@ -98,11 +108,7 @@ export function validateBrandKitAnalysis(
     ...parsed.evidence.map((item) => item.observation),
     ...parsed.warnings,
   ];
-  // Descriptions are plain data, not instructions or resource locators. Reject
-  // explicit resource/credential/command syntax instead of offering to act on it.
-  const forbidden =
-    /(?:https?|file|ftp):\/\/|(?:^|\s)[A-Za-z]:[\\/]|(?:^|\s)\/(?:Users|home|tmp|etc|var|private|mnt|Volumes)\/|(?:api[_ -]?key|access[_ -]?token|password|secret)\s*[:=]\s*\S+|(?:^|[\r\n])\s*(?:curl|wget|powershell|cmd\.exe|bash|sh|python|node)\s/i;
-  if (returnedText.some((text) => forbidden.test(text)))
+  if (containsUnsupportedContent(returnedText))
     throw new Error(
       'The proposal contains unsupported resource, command or credential content. Nothing was saved.',
     );

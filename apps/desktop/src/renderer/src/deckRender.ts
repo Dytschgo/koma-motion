@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { getDocument } from 'pdfjs-dist';
 import { WorkerMessageHandler } from 'pdfjs-dist/build/pdf.worker.mjs';
 import { MAX_ANALYZED_SLIDES, MAX_DECK_BYTES, MAX_DECK_PAGES } from '../../shared/deckAnalysis';
+import { MAX_BRAND_PROFILE_IMAGE_BYTES } from '../../shared/brandProfile';
 
 // Bundled worker runs inside this disposable sandboxed renderer, without a
 // worker URL, fetch, eval, a filesystem API or any network permission.
@@ -22,6 +23,17 @@ async function run(): Promise<void> {
   const bridge = window.deckRenderer;
   if (!bridge) return;
   const bytes = await bridge.input();
+  // An image is recognised by its signature first: its metadata may contain any text.
+  const head = new TextDecoder('latin1').decode(bytes.subarray(0, 1024));
+  const image =
+    (bytes[0] === 0x89 && head.slice(1, 4) === 'PNG') ||
+    (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) ||
+    head.startsWith('GIF8') ||
+    (head.startsWith('RIFF') && head.slice(8, 12) === 'WEBP');
+  if (image || !head.includes('%PDF-')) {
+    bridge.finish({ image: await renderImage(bytes) });
+    return;
+  }
   if (bytes.byteLength > MAX_DECK_BYTES) throw new DeckRenderError('The PDF exceeds 32 MiB.');
   const loading = getDocument({
     data: bytes,
@@ -102,6 +114,42 @@ async function run(): Promise<void> {
     bridge.finish({ slides, totalSlides: document.numPages });
   } finally {
     await loading.destroy();
+  }
+}
+/** A bounded preview of an uploaded image: PNG, or JPEG on white when the PNG is too large. */
+async function renderImage(
+  bytes: Uint8Array,
+): Promise<{ mediaType: 'image/png' | 'image/jpeg'; preview: string }> {
+  if (bytes.byteLength > MAX_BRAND_PROFILE_IMAGE_BYTES)
+    throw new DeckRenderError('The image exceeds 10 MiB.');
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)]));
+  } catch {
+    throw new DeckRenderError(
+      'An image could not be decoded. Export it again as PNG, JPEG, WebP or GIF.',
+    );
+  }
+  try {
+    const scale = Math.min(1, 1280 / Math.max(bitmap.width, bitmap.height));
+    const canvas = documentCanvas(
+      Math.max(1, Math.round(bitmap.width * scale)),
+      Math.max(1, Math.round(bitmap.height * scale)),
+    );
+    const context = canvas.getContext('2d');
+    if (!context) throw new DeckRenderError('A local image preview could not be created.');
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    const png = canvas.toDataURL('image/png').split(',')[1] ?? '';
+    if (png !== '' && png.length <= 1500000) return { mediaType: 'image/png', preview: png };
+    context.globalCompositeOperation = 'destination-over';
+    context.fillStyle = '#ffffff';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    const jpeg = canvas.toDataURL('image/jpeg', 0.85).split(',')[1] ?? '';
+    if (jpeg === '' || jpeg.length > 1500000)
+      throw new DeckRenderError('An image is too detailed to prepare. Attach a smaller copy.');
+    return { mediaType: 'image/jpeg', preview: jpeg };
+  } finally {
+    bitmap.close();
   }
 }
 function documentCanvas(width: number, height: number): HTMLCanvasElement {

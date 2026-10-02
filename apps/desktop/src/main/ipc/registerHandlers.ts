@@ -13,6 +13,7 @@ import { createRandomIdGenerator } from '@koma-motion/core';
 import { createExporters } from '@koma-motion/exporters';
 import { app, dialog, ipcMain, nativeImage, type BrowserWindow } from 'electron';
 import { setTimeout as delay } from 'node:timers/promises';
+import { BRAND_PROFILE_FILE_EXTENSIONS, BrandProfileService } from '../services/brandProfile';
 import { DeckAnalysisService } from '../services/deckAnalysis';
 import {
   ipcContract,
@@ -142,6 +143,23 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
       return result.canceled ? null : (result.filePaths[0] ?? null);
     },
   });
+  const profiles = new BrandProfileService({
+    registry,
+    library: context.brandKits,
+    allowMock: !app.isPackaged,
+    progress: (event) => send('koma:brand-profile:progress', event),
+    // The only source of paths. They stay in the main process.
+    select: async () => {
+      const result = await dialog.showOpenDialog(window, {
+        title: 'Attach brand material',
+        filters: [
+          { name: 'Images, PDF and PowerPoint', extensions: [...BRAND_PROFILE_FILE_EXTENSIONS] },
+        ],
+        properties: ['openFile', 'multiSelections'],
+      });
+      return result.canceled || result.filePaths.length === 0 ? null : result.filePaths;
+    },
+  });
   let shuttingDown = false;
   let shutdownComplete = false;
   const beforeQuit = (event: Electron.Event): void => {
@@ -149,7 +167,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     event.preventDefault();
     if (shuttingDown) return;
     shuttingDown = true;
-    void decks.cancel().finally(() => {
+    void Promise.all([decks.cancel(), profiles.cancel()]).finally(() => {
       shutdownComplete = true;
       app.quit();
     });
@@ -169,8 +187,21 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     decks.save(sessionId, name, brandKit, logoCandidateId),
   );
 
+  handle('koma:brand-profile:attach', ({ sessionId }) => profiles.attach(sessionId));
+  handle('koma:brand-profile:analyze', ({ sessionId, provider }) =>
+    profiles.analyze(sessionId, provider),
+  );
+  handle('koma:brand-profile:cancel', async ({ sessionId, scope }) => {
+    await (scope === 'analysis' ? profiles.stopAnalysis(sessionId) : profiles.cancel(sessionId));
+    return {};
+  });
+  handle('koma:brand-profile:save', ({ sessionId, ...reviewed }) =>
+    profiles.save(sessionId, reviewed),
+  );
+
   handle('koma:project:create', ({ name }) => {
     void decks.cancel();
+    void profiles.cancel();
     cancelAllGenerations();
     const response = createNewProject(session, name, new Date());
     context.projectStateChanged();
@@ -181,6 +212,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     const response = await openProject(window, session);
     if (response.status === 'opened') {
       void decks.cancel();
+      void profiles.cancel();
       cancelAllGenerations();
     }
     context.projectStateChanged();
@@ -420,6 +452,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   return {
     dispose() {
       void decks.cancel();
+      void profiles.cancel();
       cancelAllGenerations();
       listing.abort();
       for (const channel of Object.keys(ipcContract)) {

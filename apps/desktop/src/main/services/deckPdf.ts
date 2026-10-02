@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import { BrowserWindow, ipcMain, session, type Session } from 'electron';
 import { z } from 'zod';
 import { renderedDeckSchema } from '../../shared/deckAnalysis';
+import { renderedImageSchema } from '../../shared/brandProfile';
 import { hardenSession, isTrustedSender, serveApp } from '../security';
 
 let renderingSession: Session | null = null;
@@ -14,12 +15,46 @@ function isolatedSession(): Session {
   return renderingSession;
 }
 
+// The helper channels are global, so one disposable renderer runs at a time.
+let rendering: Promise<unknown> = Promise.resolve();
+
 /** A crash or cancellation destroys only this disposable, sandboxed renderer. */
-export async function renderDeckPdf(
+export function renderDeckPdf(
   bytes: Uint8Array,
   signal: AbortSignal,
   progress: (completed: number, total: number) => void,
 ): Promise<z.infer<typeof renderedDeckSchema>> {
+  return render(bytes, signal, progress, renderedDeckSchema);
+}
+
+/**
+ * Decodes an uploaded image in the same sandboxed renderer and returns a
+ * bounded PNG or JPEG preview. Image decoding never runs in the main process.
+ */
+export function renderReferenceImage(
+  bytes: Uint8Array,
+  signal: AbortSignal,
+): Promise<z.infer<typeof renderedImageSchema>> {
+  return render(bytes, signal, () => undefined, renderedImageSchema);
+}
+
+function render<T>(
+  bytes: Uint8Array,
+  signal: AbortSignal,
+  progress: (completed: number, total: number) => void,
+  schema: z.ZodType<T>,
+): Promise<T> {
+  const run = rendering.then(() => renderOnce(bytes, signal, progress, schema));
+  rendering = run.catch(() => undefined);
+  return run;
+}
+
+async function renderOnce<T>(
+  bytes: Uint8Array,
+  signal: AbortSignal,
+  progress: (completed: number, total: number) => void,
+  schema: z.ZodType<T>,
+): Promise<T> {
   signal.throwIfAborted();
   const worker = new BrowserWindow({
     show: false,
@@ -66,8 +101,8 @@ export async function renderDeckPdf(
           reject(new Error(failure.data.error));
           return;
         }
-        const parsed = renderedDeckSchema.safeParse(value);
-        if (!parsed.success) reject(new Error('The local renderer returned an invalid deck.'));
+        const parsed = schema.safeParse(value);
+        if (!parsed.success) reject(new Error('The local renderer returned an invalid result.'));
         else resolve(parsed.data);
       };
       ipcMain.handle('koma:deck-render:input', (event) => {

@@ -71,6 +71,33 @@ describe('parseBrandKitLibrary', () => {
     expect(serialiseBrandKitLibrary(kits)).toBe(text);
   });
 
+  it('round-trips instructions and file provenance, and treats bad ones as unreadable', () => {
+    const profile = savedKit({
+      instructions: 'Use short headlines.',
+      referenceProvenance: {
+        analyzedAt: '2026-10-02T10:00:00.000Z',
+        provider: 'claude-code',
+        model: 'opus',
+        files: [{ fileName: 'logo.png', kind: 'image', analyzed: 1, total: 1 }],
+      },
+    });
+    const parsed = parseBrandKitLibrary(serialiseBrandKitLibrary([profile]));
+    expect(parsed).toMatchObject({ status: 'ready', kits: [profile], unreadable: [] });
+    for (const broken of [
+      { ...profile, instructions: 'x'.repeat(8001) },
+      {
+        ...profile,
+        referenceProvenance: {
+          ...profile.referenceProvenance,
+          files: [{ fileName: 'private/logo.png', kind: 'image', analyzed: 1, total: 1 }],
+        },
+      },
+    ]) {
+      const text = JSON.stringify({ format: BRAND_KIT_LIBRARY_FORMAT, version: 1, kits: [broken] });
+      expect(parseBrandKitLibrary(text)).toMatchObject({ kits: [], unreadable: [broken] });
+    }
+  });
+
   it('reports a file that is not JSON or not a library without throwing', () => {
     expect(parseBrandKitLibrary('{ not json')).toMatchObject({ status: 'damaged' });
     expect(parseBrandKitLibrary('[]')).toMatchObject({ status: 'damaged' });

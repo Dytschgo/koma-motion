@@ -19,6 +19,12 @@ import {
 } from './cliEnvironment';
 import { redactDiagnostics } from './redact';
 import { analyzeBrandKitWithClaude } from './claudeBrandKitAnalysis';
+import { analyzeBrandProfileWithClaude } from './claudeBrandProfileAnalysis';
+import type {
+  BrandProfileAnalysisContext,
+  BrandProfileAnalysisRequest,
+  BrandProfileAnalysisResponse,
+} from '../contract/brandProfileAnalysis';
 import {
   ClaudeStreamParser,
   findClaudeResultLine,
@@ -251,6 +257,13 @@ export class ClaudeCodeProvider implements AgentProvider {
     context: BrandKitAnalysisContext,
   ): Promise<BrandKitAnalysisResponse> {
     return analyzeBrandKitWithClaude(this.#environment, request, context);
+  }
+
+  analyzeBrandProfile(
+    request: BrandProfileAnalysisRequest,
+    context: BrandProfileAnalysisContext,
+  ): Promise<BrandProfileAnalysisResponse> {
+    return analyzeBrandProfileWithClaude(this.#environment, request, context);
   }
 
   generatePresentation(

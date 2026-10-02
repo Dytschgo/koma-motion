@@ -1,5 +1,6 @@
 export * from './contract/errors';
 export * from './contract/brandKitAnalysis';
+export * from './contract/brandProfileAnalysis';
 export * from './contract/request';
 export * from './contract/response';
 export * from './contract/transition';

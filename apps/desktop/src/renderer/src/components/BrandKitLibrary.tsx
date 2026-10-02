@@ -212,6 +212,14 @@ function KitItem({
                 </span>
               )}
               {inUse && <span className="sr-only">Used by this project.</span>}
+              {kit.instructions !== undefined && <span>Includes project instructions</span>}
+              {kit.referenceProvenance && (
+                <span>
+                  From {kit.referenceProvenance.files.length} reference{' '}
+                  {kit.referenceProvenance.files.length === 1 ? 'file' : 'files'} ·{' '}
+                  {new Date(kit.referenceProvenance.analyzedAt).toLocaleDateString()}
+                </span>
+              )}
               {kit.provenance && (
                 <span>
                   From {kit.provenance.fileName} ·{' '}
@@ -234,12 +242,24 @@ function KitItem({
               />
             ) : (
               <div className="flex flex-wrap gap-1.5">
+                {kit.instructions !== undefined && (
+                  <Button
+                    variant="primary"
+                    disabled={busy}
+                    title="Replaces the Brand Kit and the instructions of this project in one step"
+                    onClick={() =>
+                      void applySavedBrandKitToProject(kit.id, { withInstructions: true })
+                    }
+                  >
+                    Apply kit and instructions
+                  </Button>
+                )}
                 <Button
-                  variant="primary"
+                  variant={kit.instructions === undefined ? 'primary' : 'outline'}
                   disabled={busy}
                   onClick={() => void applySavedBrandKitToProject(kit.id)}
                 >
-                  Apply to this project
+                  {kit.instructions === undefined ? 'Apply to this project' : 'Apply kit only'}
                 </Button>
                 <Button
                   variant="outline"
@@ -274,6 +294,16 @@ function KitItem({
                   Delete
                 </Button>
               </div>
+            )}
+            {kit.instructions !== undefined && !renaming && (
+              <details className="mt-2 text-sm">
+                <summary className="cursor-pointer text-ink-300">
+                  Saved project instructions
+                </summary>
+                <p className="mt-1 whitespace-pre-wrap border-l-2 border-line-strong pl-3 text-ink-300">
+                  {kit.instructions}
+                </p>
+              </details>
             )}
           </div>
         )}

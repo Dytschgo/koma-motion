@@ -109,6 +109,25 @@ export const applySavedBrandKit =
     applyBrandKitToProject(project, brandKit, logo, idGenerator);
 
 /**
+ * Switches the project to a brand profile: a Brand Kit, its logo and its
+ * project instructions. It is one change, so a single Undo restores the
+ * previous kit, logo and instructions together.
+ */
+export const applyBrandProfile = (
+  brandKit: BrandKit,
+  logo: BrandKitLogoData | null,
+  instructions: string,
+): ProjectCommand => {
+  const systemInstructions = systemInstructionsSchema.parse(instructions);
+  return (project, idGenerator) => {
+    const branded = applyBrandKitToProject(project, brandKit, logo, idGenerator);
+    return branded === project && project.systemInstructions === systemInstructions
+      ? project
+      : { ...branded, systemInstructions };
+  };
+};
+
+/**
  * Gives the project the Brand Kit and instructions of a starter in one step,
  * so a single Undo returns to the previous kit and instructions.
  */

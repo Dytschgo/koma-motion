@@ -2,7 +2,7 @@ import { getStarterPreset } from '@koma-motion/brand-kit';
 import { MAX_SYSTEM_INSTRUCTIONS_LENGTH } from '@koma-motion/core';
 import { buildProject } from '@koma-motion/core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
-import { applyStarterPreset, changeSystemInstructions } from './commands';
+import { applyBrandProfile, applyStarterPreset, changeSystemInstructions } from './commands';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from './projectStore';
 
 afterEach(() => useProjectStore.setState({ history: null, savedProject: null, file: null }));
@@ -32,6 +32,13 @@ describe('instruction document commands', () => {
       changeSystemInstructions('x'.repeat(MAX_SYSTEM_INSTRUCTIONS_LENGTH + 1)),
     ).toThrow();
     expect(useProjectStore.getState().history).toBe(before);
+  });
+
+  it('refuses a brand profile with overlong instructions before it reaches the project', () => {
+    const starter = getStarterPreset('finance-report');
+    expect(() =>
+      applyBrandProfile(starter.brandKit, null, 'x'.repeat(MAX_SYSTEM_INSTRUCTIONS_LENGTH + 1)),
+    ).toThrow();
   });
 
   it('applies a starter Brand Kit and instructions as one undoable step', () => {

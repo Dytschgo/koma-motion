@@ -34,6 +34,7 @@ import {
   komaProjectSchema,
   presentationSchema,
   providerIdSchema,
+  systemInstructionsSchema,
   transitionStrategySchema,
 } from '@koma-motion/core';
 import { z } from 'zod';
@@ -44,6 +45,12 @@ import {
   preparedDeckSchema,
   deckProposalSchema,
 } from './deckAnalysis';
+import {
+  brandProfileProgressSchema,
+  brandProfileProposalSchema,
+  brandProfileSessionIdSchema,
+  preparedMaterialSchema,
+} from './brandProfile';
 import {
   instructionTemplateActionSchema,
   instructionTemplateLibrarySchema,
@@ -204,6 +211,52 @@ export const ipcContract = {
         sessionId: deckSessionIdSchema,
         name: savedBrandKitNameSchema,
         brandKit: brandKitSchema,
+        logoCandidateId: z
+          .string()
+          .regex(/^logo-[a-f0-9]{32}$/)
+          .nullable(),
+      })
+      .strict(),
+    response: brandKitLibraryState,
+  },
+  /** Chooses reference files in a native dialog and prepares them locally. */
+  'koma:brand-profile:attach': {
+    request: z.object({ sessionId: brandProfileSessionIdSchema }).strict(),
+    response: z.discriminatedUnion('status', [
+      z.object({ status: z.literal('prepared'), material: preparedMaterialSchema }),
+      cancelled,
+      failure,
+    ]),
+  },
+  'koma:brand-profile:analyze': {
+    request: z
+      .object({
+        sessionId: brandProfileSessionIdSchema,
+        provider: z.enum(['claude-code', 'mock']),
+        consent: z.literal(true),
+      })
+      .strict(),
+    response: z.discriminatedUnion('status', [
+      brandProfileProposalSchema.extend({ status: z.literal('proposed') }),
+      cancelled,
+      failure,
+    ]),
+  },
+  /** `analysis` stops a running analysis and keeps the files; `draft` discards everything. */
+  'koma:brand-profile:cancel': {
+    request: z
+      .object({ sessionId: brandProfileSessionIdSchema, scope: z.enum(['analysis', 'draft']) })
+      .strict(),
+    response: empty,
+  },
+  /** Saves the reviewed Brand Kit and its instructions as one library entry. */
+  'koma:brand-profile:save': {
+    request: z
+      .object({
+        sessionId: brandProfileSessionIdSchema,
+        name: savedBrandKitNameSchema,
+        brandKit: brandKitSchema,
+        instructions: systemInstructionsSchema,
         logoCandidateId: z
           .string()
           .regex(/^logo-[a-f0-9]{32}$/)
@@ -430,6 +483,7 @@ export const IPC_CHANNELS = Object.keys(ipcContract) as readonly string[] as rea
 /** Events sent from the main process to the renderer. */
 export const ipcEvents = {
   'koma:deck:progress': deckProgressSchema,
+  'koma:brand-profile:progress': brandProfileProgressSchema,
   'koma:providers:status': executionStatusEventSchema,
   /** Text a provider writes for the user while a chat generation runs. Bounded per event. */
   'koma:providers:output': executionOutputEventSchema,

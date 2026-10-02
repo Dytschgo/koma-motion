@@ -50,7 +50,9 @@ test('switches saved kits beside the model, follows undo and persists the select
   const chooser = window.getByRole('dialog', { name: 'Choose Brand Kit', exact: true });
   await trigger.click();
   await expect(chooser.getByText('4 available')).toBeVisible();
-  await expect(chooser.getByRole('button')).toHaveCount(4);
+  // The four kits. The picker also offers to attach brand material.
+  await expect(chooser.locator('button[aria-pressed]')).toHaveCount(4);
+  await expect(chooser.getByRole('button')).toHaveCount(5);
   await chooser.press('ArrowDown');
   await expect(chooser.getByRole('button', { name: 'Koma Studio', exact: true })).toBeFocused();
   await window.keyboard.press('Enter');

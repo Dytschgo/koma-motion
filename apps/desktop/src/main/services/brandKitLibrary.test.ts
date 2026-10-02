@@ -114,6 +114,70 @@ describe('Brand Kit library', () => {
     });
   });
 
+  it('stores instructions with their kit in one entry and keeps them through later changes', async () => {
+    const library = open();
+    const referenceProvenance = {
+      analyzedAt: '2026-10-02T10:00:00.000Z',
+      provider: 'mock' as const,
+      model: 'mock',
+      files: [{ fileName: 'guide.pdf', kind: 'pdf' as const, analyzed: 3, total: 12 }],
+    };
+    const created = ready(
+      await library.create({
+        name: 'Profile',
+        brandKit: buildBrandKit({ name: 'Acme' }),
+        logo,
+        instructions: 'Use short headlines.',
+        referenceProvenance,
+      }),
+    );
+    const id = created.kitId ?? '';
+    expect(created.kits[0]).toMatchObject({
+      instructions: 'Use short headlines.',
+      referenceProvenance,
+    });
+    // One document holds both, so there is no state with a kit but no instructions.
+    const stored = JSON.parse(
+      await readFile(join(libraryDirectory, LIBRARY_FILE_NAME), 'utf8'),
+    ) as {
+      kits: { instructions?: string }[];
+    };
+    expect(stored.kits[0]?.instructions).toBe('Use short headlines.');
+
+    // Another session, as another project would see it.
+    const loaded = await open().load(id);
+    expect(loaded).toMatchObject({
+      status: 'loaded',
+      kit: { instructions: 'Use short headlines.' },
+      logo: { data: ONE_PIXEL },
+    });
+    const updated = ready(
+      await library.update(id, { brandKit: buildBrandKit({ name: 'Acme 2' }), logo: null }),
+    );
+    expect(updated.kits[0]).toMatchObject({
+      brandKit: { name: 'Acme 2' },
+      instructions: 'Use short headlines.',
+    });
+    const duplicated = ready(await library.duplicate(id));
+    expect(duplicated.kits.map((kit) => kit.instructions)).toEqual([
+      'Use short headlines.',
+      'Use short headlines.',
+    ]);
+    // A kit without instructions stays a plain Brand Kit.
+    const plain = ready(
+      await library.create({ name: 'Plain', brandKit: createDefaultBrandKit(), logo: null }),
+    );
+    expect(plain.kits[0]?.instructions).toBeUndefined();
+    await expect(
+      library.create({
+        name: 'Too long',
+        brandKit: createDefaultBrandKit(),
+        logo: null,
+        instructions: 'x'.repeat(8001),
+      }),
+    ).resolves.toMatchObject({ status: 'failed' });
+  });
+
   it('keeps kits for another session, as another project would see them', async () => {
     const created = ready(
       await open().create({ name: 'Acme', brandKit: buildBrandKit({ name: 'Acme' }), logo }),

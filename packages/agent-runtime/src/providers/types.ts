@@ -1,6 +1,11 @@
 import { modelNameSchema, providerIdSchema } from '@koma-motion/core';
 import { z } from 'zod';
 import { agentErrorSchema, type AgentError } from '../contract/errors';
+import type {
+  BrandProfileAnalysisContext,
+  BrandProfileAnalysisRequest,
+  BrandProfileAnalysisResponse,
+} from '../contract/brandProfileAnalysis';
 import type { PresentationGenerationRequest } from '../contract/request';
 import type { TransitionRegenerationRequest } from '../contract/transition';
 import type { AgentPrompt } from '../prompts/presentationGeneration';
@@ -223,6 +228,15 @@ export interface AgentProvider {
     request: BrandKitAnalysisRequest,
     context: BrandKitAnalysisContext,
   ): Promise<BrandKitAnalysisResponse>;
+
+  /**
+   * Optional analysis of several reference files into a Brand Kit and
+   * matching project instructions. Never generates or changes a presentation.
+   */
+  analyzeBrandProfile?(
+    request: BrandProfileAnalysisRequest,
+    context: BrandProfileAnalysisContext,
+  ): Promise<BrandProfileAnalysisResponse>;
 
   generatePresentation(
     request: PresentationGenerationRequest,
