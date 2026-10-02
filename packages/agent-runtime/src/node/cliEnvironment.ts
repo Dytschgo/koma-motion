@@ -57,15 +57,35 @@ export const CLI_CHILD_ENVIRONMENT_ALLOWLIST = [
 
 const VERTEX_ENVIRONMENT_NAMES = [
   'CLAUDE_CODE_USE_VERTEX',
+  'CLAUDE_CODE_SKIP_VERTEX_AUTH',
+  'ANTHROPIC_VERTEX_BASE_URL',
   'ANTHROPIC_VERTEX_PROJECT_ID',
   'CLOUD_ML_REGION',
   'GOOGLE_APPLICATION_CREDENTIALS',
+  'ANTHROPIC_CUSTOM_HEADERS',
 ] as const;
 
 type VertexEnvironmentName = (typeof VERTEX_ENVIRONMENT_NAMES)[number];
 
 function isValidVertexValue(name: VertexEnvironmentName, value: string): boolean {
   if (name === 'CLAUDE_CODE_USE_VERTEX') return value === '1';
+  if (name === 'CLAUDE_CODE_SKIP_VERTEX_AUTH') return value === '1';
+  if (name === 'ANTHROPIC_VERTEX_BASE_URL') {
+    try {
+      const url = new URL(value);
+      return (
+        (url.protocol === 'https:' || url.protocol === 'http:') &&
+        url.username === '' &&
+        url.password === '' &&
+        url.hash === ''
+      );
+    } catch {
+      return false;
+    }
+  }
+  if (name === 'ANTHROPIC_CUSTOM_HEADERS') {
+    return value.length <= 16 * 1024 && !value.includes('\u0000');
+  }
   if (name === 'ANTHROPIC_VERTEX_PROJECT_ID') {
     return /^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(value);
   }
