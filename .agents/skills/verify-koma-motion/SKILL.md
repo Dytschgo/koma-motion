@@ -48,6 +48,9 @@ For a changed implementation, also run the repository's format, lint, typecheck,
   cancellation, failure, and reduced motion.
 - [Brand Kit from deck](deck-brand-kit.md): local PPTX/PDF preparation, disclosure,
   isolated review, library save, logo confirmation, cancellation, and optional live Opus analysis.
+- [Brand profile from reference files](brand-profile.md): brand material attached in the chat,
+  file limits, disclosure, separate review of Brand Kit and instructions, one library entry,
+  save retry, and applying or undoing both in one step.
 
 - [Brand Kit drafts](brand-kit.md): character-by-character input, independent validation, navigation, undo, and project replacement.
 - [Preview controls](preview.md): transition identity, scrubbing, document edits, duration, and reduced motion at supported window sizes.

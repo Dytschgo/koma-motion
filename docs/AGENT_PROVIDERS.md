@@ -10,6 +10,11 @@ uses JSON Schema Draft 7, which the installed Claude Code 2.1.285 accepts;
 the default Zod 2020-12 dialect was rejected in the live compatibility check.
 See [Brand Kit from deck](BRAND_KIT_FROM_DECK.md) for the data flow and limits.
 
+Brand material attached in the chat uses the same isolated invocation with its
+own contract, `analyzeBrandProfile`: several images and deck slides go in, a
+Brand Kit and project instructions come out, and both are validated as one
+response. See [Brand profile from references](BRAND_PROFILE_FROM_REFERENCES.md).
+
 Koma Motion does not run AI models. It orchestrates agent programs that are
 installed on the computer of the user and turns their structured output into
 Komas.

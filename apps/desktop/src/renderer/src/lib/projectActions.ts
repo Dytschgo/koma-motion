@@ -13,6 +13,7 @@ import {
 import { useUiStore } from '../state/uiStore';
 import { useHealthStore } from '../state/healthStore';
 import { useReferenceStore } from '../state/referenceStore';
+import { useBrandProfileStore } from '../state/brandProfileStore';
 import { invoke } from './api';
 
 export const DEFAULT_PROJECT_NAME = 'Untitled project';
@@ -58,6 +59,8 @@ function detachGeneration(): void {
 
 function showProject(): void {
   useReferenceStore.getState().clear();
+  // The main process discards the draft of a replaced project as well.
+  useBrandProfileStore.getState().clear();
   useHealthStore.getState().clearFailure();
   detachGeneration();
   useUiStore.getState().reset();
