@@ -126,7 +126,6 @@ function KomaItem({
   const apply = useProjectStore((state) => state.apply);
   const selectKoma = useUiStore((state) => state.selectKoma);
   const confirm = useUiStore((state) => state.confirm);
-  const preview = useUiStore((state) => state.preview);
   const canvasSize = getCanvasSize(project.presentation.aspectRatio);
   const frame = useMemo(() => komaToFrame(koma), [koma]);
   const number = index + 1;
@@ -192,7 +191,7 @@ function KomaItem({
           <div className="mt-1 flex justify-end gap-0.5">
             <IconButton
               label="Move Koma up"
-              disabled={index === 0 || preview !== null}
+              disabled={index === 0}
               onClick={() => {
                 apply(reorderKoma(koma.id, -1));
               }}
@@ -201,7 +200,7 @@ function KomaItem({
             </IconButton>
             <IconButton
               label="Move Koma down"
-              disabled={index === count - 1 || preview !== null}
+              disabled={index === count - 1}
               onClick={() => {
                 apply(reorderKoma(koma.id, 1));
               }}

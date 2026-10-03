@@ -130,8 +130,8 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await window
     .getByRole('button', { name: 'Preview the transition from Koma 19 to Koma 20', exact: true })
     .click();
-  await expect(window.getByRole('button', { name: 'Move Koma up', exact: true })).toBeDisabled();
-  await expect(window.getByRole('button', { name: 'Move Koma down', exact: true })).toBeDisabled();
+  await expect(window.getByRole('button', { name: 'Move Koma up', exact: true })).toBeEnabled();
+  await expect(window.getByRole('button', { name: 'Move Koma down', exact: true })).toBeEnabled();
   dialog = await overview();
   await expect(dialog.getByLabel('Move to position')).toBeDisabled();
   await expect(dialog.getByRole('button', { name: 'Move Koma', exact: true })).toBeDisabled();

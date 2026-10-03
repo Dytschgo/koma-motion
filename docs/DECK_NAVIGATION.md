@@ -17,8 +17,9 @@ positions and the current position do not change the document. Each move is
 one undo step, preserves the selected Koma's identity, content and hold timing,
 and reconnects motion only where adjacency changes. Existing adjacent pairs
 keep their stored transition IDs and settings. The strip's up/down controls
-remain available for one-position moves. Stop transition preview before moving
-a Koma with either control.
+remain available for one-position moves, including during preview. A move that
+changes the previewed pair cancels that preview. Stop transition preview before
+using the overview's direct-position form.
 
 The native regression uses a 100-Koma deck with customised transitions and
 per-Koma holds. It exercises metadata search, narrow-window keyboard focus,
