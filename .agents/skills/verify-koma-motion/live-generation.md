@@ -25,7 +25,7 @@ $env:KOMA_LIVE_E2E = 'claude-code'
 $komaLiveEvidence = Join-Path $env:TEMP ('koma-live-' + [guid]::NewGuid().ToString('N'))
 $env:KOMA_LIVE_OUTPUT_DIR = $komaLiveEvidence
 try {
-  pnpm test:e2e -- live.spec.ts
+  pnpm --filter @koma-motion/desktop exec playwright test live.spec.ts --output "$komaLiveEvidence/native-results"
 } finally {
   Write-Host "Live generation evidence: $komaLiveEvidence"
   Remove-Item Env:KOMA_LIVE_E2E, Env:KOMA_LIVE_OUTPUT_DIR -ErrorAction SilentlyContinue
@@ -61,8 +61,8 @@ result, and evidence location. Do not include account identifiers or keys.
 
 Open the original `.koma` file in the built app to try the generated deck.
 Open/Save dialogs in the automated test are stubbed; file handling is real.
-PowerPoint export is not implemented. Codex live generation and macOS Claude
-generation are not covered by this workflow.
+This workflow does not exercise PowerPoint export. Codex live generation and
+macOS Claude generation are not covered by it.
 
 ## Starters
 
@@ -74,6 +74,7 @@ Each starter can take several minutes; the project time limit is 1500 seconds.
 
 ```powershell
 $env:KOMA_LIVE_E2E = 'claude-code'
-$env:KOMA_LIVE_OUTPUT_DIR = 'D:/Code/KomaMotion-evidence/starters'
-pnpm --filter @koma-motion/desktop exec playwright test starters.live.spec.ts
+$komaLiveEvidence = Join-Path 'D:/Code/KomaMotion-evidence' ('starters-' + [guid]::NewGuid().ToString('N'))
+$env:KOMA_LIVE_OUTPUT_DIR = $komaLiveEvidence
+pnpm --filter @koma-motion/desktop exec playwright test starters.live.spec.ts --output "$komaLiveEvidence/native-results"
 ```

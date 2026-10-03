@@ -3,7 +3,7 @@
 Entry: create a project, select Mock provider, Use the example request, Generate Komas. Wait for three buttons in the Komas list. Stale decks are written with `serialiseProject` and opened through the stubbed Open dialog.
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test presentation.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test presentation.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 Set `KOMA_EVIDENCE_DIR` to a folder outside the checkout to keep screenshots of the player, the review, the halted prompt, the shortcuts and full screen. With `KOMA_SCREENSHOTS=1` they are taken at the real device scale.

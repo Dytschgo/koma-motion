@@ -3,7 +3,7 @@
 Entry: Open a real `.koma` fixture through the application. The test supplies the file-dialog selection; it does not operate the native dialog itself.
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test motion.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test motion.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 Proof: a stored transition with a false element id warns and stays on the real source position at 50 percent, then reaches the real target at 100 percent. Reading the fixture again must show unchanged file bytes. A valid overlapping-object fixture must retain source stacking in the middle and use target stacking at the endpoint.

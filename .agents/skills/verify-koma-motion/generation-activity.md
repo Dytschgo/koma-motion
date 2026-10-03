@@ -4,7 +4,7 @@ Entry: create a project, show the chat, click **Use the example request**, then
 **Generate Komas** with the mock provider.
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test streaming.spec.ts runMonitor.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test streaming.spec.ts runMonitor.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 Proof: an active run shows its phase, elapsed time, and **Open run monitor**.
@@ -29,5 +29,5 @@ They also check failure reporting if applying a successful response throws.
 These are store-level checks, not native reproductions of those two failures.
 
 The monitor is an in-app view. Mock tests do not exercise a real CLI, its
-authentication, or terminal attachment. Preserve screenshots and failure traces
-from the Playwright output before another run.
+authentication, or terminal attachment. Keep screenshots, traces and the JSON report in the fresh external output
+directory prepared as described in `SKILL.md`.

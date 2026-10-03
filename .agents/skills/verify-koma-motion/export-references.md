@@ -24,12 +24,11 @@ pnpm test
 pnpm build
 ```
 
-Run `export-references.spec.ts` against the built application with a distinct
-output directory for this run:
+Run `export-references.spec.ts` against the built application after preparing a
+fresh external `$komaVerifyOutput` and JSON report path as shown in `SKILL.md`:
 
 ```powershell
-$exportReferencesRun = Get-Date -Format 'yyyyMMdd-HHmmss'
-pnpm --filter @koma-motion/desktop exec playwright test export-references.spec.ts --output "D:\Code\KomaMotion-evidence\export-references-e2e-$exportReferencesRun"
+pnpm --filter @koma-motion/desktop exec playwright test export-references.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 If the spec is absent, report that fact and do not claim export or reference
