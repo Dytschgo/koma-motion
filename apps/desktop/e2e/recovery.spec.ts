@@ -77,12 +77,12 @@ async function openAndEdit() {
 async function restart(crash: boolean) {
   if (!running) throw new Error('Application not running');
   if (crash) {
-    const process = running.application.process();
-    await new Promise<void>((resolve, reject) => {
-      process.once('exit', () => resolve());
-      process.once('error', reject);
-      if (!process.kill('SIGKILL')) reject(new Error('Could not terminate this test instance'));
-    });
+    // On Windows Electron can relaunch beneath its original launcher PID.
+    // Ask our connected main process for its PID, then terminate only that process.
+    const mainPid = await running.application.evaluate(() => process.pid);
+    const closed = running.application.waitForEvent('close');
+    process.kill(mainPid, 'SIGKILL');
+    await closed;
   } else await running.close();
   running = undefined;
   running = await launchApplication({ directory, preserveDirectory: true });
