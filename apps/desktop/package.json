@@ -20,7 +20,7 @@
     "icon": "node scripts/run-electron.mjs scripts/generate-icon.cjs",
     "package:win": "node scripts/build.mjs && electron-builder --win --publish never",
     "package:mac": "node scripts/build.mjs && electron-builder --mac --universal --publish never",
-    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.integration.json",
     "test:scripts": "node --test \"scripts/*.test.mjs\"",
     "test:e2e": "playwright test",
     "test:packaged": "playwright test --config playwright.packaged.config.ts"
