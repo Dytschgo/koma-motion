@@ -18,22 +18,32 @@ that naming scheme for forcing Morph matches between slides in its
 [Morph tips](https://support.microsoft.com/en-gb/powerpoint/morph-transition-tips-and-tricks).
 
 Static export omits Koma motion. Fade export adds a slide transition. Morph
-export uses Morph for continuous transitions that have no replace, fade-in or
-fade-out operation; other transitions use a slide fade. The file carries a
+export uses Morph for continuous transitions that pass the motion engine's
+stored-motion validation and have no replace, fade-in or fade-out operation;
+other transitions use a slide fade. Stale or structurally invalid stored motion
+produces a warning and a default 500 ms slide fade, with 500 ms automatic
+advance when requested. Static slides remain exportable. The exporter does
+not regenerate or change the stored motion. The file carries a
 fade fallback for readers that cannot use its Morph extension. Optional
-automatic advance uses the stored transition duration; without it the slides
+automatic advance uses a playable stored transition's duration; without it the slides
 advance by click. The exporter validates before writing, returns warnings for
 known losses and writes through a temporary file so a failed export does not
 replace the destination.
 
 Warnings cover unsupported or missing images, rounded image corners, font
 weight approximation, flattened groups, unequal group scaling, omitted static
-motion, Morph compatibility and transitions that fall back to fade. Unequal
+motion, invalid stored motion, Morph compatibility and transitions that fall back to fade. Unequal
 group scaling may alter text, strokes or rotation. WebP assets become
 placeholders. PowerPoint's fonts and layout may differ from the Koma canvas.
 Easing, staged timing and per-element fades are not preserved. Morph is an
 approximation of the Koma
 motion engine, not an export of its exact frames or choreography.
+
+Embedded image verification is reused by fidelity warnings and object
+placement within one export. The cache holds only referenced project assets
+and is discarded after that request. Missing or corrupt images still produce
+a warning and placeholder for each placement; later exports verify assets
+again.
 
 The versions exercised in this prototype are locked in `pnpm-lock.yaml`:
 
