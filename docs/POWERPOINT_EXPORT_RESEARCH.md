@@ -66,6 +66,21 @@ the package. Microsoft's [Morph transition specification](https://learn.microsof
 describes the Morph element used here. Package and XML assertions test the
 output structure; they do not prove how every PowerPoint version renders it.
 
+## Saved hold timing
+
+Timed export uses the current Koma's saved `holdDurationMs` for slide advance,
+or the global export hold when it is unset. The export dialog initializes that
+fallback from the presentation player's global hold; the exporter API defaults
+to 5 seconds. Both accept 1–60 seconds. The incoming transition duration still
+controls animation, and the final slide remains on click advance. Automatic
+advance remains opt-in and requires fade or Morph mode.
+
+This changes earlier auto-advance behavior, which reused the outgoing transition
+duration. The XML regression tests distinguish two explicit holds, a global
+fallback, disabled auto-advance, and the final slide. The manual PowerPoint
+check below records the older timing behavior; it is not a native validation
+of the new hold values.
+
 ## Verified in Windows PowerPoint
 
 On **2026-10-01**, a generated three-slide fixture was opened in **Windows

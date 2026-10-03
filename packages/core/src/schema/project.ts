@@ -16,7 +16,7 @@ export {
 } from './limits';
 
 export const PROJECT_FORMAT = 'koma-motion-project';
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /** UTF-16 code units, matching JavaScript/editor length. Reject rather than truncate. */
 export const MAX_SYSTEM_INSTRUCTIONS_LENGTH = 8000;

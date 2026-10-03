@@ -1,11 +1,12 @@
-import type { Koma } from '@koma-motion/core';
+import { MIN_KOMA_HOLD_DURATION_MS, MAX_KOMA_HOLD_DURATION_MS, type Koma } from '@koma-motion/core';
 import type { ReactElement } from 'react';
 import { addKomaAfter } from '../../lib/projectActions';
 import { changeKomaDetails } from '../../state/commands';
+import { usePresenterStore } from '../../state/presenterStore';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
 import { PlusIcon } from '../icons';
-import { Badge, Button, Field, TextArea, TextInput } from '../ui';
+import { Badge, Button, Field, NumberInput, Switch, TextArea, TextInput } from '../ui';
 import type { TransitionHealth } from './MotionPanel';
 import { ColourField, Disclosure, Section } from './parts';
 
@@ -29,6 +30,7 @@ export function KomaPanel({
   /** False while a preview plays. */
   readonly editable: boolean;
 }): ReactElement {
+  const fallbackHoldMs = usePresenterStore((state) => state.autoplayDelayMs);
   const apply = useProjectStore((state) => state.apply);
   const setInspectorTab = useUiStore((state) => state.setInspectorTab);
   const change = (patch: Parameters<typeof changeKomaDetails>[1], field: string): void => {
@@ -111,6 +113,37 @@ export function KomaPanel({
             New Koma after this one
           </Button>
         </div>
+      </Section>
+
+      <Section title="Presentation timing">
+        <label className="flex items-center justify-between gap-2 text-sm">
+          Use global hold duration
+          <Switch
+            checked={koma.holdDurationMs === null}
+            disabled={!editable}
+            onCheckedChange={(useGlobal) =>
+              change({ holdDurationMs: useGlobal ? null : fallbackHoldMs }, 'hold-duration')
+            }
+          />
+        </label>
+        <Field
+          label="Koma hold duration in seconds"
+          hint="Wait before the next transition. Saved with this Koma; used for autoplay and timed PowerPoint export."
+        >
+          {(ids) => (
+            <NumberInput
+              {...ids}
+              value={(koma.holdDurationMs ?? fallbackHoldMs) / 1000}
+              minimum={MIN_KOMA_HOLD_DURATION_MS / 1000}
+              maximum={MAX_KOMA_HOLD_DURATION_MS / 1000}
+              precision={3}
+              disabled={!editable || koma.holdDurationMs === null}
+              onValue={(seconds) =>
+                change({ holdDurationMs: Math.round(seconds * 1000) }, 'hold-duration')
+              }
+            />
+          )}
+        </Field>
       </Section>
 
       <Disclosure title="Background" summary={koma.background.colour}>

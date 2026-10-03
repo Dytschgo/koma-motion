@@ -8,7 +8,7 @@
 import type { IdGenerator } from './ids';
 import type { AssetReference } from './schema/asset';
 import type { KomaElement } from './schema/element';
-import { flattenElements, type Koma } from './schema/koma';
+import { flattenElements, komaHoldDurationSchema, type Koma } from './schema/koma';
 import { type Presentation } from './schema/presentation';
 import {
   MAX_HISTORY_ENTRIES,
@@ -19,7 +19,7 @@ import {
 import type { KomaTransition } from './schema/transition';
 
 export type KomaDetailsPatch = Partial<
-  Pick<Koma, 'title' | 'purpose' | 'speakerNotes' | 'background'>
+  Pick<Koma, 'title' | 'purpose' | 'speakerNotes' | 'background' | 'holdDurationMs'>
 >;
 
 export type TransitionSettingsPatch = Partial<
@@ -50,6 +50,9 @@ export function updateKomaDetails(
   komaId: string,
   patch: KomaDetailsPatch,
 ): Presentation {
+  if (patch.holdDurationMs !== undefined && patch.holdDurationMs !== null) {
+    komaHoldDurationSchema.parse(patch.holdDurationMs);
+  }
   return mapKoma(presentation, komaId, (koma) => ({ ...koma, ...patch }));
 }
 

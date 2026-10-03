@@ -6,7 +6,12 @@
  * project after every change, so an edit, a deletion or a reorder never
  * leaves the player on a Koma or a transition that no longer exists.
  */
-import type { Presentation } from '@koma-motion/core';
+import {
+  DEFAULT_KOMA_HOLD_DURATION_MS,
+  MIN_KOMA_HOLD_DURATION_MS,
+  MAX_KOMA_HOLD_DURATION_MS,
+  type Presentation,
+} from '@koma-motion/core';
 import { create } from 'zustand';
 import {
   getPresentationStep,
@@ -46,19 +51,19 @@ export interface PresenterSession {
   readonly paused: boolean;
 }
 
-export const MIN_AUTOPLAY_DELAY_MS = 1000;
-export const MAX_AUTOPLAY_DELAY_MS = 60_000;
-export const DEFAULT_AUTOPLAY_DELAY_MS = 5000;
+export const MIN_AUTOPLAY_DELAY_MS = MIN_KOMA_HOLD_DURATION_MS;
+export const MAX_AUTOPLAY_DELAY_MS = MAX_KOMA_HOLD_DURATION_MS;
+export const DEFAULT_AUTOPLAY_DELAY_MS = DEFAULT_KOMA_HOLD_DURATION_MS;
 
 interface PresenterState {
   readonly session: PresenterSession | null;
   /**
-   * Advance on a timer. Off by default: Komas have no stored display time,
-   * so a presentation advances when the presenter asks, as with a click in
+   * Advance on a timer. Off by default, so a presentation advances when
+   * the presenter asks, as with a click in
    * PowerPoint. Kept for this window, not in the project.
    */
   readonly autoplay: boolean;
-  /** How long each Koma stays at rest before autoplay moves on. */
+  /** Fallback hold for Komas without a saved duration; kept only in this window. */
   readonly autoplayDelayMs: number;
   /** Whether the window is full screen, as last reported by the main process. */
   readonly fullScreen: boolean;

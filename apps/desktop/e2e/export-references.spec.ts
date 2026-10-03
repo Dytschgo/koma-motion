@@ -97,7 +97,7 @@ test('exports static slides and a motion fallback through the native destination
   });
   await expect(
     exportDialog.getByRole('checkbox', {
-      name: 'Advance automatically using transition timing',
+      name: 'Advance automatically using Koma hold durations',
     }),
   ).toBeInViewport({ ratio: 1 });
   await window.screenshot({ path: test.info().outputPath('export-modal-1120x800.png') });
@@ -122,8 +122,9 @@ test('exports static slides and a motion fallback through the native destination
   await window.getByRole('button', { name: 'Export', exact: true }).click();
   await exportDialog.getByLabel('Motion').selectOption('morph');
   await exportDialog
-    .getByRole('checkbox', { name: 'Advance automatically using transition timing' })
+    .getByRole('checkbox', { name: 'Advance automatically using Koma hold durations' })
     .check();
+  await exportDialog.getByLabel('Global export hold duration in seconds').fill('3.5');
   await answerSaveDialog(application, morphPath);
   await exportDialog.getByRole('button', { name: 'Choose destination' }).click();
   await expect(exportDialog.getByRole('status')).toContainText('Exported morph.pptx');
@@ -131,7 +132,7 @@ test('exports static slides and a motion fallback through the native destination
   expect(morphParts.get('ppt/slides/slide2.xml')).toContain('<p:fade/>');
   expect(morphParts.get('ppt/slides/slide2.xml')).not.toContain('<p159:morph');
   expect(morphParts.get('ppt/slides/slide2.xml')).toContain('p14:dur=');
-  expect(morphParts.get('ppt/slides/slide1.xml')).toContain('advTm=');
+  expect(morphParts.get('ppt/slides/slide1.xml')).toContain('advTm="3500"');
   await expect(exportDialog.getByRole('list', { name: 'Export warnings' })).toContainText(
     'is exported as a slide fade',
   );
