@@ -601,6 +601,8 @@ export interface ModalFrameProps {
   readonly onClose: () => void;
   /** Id of the element that names the dialog. */
   readonly labelledBy: string;
+  /** Selector inside the dialog to focus after it opens. Other dialogs use native focus. */
+  readonly initialFocus?: string | undefined;
   readonly className?: string;
   readonly children: ReactNode;
 }
@@ -613,6 +615,7 @@ export function ModalFrame({
   open,
   onClose,
   labelledBy,
+  initialFocus,
   className,
   children,
 }: ModalFrameProps): ReactElement {
@@ -625,10 +628,11 @@ export function ModalFrame({
     }
     if (open && !dialog.open) {
       dialog.showModal();
+      if (initialFocus !== undefined) dialog.querySelector<HTMLElement>(initialFocus)?.focus();
     } else if (!open && dialog.open) {
       dialog.close();
     }
-  }, [open]);
+  }, [open, initialFocus]);
 
   return (
     <dialog
@@ -655,6 +659,7 @@ export interface ModalProps {
   readonly children: ReactNode;
   readonly footer?: ReactNode;
   readonly width?: 'narrow' | 'wide';
+  readonly initialFocus?: string | undefined;
 }
 
 /** A modal dialog with a title, a scrolling body and a footer. */
@@ -665,6 +670,7 @@ export function Modal({
   children,
   footer,
   width = 'narrow',
+  initialFocus,
 }: ModalProps): ReactElement {
   const titleId = useId();
 
@@ -673,6 +679,7 @@ export function Modal({
       open={open}
       onClose={onClose}
       labelledBy={titleId}
+      initialFocus={initialFocus}
       className={width === 'narrow' ? 'w-[440px]' : 'w-[640px]'}
     >
       <div className="flex max-h-[85vh] flex-col">
