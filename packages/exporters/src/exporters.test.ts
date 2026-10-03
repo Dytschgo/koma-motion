@@ -141,6 +141,45 @@ async function slideXml(zip: JSZip, number: number): Promise<string> {
 describe('PowerPointExporter', () => {
   const exporter = new PowerPointExporter();
 
+  it('writes each saved hold separately from motion duration and respects the global fallback and final slide', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'koma-hold-export-'));
+    try {
+      const project = movingShapes();
+      project.presentation.komas[0]!.holdDurationMs = 1250;
+      project.presentation.komas[1]!.holdDurationMs = 7000;
+      project.presentation.komas[2]!.holdDurationMs = 60000;
+      const filePath = join(directory, 'holds.pptx');
+      const options = {
+        filePath,
+        motion: 'morph' as const,
+        autoAdvance: true,
+        defaultHoldDurationMs: 2200,
+      };
+      expect((await exporter.export(project, options)).status).toBe('exported');
+      let zip = await JSZip.loadAsync(await readFile(filePath));
+      expect(await slideXml(zip, 1)).toContain('advTm="1250"');
+      expect(await slideXml(zip, 2)).toContain('advTm="7000"');
+      expect(await slideXml(zip, 2)).toContain('p14:dur="900"');
+      expect(await slideXml(zip, 3)).toContain('p14:dur="1200"');
+      expect(await slideXml(zip, 3)).not.toContain('advTm=');
+      project.presentation.komas[1]!.holdDurationMs = null;
+      expect((await exporter.export(project, options)).status).toBe('exported');
+      zip = await JSZip.loadAsync(await readFile(filePath));
+      expect(await slideXml(zip, 1)).toContain('advTm="1250"');
+      expect(await slideXml(zip, 2)).toContain('advTm="2200"');
+      expect((await exporter.export(project, { ...options, autoAdvance: false })).status).toBe(
+        'exported',
+      );
+      zip = await JSZip.loadAsync(await readFile(filePath));
+      for (const number of [1, 2, 3]) expect(await slideXml(zip, number)).not.toContain('advTm=');
+      expect(
+        (await exporter.export(project, { ...options, defaultHoldDurationMs: 999 })).status,
+      ).toBe('failed');
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
   it('uses Morph for the same compatible continuous motion playback interpolates', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
     try {
@@ -167,8 +206,8 @@ describe('PowerPointExporter', () => {
       const zip = await JSZip.loadAsync(await readFile(path));
       expect(await slideXml(zip, 2)).toContain('<p159:morph option="byObject"/>');
       expect(await slideXml(zip, 2)).toContain('p14:dur="900"');
-      expect(await slideXml(zip, 1)).toContain('advTm="900"');
-      expect(await slideXml(zip, 2)).toContain('advTm="1200"');
+      expect(await slideXml(zip, 1)).toContain('advTm="5000"');
+      expect(await slideXml(zip, 2)).toContain('advTm="5000"');
       expect(project).toEqual(original);
       if (process.env.KOMA_EXPORT_FIXTURE_DIR) {
         await mkdir(process.env.KOMA_EXPORT_FIXTURE_DIR, { recursive: true });
@@ -252,7 +291,7 @@ describe('PowerPointExporter', () => {
           } else {
             expect(second).toContain('<p:fade/>');
             expect(second).toContain('p14:dur="500"');
-            expect(await slideXml(zip, 1)).toContain('advTm="500"');
+            expect(await slideXml(zip, 1)).toContain('advTm="5000"');
           }
         }
         expect(project).toEqual(original);
@@ -415,8 +454,8 @@ describe('PowerPointExporter', () => {
       expect(third).not.toContain('<p159:morph');
       expect(second).toContain('p14:dur="900"');
       expect(third).toContain('p14:dur="1200"');
-      expect(first).toContain('advTm="900"');
-      expect(second).toContain('advTm="1200"');
+      expect(first).toContain('advTm="5000"');
+      expect(second).toContain('advTm="5000"');
       expect(zip.file(/ppt\/media\//).length).toBe(1);
       expect(zip.file(/ppt\/slides\/slide\d+\.xml$/).length).toBe(3);
       if (process.env.KOMA_EXPORT_FIXTURE_DIR) {

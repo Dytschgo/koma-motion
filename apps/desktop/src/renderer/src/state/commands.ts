@@ -147,7 +147,7 @@ export const changeAgentConfiguration =
   (project) => ({ ...project, agentConfiguration });
 
 export const changeKomaDetails = (komaId: string, patch: KomaDetailsPatch): ProjectCommand =>
-  // Titles, purpose and notes do not enter the element diff or stored motion.
+  // Titles, purpose, notes and hold time do not enter the element diff or stored motion.
   changeKomas(
     (presentation) => updateKomaDetails(presentation, komaId, patch),
     patch.background !== undefined,

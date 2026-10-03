@@ -28,8 +28,10 @@ export interface ExportDestination {
   readonly filePath: string;
   /** Static slides by default. Motion is an approximation of Koma transitions. */
   readonly motion?: 'static' | 'fade' | 'morph';
-  /** Advance automatically after each transition when motion is requested. */
+  /** Advance after the Koma hold duration when motion is requested. */
   readonly autoAdvance?: boolean;
+  /** Fallback hold for Komas without an explicit duration; defaults to 5000 ms. */
+  readonly defaultHoldDurationMs?: number;
 }
 
 export type ExportIssueSeverity = 'error' | 'warning';

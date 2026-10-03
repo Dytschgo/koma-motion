@@ -32,6 +32,7 @@ export function createKoma(options: {
     title: options.title,
     purpose: '',
     speakerNotes: '',
+    holdDurationMs: null,
     background: { type: 'solid', colour: options.backgroundColour },
     elements: [],
   };

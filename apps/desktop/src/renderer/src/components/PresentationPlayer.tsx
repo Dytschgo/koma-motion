@@ -22,6 +22,7 @@ import {
   resolvePresenterKoma,
   reviewPresentation,
 } from '../lib/presentationPlan';
+import { useAutoplayHold } from '../lib/useAutoplayHold';
 import { formatSeconds } from '../lib/selectors';
 import {
   MAX_AUTOPLAY_DELAY_MS,
@@ -259,15 +260,13 @@ function PresentationPlayer({
 
   const atRest = session.motion === null && session.halted === null;
   const canAdvance = index < total - 1;
-  useEffect(() => {
-    if (!autoplay || session.paused || !atRest || !canAdvance) {
-      return;
-    }
-    const timer = setTimeout(next, autoplayDelayMs);
-    return () => {
-      clearTimeout(timer);
-    };
-  }, [autoplay, session.paused, atRest, canAdvance, autoplayDelayMs, next, session.komaId]);
+  useAutoplayHold({
+    komaId: session.komaId,
+    durationMs: hereKoma?.holdDurationMs ?? autoplayDelayMs,
+    enabled: autoplay && atRest && canAdvance,
+    paused: session.paused,
+    onAdvance: next,
+  });
 
   const [attachArea, area] = useElementSize<HTMLDivElement>();
   const canvasSize = getCanvasSize(presentation.aspectRatio);
@@ -539,14 +538,15 @@ function PresentationPlayer({
             Autoplay
           </label>
           <label className="flex items-center gap-1.5 text-ink-300">
-            <span className="sr-only">Autoplay: seconds on each Koma</span>
+            <span className="sr-only">Autoplay: global hold duration</span>
             <NumberInput
               className="w-14"
               value={autoplayDelayMs / 1000}
               minimum={MIN_AUTOPLAY_DELAY_MS / 1000}
               maximum={MAX_AUTOPLAY_DELAY_MS / 1000}
               disabled={!autoplay}
-              aria-label="Seconds on each Koma"
+              aria-label="Global hold duration in seconds"
+              title="Used for Komas without a saved hold duration"
               onValue={(seconds) => {
                 store.getState().setAutoplayDelay(seconds * 1000);
               }}

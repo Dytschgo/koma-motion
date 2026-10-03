@@ -84,6 +84,7 @@ export function buildKoma(overrides: Partial<Koma> = {}): Koma {
     title: 'Koma',
     purpose: '',
     speakerNotes: '',
+    holdDurationMs: null,
     background: { type: 'solid', colour: '#0E0F13' },
     elements: [buildShape(), buildText()],
     ...overrides,

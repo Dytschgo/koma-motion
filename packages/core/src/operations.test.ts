@@ -74,9 +74,10 @@ describe('id generators', () => {
 
 describe('document operations', () => {
   it('duplicates a Koma with new ids and the same persistent ids', () => {
-    const source = buildKoma();
+    const source = buildKoma({ holdDurationMs: 4500 });
     const copy = duplicateKoma(source, createSeededIdGenerator('copy'), 'Next state');
     expect(copy.id).not.toBe(source.id);
+    expect(copy.holdDurationMs).toBe(4500);
     expect(copy.elements.map((element) => element.persistentId)).toEqual(
       source.elements.map((element) => element.persistentId),
     );
