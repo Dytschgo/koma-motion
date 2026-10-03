@@ -256,9 +256,11 @@ describe('discard ordering audit', () => {
     await failed;
     expect(service.sessionId).toBe(sessionId);
     expect(await readFile(file, 'utf8')).toBe(previous);
+    const nextEdit = { ...edited, name: 'First edit after failed discard' };
     expect(
-      (await service.capture({ sessionId, revision: 4, project: edited, dirty: true })).status,
+      (await service.capture({ sessionId, revision: 3, project: nextEdit, dirty: true })).status,
     ).toBe('stored');
+    expect(await readFile(file, 'utf8')).toContain(nextEdit.name);
     await service.discardActive();
     expect(service.sessionId).toBeNull();
     expect(await new RecoveryService(directory).offer()).toEqual({ status: 'none' });
@@ -275,6 +277,11 @@ describe('discard ordering audit', () => {
     expect(service.sessionId).toBe(sessionId);
     expect(await readFile(file, 'utf8')).toBe(previous);
     await rm(temporary, { recursive: true });
+    const nextEdit = { ...edited, name: 'First edit after cleanup failure' };
+    expect(
+      (await service.capture({ sessionId, revision: 2, project: nextEdit, dirty: true })).status,
+    ).toBe('stored');
+    expect(await readFile(file, 'utf8')).toContain(nextEdit.name);
     await service.discardActive();
     expect(await new RecoveryService(directory).offer()).toEqual({ status: 'none' });
   });

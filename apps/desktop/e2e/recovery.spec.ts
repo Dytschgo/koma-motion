@@ -193,4 +193,38 @@ test('snapshot failure keeps the previous document and Retry persists the latest
   await running.window.getByRole('button', { name: 'Retry recovery snapshot' }).click();
   await expect(running.window.getByText('Recovery snapshot saved', { exact: true })).toBeVisible();
   expect(await readFile(snapshot, 'utf8')).toContain('Edit after disk failure');
+
+  // A failed explicit discard must preserve both the record and the renderer's
+  // next revision. Do not make a second edit to work around a rejected first one.
+  const beforeDiscard = await readFile(snapshot, 'utf8');
+  await mkdir(temporary);
+  const reportedFailure = await running.application.evaluate(({ BrowserWindow, dialog }) => {
+    const window = BrowserWindow.getAllWindows()[0];
+    if (!window) throw new Error('Expected the test window');
+    return new Promise<boolean>((resolve) => {
+      dialog.showMessageBox = (...args: unknown[]) => {
+        if (
+          args.some(
+            (value) =>
+              typeof value === 'object' &&
+              value !== null &&
+              'type' in value &&
+              value.type === 'error',
+          )
+        )
+          resolve(true);
+        return Promise.resolve({ response: 1, checkboxChecked: false });
+      };
+      window.close();
+    });
+  });
+  expect(reportedFailure).toBe(true);
+  expect(running.window.isClosed()).toBe(false);
+  expect(await readFile(snapshot, 'utf8')).toBe(beforeDiscard);
+  await rm(temporary, { recursive: true });
+  await running.window
+    .getByRole('textbox', { name: 'Title', exact: true })
+    .fill('First edit after failed discard');
+  await expect(running.window.getByText('Recovery snapshot saved', { exact: true })).toBeVisible();
+  expect(await readFile(snapshot, 'utf8')).toContain('First edit after failed discard');
 });

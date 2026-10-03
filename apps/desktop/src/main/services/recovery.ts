@@ -44,6 +44,8 @@ export class RecoveryService {
   private tail: Promise<unknown> = Promise.resolve();
   private epoch: string | null = null;
   private revision = -1;
+  /** Invalidates pending work without consuming a renderer-supplied revision. */
+  private captureGeneration = 0;
   private captures = 0;
   private baseline: string | null = null;
   private projectId: string | null = null;
@@ -197,8 +199,11 @@ export class RecoveryService {
     this.revision = request.revision;
     if (this.captures >= 2) return Promise.resolve(failure());
     this.captures += 1;
+    const generation = this.captureGeneration;
     const current = (): boolean =>
-      request.sessionId === this.epoch && request.revision === this.revision;
+      request.sessionId === this.epoch &&
+      request.revision === this.revision &&
+      generation === this.captureGeneration;
     return this.queue<RecoveryResult>(() =>
       withProjectFileOperation<RecoveryResult>(async () => {
         if (!current()) return { status: 'stale' };
@@ -250,7 +255,7 @@ export class RecoveryService {
   async discardActive(): Promise<void> {
     const epoch = this.epoch;
     if (epoch === null) return;
-    this.revision += 1;
+    this.captureGeneration += 1;
     await this.queue(() => this.remove());
     // A successful Open/New may have started another session while removal waited.
     if (this.epoch === epoch) this.epoch = null;
