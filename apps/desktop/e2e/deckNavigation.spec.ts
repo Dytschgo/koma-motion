@@ -115,10 +115,10 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await window.keyboard.press('Home');
   await window.keyboard.press('ArrowDown');
   await expect(
-    dialog.getByRole('button', { name: 'Koma 90: Chapter 90', exact: true }),
+    dialog.getByRole('button', { name: 'Koma 19: Chapter 19', exact: true }),
   ).toBeFocused();
   await window.keyboard.press('Enter');
-  await expectSelected(90, 'Chapter 90');
+  await expectSelected(19, 'Chapter 19');
   await expect(window.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
   expect(await readFile(source, 'utf8')).toBe(encoded);
 
@@ -126,9 +126,9 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await dialog.getByLabel('Find a Koma').fill('no matching metadata');
   await expect(dialog.getByText('No Komas match this search.')).toBeVisible();
   await dialog.getByLabel('Find a Koma').press('Escape');
-  await expectSelected(90, 'Chapter 90');
+  await expectSelected(19, 'Chapter 19');
   await window
-    .getByRole('button', { name: 'Preview the transition from Koma 90 to Koma 91', exact: true })
+    .getByRole('button', { name: 'Preview the transition from Koma 19 to Koma 20', exact: true })
     .click();
   await expect(window.getByRole('button', { name: 'Move Koma up', exact: true })).toBeDisabled();
   await expect(window.getByRole('button', { name: 'Move Koma down', exact: true })).toBeDisabled();

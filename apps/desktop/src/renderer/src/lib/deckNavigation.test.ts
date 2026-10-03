@@ -16,6 +16,9 @@ describe('long deck navigation', () => {
     expect(searchKomas(komas, '  REVENUE quarterly ')).toEqual([{ koma: komas[49], number: 50 }]);
     expect(searchKomas(komas, 'Chapter 100')).toEqual([{ koma: komas[99], number: 100 }]);
     expect(searchKomas(komas, '100')).toEqual([{ koma: komas[99], number: 100 }]);
+    expect(searchKomas(komas, 'Chapter 9').map((result) => result.number)).toEqual([
+      9, 19, 29, 39, 49, 59, 69, 79, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99,
+    ]);
     expect(searchKomas(komas, 'no matching metadata')).toEqual([]);
     expect(searchKomas(komas, '').map((result) => result.koma)).toEqual(komas);
     expect(JSON.stringify(project)).toBe(original);
