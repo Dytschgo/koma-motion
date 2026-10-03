@@ -138,7 +138,13 @@ export async function openProject(): Promise<void> {
     if (response.status === 'opened') {
       useProjectStore
         .getState()
-        .load(response.project, response.file, response.warnings, response.migratedFrom ?? null);
+        .load(
+          response.project,
+          response.file,
+          response.warnings,
+          response.migratedFrom ?? null,
+          response.unavailableAssetIds ?? [],
+        );
       showProject();
       if (response.migratedFrom != null) useHealthStore.getState().setOpen(true);
     } else if (response.status === 'failed') {

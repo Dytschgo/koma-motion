@@ -11,7 +11,7 @@ import {
   usePrefersReducedMotion,
   useTransitionPlayback,
 } from '@koma-motion/renderer';
-import { useEffect, useMemo, useRef, type CSSProperties, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
 import {
   formatSeconds,
   getTransitionContext,
@@ -19,22 +19,29 @@ import {
   resolvePreviewTransition,
   useSelectedKoma,
 } from '../lib/selectors';
-import { chooseKomaImage } from '../lib/projectActions';
+import { addKomaAfter, chooseKomaImage } from '../lib/projectActions';
+import { AUTHORING_KINDS, AUTHORING_LABELS, type AuthoringKind } from '../lib/authoring';
 import { assessTransition } from '../lib/transitionIssues';
-import { changeElement, changeTransition } from '../state/commands';
+import { changeElement, changeTransition, createElement } from '../state/commands';
 import { useAgentStore } from '../state/agentStore';
-import { useProjectStore } from '../state/projectStore';
+import { selectProject, useProjectStore } from '../state/projectStore';
 import { useTransitionRegenerationStore } from '../state/transitionRegenerationStore';
 import { useUiStore } from '../state/uiStore';
 import { ImageIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
-import { Button, Help, IconButton, NumberInput, POPOVER_SURFACE } from './ui';
+import { Button, Help, IconButton, NumberInput, POPOVER_SURFACE, Select } from './ui';
 
 const CANVAS_PADDING = 32;
 const ZOOM_STEP = 1.25;
 /** With reduced motion a preview is a short cut, whatever the duration of the transition. */
 const REDUCED_MOTION_DURATION_MS = 400;
 
-export function Workspace({ project }: { readonly project: KomaProject }): ReactElement {
+export function Workspace({
+  project,
+  onInspectSelected,
+}: {
+  readonly project: KomaProject;
+  readonly onInspectSelected: () => void;
+}): ReactElement {
   const { presentation } = project;
   const sessionId = useProjectStore((state) => state.sessionId);
   const apply = useProjectStore((state) => state.apply);
@@ -49,8 +56,29 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
   const chatOpen = useUiStore((state) => state.agentPanelOpen);
   const setChatOpen = useUiStore((state) => state.setAgentPanelOpen);
   const generating = useAgentStore((state) => state.execution !== null);
+  const [authoringKind, setAuthoringKind] = useState<AuthoringKind>('text');
+  const toolbar = useRef<HTMLDivElement>(null);
 
   const koma = useSelectedKoma();
+  const selectedElement = koma?.elements.find((element) => element.id === selectedElementId);
+  const addElement = (): void => {
+    if (koma === null || preview !== null) return;
+    const known = new Set(koma.elements.map((element) => element.id));
+    try {
+      apply(createElement(koma.id, authoringKind));
+      const added = selectProject(useProjectStore.getState())
+        ?.presentation.komas.find((item) => item.id === koma.id)
+        ?.elements.find((element) => !known.has(element.id));
+      if (added) selectElement(added.id);
+    } catch (error) {
+      useUiStore
+        .getState()
+        .notify(
+          'error',
+          error instanceof Error ? error.message : 'The element could not be added.',
+        );
+    }
+  };
   // The stage follows only a preview whose recorded ends are still valid.
   // The transport keeps the selected Koma's transition so Play still has one
   // when that preview has been stopped.
@@ -220,7 +248,34 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
       aria-label="Canvas"
       className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-0"
     >
-      <div className="flex h-11 flex-none items-center gap-2 border-b border-line bg-surface-1 px-2.5">
+      <div
+        ref={toolbar}
+        className="flex min-h-11 flex-none flex-wrap items-center gap-1 border-b border-line bg-surface-1 px-2.5 py-1"
+      >
+        <Select
+          aria-label="Element to add"
+          className="w-28"
+          disabled={koma === null || preview !== null}
+          value={authoringKind}
+          onChange={(event) => {
+            const kind = AUTHORING_KINDS.find((item) => item === event.target.value);
+            if (kind) setAuthoringKind(kind);
+          }}
+        >
+          {AUTHORING_KINDS.map((kind) => (
+            <option key={kind} value={kind}>
+              {AUTHORING_LABELS[kind]}
+            </option>
+          ))}
+        </Select>
+        <Button
+          compact
+          aria-label={`Add ${authoringKind}`}
+          disabled={koma === null || preview !== null}
+          onClick={addElement}
+        >
+          Add
+        </Button>
         <IconButton
           label="Add image"
           disabled={koma === null || preview !== null}
@@ -230,6 +285,14 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
         >
           <ImageIcon />
         </IconButton>
+        <Button
+          compact
+          aria-label="Inspect selected element"
+          disabled={!selectedElement || preview !== null}
+          onClick={onInspectSelected}
+        >
+          Inspect
+        </Button>
         <Help label="Canvas shortcuts">
           Drag to move. Drag corners to resize. Enter edits text; Esc cancels.
         </Help>
@@ -257,6 +320,18 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
               <>
                 <p className="text-xl font-semibold tracking-tight">Start your presentation</p>
                 <p className="mt-2 text-ink-300">Describe it in the chat, or add a Koma.</p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    addKomaAfter(null);
+                    requestAnimationFrame(() => {
+                      toolbar.current?.querySelector('select')?.focus();
+                    });
+                  }}
+                >
+                  Add first Koma
+                </Button>
               </>
             )}
             {!chatOpen && (

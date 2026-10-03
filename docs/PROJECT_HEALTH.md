@@ -31,13 +31,27 @@ enabled time limit is shown there in seconds and can be changed in Settings.
 
 ## Asset repairs
 
-Missing references and assets without embedded image data produce one issue
+Missing references, absent embedded data, and images rejected by the file-boundary
+content checks produce one issue
 per affected image or Brand Kit logo. Replacing an image changes that object
 in that Koma, including a child in a group. Its identity, geometry, styling,
 and alternate text survive. Other users of the old asset keep their reference.
 Replacing the logo changes the Brand Kit's logo reference. **Clear logo**,
 **Remove image**, and removal of an unused unavailable asset require a
 confirmation. Locked images and groups must be unlocked before repair.
+
+Opening a project and importing an image check its content type, dimensions,
+canonical base64 encoding (for stored assets), and format structure. PNG streams
+are inflated with a 64 MiB output limit; all images are limited to 40 megapixels
+and the existing 2 MiB embedded size. Opening keeps rejected bytes in the document
+and leaves the source file untouched. The editor shows the same unavailable-image
+placeholder and repair controls used for missing data. These availability verdicts
+live only in the current session and follow the exact asset bytes through Undo.
+
+The checks do not fully decode JPEG, GIF or WebP pixels. An image that passes
+structural checks but fails browser decoding receives a canvas placeholder; that
+runtime fallback alone does not add a project-health item. WebP remains supported
+in the editor but unsupported by the PowerPoint exporter.
 
 Selection uses the existing main-process image picker and validated IPC.
 The document receives validated embedded bytes and a project-relative asset

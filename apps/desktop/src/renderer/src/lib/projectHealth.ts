@@ -1,4 +1,5 @@
-import { collectProjectWarnings, type KomaProject, type ProjectWarning } from '@koma-motion/core';
+import { collectAssetWarnings } from './assetHealth';
+import { type KomaProject, type ProjectWarning } from '@koma-motion/core';
 import { validateTransition } from '@koma-motion/motion-engine';
 
 export interface HealthIssue {
@@ -14,7 +15,7 @@ export function collectHealthIssues(
   migratedFrom: number | null,
 ): HealthIssue[] {
   if (project === null) return [];
-  const issues: HealthIssue[] = collectProjectWarnings(project).map((repair) => ({
+  const issues: HealthIssue[] = collectAssetWarnings(project).map((repair) => ({
     id: repair.id,
     severity: 'problem',
     message: repair.message,

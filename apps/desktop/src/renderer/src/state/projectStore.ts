@@ -8,6 +8,7 @@ import {
   createRandomIdGenerator,
   type KomaProject,
 } from '@koma-motion/core';
+import { setUnavailableImageAssets } from '@koma-motion/renderer';
 import { validateTransition } from '@koma-motion/motion-engine';
 import { create } from 'zustand';
 import type { ProjectFileInfo } from '../../../shared/ipc';
@@ -45,6 +46,7 @@ interface ProjectState {
     file: ProjectFileInfo | null,
     warnings?: readonly string[],
     migratedFrom?: number | null,
+    unavailableAssetIds?: readonly string[],
   ) => void;
   /**
    * Reserves a serial for a save of the project that is open now.
@@ -78,7 +80,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   nextSaveSerial: 1,
   appliedSaveSerial: 0,
 
-  load(project, file, warnings = [], migratedFrom = null) {
+  load(project, file, warnings = [], migratedFrom = null, unavailableAssetIds = []) {
+    setUnavailableImageAssets(project.assets, unavailableAssetIds);
     // Live issues are recalculated from the document, never retained as stale load messages.
     const live = new Set([
       ...collectProjectWarnings(project).map((warning) => warning.message),

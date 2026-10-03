@@ -7,6 +7,7 @@ import { readProjectFile, writeProjectFile } from '@koma-motion/project-format/n
 import { dialog, type BrowserWindow } from 'electron';
 import type { IpcResponse, ProjectFileInfo } from '../../shared/ipc';
 import { isUnsafeCharacter } from './imageAsset';
+import { unavailableImageAssetIds } from './imageValidation';
 
 const FILE_FILTERS = [{ name: 'Koma Motion project', extensions: [PROJECT_FILE_EXTENSION] }];
 
@@ -142,6 +143,7 @@ export async function openProject(
     project: loaded.value.project,
     file: toFileInfo(filePath),
     warnings: [...loaded.value.warnings],
+    unavailableAssetIds: unavailableImageAssetIds(loaded.value.project.assets),
     migratedFrom: loaded.value.migratedFrom,
   };
 }
