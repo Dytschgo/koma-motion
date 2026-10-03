@@ -245,7 +245,11 @@ describe('discard ordering audit', () => {
     const previous = await readFile(file, 'utf8');
     const held = await blockWrites(service, sessionId);
     const unlink = vi.mocked(filesystem.unlink);
-    unlink.mockRejectedValueOnce(Object.assign(new Error('Access denied'), { code: 'EACCES' }));
+    const actualUnlink = unlink.getMockImplementation();
+    if (!actualUnlink) throw new Error('Expected the real filesystem implementation');
+    unlink
+      .mockImplementationOnce(actualUnlink)
+      .mockRejectedValueOnce(Object.assign(new Error('Access denied'), { code: 'EACCES' }));
     const discard = service.discardActive();
     const failed = expect(discard).rejects.toThrow('Access denied');
     await held.release();
@@ -257,6 +261,21 @@ describe('discard ordering audit', () => {
     ).toBe('stored');
     await service.discardActive();
     expect(service.sessionId).toBeNull();
+    expect(await new RecoveryService(directory).offer()).toEqual({ status: 'none' });
+  });
+
+  it('keeps the recovery record when temporary-file cleanup fails during discard', async () => {
+    const { service, directory, file } = await setup();
+    const sessionId = await service.activate(project, null);
+    await service.capture({ sessionId, revision: 1, project: edited, dirty: true });
+    const previous = await readFile(file, 'utf8');
+    const temporary = join(directory, 'recovery', 'snapshot.tmp');
+    await mkdir(temporary);
+    await expect(service.discardActive()).rejects.toThrow();
+    expect(service.sessionId).toBe(sessionId);
+    expect(await readFile(file, 'utf8')).toBe(previous);
+    await rm(temporary, { recursive: true });
+    await service.discardActive();
     expect(await new RecoveryService(directory).offer()).toEqual({ status: 'none' });
   });
 

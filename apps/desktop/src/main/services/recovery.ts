@@ -132,10 +132,11 @@ export class RecoveryService {
 
   private async remove(): Promise<void> {
     await this.ownedDirectory();
-    await unlink(this.file).catch((error: unknown) => {
+    // Keep the committed record until preparatory cleanup has succeeded.
+    await unlink(this.temporary).catch((error: unknown) => {
       if (!isMissing(error)) throw error;
     });
-    await unlink(this.temporary).catch((error: unknown) => {
+    await unlink(this.file).catch((error: unknown) => {
       if (!isMissing(error)) throw error;
     });
   }
