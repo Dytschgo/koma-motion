@@ -34,6 +34,35 @@ export const MIGRATIONS: readonly Migration[] = [
       return { ...document, agentConfiguration: { ...configuration, timeoutSeconds: null } };
     },
   },
+  {
+    fromVersion: 3,
+    migrate: (document) => {
+      const config = document['agentConfiguration'];
+      if (typeof config !== 'object' || config === null || !('providers' in config))
+        return document;
+      const providers = config.providers;
+      if (typeof providers !== 'object' || providers === null || Array.isArray(providers))
+        return document;
+      // Older unknown fields must not become active execution preferences.
+      return {
+        ...document,
+        agentConfiguration: {
+          ...config,
+          providers: Object.fromEntries(
+            Object.entries(providers).map(([id, value]: [string, unknown]) => {
+              if (typeof value !== 'object' || value === null) return [id, value];
+              return [
+                id,
+                Object.fromEntries(
+                  Object.entries(value).filter(([key]) => key !== 'reasoningByModel'),
+                ),
+              ];
+            }),
+          ),
+        },
+      };
+    },
+  },
 ];
 
 export interface MigrationOutcome {

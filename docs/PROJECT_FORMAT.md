@@ -13,7 +13,7 @@ The code lives in `packages/core` (schemas) and `packages/project-format`
 | Encoding        | UTF-8, line feeds, final newline  |
 | Syntax          | JSON, indented with two spaces    |
 | Format marker   | `"format": "koma-motion-project"` |
-| Current version | `"schemaVersion": 3`              |
+| Current version | `"schemaVersion": 4`              |
 | Size limit      | 64 MiB (67,108,864 UTF-8 bytes)   |
 
 The format is an early-stage format. It can change before version 1.0 of Koma
@@ -26,7 +26,7 @@ An example is in `examples/generated-with-claude-code.koma`.
 ```jsonc
 {
   "format": "koma-motion-project",
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "id": "project_3f0c…",
   "name": "Introducing Koma Motion",
   "createdAt": "2026-09-29T13:43:35.965Z",
@@ -299,8 +299,8 @@ to an existing file, it reads the schema version of that file and refuses to
 save if it is newer than its own. "Save as" with another name remains
 possible.
 
-The current format is version 3, with migrations registered for versions 1
-and 2. To change the schema:
+The current format is version 4, with migrations registered for versions 1,
+2 and 3. To change the schema:
 
 1. Increase `CURRENT_SCHEMA_VERSION` in `packages/core/src/schema/project.ts`.
 2. Add a migration from the previous version to
@@ -425,3 +425,27 @@ and supported extension data are preserved. Opening reports the deadline change.
 Saving writes version 3. Older app versions refuse the newer format rather than
 silently losing larger content or restoring a deadline. An explicitly enabled
 version-3 timeout is preserved on save/reopen.
+
+### Version 4: reasoning preferences per model
+
+Provider configuration can contain an optional `reasoningByModel` map:
+
+```json
+{
+  "model": "example-model",
+  "reasoningByModel": { "example-model": "reported-effort-token" }
+}
+```
+
+Keys are valid model tokens; values are bounded CLI-reported tokens, not a shared
+set of reasoning levels. The map is local to this project and provider. Missing
+entries leave reasoning to the CLI. The provider revalidates a saved preference
+against fresh capabilities before execution. An unavailable value is retained
+for review but not sent; the run uses default reasoning and reports a warning.
+
+Version 3 migrates to version 4 with existing models, timeouts, image choices and
+presentation content intact. Unknown legacy `reasoningByModel` fields are removed
+so they cannot become active settings. Formats 1 and 2 pass through this migration
+after their existing upgrades. Saving writes format 4; older applications refuse
+the newer format rather than silently discarding preferences. No reasoning content
+or capability catalogs are stored in the project.

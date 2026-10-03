@@ -281,6 +281,7 @@ export async function generate(input: GenerationInput): Promise<void> {
 
 /** Asks a provider's CLI for the models of the signed-in account. */
 export async function listProviderModels(providerId: string): Promise<void> {
+  if (useAgentStore.getState().modelListings[providerId] === 'loading') return;
   useAgentStore.getState().setModelListing(providerId, 'loading');
   try {
     const listing = await invoke('koma:providers:list-models', { providerId });

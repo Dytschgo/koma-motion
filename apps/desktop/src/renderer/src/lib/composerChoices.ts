@@ -4,8 +4,12 @@
  * window. The model belongs to the project (`agentConfiguration`); the Koma
  * count is part of one request and is not saved.
  */
-import type { ProviderMetadata, ProviderModelListing } from '@koma-motion/agent-runtime';
-import { modelNameSchema, type AgentConfiguration } from '@koma-motion/core';
+import type {
+  DiscoveredModel,
+  ProviderMetadata,
+  ProviderModelListing,
+} from '@koma-motion/agent-runtime';
+import { modelNameSchema, reasoningValueSchema, type AgentConfiguration } from '@koma-motion/core';
 
 /** The number of Komas the composer offers first. */
 export const DEFAULT_KOMA_COUNT = 5;
@@ -33,7 +37,7 @@ export const MODEL_GROUP_LABELS: Readonly<Record<ModelOptionGroup, string>> = {
   default: 'Default',
   aliases: 'Aliases',
   ids: 'Model names',
-  account: 'Your account',
+  account: 'Reported by the CLI',
   custom: 'Entered model ids',
   enter: 'Other',
 };
@@ -109,8 +113,8 @@ export function getModelChoices(
       model.kind === 'alias' ? 'aliases' : 'ids',
     );
   }
-  for (const id of listing?.models ?? []) {
-    add(id, id === listing?.defaultModel ? `${id} (account default)` : id, 'account');
+  for (const model of listing?.models ?? []) {
+    add(model.id, model.label, 'account');
   }
 
   const configured = configuration.providers[metadata.id]?.model ?? null;
@@ -135,7 +139,7 @@ export function getModelChoices(
     availability:
       listing === null
         ? 'unknown'
-        : effectiveModel === null || listing.models.includes(effectiveModel)
+        : effectiveModel === null || listing.models.some((model) => model.id === effectiveModel)
           ? 'listed'
           : 'notListed',
     note: metadata.modelCatalog.note,
@@ -171,9 +175,64 @@ export function withProviderModel(
     ...configuration,
     providers: {
       ...configuration.providers,
-      [providerId]: { model: value === DEFAULT_MODEL_VALUE ? null : value },
+      [providerId]: {
+        ...configuration.providers[providerId],
+        model: value === DEFAULT_MODEL_VALUE ? null : value,
+      },
     },
   };
+}
+
+/** Changing model or provider never copies an effort choice to a different model. */
+export function withModelReasoning(
+  configuration: AgentConfiguration,
+  providerId: string,
+  model: string,
+  value: string | null,
+): AgentConfiguration {
+  modelNameSchema.parse(model);
+  const provider = configuration.providers[providerId] ?? { model: null };
+  const preferences = { ...provider.reasoningByModel };
+  if (value === null) delete preferences[model];
+  else preferences[model] = reasoningValueSchema.parse(value);
+  return {
+    ...configuration,
+    providers: {
+      ...configuration.providers,
+      [providerId]: { ...provider, reasoningByModel: preferences },
+    },
+  };
+}
+
+export function getReasoningSelection(
+  configuration: AgentConfiguration,
+  providerId: string,
+  listing: ProviderModelListing | 'loading' | undefined,
+): {
+  model: string | null;
+  capability: DiscoveredModel['reasoning'] | undefined;
+  saved: string | null;
+  message: string | null;
+} {
+  const provider = configuration.providers[providerId];
+  const model = provider?.model ?? null;
+  const saved = model === null ? null : (provider?.reasoningByModel?.[model] ?? null);
+  const capability =
+    listing !== 'loading' && listing?.status === 'listed'
+      ? listing.models.find((entry) => entry.id === model)?.reasoning
+      : undefined;
+  const supported =
+    capability?.status === 'supported' &&
+    capability.choices.some((choice) => choice.value === saved);
+  const message =
+    saved === null || supported
+      ? null
+      : listing === 'loading'
+        ? `Checking saved reasoning “${saved}”… It will be used only if the CLI confirms support.`
+        : listing?.status === 'listed'
+          ? `Saved reasoning “${saved}” is no longer reported for this model. The CLI default will be used unless support is confirmed again.`
+          : `Saved reasoning “${saved}” is unverified. The CLI default will be used unless support is confirmed before the run.`;
+  return { model, capability, saved, message };
 }
 
 /** The combined picker changes provider and model in one undoable project command. */

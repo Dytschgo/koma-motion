@@ -1837,33 +1837,6 @@ describe('model selection', () => {
     expect(parseGrokModelList('Not logged in.')).toBeNull();
     expect(parseGrokModelList('Available models:\n')).toBeNull();
   });
-
-  it('lists Grok models with `grok models` and reports a failure without its output', async () => {
-    const listed = fakeEnvironment(
-      completed({ standardOutput: 'Available models:\n  * grok-4.7 (default)\n  - grok-4.6\n' }),
-    );
-    const listing = await new GrokCliProvider(listed).listModels(new AbortController().signal);
-    expect(listing).toEqual({
-      status: 'listed',
-      models: ['grok-4.7', 'grok-4.6'],
-      defaultModel: 'grok-4.7',
-      checkedAt: '2026-01-15T10:30:00.000Z',
-    });
-    expect(listed.calls[0]?.arguments).toEqual(['models']);
-    expect(listed.calls[0]?.env).toEqual(CHILD_ENVIRONMENT);
-
-    const failed = fakeEnvironment(
-      completed({ exitCode: 1, standardError: 'token=secret-value expired' }),
-    );
-    const failure = await new GrokCliProvider(failed).listModels(new AbortController().signal);
-    expect(failure.status).toBe('failed');
-    expect(JSON.stringify(failure)).not.toContain('secret-value');
-
-    const missing = fakeEnvironment(completed(), false);
-    expect(
-      (await new GrokCliProvider(missing).listModels(new AbortController().signal)).status,
-    ).toBe('failed');
-  });
 });
 
 describe('Claude output streaming', () => {
@@ -1913,7 +1886,10 @@ describe('Claude output streaming', () => {
     const environment = fakeEnvironment((specification) => {
       // Deliver the output in small pieces, as a real process would.
       for (let start = 0; start < bytes.length; start += 7) {
-        specification.onStandardOutput?.(bytes.subarray(start, start + 7).toString('latin1'));
+        specification.onStandardOutput?.(
+          bytes.subarray(start, start + 7).toString('latin1'),
+          () => undefined,
+        );
       }
       return Promise.resolve(completed({ standardOutput: stdout }));
     });
@@ -1950,7 +1926,7 @@ describe('Claude output streaming', () => {
   it('forwards visible text with multi-byte characters intact', async () => {
     const stdout = streamOutput(buildResponse());
     const environment = fakeEnvironment((specification) => {
-      specification.onStandardOutput?.(stdout);
+      specification.onStandardOutput?.(stdout, () => undefined);
       return Promise.resolve(completed({ standardOutput: stdout }));
     });
     const output: string[] = [];

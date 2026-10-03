@@ -723,7 +723,7 @@ export function AgentPanel({
                 aria-label="Model"
                 aria-description={
                   models.selectable
-                    ? `Next run uses ${models.effectiveLabel}${models.availability === 'notListed' ? ', not listed for your sign-in' : ''}`
+                    ? `Next run uses ${models.effectiveLabel}${models.availability === 'notListed' ? ', not in the latest CLI list' : ''}`
                     : `${providerName} has no model choice`
                 }
                 aria-haspopup="dialog"
@@ -830,8 +830,8 @@ export function AgentPanel({
               id={modelChoicesId}
               role="dialog"
               aria-label="Model"
-              style={{ maxHeight: Math.min(pickerMaxHeight ?? 448, 448) }}
-              className={`absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(28rem,60vh)] w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden ${POPOVER_SURFACE}`}
+              style={{ maxHeight: Math.min(pickerMaxHeight ?? 560, 560) }}
+              className={`absolute bottom-[calc(100%+0.5rem)] left-3 z-30 flex max-h-[min(35rem,72vh)] w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100%-1.5rem)] flex-col overflow-hidden ${POPOVER_SURFACE}`}
               onKeyDown={(event) => {
                 if (event.key === 'Escape') {
                   event.preventDefault();

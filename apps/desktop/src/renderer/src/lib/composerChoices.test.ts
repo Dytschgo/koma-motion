@@ -133,7 +133,11 @@ describe('model choices', () => {
       const choices = getModelChoices(grok, config, {
         listing: {
           status: 'listed',
-          models: ['grok-4.7', 'grok-4.6'],
+          models: ['grok-4.7', 'grok-4.6'].map((id) => ({
+            id,
+            label: id,
+            reasoning: { status: 'unsupported' as const },
+          })),
           defaultModel,
           checkedAt: '2026-09-30T12:00:00.000Z',
         },
@@ -169,7 +173,11 @@ describe('model choices', () => {
   it('offers the models an account listed, and marks a chosen model the list does not contain', () => {
     const listing: ProviderModelListing = {
       status: 'listed',
-      models: ['grok-4.7', 'grok-4.6'],
+      models: ['grok-4.7', 'grok-4.6'].map((id) => ({
+        id,
+        label: id,
+        reasoning: { status: 'unsupported' as const },
+      })),
       defaultModel: 'grok-4.7',
       checkedAt: '2026-09-30T12:00:00.000Z',
     };

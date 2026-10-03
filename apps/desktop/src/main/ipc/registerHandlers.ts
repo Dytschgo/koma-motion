@@ -8,6 +8,7 @@ import {
   MockAgentProvider,
   ProviderRegistry,
   type MockAgentProviderOptions,
+  type ProviderModelListing,
 } from '@koma-motion/agent-runtime';
 import { createRandomIdGenerator } from '@koma-motion/core';
 import { createExporters } from '@koma-motion/exporters';
@@ -286,12 +287,19 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
 
   // Listing starts a short CLI run. It is stopped when the window goes away.
   const listing = new AbortController();
+  const pendingListings = new Map<string, Promise<ProviderModelListing>>();
   handle('koma:providers:list-models', async ({ providerId }) => {
     const provider = registry.get(providerId);
     if (provider?.listModels === undefined) {
       return { status: 'unsupported' as const };
     }
-    return provider.listModels(listing.signal);
+    const pending = pendingListings.get(providerId);
+    if (pending) return pending;
+    const request = provider
+      .listModels(listing.signal)
+      .finally(() => pendingListings.delete(providerId));
+    pendingListings.set(providerId, request);
+    return request;
   });
 
   handle('koma:providers:execute', async ({ executionId, providerId, project, input }) => {

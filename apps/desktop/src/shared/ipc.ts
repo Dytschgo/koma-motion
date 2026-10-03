@@ -389,7 +389,7 @@ export const ipcContract = {
       ),
     }),
   },
-  /** Asks a provider's CLI which models the signed-in account can use. */
+  /** Metadata-only CLI discovery. The response includes validated per-model reasoning choices. */
   'koma:providers:list-models': {
     request: z.object({ providerId: providerIdSchema }).strict(),
     response: providerModelListingSchema,

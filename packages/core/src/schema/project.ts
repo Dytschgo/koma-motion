@@ -16,7 +16,7 @@ export {
 } from './limits';
 
 export const PROJECT_FORMAT = 'koma-motion-project';
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /** UTF-16 code units, matching JavaScript/editor length. Reject rather than truncate. */
 export const MAX_SYSTEM_INSTRUCTIONS_LENGTH = 8000;
@@ -39,6 +39,9 @@ export const modelNameSchema = z
   .string()
   .regex(/^[A-Za-z0-9][A-Za-z0-9._:[\]-]{0,79}$/, 'Model name contains unsupported characters');
 
+/** An opaque CLI capability token, never a shared set of effort levels. */
+export const reasoningValueSchema = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._-]{0,79}$/);
+
 export const MIN_AGENT_TIMEOUT_SECONDS = 10;
 /** Largest whole-second delay supported by a signed 32-bit JavaScript timer. */
 export const MAX_AGENT_TIMEOUT_SECONDS = Math.floor(2_147_483_647 / 1000);
@@ -59,6 +62,8 @@ export const agentConfigurationSchema = z.object({
     z.object({
       /** `null` lets the provider use its own default model. */
       model: modelNameSchema.nullable(),
+      /** Preferences belong to an explicit model in this project, never to a moving default. */
+      reasoningByModel: z.record(modelNameSchema, reasoningValueSchema).optional(),
     }),
   ),
 });

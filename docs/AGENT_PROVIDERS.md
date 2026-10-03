@@ -134,28 +134,79 @@ like a generation. The model is the one configured for the selected provider.
 | no metadata                                   | `metadata` describes the provider     | The interface shows whether a provider sends data to an online service and whether it supports model selection.         |
 | the provider builds its own prompt            | the prompt is rendered by the runtime | Prompts are versioned in one place and are the same for every provider.                                                 |
 
-## Model selection
+## Model and reasoning selection
 
-The model is chosen per provider and stored in the project
-(`agentConfiguration.providers[id].model`); `null` leaves the choice to the
-provider. The chat composer shows the provider and the model as two separate
-controls and names the model the next run uses before it starts. Settings,
-Generation offers the same choice for every provider.
+The Text tab in the composer combines provider and model selection, with search,
+favorites, availability indicators and an expanded selected row. Images retains
+its independent CLI-managed image controls. Model options and Settings retain
+custom IDs, provider detection and diagnostics. “Available” means the CLI answered
+its version check; it does not guarantee access to every model in its catalog.
 
-Where the choices come from is part of the provider metadata
-(`modelCatalog`):
+Text catalogs are no longer shipped with Koma. The main process asks the installed
+CLI through `koma:providers:list-models`; preload and the renderer validate the
+response. No renderer networking is involved. Opening the chooser refreshes its
+session-only snapshots. Refresh discards the previous capabilities immediately;
+loading, successful (with check time), unsupported and failed states are distinct.
+A retry never presents an earlier success as its result. Custom and saved IDs,
+including favorites, remain reachable and are marked unverified when absent.
 
-| Provider    | Source    | Choices                                                                                                                                                                                                                                                      |
-| ----------- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Claude Code | `curated` | The aliases `fable`, `opus`, `sonnet` and `haiku` and the model names `claude-fable-5-1`, `claude-opus-5-5`, `claude-sonnet-5-5` and `claude-haiku-4-5-20251001`. Claude Code cannot list the models of a sign-in, so the list is not read from the account. |
-| Grok        | `cli`     | On request, `grok models` lists the models of the signed-in account (`koma:providers:list-models`). The list is kept for the session only. A chosen model that is not in the list is marked before the run.                                                  |
-| Codex       | `none`    | Codex has no list command. A model id can be entered.                                                                                                                                                                                                        |
-| Mock        | `none`    | No model choice.                                                                                                                                                                                                                                             |
+The following interfaces were inspected and exercised **without a generation**
+on Windows on 3 October 2026:
 
-A typed model id must match the restricted model pattern before it is stored
-or passed as `--model`. When Claude Code answers that a chosen model does not
-exist or is not available to the sign-in, the failure names the model and
-suggests another model or the default.
+| CLI version         | Authoritative capability interface                                                                                      | Reasoning and limits                                                                                                                                                                                                                                                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Claude Code 2.1.287 | `--print --input-format stream-json --output-format stream-json --verbose`, SDK control `initialize`, response `models` | `value`, `displayName`, optional `resolvedModel`, `supportsEffort`, and `supportedEffortLevels`. Only explicitly reported menus are offered; models without a menu use CLI defaults. The selected token may be an alias. The CLI catalog is not an account entitlement check.                                                          |
+| Codex 0.160.0       | `app-server --listen stdio://`, `initialize`, `initialized`, then paginated `model/list`                                | `model`, `displayName`, `supportedReasoningEfforts`, `defaultReasoningEffort`. Hidden entries are excluded. Discovery pins the OpenAI provider to match the default provider used by the existing `exec --ignore-user-config` path. App-server itself does not accept `--ignore-user-config`; it still reads its normal configuration. |
+| Grok 1.0.46         | `agent --no-leader stdio`, ACP `initialize`, then `_x.ai/models/list`                                                   | `availableModels` and per-model `_meta.reasoningEfforts` with IDs, labels and defaults. `supportsReasoningEffort` alone is insufficient: Koma never synthesizes a menu. An older unsupported ACP method falls back to `grok models` for IDs only, with reasoning discovery unsupported.                                                |
+
+These processes receive the existing provider-specific allowlisted environment
+and an empty temporary working directory. Claude retains the same tool, MCP,
+customization and session-persistence restrictions as generation. Codex retains
+its invocation feature disables. Grok starts its own process, not a shared leader.
+No user prompt, thread, session-creation or generation request is sent. The helper
+bounds output to 512 KiB, the exchange to 20 seconds and catalogs to 200 entries;
+it validates complete responses and rejects broken pagination or duplicates. It
+terminates only its own process tree and removes its temporary directory. Account
+objects and unrelated notifications are not forwarded or stored. CLIs may contact
+their own service and retain their usual auth/catalog caches during discovery.
+
+A protocol that explicitly lacks capability support reports `unsupported`.
+Authentication errors, malformed output, timeouts and start failures report
+`failed`, without exposing raw CLI output. CLI defaults continue to work without
+discovery. A saved custom model is not silently changed when absent from a list.
+
+The project stores `agentConfiguration.providers[id].model`; `null` still omits
+`--model`. Format 4 adds optional `reasoningByModel`, keyed by the explicit selected
+model token within that provider and project. Switching model/provider does not
+copy a reasoning preference. Selecting the CLI default does not pin its current
+model or apply an effort to a moving target. Use CLI default reasoning removes
+only that model's preference. Changes participate in project Undo/Redo and
+save/reopen, not global CLI configuration. Formats 1–3 migrate without activating
+unknown legacy reasoning fields.
+
+Reasoning tokens are bounded validated strings, not a closed enum. Each generation
+or repair with a saved override re-queries the relevant CLI before passing it:
+
+- Claude: `--effort <reported value>`.
+- Codex: `-c model_reasoning_effort="<reported value>"` as one argument.
+- Grok: `--reasoning-effort <reported menu id>`.
+
+If the model or value disappears, or verification fails, the override is omitted.
+The chooser explains the unverified or removed preference; the run emits a progress
+notice and retains a warning with a successful result. The saved preference remains
+available for review or reset. No private reasoning, thinking deltas or hidden
+chain-of-thought is displayed or saved. Brand analysis and image generation retain
+their existing independent execution settings.
+
+Sources: [Claude CLI flags](https://code.claude.com/docs/en/cli-reference),
+[Anthropic's SDK control protocol](https://github.com/anthropics/claude-agent-sdk-python/blob/main/src/claude_agent_sdk/_internal/query.py),
+[Codex model/list](https://learn.chatgpt.com/docs/app-server#list-models-modellist),
+[Codex configuration](https://developers.openai.com/codex/config-reference),
+[Grok CLI reference](https://docs.x.ai/build/cli/reference), and
+[Grok's model-list implementation](https://github.com/xai-org/grok-build/blob/main/crates/codegen/xai-grok-shell/src/cli_models.rs).
+The installed Codex-generated JSON schema and actual initialization/list responses
+were also inspected. No real generation with the new reasoning arguments was run;
+automated execution and Electron checks use synthetic providers/capability peers.
 
 ## Run activity and monitor
 

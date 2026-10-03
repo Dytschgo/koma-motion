@@ -214,7 +214,7 @@ test('searches models across providers, selects atomically and retains custom ID
   await picker.getByLabel('Model id', { exact: true }).press('Enter');
   await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
-    'Next run uses custom-model-v2',
+    'Next run uses custom-model-v2, not in the latest CLI list',
   );
   await expect(picker.getByLabel('Model', { exact: true })).toBeFocused();
   await picker.getByRole('button', { name: 'Back to models' }).click();
@@ -283,7 +283,7 @@ test('pins favorites without changing the project and remembers them after resta
   expect(problems).toEqual([]);
 });
 
-test('matches Compact 01 with provider logos beside Brand Kit at wide and narrow widths', async () => {
+test('keeps provider logos beside Brand Kit at wide and narrow widths', async () => {
   const { window, problems } = running;
   const info = test.info();
   await writeLibrary();
@@ -368,7 +368,11 @@ test('matches Compact 01 with provider logos beside Brand Kit at wide and narrow
       'true',
     );
     await expect(picker).toBeInViewport({ ratio: 1 });
-    expect((await picker.boundingBox())?.height).toBeLessThanOrEqual(448);
+    const pickerBounds = await picker.boundingBox();
+    const triggerBounds = await model.boundingBox();
+    if (!pickerBounds || !triggerBounds) throw new Error('Model controls must be visible');
+    expect(pickerBounds.y).toBeGreaterThanOrEqual(0);
+    expect(pickerBounds.y + pickerBounds.height).toBeLessThan(triggerBounds.y);
     await writeFile(
       info.outputPath(`display-${String(width)}.json`),
       JSON.stringify(
