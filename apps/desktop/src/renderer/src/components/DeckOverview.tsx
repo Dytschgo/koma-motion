@@ -55,7 +55,7 @@ function OverviewContent({
         {(ids) => (
           <TextInput
             {...ids}
-            autoFocus
+            data-deck-search
             value={query}
             onChange={(event) => {
               setQuery(event.target.value);
@@ -189,6 +189,7 @@ export function DeckOverview({
       open={open}
       onClose={onClose}
       width="wide"
+      initialFocus="[data-deck-search]"
       footer={
         <Button variant="outline" onClick={onClose}>
           Close overview
