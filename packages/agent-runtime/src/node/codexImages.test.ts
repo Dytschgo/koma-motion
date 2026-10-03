@@ -3,14 +3,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { decodeCodexImage, generateCodexImage } from './codexImages';
-import type { CliEnvironment } from './cliEnvironment';
+import { buildCliChildEnvironment, type CliEnvironment } from './cliEnvironment';
 
 const peer = `
 import { createInterface } from 'node:readline';
 const send = value => process.stdout.write(JSON.stringify(value) + '\\n');
 createInterface({ input: process.stdin }).on('line', line => {
   const m = JSON.parse(line), mode = process.env.IMAGE_TEST_MODE;
-  if (process.env.OPENAI_API_KEY) throw new Error('API key leaked to image child');
+  if (process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.XAI_API_KEY || process.env.GROK_HOME || process.env.ANTHROPIC_CUSTOM_HEADERS) throw new Error('Unrelated auth leaked to image child');
+  if (process.env.CODEX_HOME !== 'synthetic-codex-home') throw new Error('Lost Codex home');
   if (m.method === 'initialize') send({ id: m.id, result: {} });
   if (m.method === 'account/read') send({ id: m.id, result: { account: { type: mode === 'api' ? 'apiKey' : 'chatgpt' } } });
   if (m.method === 'thread/start') {
@@ -34,15 +35,24 @@ async function fixture(mode: string, task: (env: CliEnvironment) => Promise<void
   const env: CliEnvironment = {
     resolveExecutable: () =>
       Promise.resolve({ command: process.execPath, prefixArguments: [script] }),
-    childEnvironment: () => ({
-      ...Object.fromEntries(
-        Object.entries(process.env).filter(
-          (entry): entry is [string, string] => typeof entry[1] === 'string',
+    childEnvironment: (provider) => {
+      expect(provider).toBe('codex');
+      return {
+        ...buildCliChildEnvironment(
+          {
+            SystemRoot: process.env['SystemRoot'],
+            OPENAI_API_KEY: 'synthetic-openai',
+            CODEX_HOME: 'synthetic-codex-home',
+            ANTHROPIC_API_KEY: 'synthetic-anthropic',
+            ANTHROPIC_CUSTOM_HEADERS: 'synthetic-gateway',
+            XAI_API_KEY: 'synthetic-xai',
+            GROK_HOME: 'synthetic-grok-home',
+          },
+          provider,
         ),
-      ),
-      IMAGE_TEST_MODE: mode,
-      OPENAI_API_KEY: 'test-key-must-not-be-passed',
-    }),
+        IMAGE_TEST_MODE: mode,
+      };
+    },
     claudeCodeChildEnvironment: () => ({}),
     runProcess: () => Promise.reject(new Error('Not used')),
     createWorkingDirectory: async () => {

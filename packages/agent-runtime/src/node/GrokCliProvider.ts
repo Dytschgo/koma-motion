@@ -239,7 +239,7 @@ export class GrokCliProvider implements AgentProvider {
         workingDirectory,
         signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
         maxOutputBytes: 64 * 1024,
-        env: this.#environment.childEnvironment(),
+        env: this.#environment.childEnvironment('grok'),
       });
       if (
         !outcome.aborted &&
@@ -330,7 +330,7 @@ export class GrokCliProvider implements AgentProvider {
         workingDirectory,
         signal: context.signal,
         maxOutputBytes: MAX_CLI_OUTPUT_BYTES,
-        env: this.#environment.childEnvironment(),
+        env: this.#environment.childEnvironment('grok'),
       });
       const details = {
         exitCode: outcome.exitCode,

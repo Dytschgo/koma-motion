@@ -69,7 +69,7 @@ function environment(
   return {
     resolveExecutable: () => Promise.resolve({ command: 'fixture', prefixArguments: [] }),
     runProcess: vi.fn((spec: ProcessSpecification) => Promise.resolve(respond(spec))),
-    childEnvironment: () => ({ SAFE: 'shared' }),
+    childEnvironment: (provider) => ({ SAFE: provider }),
     claudeCodeChildEnvironment: () => ({ SAFE: 'claude' }),
     createWorkingDirectory: () => Promise.resolve('isolated'),
     removeWorkingDirectory: vi.fn(() => Promise.resolve()),
@@ -187,6 +187,7 @@ describe('metadata-only protocol exchanges', () => {
   it('waits for Codex initialization and follows all pages', async () => {
     const written: unknown[] = [];
     const env = environment((spec) => {
+      expect(spec.env).toEqual({ SAFE: 'codex' });
       const write = (text: string): void => {
         const message: unknown = JSON.parse(text);
         written.push(message);
@@ -230,6 +231,7 @@ describe('metadata-only protocol exchanges', () => {
   });
   it('uses Grok model metadata without a session or guessed effort fallback', async () => {
     const env = environment((spec) => {
+      expect(spec.env).toEqual({ SAFE: 'grok' });
       emit(spec, { id: 1, result: {} });
       emit(spec, { id: 2, result: { result: grok } });
       return completed;
@@ -278,6 +280,7 @@ describe('metadata-only protocol exchanges', () => {
   });
   it('falls back to Grok model IDs alone only for an unsupported protocol', async () => {
     const env = environment((spec) => {
+      expect(spec.env).toEqual({ SAFE: 'grok' });
       if (spec.arguments[0] === 'models')
         return { ...completed, standardOutput: 'Available models:\n * fixture-model (default)\n' };
       emit(spec, { id: 1, result: {} });

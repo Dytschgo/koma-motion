@@ -254,7 +254,7 @@ export async function discoverModels(
       env:
         protocol === 'claude'
           ? environment.claudeCodeChildEnvironment()
-          : environment.childEnvironment(),
+          : environment.childEnvironment(protocol),
       onStandardOutput: (text, write) => {
         if (result !== undefined) return;
         pending += text;

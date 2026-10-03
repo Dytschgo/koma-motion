@@ -240,7 +240,7 @@ export class CodexCliProvider implements AgentProvider {
         workingDirectory,
         signal: context.signal,
         maxOutputBytes: MAX_CLI_OUTPUT_BYTES,
-        env: this.#environment.childEnvironment(),
+        env: this.#environment.childEnvironment('codex'),
       });
       const details = {
         exitCode: outcome.exitCode,
