@@ -5,11 +5,15 @@ import { createAssetResolver, ElementView } from '@koma-motion/renderer';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, expect, it } from 'vitest';
-import { unavailableImageAssetIds } from '../../../main/services/imageValidation';
-import { selectHasUnsavedChanges, selectProject, useProjectStore } from '../state/projectStore';
-import { collectAssetWarnings } from './assetHealth';
-import { repairAssetCommand } from './assetRepairs';
-import { collectHealthIssues } from './projectHealth';
+import { unavailableImageAssetIds } from '../main/services/imageValidation';
+import {
+  selectHasUnsavedChanges,
+  selectProject,
+  useProjectStore,
+} from '../renderer/src/state/projectStore';
+import { collectAssetWarnings } from '../renderer/src/lib/assetHealth';
+import { repairAssetCommand } from '../renderer/src/lib/assetRepairs';
+import { collectHealthIssues } from '../renderer/src/lib/projectHealth';
 
 const asset: AssetReference = {
   id: 'corrupt',
