@@ -2,14 +2,45 @@ import { copyFile, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildKoma, buildProject, buildShape, buildText } from '@koma-motion/core/testing';
-import type { KomaProject } from '@koma-motion/core';
+import type { Koma, KomaProject, KomaTransition } from '@koma-motion/core';
+import { buildTransition, computeFrame, validateTransition } from '@koma-motion/motion-engine';
+import { imageSize } from 'image-size';
 import JSZip from 'jszip';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { PowerPointExporter } from './powerpoint/PowerPointExporter';
 import { createExporters, getAvailableExporters } from './registry';
 
 const PNG =
   'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEklEQVR4nGO8YyTJwMDAxAAGAA7BASs+DrhaAAAAAElFTkSuQmCC';
+
+vi.mock('image-size', { spy: true });
+
+function storedTransition(id: string, from: Koma, to: Koma, duration: number): KomaTransition {
+  const built = buildTransition({ id, from, to, suggestion: { duration, easing: 'linear' } });
+  if (!built.ok) throw new Error('Cannot build export motion fixture');
+  return built.value.transition;
+}
+
+function movingShapes(): KomaProject {
+  const komas = [100, 400, 800].map((x, index) =>
+    buildKoma({
+      id: `koma-${index + 1}`,
+      elements: [
+        buildShape({ id: `shape-${index + 1}`, persistentId: 'engine', position: { x, y: 100 } }),
+      ],
+    }),
+  );
+  return buildProject({
+    presentation: {
+      ...buildProject().presentation,
+      komas,
+      transitions: [
+        storedTransition('transition-1', komas[0]!, komas[1]!, 900),
+        storedTransition('transition-2', komas[1]!, komas[2]!, 1200),
+      ],
+    },
+  });
+}
 
 function threeKomas(): KomaProject {
   const shape1 = buildShape({
@@ -83,26 +114,8 @@ function threeKomas(): KomaProject {
       ...buildProject().presentation,
       komas,
       transitions: [
-        {
-          id: 'transition-1',
-          fromKomaId: 'koma-1',
-          toKomaId: 'koma-2',
-          duration: 900,
-          easing: 'linear',
-          strategy: 'continuous',
-          elementTransitions: [],
-          rationale: '',
-        },
-        {
-          id: 'transition-2',
-          fromKomaId: 'koma-2',
-          toKomaId: 'koma-3',
-          duration: 1200,
-          easing: 'linear',
-          strategy: 'continuous',
-          elementTransitions: [],
-          rationale: '',
-        },
+        storedTransition('transition-1', komas[0]!, komas[1]!, 900),
+        storedTransition('transition-2', komas[1]!, komas[2]!, 1200),
       ],
     },
     assets: [
@@ -127,6 +140,207 @@ async function slideXml(zip: JSZip, number: number): Promise<string> {
 
 describe('PowerPointExporter', () => {
   const exporter = new PowerPointExporter();
+
+  it('uses Morph for the same compatible continuous motion playback interpolates', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
+    try {
+      const project = movingShapes();
+      const from = project.presentation.komas[0]!;
+      const to = project.presentation.komas[1]!;
+      const transition = project.presentation.transitions[0]!;
+      expect(validateTransition(transition, project.presentation)).toEqual([]);
+      expect(
+        computeFrame({ from, to, transition, progress: 0.5 }).layers[0]?.element.position.x,
+      ).toBe(250);
+      const original = structuredClone(project);
+      const path = join(directory, 'compatible.pptx');
+      const result = await exporter.export(project, {
+        filePath: path,
+        motion: 'morph',
+        autoAdvance: true,
+      });
+      expect(result.status).toBe('exported');
+      if (result.status === 'exported') {
+        expect(result.warnings.map(({ code }) => code)).not.toContain('invalidStoredMotion');
+        expect(result.warnings.map(({ code }) => code)).not.toContain('transitionFadeFallback');
+      }
+      const zip = await JSZip.loadAsync(await readFile(path));
+      expect(await slideXml(zip, 2)).toContain('<p159:morph option="byObject"/>');
+      expect(await slideXml(zip, 2)).toContain('p14:dur="900"');
+      expect(await slideXml(zip, 1)).toContain('advTm="900"');
+      expect(await slideXml(zip, 2)).toContain('advTm="1200"');
+      expect(project).toEqual(original);
+      if (process.env.KOMA_EXPORT_FIXTURE_DIR) {
+        await mkdir(process.env.KOMA_EXPORT_FIXTURE_DIR, { recursive: true });
+        await copyFile(
+          path,
+          join(process.env.KOMA_EXPORT_FIXTURE_DIR, 'compatible-morph-three-komas.pptx'),
+        );
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+
+  it.each([
+    'editedTarget',
+    'emptyOperations',
+    'wrongElementReference',
+    'duplicateOperation',
+  ] as const)(
+    'warns and fades %s motion blocked by playback while preserving the source and static export',
+    async (failure) => {
+      const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
+      try {
+        const project = movingShapes();
+        const transition = project.presentation.transitions[0]!;
+        const operation = transition.elementTransitions[0]!;
+        if (failure === 'editedTarget') {
+          const target = project.presentation.komas[1]!;
+          project.presentation.komas[1] = {
+            ...target,
+            elements: target.elements.map((element) => ({
+              ...element,
+              position: { x: 600, y: 100 },
+            })),
+          };
+        } else if (failure === 'emptyOperations') {
+          transition.elementTransitions = [];
+        } else if (failure === 'wrongElementReference') {
+          transition.elementTransitions = [
+            { ...operation, to: { ...operation.to, elementId: 'wrong-element' } },
+          ];
+        } else {
+          transition.elementTransitions = [operation, operation];
+        }
+        const original = structuredClone(project);
+        const from = project.presentation.komas[0]!;
+        const to = project.presentation.komas[1]!;
+        expect(
+          validateTransition(transition, project.presentation).map(({ code }) => code),
+        ).toContain(
+          failure === 'wrongElementReference'
+            ? 'invalidElementReference'
+            : failure === 'duplicateOperation'
+              ? 'duplicateOperation'
+              : 'staleTransition',
+        );
+        expect(
+          computeFrame({ from, to, transition, progress: 0.5 }).layers[0]?.element.position,
+        ).toEqual(from.elements[0]?.position);
+        const validation = await exporter.validate(project);
+        expect(validation.exportable).toBe(true);
+        expect(validation.issues).toContainEqual(
+          expect.objectContaining({ severity: 'warning', code: 'invalidStoredMotion' }),
+        );
+        for (const motion of ['morph', 'fade', 'static'] as const) {
+          const path = join(directory, `${motion}.pptx`);
+          const result = await exporter.export(project, {
+            filePath: path,
+            motion,
+            autoAdvance: true,
+          });
+          expect(result.status).toBe('exported');
+          if (result.status === 'exported')
+            expect(result.warnings.map(({ code }) => code)).toContain('invalidStoredMotion');
+          const zip = await JSZip.loadAsync(await readFile(path));
+          const second = await slideXml(zip, 2);
+          expect(second).toContain('!!engine');
+          expect(second).not.toContain('<p159:morph');
+          if (motion === 'static') {
+            expect(second).not.toContain('<p:transition');
+          } else {
+            expect(second).toContain('<p:fade/>');
+            expect(second).toContain('p14:dur="500"');
+            expect(await slideXml(zip, 1)).toContain('advTm="500"');
+          }
+        }
+        expect(project).toEqual(original);
+        if (failure === 'editedTarget' && process.env.KOMA_EXPORT_FIXTURE_DIR) {
+          await mkdir(process.env.KOMA_EXPORT_FIXTURE_DIR, { recursive: true });
+          await copyFile(
+            join(directory, 'morph.pptx'),
+            join(process.env.KOMA_EXPORT_FIXTURE_DIR, 'stale-motion-fade.pptx'),
+          );
+          await writeFile(
+            join(process.env.KOMA_EXPORT_FIXTURE_DIR, 'stale-motion-source.json'),
+            JSON.stringify(project, null, 2),
+          );
+        }
+      } finally {
+        await rm(directory, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it('verifies each referenced asset once for warnings and placement and rechecks it on the next export', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
+    try {
+      const source = threeKomas();
+      const picture = source.presentation.komas[0]!.elements.find(
+        (element) => element.type === 'image',
+      );
+      if (picture?.type !== 'image') throw new Error('Missing picture fixture');
+      const asset = source.assets[0]!;
+      const project = buildProject({
+        assets: [
+          asset,
+          {
+            ...asset,
+            id: 'corrupt',
+            embeddedData: {
+              encoding: 'base64',
+              data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlK3Y4AAAAASUVORK5CYII=',
+            },
+          },
+        ],
+      });
+      project.presentation.komas = [1, 2, 3].map((index) =>
+        buildKoma({
+          id: `koma-${index}`,
+          elements: [
+            picture,
+            {
+              ...picture,
+              id: 'bad-picture',
+              persistentId: 'bad-picture',
+              content: { assetId: 'corrupt', altText: 'Corrupt' },
+            },
+          ],
+        }),
+      );
+      const original = structuredClone(project);
+      vi.mocked(imageSize).mockClear();
+      const path = join(directory, 'repeated.pptx');
+      const result = await exporter.export(project, { filePath: path });
+      expect(result.status).toBe('exported');
+      if (result.status === 'exported')
+        expect(result.warnings.filter(({ code }) => code === 'imageUnavailable')).toHaveLength(3);
+      expect(imageSize).toHaveBeenCalledTimes(2);
+      const zip = await JSZip.loadAsync(await readFile(path));
+      for (const index of [1, 2, 3]) {
+        const xml = await slideXml(zip, index);
+        expect(xml.match(/<p:pic>/g)).toHaveLength(1);
+        expect(xml).toContain('Missing image');
+      }
+      expect(project).toEqual(original);
+      project.assets[1]!.embeddedData = { encoding: 'base64', data: PNG };
+      vi.mocked(imageSize).mockClear();
+      expect(await exporter.export(project, { filePath: path })).toMatchObject({
+        status: 'exported',
+        warnings: [],
+      });
+      expect(imageSize).toHaveBeenCalledTimes(2);
+      const repaired = await JSZip.loadAsync(await readFile(path));
+      for (const index of [1, 2, 3]) {
+        const xml = await slideXml(repaired, index);
+        expect(xml.match(/<p:pic>/g)).toHaveLength(2);
+        expect(xml).not.toContain('Missing image');
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
 
   it('preserves rounded corner units and text size in scaled groups', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
@@ -173,7 +387,7 @@ describe('PowerPointExporter', () => {
     }
   });
 
-  it('writes three slides with editable text, shapes, image, stacking, and Morph identity', async () => {
+  it('writes editable objects with stacking, Morph identity names, and per-element fade fallback', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
     try {
       const path = join(directory, 'presentation.pptx');
@@ -195,7 +409,10 @@ describe('PowerPointExporter', () => {
       expect(first.indexOf('!!headline')).toBeLessThan(first.indexOf('!!engine'));
       expect(second).toContain('!!engine');
       expect(third).toContain('!!engine');
-      expect(second).toContain('p159:morph option="byObject"');
+      expect(second).toContain('<p:fade/>');
+      expect(second).not.toContain('<p159:morph');
+      expect(third).toContain('<p:fade/>');
+      expect(third).not.toContain('<p159:morph');
       expect(second).toContain('p14:dur="900"');
       expect(third).toContain('p14:dur="1200"');
       expect(first).toContain('advTm="900"');
@@ -206,7 +423,7 @@ describe('PowerPointExporter', () => {
         await mkdir(process.env.KOMA_EXPORT_FIXTURE_DIR, { recursive: true });
         await copyFile(
           path,
-          join(process.env.KOMA_EXPORT_FIXTURE_DIR, 'editable-morph-three-komas.pptx'),
+          join(process.env.KOMA_EXPORT_FIXTURE_DIR, 'editable-fade-three-komas.pptx'),
         );
       }
       if (result.status === 'exported') {
@@ -246,7 +463,7 @@ describe('PowerPointExporter', () => {
   it('uses a fade when staged motion cannot be represented by Morph', async () => {
     const directory = await mkdtemp(join(tmpdir(), 'koma-export-'));
     try {
-      const project = threeKomas();
+      const project = movingShapes();
       const staged = {
         ...project,
         presentation: {

@@ -12,6 +12,7 @@ import {
   type KomaTransition,
   type LeafElement,
 } from '@koma-motion/core';
+import { validateTransition } from '@koma-motion/motion-engine';
 import JSZip from 'jszip';
 import { imageSize } from 'image-size';
 import pptxgen from 'pptxgenjs';
@@ -159,13 +160,26 @@ function validPngData(bytes: Buffer): boolean {
   }
 }
 
-function fidelityWarnings(project: KomaProject): ExportIssue[] {
+type ImageResolver = (assetId: string) => string | null;
+
+/** Verification is shared by warnings and placement, and retained only for this request. */
+function createImageResolver(project: KomaProject): ImageResolver {
   const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
+  const verified = new Map<AssetReference, string | null>();
+  return (assetId) => {
+    const asset = assets.get(assetId);
+    if (asset === undefined) return null;
+    if (!verified.has(asset)) verified.set(asset, imageData(asset));
+    return verified.get(asset) ?? null;
+  };
+}
+
+function fidelityWarnings(project: KomaProject, resolveImage: ImageResolver): ExportIssue[] {
   const warnings: ExportIssue[] = [];
   for (const koma of project.presentation.komas) {
     for (const placed of placedElements(koma.elements)) {
       const { element } = placed;
-      if (element.type === 'image' && imageData(assets.get(element.content.assetId)) === null) {
+      if (element.type === 'image' && resolveImage(element.content.assetId) === null) {
         warnings.push(
           issue(
             'warning',
@@ -227,7 +241,7 @@ function addPlaced(
   pptx: pptxgen,
   placed: Placed,
   scale: number,
-  assets: ReadonlyMap<string, AssetReference>,
+  resolveImage: ImageResolver,
 ): void {
   const { element, x, y, w, h, opacity } = placed;
   const box = { x: x * scale, y: y * scale, w: w * scale, h: h * scale };
@@ -291,7 +305,7 @@ function addPlaced(
     });
     return;
   }
-  const data = imageData(assets.get(element.content.assetId));
+  const data = resolveImage(element.content.assetId);
   if (data === null) {
     slide.addShape(pptx.ShapeType.rect, {
       ...box,
@@ -336,9 +350,13 @@ function transitionXml(mode: 'fade' | 'morph', duration: number, advance?: numbe
   );
 }
 
-function canMorph(transition: KomaTransition | undefined): boolean {
+function canMorph(
+  transition: KomaTransition | undefined,
+  playable: ReadonlySet<KomaTransition>,
+): boolean {
   return (
     transition !== undefined &&
+    playable.has(transition) &&
     transition.strategy === 'continuous' &&
     transition.elementTransitions.every(
       ({ operation }) =>
@@ -351,6 +369,7 @@ async function addMotion(
   filePath: string,
   project: KomaProject,
   destination: ExportDestination,
+  playable: ReadonlySet<KomaTransition>,
 ): Promise<void> {
   const mode = destination.motion ?? 'static';
   if (mode === 'static') return;
@@ -379,11 +398,13 @@ async function addMotion(
           )
         : undefined;
     if (index === 0 && !destination.autoAdvance) continue;
-    const effect = mode === 'morph' && canMorph(inbound) ? 'morph' : 'fade';
+    const effect = mode === 'morph' && canMorph(inbound, playable) ? 'morph' : 'fade';
+    const duration = inbound && playable.has(inbound) ? inbound.duration : 500;
+    const advance = outbound && playable.has(outbound) ? outbound.duration : 500;
     const transition = transitionXml(
       effect,
-      inbound?.duration ?? 500,
-      destination.autoAdvance && index < komas.length - 1 ? (outbound?.duration ?? 500) : undefined,
+      duration,
+      destination.autoAdvance && index < komas.length - 1 ? advance : undefined,
     );
     const anchor = xml.includes('</p:clrMapOvr>') ? '</p:clrMapOvr>' : '</p:cSld>';
     if (!xml.includes(anchor))
@@ -396,6 +417,54 @@ async function addMotion(
   );
 }
 
+function prepareExport(project: KomaProject): {
+  validation: ExportValidationResult;
+  resolveImage: ImageResolver;
+  playable: ReadonlySet<KomaTransition>;
+} {
+  const playable = new Set<KomaTransition>();
+  const unavailable = (validation: ExportValidationResult) => ({
+    validation,
+    resolveImage: () => null,
+    playable,
+  });
+  const parsed = komaProjectSchema.safeParse(project);
+  if (!parsed.success) {
+    return unavailable({
+      exportable: false,
+      issues: [
+        issue(
+          'error',
+          'invalidProject',
+          `Project is invalid: ${parsed.error.issues[0]?.message ?? 'unknown schema error'}`,
+        ),
+      ],
+    });
+  }
+  if (project.presentation.komas.length === 0) {
+    return unavailable({
+      exportable: false,
+      issues: [issue('error', 'emptyPresentation', 'Add a Koma before exporting.')],
+    });
+  }
+  const resolveImage = createImageResolver(project);
+  const issues = fidelityWarnings(project, resolveImage);
+  for (const transition of project.presentation.transitions) {
+    if (validateTransition(transition, project.presentation).length === 0) {
+      playable.add(transition);
+    } else {
+      issues.push(
+        issue(
+          'warning',
+          'invalidStoredMotion',
+          `Stored motion for transition "${transition.id}" cannot be played. Static slides remain exportable; motion export uses a default slide fade.`,
+        ),
+      );
+    }
+  }
+  return { validation: { exportable: true, issues }, resolveImage, playable };
+}
+
 export class PowerPointExporter implements PresentationExporter {
   readonly id = 'powerpoint';
   readonly displayName = 'PowerPoint';
@@ -405,30 +474,11 @@ export class PowerPointExporter implements PresentationExporter {
   };
 
   validate(project: KomaProject): Promise<ExportValidationResult> {
-    const parsed = komaProjectSchema.safeParse(project);
-    if (!parsed.success) {
-      return Promise.resolve({
-        exportable: false,
-        issues: [
-          issue(
-            'error',
-            'invalidProject',
-            `Project is invalid: ${parsed.error.issues[0]?.message ?? 'unknown schema error'}`,
-          ),
-        ],
-      });
-    }
-    if (project.presentation.komas.length === 0) {
-      return Promise.resolve({
-        exportable: false,
-        issues: [issue('error', 'emptyPresentation', 'Add a Koma before exporting.')],
-      });
-    }
-    return Promise.resolve({ exportable: true, issues: fidelityWarnings(project) });
+    return Promise.resolve(prepareExport(project).validation);
   }
 
   async export(project: KomaProject, destination: ExportDestination): Promise<ExportResult> {
-    const validation = await this.validate(project);
+    const { validation, resolveImage, playable } = prepareExport(project);
     if (!validation.exportable) {
       return {
         status: 'failed',
@@ -474,7 +524,7 @@ export class PowerPointExporter implements PresentationExporter {
           ),
         );
       for (const transition of project.presentation.transitions) {
-        if (mode === 'morph' && !canMorph(transition)) {
+        if (mode === 'morph' && playable.has(transition) && !canMorph(transition, playable)) {
           warnings.push(
             issue(
               'warning',
@@ -529,16 +579,15 @@ export class PowerPointExporter implements PresentationExporter {
       pptx.subject = project.presentation.objective;
       pptx.title = project.presentation.title;
       const scale = HEIGHT / canvas.height;
-      const assets = new Map(project.assets.map((asset) => [asset.id, asset]));
       for (const koma of project.presentation.komas) {
         const slide = pptx.addSlide();
         slide.background = { color: colour(koma.background.colour) };
         if (koma.speakerNotes) slide.addNotes(koma.speakerNotes);
         for (const placed of placedElements(koma.elements))
-          addPlaced(slide, pptx, placed, scale, assets);
+          addPlaced(slide, pptx, placed, scale, resolveImage);
       }
       await pptx.writeFile({ fileName: temp, compression: true });
-      await addMotion(temp, project, destination);
+      await addMotion(temp, project, destination, playable);
       await rename(temp, destination.filePath);
       return { status: 'exported', filePath: destination.filePath, warnings };
     } catch {
