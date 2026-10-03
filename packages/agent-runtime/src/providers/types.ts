@@ -1,4 +1,4 @@
-import { modelNameSchema, providerIdSchema } from '@koma-motion/core';
+import { modelNameSchema, providerIdSchema, reasoningValueSchema } from '@koma-motion/core';
 import { z } from 'zod';
 import { agentErrorSchema, type AgentError } from '../contract/errors';
 import type {
@@ -31,8 +31,8 @@ export type ProviderModel = z.infer<typeof providerModelSchema>;
  * - `curated`: a list shipped with Koma Motion from the provider's
  *   documentation. It is not read from the account and may contain models
  *   that a sign-in cannot use.
- * - `cli`: the provider's CLI can list the models of the signed-in account
- *   on request (`listModels`). `models` holds a fallback until then.
+ * - `cli`: the provider's CLI reports capabilities on request (`listModels`).
+ *   Shipped catalogs are empty; defaults and saved IDs work without discovery.
  */
 export const modelCatalogSchema = z.object({
   source: z.enum(['none', 'curated', 'cli']),
@@ -42,11 +42,48 @@ export const modelCatalogSchema = z.object({
 });
 export type ModelCatalog = z.infer<typeof modelCatalogSchema>;
 
-/** The answer of a provider that listed the models of the signed-in account. */
+export const reasoningChoicesSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('unsupported') }),
+  z
+    .object({
+      status: z.literal('supported'),
+      choices: z
+        .array(
+          z.object({
+            value: reasoningValueSchema,
+            label: z.string().min(1).max(80),
+            description: z.string().max(1000).optional(),
+          }),
+        )
+        .min(1)
+        .max(50),
+      defaultValue: reasoningValueSchema.nullable(),
+    })
+    .superRefine((reasoning, ctx) => {
+      const values = reasoning.choices.map((choice) => choice.value);
+      if (
+        new Set(values).size !== values.length ||
+        (reasoning.defaultValue !== null && !values.includes(reasoning.defaultValue))
+      )
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Reasoning choices must be unique and contain the reported default.',
+        });
+    }),
+]);
+export const discoveredModelSchema = z.object({
+  id: modelNameSchema,
+  label: z.string().min(1).max(80),
+  reasoning: reasoningChoicesSchema,
+});
+export type DiscoveredModel = z.infer<typeof discoveredModelSchema>;
+export type ReasoningChoices = z.infer<typeof reasoningChoicesSchema>;
+
+/** A CLI-reported catalog, not a promise of account entitlement or successful generation. */
 export const providerModelListingSchema = z.discriminatedUnion('status', [
   z.object({
     status: z.literal('listed'),
-    models: z.array(modelNameSchema).max(50),
+    models: z.array(discoveredModelSchema).max(200),
     defaultModel: modelNameSchema.nullable(),
     checkedAt: z.iso.datetime(),
   }),
@@ -162,6 +199,9 @@ export interface AgentExecutionContext {
   readonly prompt: AgentPrompt;
   /** `null` lets the provider use its default model. */
   readonly model: string | null;
+  readonly reasoning?: string | null;
+  /** User-visible configuration fallback, retained with the result. Never hidden reasoning. */
+  reportWarning?(message: string): void;
   /**
    * Aborted when the user cancels or the execution times out. Providers must
    * stop their work and release their resources when this happens.

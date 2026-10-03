@@ -75,6 +75,10 @@ export async function generatePresentation(options: {
     request,
     timeoutMs: configuration.timeoutSeconds === null ? null : configuration.timeoutSeconds * 1000,
     model: configuration.providers[providerId]?.model ?? null,
+    reasoning:
+      configuration.providers[providerId]?.reasoningByModel?.[
+        configuration.providers[providerId]?.model ?? ''
+      ] ?? null,
     onStatus,
     ...(onOutput === undefined ? {} : { onOutput }),
   });
@@ -243,6 +247,10 @@ export async function regenerateTransition(options: {
     request: request.value,
     timeoutMs: configuration.timeoutSeconds === null ? null : configuration.timeoutSeconds * 1000,
     model: configuration.providers[providerId]?.model ?? null,
+    reasoning:
+      configuration.providers[providerId]?.reasoningByModel?.[
+        configuration.providers[providerId]?.model ?? ''
+      ] ?? null,
     onStatus,
   });
   if (result.status !== 'succeeded') {

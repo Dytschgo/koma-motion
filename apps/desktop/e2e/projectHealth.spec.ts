@@ -156,7 +156,7 @@ test('failed migration preserves original bytes, the active document and draft; 
   expect(running.problems).toEqual([]);
 });
 
-test('Save current format writes version 3; optional generation timing stays in controls', async () => {
+test('Save current format writes the current version; optional generation timing stays in controls', async () => {
   const source = await writeProject('legacy-v2.koma', { ...buildProject(), schemaVersion: 2 });
   await open(source);
   await expect(health()).toContainText('Project upgraded from format version 2');

@@ -1,6 +1,5 @@
 import type { KomaProject } from '@koma-motion/core';
 import { useId, useState, type ReactElement } from 'react';
-import { listProviderModels } from '../lib/agentActions';
 import {
   CUSTOM_MODEL_VALUE,
   DEFAULT_MODEL_VALUE,
@@ -14,8 +13,10 @@ import {
 import { useAgentStore, type DetectedProvider } from '../state/agentStore';
 import { changeAgentConfiguration } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
-import { RefreshIcon, WarningIcon } from './icons';
+import { WarningIcon } from './icons';
 import { Button, Select, TextInput } from './ui';
+import { ModelDiscoveryStatus } from './ModelDiscoveryStatus';
+import { ModelReasoningControl } from './ModelReasoningControl';
 
 /** The model choices of the selected provider, with the listing and the remembered model. */
 export function useModelChoices(
@@ -42,10 +43,6 @@ function groupOptions(options: readonly ModelOption[]): [string, ModelOption[]][
   return [...groups.entries()];
 }
 
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
-}
-
 /**
  * Chooses the model of one provider for the open project: the provider's
  * default, a model from its catalog or account list, or a typed model id.
@@ -65,7 +62,6 @@ export function ModelPicker({
   const apply = useProjectStore((state) => state.apply);
   const rememberModel = useAgentStore((state) => state.rememberModel);
   const providerId = provider?.metadata.id ?? project.agentConfiguration.selectedProviderId;
-  const listing = useAgentStore((state) => state.modelListings[providerId]);
   const choices = useModelChoices(project, provider);
   const [custom, setCustom] = useState<string | null>(null);
   const selectId = useId();
@@ -168,41 +164,16 @@ export function ModelPicker({
         </div>
       )}
 
-      {provider?.metadata.modelCatalog.source === 'cli' && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            variant="outline"
-            compact
-            icon={<RefreshIcon size={14} />}
-            disabled={disabled || listing === 'loading'}
-            onClick={() => void listProviderModels(providerId)}
-          >
-            {listing !== undefined && listing !== 'loading' && listing.status === 'listed'
-              ? `Reload models from ${name}`
-              : `Load models from ${name}`}
-          </Button>
-          <p role="status" className="text-sm text-ink-400">
-            {listing === 'loading'
-              ? `Asking ${name}…`
-              : listing?.status === 'listed'
-                ? `${String(listing.models.length)} models listed by your ${name} sign-in at ${formatTime(listing.checkedAt)}.`
-                : ''}
-          </p>
-          {listing !== undefined && listing !== 'loading' && listing.status === 'failed' && (
-            <p role="alert" className="w-full text-sm text-motion">
-              Error: {listing.message}
-            </p>
-          )}
-        </div>
-      )}
+      {provider && <ModelDiscoveryStatus provider={provider} disabled={disabled} />}
+      <ModelReasoningControl project={project} providerId={providerId} disabled={disabled} />
 
       {choices.availability === 'notListed' && choices.effectiveModel !== null && (
         <p className="flex gap-1.5 text-sm text-signal-warn">
           <span className="mt-0.5 flex-none">
             <WarningIcon size={14} />
           </span>
-          {choices.effectiveModel} is not in the list {name} reported for your sign-in. The run may
-          fail; choose a listed model or the default.
+          {choices.effectiveModel} is not in the list {name} reported. The run may fail; choose a
+          listed model or the default.
         </p>
       )}
 

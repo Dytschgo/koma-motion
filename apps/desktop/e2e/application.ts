@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { mockModelDiscovery } from './modelFixtures';
 import {
   _electron as electron,
   expect,
@@ -90,6 +91,13 @@ export async function launchApplication(
     }
   });
   await window.waitForLoadState('domcontentloaded');
+  // Ordinary native tests must never discover capabilities through the user's live CLIs.
+  if (
+    options.executablePath === undefined &&
+    !Object.keys({ ...process.env, ...options.env }).some((name) => name.startsWith('KOMA_LIVE_'))
+  ) {
+    await mockModelDiscovery(application);
+  }
 
   return {
     application,

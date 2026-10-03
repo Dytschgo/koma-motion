@@ -1,4 +1,4 @@
-import { modelNameSchema } from '@koma-motion/core';
+import { modelNameSchema, reasoningValueSchema } from '@koma-motion/core';
 import { agentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
 import type { TransitionRegenerationRequest } from '../contract/transition';
@@ -9,6 +9,7 @@ import type {
   ProviderExecutionResult,
   ModelCatalog,
   ProviderMetadata,
+  ProviderModelListing,
 } from '../providers/types';
 import {
   createCliEnvironment,
@@ -18,6 +19,7 @@ import {
   type CliEnvironment,
 } from './cliEnvironment';
 import { redactDiagnostics } from './redact';
+import { discoverModels, validatedReasoning } from './modelCapabilities';
 import { analyzeBrandKitWithClaude } from './claudeBrandKitAnalysis';
 import { analyzeBrandProfileWithClaude } from './claudeBrandProfileAnalysis';
 import type {
@@ -38,26 +40,11 @@ import type {
 
 export const CLAUDE_CODE_PROVIDER_ID = 'claude-code';
 
-/**
- * Models offered for Claude Code. `claude --help` documents the aliases
- * `fable`, `opus` and `sonnet` and accepts a model's full name; `haiku` was
- * accepted by Claude Code 2.1.285 on 30 September 2026. Claude Code has no
- * command that lists the models of a sign-in, so this list is curated and
- * the CLI decides at run time whether a model is available.
- */
+/** Model choices come only from the installed CLI's initialization response. */
 export const CLAUDE_MODEL_CATALOG: ModelCatalog = {
-  source: 'curated',
-  models: [
-    { id: 'fable', label: 'Fable (latest)', kind: 'alias' },
-    { id: 'opus', label: 'Opus (latest)', kind: 'alias' },
-    { id: 'sonnet', label: 'Sonnet (latest)', kind: 'alias' },
-    { id: 'haiku', label: 'Haiku (latest)', kind: 'alias' },
-    { id: 'claude-fable-5-1', label: 'Claude Fable 5.1', kind: 'id' },
-    { id: 'claude-opus-5-5', label: 'Claude Opus 5.5', kind: 'id' },
-    { id: 'claude-sonnet-5-5', label: 'Claude Sonnet 5.5', kind: 'id' },
-    { id: 'claude-haiku-4-5-20251001', label: 'Claude Haiku 4.5', kind: 'id' },
-  ],
-  note: 'A list of Claude Code aliases and model names. Claude Code cannot list the models of your sign-in; it reports a model it cannot use when the run starts.',
+  source: 'cli',
+  models: [],
+  note: 'Models and reasoning choices reported by Claude Code. This catalog does not guarantee account access. Default leaves the choice to the CLI.',
 };
 const EXECUTABLE_NAME = 'claude';
 
@@ -111,11 +98,13 @@ export function buildClaudeCodeArguments(options: {
   readonly systemPrompt: string;
   readonly responseJsonSchema: string;
   readonly model: string | null;
+  readonly reasoning?: string | null;
 }): string[] {
   const model = options.model === null ? [] : ['--model', modelNameSchema.parse(options.model)];
   return [
     ...FIXED_ARGUMENTS,
     ...model,
+    ...(options.reasoning ? ['--effort', reasoningValueSchema.parse(options.reasoning)] : []),
     '--system-prompt',
     options.systemPrompt,
     '--json-schema',
@@ -266,6 +255,15 @@ export class ClaudeCodeProvider implements AgentProvider {
     return analyzeBrandProfileWithClaude(this.#environment, request, context);
   }
 
+  listModels(signal: AbortSignal): Promise<ProviderModelListing> {
+    return discoverModels(
+      this.#environment,
+      'claude',
+      FIXED_ARGUMENTS.map((value) => (value === 'text' ? 'stream-json' : value)),
+      signal,
+    );
+  }
+
   generatePresentation(
     _request: PresentationGenerationRequest,
     context: AgentExecutionContext,
@@ -301,6 +299,7 @@ export class ClaudeCodeProvider implements AgentProvider {
       };
     }
 
+    const reasoning = await validatedReasoning(context, (signal) => this.listModels(signal));
     const workingDirectory = await this.#environment.createWorkingDirectory();
     try {
       context.reportProgress(progress);
@@ -311,6 +310,7 @@ export class ClaudeCodeProvider implements AgentProvider {
           systemPrompt: `${context.prompt.system}\n\n${CLAUDE_VISIBLE_PROGRESS_INSTRUCTION}`,
           responseJsonSchema: JSON.stringify(context.prompt.responseJsonSchema),
           model: context.model,
+          reasoning,
         }),
         input: context.prompt.user,
         workingDirectory,

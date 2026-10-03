@@ -53,6 +53,7 @@ interface Execution<Request> {
   readonly request: Request;
   readonly timeoutMs?: number | null;
   readonly model?: string | null;
+  readonly reasoning?: string | null;
   readonly onStatus?: (event: ExecutionStatusEvent) => void;
   /** Receives text the provider writes for the user, as it arrives. */
   readonly onOutput?: (event: ExecutionOutputEvent) => void;
@@ -397,6 +398,7 @@ export class GenerationRunner {
       return fail(agentError('providerUnavailable', detection.message));
     }
 
+    const configurationWarnings = new Set<string>();
     const responseJsonSchema = task.responseJsonSchema(request);
     let prompt: AgentPrompt = task.render(request, responseJsonSchema);
     tools.setPromptTemplate(`${prompt.templateId}@${String(prompt.templateVersion)}`);
@@ -418,6 +420,10 @@ export class GenerationRunner {
           attempt,
           prompt,
           model: execution.model ?? null,
+          reasoning: execution.reasoning ?? null,
+          reportWarning: (message) => {
+            configurationWarnings.add(message);
+          },
           signal,
           reportProgress: (message) => {
             report(attempt === 1 ? 'generating' : 'repairing', message);
@@ -475,7 +481,7 @@ export class GenerationRunner {
           executionId: execution.executionId,
           providerId: provider.id,
           response: validated.value.response,
-          warnings: validated.value.warnings,
+          warnings: [...configurationWarnings, ...validated.value.warnings],
           repaired: attempt > 1,
           diagnostics: tools.diagnostics(),
         };

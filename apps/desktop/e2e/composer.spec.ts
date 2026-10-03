@@ -96,10 +96,12 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
     await model
       .locator('optgroup')
       .evaluateAll((groups) => groups.map((group) => group.getAttribute('label'))),
-  ).toEqual(['Aliases', 'Model names']);
+  ).toEqual(['Reported by the CLI']);
   await expect(model.locator('option[value="opus"]')).toHaveCount(1);
   await expect(model.locator('option[value="claude-opus-5-5"]')).toHaveCount(1);
-  await expect(models.getByText(/cannot list the models of your sign-in/)).toBeVisible();
+  await expect(
+    models.getByText(/Models and reasoning choices reported by Claude Code/),
+  ).toBeVisible();
   await model.selectOption('opus');
   await expect(modelTrigger(window)).toHaveAttribute('aria-description', 'Next run uses opus');
 
@@ -115,7 +117,7 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   await custom.press('Enter');
   await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
-    'Next run uses claude-opus-5-5[1m]',
+    'Next run uses claude-opus-5-5[1m], not in the latest CLI list',
   );
   await expect(model).toHaveValue('claude-opus-5-5[1m]');
   // An entered model stays in the list after choosing Default.

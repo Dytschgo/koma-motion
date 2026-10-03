@@ -10,6 +10,12 @@ changes to the project format.
 
 ### Changed
 
+- The model chooser uses CLI-reported text models and per-model reasoning menus,
+  with an expanded selection, refresh/retry states and preserved image controls.
+  Saved effort choices are revalidated before execution; unsupported discovery
+  leaves defaults available. Project format 4 stores reasoning preferences per
+  provider and model, with migrations from older projects.
+
 - An out-of-date transition shows a compact status in the Koma strip, between
   its source and destination Komas, with **Regenerate transition** on that
   transition. The explanation and links to both Komas open from a disclosure

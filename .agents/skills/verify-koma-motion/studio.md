@@ -9,8 +9,7 @@ pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatBra
 
 - Composer: create a project, choose a model from the compact searchable list beside
   Brand Kit below the request. The header must have no provider/model selector.
-  Verify provider logos, cross-provider search, numbered Models before Automatic
-  choices, and Favorites chosen by the user. Stars remain visible without hover:
+  Verify provider logos, cross-provider search, CLI-reported Models before default rows, and Favorites chosen by the user. Stars remain visible without hover:
   outlined when unselected, filled when favorited. Check
   one-step Undo/Redo of the combined provider/model choice. Pinning favorites must
   persist across restart without adding project undo entries. Open Model options
@@ -18,6 +17,13 @@ pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatBra
   dropdown. Toggle Auto and verify keyboard navigation at a narrow chat width. The mock
   disclosure, reference attachment, instructions and Generate action must remain
   reachable in short windows.
+- Model capabilities: run `modelCapabilities.spec.ts`. The harness replaces CLI
+  discovery with synthetic responses (ordinary tests never query live CLIs).
+  Verify selected-row expansion only for reported reasoning menus, native radio
+  keys, per-model persistence across save/reopen, refresh/loading/failure and
+  removed-choice warnings, unsupported discovery, and Text/Images navigation at
+  300 pixels. CLI defaults and custom IDs must remain available. Protocol unit
+  tests cover independent per-provider parsing and bounded child-process exchanges.
 - Chat Brand Kit chooser: select a saved kit beside the model, check the current
   selection after Undo/Redo, generate with the mock and save the project. Exercise
   empty/damaged libraries and retry, long names, outside-click/Escape dismissal,

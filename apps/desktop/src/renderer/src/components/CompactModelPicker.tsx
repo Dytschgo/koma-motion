@@ -1,18 +1,17 @@
 import type { KomaProject } from '@koma-motion/core';
 import { useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
-import { detectProviders } from '../lib/agentActions';
-import {
-  CUSTOM_MODEL_VALUE,
-  getModelChoices,
-  withSelectedProviderModel,
-} from '../lib/composerChoices';
+import { detectProviders, listProviderModels } from '../lib/agentActions';
+import { withSelectedProviderModel } from '../lib/composerChoices';
 import { useAgentStore } from '../state/agentStore';
 import { changeAgentConfiguration } from '../state/commands';
 import { useModelFavoritesStore } from '../state/modelFavoritesStore';
 import { useProjectStore } from '../state/projectStore';
-import { CheckIcon, ChevronIcon, SettingsIcon } from './icons';
+import { CheckIcon, ChevronIcon, RefreshIcon, SettingsIcon } from './icons';
 import { ProviderLogo } from './ProviderLogo';
-import { Button, IconTile, SEGMENT_TRACK, SearchIcon, choiceRowClass, segmentClass } from './ui';
+import { Button, SEGMENT_TRACK, SearchIcon, segmentClass } from './ui';
+import { getModelEntries } from '../lib/modelEntries';
+import { ModelReasoningControl } from './ModelReasoningControl';
+import { ModelDiscoveryStatus } from './ModelDiscoveryStatus';
 import { ImageModelPicker } from './ImageModelPicker';
 
 export function CompactModelPicker({
@@ -43,30 +42,7 @@ export function CompactModelPicker({
   const list = useRef<HTMLDivElement>(null);
   const options = useRef<HTMLDivElement>(null);
   const terms = query.toLocaleLowerCase().trim();
-  const entries = providers.flatMap((provider) => {
-    const id = provider.metadata.id;
-    const listing = listings[id];
-    const choices = getModelChoices(provider.metadata, project.agentConfiguration, {
-      listing: listing === 'loading' ? null : listing,
-      remembered: remembered[`${project.id}:${id}`],
-    });
-    return choices.options
-      .filter((option) => option.value !== CUSTOM_MODEL_VALUE)
-      .map((option) => ({
-        provider,
-        option,
-        title:
-          option.value === ''
-            ? `${provider.metadata.displayName} ${id === 'mock' ? 'demo' : 'default'}`
-            : (option.label.split(' · ')[0] ?? option.label),
-        favorite: favorites.some(
-          (favorite) => favorite.providerId === id && favorite.model === option.value,
-        ),
-        selected:
-          project.agentConfiguration.selectedProviderId === id && choices.value === option.value,
-        available: provider.detection.availability === 'available',
-      }));
-  });
+  const entries = getModelEntries(providers, project, listings, remembered, favorites);
   const filtered = entries.filter((entry) =>
     `${entry.title} ${entry.option.value} ${entry.provider.metadata.displayName}`
       .toLocaleLowerCase()
@@ -74,23 +50,23 @@ export function CompactModelPicker({
   );
   const groups = [
     { name: 'Favorites', entries: filtered.filter((entry) => entry.favorite) },
-    {
-      name: 'Models',
-      entries: filtered.filter(
-        (entry) => !entry.favorite && !['aliases', 'default'].includes(entry.option.group),
-      ),
-    },
-    {
-      name: 'Automatic choices',
-      entries: filtered.filter(
-        (entry) => !entry.favorite && ['aliases', 'default'].includes(entry.option.group),
-      ),
-    },
+    { name: 'Models', entries: filtered.filter((entry) => !entry.favorite) },
   ];
   const availableProviders = providers.filter(
     (provider) =>
       provider.metadata.id !== 'mock' && provider.detection.availability === 'available',
   ).length;
+
+  // Each opening replaces the prior snapshot. Failed refreshes never retain old capabilities.
+  const checked = useRef(new Set<string>());
+  useEffect(() => {
+    for (const provider of providers) {
+      const id = provider.metadata.id;
+      if (provider.metadata.modelCatalog.source !== 'cli' || checked.current.has(id)) continue;
+      checked.current.add(id);
+      void listProviderModels(id);
+    }
+  }, [providers]);
 
   useEffect(() => {
     if (!optionsOpen) search.current?.focus();
@@ -102,7 +78,7 @@ export function CompactModelPicker({
       <div
         role="tablist"
         aria-label="Model type"
-        className={`${SEGMENT_TRACK} flex-none border-b border-line p-2`}
+        className={`${SEGMENT_TRACK} mx-3 mt-3 flex-none rounded-xl border border-line p-1`}
       >
         {(['text', 'images'] as const).map((value) => (
           <button
@@ -163,7 +139,7 @@ export function CompactModelPicker({
           </>
         ) : (
           <>
-            <div className="mx-2 flex flex-none items-center gap-2 border-b border-line px-2 py-3">
+            <div className="mx-3 mt-3 mb-1 flex flex-none items-center gap-2 rounded-xl border border-line bg-surface-1 px-3 py-2">
               <SearchIcon />
               <input
                 ref={search}
@@ -195,6 +171,11 @@ export function CompactModelPicker({
               aria-label="Models"
               className="min-h-0 overflow-y-auto px-2 pb-2"
               onKeyDown={(event) => {
+                if (
+                  !(event.target instanceof HTMLElement) ||
+                  !event.target.matches('[data-model-choice]')
+                )
+                  return;
                 if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
                 const rows = [
                   ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
@@ -221,96 +202,129 @@ export function CompactModelPicker({
                 .filter((group) => group.entries.length > 0)
                 .map((group) => (
                   <section key={group.name} aria-label={group.name}>
-                    <h3 className="eyebrow px-2 pt-4 pb-2">{group.name}</h3>
+                    <h3 className="eyebrow flex items-center gap-3 px-2 pt-4 pb-2">
+                      {group.name}
+                      <span className="h-px flex-1 bg-line" />
+                    </h3>
                     {group.entries.map((entry) => {
                       const id = entry.provider.metadata.id;
                       const name = entry.provider.metadata.displayName;
                       return (
                         <div
                           key={`${id}:${entry.option.value}`}
-                          className={`group flex items-center ${choiceRowClass(entry.selected)}`}
+                          className={`group mb-2 rounded-xl border ${entry.selected ? 'border-accent bg-accent-deep ring-1 ring-accent/70' : 'border-line/40 bg-surface-2 hover:border-line hover:bg-surface-3'}`}
                         >
-                          <button
-                            type="button"
-                            data-model-choice
-                            data-provider-id={id}
-                            data-model-value={entry.option.value}
-                            aria-label={`${entry.title} · ${name}`}
-                            title={entry.option.value || 'Use the provider default'}
-                            aria-pressed={entry.selected}
-                            disabled={disabled}
-                            className="flex min-h-14 min-w-0 flex-1 items-center gap-2.5 rounded-control px-2.5 py-2.5 text-left disabled:opacity-50"
-                            onClick={() => {
-                              const previous = project.agentConfiguration.providers[id]?.model;
-                              if (entry.option.value === '' && previous)
-                                remember(`${project.id}:${id}`, previous);
-                              apply(
-                                changeAgentConfiguration(
-                                  withSelectedProviderModel(
-                                    project.agentConfiguration,
-                                    id,
-                                    entry.option.value,
+                          <div className="flex items-center">
+                            <button
+                              type="button"
+                              data-model-choice
+                              data-provider-id={id}
+                              data-model-value={entry.option.value}
+                              aria-label={`${entry.title} · ${name}`}
+                              title={entry.option.value || 'Use the provider default'}
+                              aria-pressed={entry.selected}
+                              disabled={disabled}
+                              className="flex min-h-14 min-w-0 flex-1 items-center gap-2.5 rounded-control px-2.5 py-2.5 text-left disabled:opacity-50"
+                              onClick={() => {
+                                const previous = project.agentConfiguration.providers[id]?.model;
+                                if (entry.option.value === '' && previous)
+                                  remember(`${project.id}:${id}`, previous);
+                                apply(
+                                  changeAgentConfiguration(
+                                    withSelectedProviderModel(
+                                      project.agentConfiguration,
+                                      id,
+                                      entry.option.value,
+                                    ),
                                   ),
-                                ),
-                              );
-                              onClose();
-                            }}
-                          >
-                            <IconTile>
-                              <ProviderLogo providerId={id} />
-                            </IconTile>
-                            <span className="min-w-0 flex-1">
-                              <strong className="block break-words text-sm font-semibold text-ink-100">
-                                {entry.title}
-                              </strong>
-                              <span
-                                className={`mt-0.5 block text-xs ${entry.available ? 'text-ink-300' : 'text-signal-warn'}`}
-                              >
-                                {name} ·{' '}
-                                {id === 'mock'
-                                  ? 'Local demo'
-                                  : entry.available
-                                    ? 'Available'
-                                    : entry.provider.detection.availability === 'unavailable'
-                                      ? 'Not installed'
-                                      : 'Unavailable'}
+                                );
+                                if (!entry.hasReasoning) onClose();
+                              }}
+                            >
+                              <span className="flex size-10 flex-none items-center justify-center rounded-xl border border-line bg-surface-1">
+                                <ProviderLogo providerId={id} size={26} />
                               </span>
-                            </span>
+                              <span className="min-w-0 flex-1">
+                                <strong className="block break-words text-[14px] font-semibold text-ink-100">
+                                  {entry.title}
+                                </strong>
+                                <span className="mt-1 flex items-center gap-1.5 text-xs text-ink-300">
+                                  <span
+                                    aria-hidden="true"
+                                    className={`size-1.5 flex-none rounded-full ${entry.available ? 'bg-signal-ok' : 'bg-signal-warn'}`}
+                                  />
+                                  {name} ·{' '}
+                                  {id === 'mock'
+                                    ? 'Local demo'
+                                    : entry.available
+                                      ? 'Available'
+                                      : entry.provider.detection.availability === 'unavailable'
+                                        ? 'Not installed'
+                                        : 'Unavailable'}
+                                </span>
+                              </span>
+                            </button>
+                            <button
+                              type="button"
+                              aria-label={`${entry.favorite ? 'Unpin' : 'Pin'} ${entry.title} · ${name}`}
+                              aria-pressed={entry.favorite}
+                              disabled={disabled}
+                              title={entry.favorite ? 'Remove from favorites' : 'Add to favorites'}
+                              className={`mr-2 flex size-8 flex-none items-center justify-center rounded-control hover:bg-surface-1 hover:text-accent disabled:opacity-40 ${entry.favorite ? 'text-accent' : 'text-ink-300'}`}
+                              onClick={() => {
+                                toggleFavorite({ providerId: id, model: entry.option.value });
+                                search.current?.focus();
+                              }}
+                            >
+                              <svg
+                                aria-hidden="true"
+                                width="16"
+                                height="16"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                fill={entry.favorite ? 'currentColor' : 'none'}
+                                strokeWidth="1.5"
+                              >
+                                <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z" />
+                              </svg>
+                            </button>
                             {entry.selected && (
-                              <span className="flex-none text-accent">
-                                <CheckIcon size={14} />
+                              <span
+                                aria-hidden="true"
+                                className="mr-3 flex size-5 flex-none items-center justify-center rounded-full bg-accent text-surface-0"
+                              >
+                                <CheckIcon size={13} />
                               </span>
                             )}
-                          </button>
-                          <button
-                            type="button"
-                            aria-label={`${entry.favorite ? 'Unpin' : 'Pin'} ${entry.title} · ${name}`}
-                            aria-pressed={entry.favorite}
-                            disabled={disabled}
-                            title={entry.favorite ? 'Remove from favorites' : 'Add to favorites'}
-                            className={`mr-1 flex size-8 flex-none items-center justify-center rounded-control hover:bg-surface-1 hover:text-accent disabled:opacity-40 ${entry.favorite ? 'text-accent' : 'text-ink-300'}`}
-                            onClick={() => {
-                              toggleFavorite({ providerId: id, model: entry.option.value });
-                              search.current?.focus();
-                            }}
-                          >
-                            <svg
-                              aria-hidden="true"
-                              width="16"
-                              height="16"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              fill={entry.favorite ? 'currentColor' : 'none'}
-                              strokeWidth="1.5"
-                            >
-                              <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9z" />
-                            </svg>
-                          </button>
+                          </div>
+                          {entry.selected && (
+                            <>
+                              <ModelReasoningControl
+                                project={project}
+                                providerId={id}
+                                disabled={disabled}
+                              />
+                              {entry.notice && (
+                                <p role="status" className="mx-3 mb-3 text-xs text-ink-300">
+                                  {entry.notice}
+                                </p>
+                              )}
+                            </>
+                          )}
                         </div>
                       );
                     })}
                   </section>
                 ))}
+              <div className="flex flex-col gap-2 px-2 py-3" aria-label="Model discovery">
+                {providers.map((provider) => (
+                  <ModelDiscoveryStatus
+                    key={provider.metadata.id}
+                    provider={provider}
+                    disabled={disabled}
+                  />
+                ))}
+              </div>
               {detection === 'running' && (
                 <p role="status" className="px-2 py-3 text-sm text-ink-300">
                   Checking providers…
@@ -333,9 +347,25 @@ export function CompactModelPicker({
               )}
             </div>
             <div className="flex flex-none items-center justify-between gap-2 border-t border-line px-3 py-2">
-              <span className="text-xs text-ink-400">
-                {entries.length} models · {availableProviders} available providers
+              <span role="status" className="min-w-0 flex-1 text-xs text-ink-400">
+                {Object.values(listings).includes('loading')
+                  ? 'Discovering CLI capabilities…'
+                  : `${entries.length} choices · ${availableProviders} available providers`}
               </span>
+              <button
+                type="button"
+                aria-label="Refresh model capabilities"
+                title="Refresh all text model and reasoning choices"
+                disabled={disabled || Object.values(listings).includes('loading')}
+                className="flex size-7 flex-none items-center justify-center rounded-control text-ink-300 hover:bg-surface-3 disabled:opacity-40"
+                onClick={() => {
+                  for (const provider of providers)
+                    if (provider.metadata.modelCatalog.source === 'cli')
+                      void listProviderModels(provider.metadata.id);
+                }}
+              >
+                <RefreshIcon size={14} />
+              </button>
               <button
                 type="button"
                 aria-label="Model options"
