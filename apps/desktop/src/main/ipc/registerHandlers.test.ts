@@ -12,6 +12,7 @@ import type { BrowserWindow, IpcMainInvokeEvent, WebContents } from 'electron';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { APP_URL } from '../securityPolicy';
 import { createBrandKitLibrary } from '../services/brandKitLibrary';
+import { RecoveryService } from '../services/recovery';
 import { createProjectSession } from '../services/projectFiles';
 import { readMockOptions, registerHandlers } from './registerHandlers';
 
@@ -60,6 +61,63 @@ describe('project persistence IPC', () => {
     dialogs.showSaveDialog.mockClear();
     for (const registration of registrations.splice(0)) {
       registration.dispose();
+    }
+  });
+
+  it('requires a startup decision, restores corrupt image health and rejects path/stale capture authority', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'koma-recovery-ipc-'));
+    try {
+      const original = new RecoveryService(directory);
+      const project = buildProject({
+        brandKit: buildBrandKit({ logoAssetId: 'broken' }),
+        assets: [
+          {
+            id: 'broken',
+            type: 'image',
+            name: 'broken.png',
+            mediaType: 'image/png',
+            projectPath: 'assets/broken.png',
+            embeddedData: { encoding: 'base64', data: 'AAAA' },
+            metadata: {},
+          },
+        ],
+      });
+      const sessionId = await original.activate(project, join(directory, 'source.koma'));
+      await original.capture({ sessionId, revision: 1, project, dirty: true });
+      const { invoke, event } = openHandlers(
+        join(directory, 'kits'),
+        {},
+        new RecoveryService(directory),
+      );
+      await expect(invoke('koma:project:create', event, { name: 'New' })).rejects.toThrow(
+        'Recover or discard',
+      );
+      await expect(invoke('koma:project:open', event, {})).rejects.toThrow('Recover or discard');
+      expect(dialogs.showOpenDialog).not.toHaveBeenCalled();
+      await expect(
+        invoke('koma:recovery:capture', event, {
+          sessionId,
+          revision: 2,
+          project,
+          dirty: true,
+          sourcePath: 'arbitrary.koma',
+        }),
+      ).rejects.toThrow('Invalid request');
+      expect(await invoke('koma:recovery:restore', event, {})).toMatchObject({
+        status: 'recovered',
+        project,
+        unavailableAssetIds: ['broken'],
+      });
+      expect(
+        await invoke('koma:recovery:capture', event, {
+          sessionId,
+          revision: 2,
+          project,
+          dirty: true,
+        }),
+      ).toEqual({ status: 'stale' });
+    } finally {
+      await rm(directory, { recursive: true, force: true });
     }
   });
 
@@ -251,6 +309,7 @@ describe('Brand Kit library IPC', () => {
 function openHandlers(
   brandKitDirectory = join(tmpdir(), 'koma-unused-brand-kits'),
   windowParts: Partial<BrowserWindow> = {},
+  recovery: RecoveryService | null = null,
 ): {
   event: IpcMainInvokeEvent;
   invoke: (channel: string, event: IpcMainInvokeEvent, payload: unknown) => Promise<unknown>;
@@ -260,7 +319,7 @@ function openHandlers(
   const window = { webContents, isDestroyed: () => false, ...windowParts } as BrowserWindow;
   const registered = registerHandlers({
     window,
-    session: createProjectSession(),
+    session: { ...createProjectSession(), recovery },
     brandKits: createBrandKitLibrary(brandKitDirectory),
     updates: {
       getStatus: () => ({ state: 'idle', channel: 'stable', currentVersion: '0.1.0' }),

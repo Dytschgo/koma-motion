@@ -416,3 +416,14 @@ therefore clears the indicator.
 | TypeScript 6 instead of 7                               | type-aware linting works                      | the newest compiler is not used until the linter supports it                      |
 | Packages export source                                  | no build step, fast feedback                  | packages cannot be published as they are                                          |
 | Element editing through the inspector                   | precise values, accessible with the keyboard  | elements cannot be dragged on the canvas yet                                      |
+
+### Crash recovery state
+
+The desktop main process owns a bounded atomic recovery record in private app
+storage. Committed document snapshots cross validated recovery IPC channels with
+a main-issued session epoch and monotonic revision. The renderer debounces them
+and reports the actual write result. Startup restoration is explicit and creates
+an unsaved copy; the stored source path only prevents overwriting the original.
+A clean-save acknowledgment must match the validated saved document before the
+snapshot is removed. See [Crash recovery](docs/CRASH_RECOVERY.md) for lifecycle,
+limits and verification.

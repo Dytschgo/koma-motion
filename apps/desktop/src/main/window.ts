@@ -5,6 +5,8 @@ import { registerHandlers } from './ipc/registerHandlers';
 import { APP_URL, hardenWebContents } from './security';
 import type { BrandKitLibrary } from './services/brandKitLibrary';
 import { createProjectSession } from './services/projectFiles';
+import { finishCleanClose, finishDiscardClose } from './services/projectClose';
+import { RecoveryService } from './services/recovery';
 import type { UpdateService } from './updates/service';
 
 const APPLICATION_NAME = 'Koma Motion';
@@ -71,8 +73,11 @@ export function createMainWindow(
   hardenWebContents(window.webContents);
 
   const session = createProjectSession();
+  const recovery = new RecoveryService(app.getPath('userData'));
+  session.recovery = recovery;
   let closeConfirmed = false;
   let askingToClose = false;
+  let flushingClose = false;
 
   const updateTitle = (): void => {
     if (window.isDestroyed()) {
@@ -103,7 +108,23 @@ export function createMainWindow(
   });
 
   window.on('close', (event) => {
-    if (closeConfirmed || !session.hasUnsavedChanges) {
+    if (closeConfirmed) return;
+    if (!session.hasUnsavedChanges) {
+      event.preventDefault();
+      if (flushingClose) return;
+      flushingClose = true;
+      void finishCleanClose(session, () => recovery.flush(), {
+        isOpen: () => !window.isDestroyed(),
+        confirm: () => {
+          closeConfirmed = true;
+          window.close();
+        },
+        askAgain: () => {
+          window.close();
+        },
+      }).finally(() => {
+        flushingClose = false;
+      });
       return;
     }
     event.preventDefault();
@@ -111,6 +132,7 @@ export function createMainWindow(
       return;
     }
     askingToClose = true;
+    const closeSessionId = session.sessionId;
     void dialog
       .showMessageBox(window, {
         type: 'warning',
@@ -122,7 +144,8 @@ export function createMainWindow(
         cancelId: CLOSE_CHOICES.cancel,
         noLink: true,
       })
-      .then(({ response }) => {
+      .then(async ({ response }) => {
+        if (window.isDestroyed() || session.sessionId !== closeSessionId) return;
         if (response === CLOSE_CHOICES.save) {
           // Remember which project asked to be saved. A confirm for a later
           // project, or for a project that still has unsaved edits, does not close.
@@ -132,10 +155,22 @@ export function createMainWindow(
             ipcEvents['koma:app:save-and-close'].parse({}),
           );
         } else if (response === CLOSE_CHOICES.discard) {
-          closeConfirmed = true;
-          window.close();
+          await finishDiscardClose(session, () => recovery.discardActive(), {
+            isOpen: () => !window.isDestroyed(),
+            confirm: () => {
+              closeConfirmed = true;
+              window.close();
+            },
+          });
         }
       })
+      .catch(() =>
+        dialog.showMessageBox(window, {
+          type: 'error',
+          message:
+            'The recovery snapshot could not be discarded. Your project remains open. Retry or save it.',
+        }),
+      )
       .finally(() => {
         askingToClose = false;
       });

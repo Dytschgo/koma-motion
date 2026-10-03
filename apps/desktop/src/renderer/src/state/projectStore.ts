@@ -24,6 +24,7 @@ export interface SaveClaim {
 }
 
 interface ProjectState {
+  readonly recoverySessionId: string | null;
   readonly history: History<KomaProject> | null;
   readonly file: ProjectFileInfo | null;
   /** The document as it was when it was last saved or loaded. */
@@ -47,6 +48,8 @@ interface ProjectState {
     warnings?: readonly string[],
     migratedFrom?: number | null,
     unavailableAssetIds?: readonly string[],
+    recoverySessionId?: string | null,
+    recovered?: boolean,
   ) => void;
   /**
    * Reserves a serial for a save of the project that is open now.
@@ -71,6 +74,7 @@ interface ProjectState {
 }
 
 export const useProjectStore = create<ProjectState>((set, get) => ({
+  recoverySessionId: null,
   history: null,
   file: null,
   savedProject: null,
@@ -80,7 +84,15 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   nextSaveSerial: 1,
   appliedSaveSerial: 0,
 
-  load(project, file, warnings = [], migratedFrom = null, unavailableAssetIds = []) {
+  load(
+    project,
+    file,
+    warnings = [],
+    migratedFrom = null,
+    unavailableAssetIds = [],
+    recoverySessionId = null,
+    recovered = false,
+  ) {
     setUnavailableImageAssets(project.assets, unavailableAssetIds);
     // Live issues are recalculated from the document, never retained as stale load messages.
     const live = new Set([
@@ -92,7 +104,8 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     set((state) => ({
       history: createHistory(project),
       file,
-      savedProject: project,
+      savedProject: recovered ? null : project,
+      recoverySessionId,
       loadWarnings: [
         ...new Set(
           warnings.filter(

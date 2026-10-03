@@ -15,6 +15,7 @@ import { useHealthStore } from '../state/healthStore';
 import { useReferenceStore } from '../state/referenceStore';
 import { useBrandProfileStore } from '../state/brandProfileStore';
 import { invoke } from './api';
+import { flushRecovery } from './recovery';
 
 export const DEFAULT_PROJECT_NAME = 'Untitled project';
 
@@ -78,8 +79,10 @@ export async function createNewProject(): Promise<void> {
     return;
   }
   try {
-    const { project } = await invoke('koma:project:create', { name: DEFAULT_PROJECT_NAME });
-    useProjectStore.getState().load(project, null);
+    const { project, recoverySessionId } = await invoke('koma:project:create', {
+      name: DEFAULT_PROJECT_NAME,
+    });
+    useProjectStore.getState().load(project, null, [], null, [], recoverySessionId);
     showProject();
   } catch (error) {
     reportError('Creating the project', error);
@@ -102,7 +105,9 @@ export async function createProjectFromStarter(preset: StarterPreset): Promise<v
     return;
   }
   try {
-    const { project } = await invoke('koma:project:create', { name: preset.name });
+    const { project, recoverySessionId } = await invoke('koma:project:create', {
+      name: preset.name,
+    });
     // A new project has no logo, so the starter kit replaces its kit as a whole.
     useProjectStore.getState().load(
       {
@@ -111,6 +116,11 @@ export async function createProjectFromStarter(preset: StarterPreset): Promise<v
         systemInstructions: preset.systemInstructions,
       },
       null,
+      [],
+      null,
+      [],
+      recoverySessionId,
+      true,
     );
     showProject();
     seedStarterRequest(preset);
@@ -144,6 +154,7 @@ export async function openProject(): Promise<void> {
           response.warnings,
           response.migratedFrom ?? null,
           response.unavailableAssetIds ?? [],
+          response.recoverySessionId,
         );
       showProject();
       if (response.migratedFrom != null) useHealthStore.getState().setOpen(true);
@@ -193,6 +204,7 @@ async function save(
       if (!didAcceptSave(claim)) {
         return false;
       }
+      await flushRecovery();
       useUiStore.getState().notify('info', `Saved ${response.file.fileName}`);
       return !selectHasUnsavedChanges(useProjectStore.getState());
     }
@@ -346,4 +358,22 @@ export function addKomaAfter(afterKomaId: string | null): void {
   if (added !== undefined) {
     useUiStore.getState().selectKoma(added.id);
   }
+}
+
+/** Restoration never adopts a disk path or a clean saved marker. */
+export async function recoverProject(): Promise<void> {
+  const response = await invoke('koma:recovery:restore', {});
+  if (response.status === 'failed') throw new Error(response.message);
+  useProjectStore
+    .getState()
+    .load(
+      response.project,
+      null,
+      [],
+      null,
+      response.unavailableAssetIds,
+      response.recoverySessionId,
+      true,
+    );
+  showProject();
 }
