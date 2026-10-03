@@ -34,8 +34,8 @@ absolute directory outside its worktrees.
 $komaVerifyOutput = Join-Path 'D:/Code/KomaMotion-evidence' ('native-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $komaVerifyOutput | Out-Null
 git rev-parse HEAD | Set-Content (Join-Path $komaVerifyOutput 'revision.txt')
-git status --short | Set-Content (Join-Path $komaVerifyOutput 'status.txt')
-git diff --binary | Set-Content (Join-Path $komaVerifyOutput 'local.patch')
+Set-Content (Join-Path $komaVerifyOutput 'status.txt') -Value ((git status --short) -join [Environment]::NewLine)
+Set-Content (Join-Path $komaVerifyOutput 'local.patch') -Value ((git diff --binary) -join [Environment]::NewLine)
 $env:PLAYWRIGHT_JSON_OUTPUT_NAME = Join-Path $komaVerifyOutput 'report.json'
 pnpm --filter @koma-motion/desktop exec playwright test workflow.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```

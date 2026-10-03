@@ -1,8 +1,9 @@
 import type { BrandKit, KomaProject } from '@koma-motion/core';
-import { useEffect, useId, useRef, type ReactElement } from 'react';
+import { useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { applySavedBrandKitToProject, loadBrandKitLibrary } from '../lib/brandKitLibraryActions';
 import { attachBrandMaterial } from '../lib/brandProfileActions';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
+import { useProjectStore } from '../state/projectStore';
 import { useMatchingKits } from '../lib/useMatchingKits';
 import { CheckIcon, ChevronIcon } from './icons';
 import { Button, IconTile, POPOVER_SURFACE, choiceRowClass } from './ui';
@@ -41,8 +42,29 @@ export function ChatBrandKitPicker({
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
+  const mounted = useRef(false);
+  const [focusAfterApply, setFocusAfterApply] = useState<number | null>(null);
   const id = useId();
   const name = matches[0]?.name ?? project.brandKit.name;
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  // Applying disables the trigger while the library request is in flight.
+  // Return focus after that request settles and React enables the trigger.
+  useEffect(() => {
+    if (focusAfterApply === null || busy) return;
+    setFocusAfterApply(null);
+    if (disabled || useProjectStore.getState().sessionId !== focusAfterApply) return;
+    const active = document.activeElement;
+    if (active === document.body || (active !== null && root.current?.contains(active))) {
+      trigger.current?.focus();
+    }
+  }, [focusAfterApply, busy, disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -158,11 +180,17 @@ export function ChatBrandKitPicker({
                     disabled={busy || disabled}
                     className={`flex min-h-12 w-full items-center gap-2.5 px-2 py-2 text-left text-sm disabled:opacity-50 ${choiceRowClass(selected)}`}
                     onClick={() => {
+                      const { sessionId } = useProjectStore.getState();
                       onOpenChange(false);
                       trigger.current?.focus();
+                      const restoreFocus = (): void => {
+                        if (mounted.current && useProjectStore.getState().sessionId === sessionId) {
+                          setFocusAfterApply(sessionId);
+                        }
+                      };
                       void applySavedBrandKitToProject(kit.id, {
                         withInstructions: kit.instructions !== undefined,
-                      });
+                      }).then(restoreFocus, restoreFocus);
                     }}
                   >
                     <IconTile className="font-semibold text-accent">

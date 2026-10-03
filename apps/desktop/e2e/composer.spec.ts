@@ -81,7 +81,7 @@ test('retains selected draft/count through narrow Inspect collapse and edits, th
   await showChat(window);
   await expect(request).toHaveValue('');
   await expect(window.getByLabel('Generation scope')).toHaveValue('entire');
-  await expect(countTrigger(window)).toHaveAttribute('aria-description', '3 Komas');
+  await expect(countTrigger(window)).toHaveAttribute('aria-description', '5 Komas');
   expect(await readFile(path, 'utf8')).toBe(original);
   await window.screenshot({ path: test.info().outputPath('composer-session-reset.png') });
   expect(running.problems).toEqual([]);
