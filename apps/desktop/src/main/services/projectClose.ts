@@ -13,3 +13,14 @@ export async function finishCleanClose(
   if (session.hasUnsavedChanges) actions.askAgain();
   else actions.confirm();
 }
+
+/** An explicit discard belongs to the project that received the close decision. */
+export async function finishDiscardClose(
+  session: ProjectSession,
+  discard: () => Promise<void>,
+  actions: { isOpen(): boolean; confirm(): void },
+): Promise<void> {
+  const sessionId = session.sessionId;
+  await discard();
+  if (actions.isOpen() && session.sessionId === sessionId) actions.confirm();
+}

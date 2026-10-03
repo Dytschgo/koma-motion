@@ -1,10 +1,16 @@
+import * as filesystem from 'node:fs/promises';
 import { mkdtemp, mkdir, readFile, rm, writeFile, open, lstat } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { buildKoma, buildPresentation, buildProject } from '@koma-motion/core/testing';
 import { withProjectFileOperation } from '@koma-motion/project-format/node';
 import { MAX_RECOVERY_BYTES, RecoveryService } from './recovery';
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  return { ...actual, unlink: vi.fn(actual.unlink) };
+});
 
 const directories: string[] = [];
 afterEach(async () => {
@@ -189,5 +195,89 @@ describe('private crash recovery snapshots', () => {
     expect((await captures[2])?.status).toBe('failed');
     await Promise.all(captures);
     expect((await new RecoveryService(directory).offer()).status).toBe('available');
+  });
+});
+
+describe('discard ordering audit', () => {
+  async function blockWrites(service: RecoveryService, sessionId: string) {
+    let release = () => {};
+    let entered = () => {};
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const blocked = withProjectFileOperation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+          entered();
+        }),
+    );
+    await started;
+    const capture = service.capture({ sessionId, revision: 2, project: edited, dirty: true });
+    return {
+      release: async () => {
+        release();
+        await blocked;
+        await capture;
+      },
+    };
+  }
+
+  it('cannot recreate a snapshot with a newer same-epoch capture queued during discard', async () => {
+    const { service, directory } = await setup();
+    const sessionId = await service.activate(project, null);
+    await service.capture({ sessionId, revision: 1, project: edited, dirty: true });
+    const held = await blockWrites(service, sessionId);
+    const discard = service.discardActive();
+    const duringDiscard = service.capture({ sessionId, revision: 4, project: edited, dirty: true });
+    await held.release();
+    await discard;
+    expect(await duringDiscard).toEqual({ status: 'stale' });
+    await service.flush();
+    expect(service.sessionId).toBeNull();
+    expect(await new RecoveryService(directory).offer()).toEqual({ status: 'none' });
+  });
+
+  it('preserves the old snapshot and active epoch after removal failure, then permits retry', async () => {
+    const { service, directory, file } = await setup();
+    const sessionId = await service.activate(project, null);
+    await service.capture({ sessionId, revision: 1, project: edited, dirty: true });
+    const previous = await readFile(file, 'utf8');
+    const held = await blockWrites(service, sessionId);
+    const unlink = vi.mocked(filesystem.unlink);
+    unlink.mockRejectedValueOnce(Object.assign(new Error('Access denied'), { code: 'EACCES' }));
+    const discard = service.discardActive();
+    const failed = expect(discard).rejects.toThrow('Access denied');
+    await held.release();
+    await failed;
+    expect(service.sessionId).toBe(sessionId);
+    expect(await readFile(file, 'utf8')).toBe(previous);
+    expect(
+      (await service.capture({ sessionId, revision: 4, project: edited, dirty: true })).status,
+    ).toBe('stored');
+    await service.discardActive();
+    expect(service.sessionId).toBeNull();
+    expect(await new RecoveryService(directory).offer()).toEqual({ status: 'none' });
+  });
+
+  it('does not invalidate a replacement epoch while an old discard is pending', async () => {
+    const { service, directory } = await setup();
+    const sessionId = await service.activate(project, null);
+    await service.capture({ sessionId, revision: 1, project: edited, dirty: true });
+    const held = await blockWrites(service, sessionId);
+    const discard = service.discardActive();
+    const replacement = service.activate(project, null);
+    await held.release();
+    await discard;
+    const nextId = await replacement;
+    expect(service.sessionId).toBe(nextId);
+    expect(
+      (await service.capture({ sessionId: nextId, revision: 1, project: edited, dirty: true }))
+        .status,
+    ).toBe('stored');
+    expect(await new RecoveryService(directory).offer()).toMatchObject({
+      status: 'available',
+      name: edited.name,
+    });
   });
 });

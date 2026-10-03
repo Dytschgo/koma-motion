@@ -5,7 +5,7 @@ import { registerHandlers } from './ipc/registerHandlers';
 import { APP_URL, hardenWebContents } from './security';
 import type { BrandKitLibrary } from './services/brandKitLibrary';
 import { createProjectSession } from './services/projectFiles';
-import { finishCleanClose } from './services/projectClose';
+import { finishCleanClose, finishDiscardClose } from './services/projectClose';
 import { RecoveryService } from './services/recovery';
 import type { UpdateService } from './updates/service';
 
@@ -132,6 +132,7 @@ export function createMainWindow(
       return;
     }
     askingToClose = true;
+    const closeSessionId = session.sessionId;
     void dialog
       .showMessageBox(window, {
         type: 'warning',
@@ -144,6 +145,7 @@ export function createMainWindow(
         noLink: true,
       })
       .then(async ({ response }) => {
+        if (window.isDestroyed() || session.sessionId !== closeSessionId) return;
         if (response === CLOSE_CHOICES.save) {
           // Remember which project asked to be saved. A confirm for a later
           // project, or for a project that still has unsaved edits, does not close.
@@ -153,9 +155,13 @@ export function createMainWindow(
             ipcEvents['koma:app:save-and-close'].parse({}),
           );
         } else if (response === CLOSE_CHOICES.discard) {
-          await recovery.discardActive();
-          closeConfirmed = true;
-          window.close();
+          await finishDiscardClose(session, () => recovery.discardActive(), {
+            isOpen: () => !window.isDestroyed(),
+            confirm: () => {
+              closeConfirmed = true;
+              window.close();
+            },
+          });
         }
       })
       .catch(() =>

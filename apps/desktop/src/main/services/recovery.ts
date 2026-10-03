@@ -247,10 +247,12 @@ export class RecoveryService {
 
   /** Only an explicit user discard invalidates unsaved work. */
   async discardActive(): Promise<void> {
-    if (this.epoch === null) return;
+    const epoch = this.epoch;
+    if (epoch === null) return;
     this.revision += 1;
     await this.queue(() => this.remove());
-    this.epoch = null;
+    // A successful Open/New may have started another session while removal waited.
+    if (this.epoch === epoch) this.epoch = null;
   }
 
   async flush(): Promise<void> {

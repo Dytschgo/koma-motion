@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createProjectSession } from './projectFiles';
-import { finishCleanClose } from './projectClose';
+import { finishCleanClose, finishDiscardClose } from './projectClose';
 
 // Only the session shape is used; no native dialog or filesystem action is called.
 vi.mock('electron', () => ({ dialog: {} }));
@@ -59,5 +59,37 @@ describe('closing after a recovery flush', () => {
     await closing;
     expect(actions.confirm).toHaveBeenCalledOnce();
     expect(actions.askAgain).not.toHaveBeenCalled();
+  });
+});
+
+describe('closing after an explicit recovery discard', () => {
+  it('keeps a replacement project open while the old discard finishes', async () => {
+    const session = createProjectSession();
+    session.hasUnsavedChanges = true;
+    const held = heldFlush();
+    const actions = { isOpen: () => true, confirm: vi.fn() };
+    const closing = finishDiscardClose(session, held.flush, actions);
+    session.sessionId += 1;
+    expect(actions.confirm).not.toHaveBeenCalled();
+    held.release();
+    await closing;
+    expect(actions.confirm).not.toHaveBeenCalled();
+    expect(session.hasUnsavedChanges).toBe(true);
+  });
+
+  it('does not authorize close after failed removal and allows a successful retry', async () => {
+    const session = createProjectSession();
+    session.hasUnsavedChanges = true;
+    const actions = { isOpen: () => true, confirm: vi.fn() };
+    await expect(
+      finishDiscardClose(session, () => Promise.reject(new Error('Disk failure')), actions),
+    ).rejects.toThrow('Disk failure');
+    expect(actions.confirm).not.toHaveBeenCalled();
+    const held = heldFlush();
+    const retry = finishDiscardClose(session, held.flush, actions);
+    expect(actions.confirm).not.toHaveBeenCalled();
+    held.release();
+    await retry;
+    expect(actions.confirm).toHaveBeenCalledOnce();
   });
 });
