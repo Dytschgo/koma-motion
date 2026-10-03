@@ -8,7 +8,7 @@ import {
 } from '@koma-motion/core';
 import { komaToFrame } from '@koma-motion/motion-engine';
 import { createAssetResolver, KomaStage, type AssetResolver } from '@koma-motion/renderer';
-import { useMemo, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { formatSeconds, useSelectedKoma } from '../lib/selectors';
 import { assessTransition } from '../lib/transitionIssues';
 import { addKomaAfter } from '../lib/projectActions';
@@ -17,6 +17,7 @@ import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { DownIcon, PlusIcon, TrashIcon, UpIcon, WarningIcon } from './icons';
 import { TransitionStripStatus } from './TransitionStripStatus';
+import { DeckOverview } from './DeckOverview';
 import { Button, IconButton, TextInput } from './ui';
 
 const THUMBNAIL_WIDTH = 184;
@@ -125,6 +126,7 @@ function KomaItem({
   const apply = useProjectStore((state) => state.apply);
   const selectKoma = useUiStore((state) => state.selectKoma);
   const confirm = useUiStore((state) => state.confirm);
+  const preview = useUiStore((state) => state.preview);
   const canvasSize = getCanvasSize(project.presentation.aspectRatio);
   const frame = useMemo(() => komaToFrame(koma), [koma]);
   const number = index + 1;
@@ -190,7 +192,7 @@ function KomaItem({
           <div className="mt-1 flex justify-end gap-0.5">
             <IconButton
               label="Move Koma up"
-              disabled={index === 0}
+              disabled={index === 0 || preview !== null}
               onClick={() => {
                 apply(reorderKoma(koma.id, -1));
               }}
@@ -199,7 +201,7 @@ function KomaItem({
             </IconButton>
             <IconButton
               label="Move Koma down"
-              disabled={index === count - 1}
+              disabled={index === count - 1 || preview !== null}
               onClick={() => {
                 apply(reorderKoma(koma.id, 1));
               }}
@@ -222,8 +224,17 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
   const setView = useUiStore((state) => state.setView);
   const preview = useUiStore((state) => state.preview);
   const selectedKoma = useSelectedKoma();
+  const [overviewOpen, setOverviewOpen] = useState(false);
+  const strip = useRef<HTMLDivElement>(null);
   const resolveAsset = useMemo(() => createAssetResolver(project.assets), [project.assets]);
   const { komas } = project.presentation;
+  const selectedId = selectedKoma?.id;
+  const selectedIndex = komas.findIndex((koma) => koma.id === selectedId);
+  useEffect(() => {
+    strip.current
+      ?.querySelector<HTMLButtonElement>('button[aria-current="true"]')
+      ?.scrollIntoView({ block: 'nearest' });
+  }, [selectedId, selectedIndex]);
 
   return (
     <aside
@@ -248,9 +259,19 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
             Error: A project needs a name before it can be saved.
           </p>
         )}
+        <Button
+          variant="outline"
+          className="mt-2 w-full"
+          disabled={komas.length === 0}
+          onClick={() => {
+            setOverviewOpen(true);
+          }}
+        >
+          Deck overview <span className="text-ink-400 tabular-nums">{komas.length}</span>
+        </Button>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div ref={strip} className="min-h-0 flex-1 overflow-y-auto p-2">
         {komas.length === 0 ? (
           <p className="px-2 py-6 text-ink-400">Your Komas will appear here.</p>
         ) : (
@@ -326,6 +347,14 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
           Brand Kit
         </Button>
       </div>
+      <DeckOverview
+        project={project}
+        selectedKoma={selectedKoma}
+        open={overviewOpen}
+        onClose={() => {
+          setOverviewOpen(false);
+        }}
+      />
     </aside>
   );
 }
