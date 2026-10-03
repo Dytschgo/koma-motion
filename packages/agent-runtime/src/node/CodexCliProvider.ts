@@ -1,6 +1,6 @@
 import { open, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { err, ok, modelNameSchema, type Result } from '@koma-motion/core';
+import { err, ok, modelNameSchema, reasoningValueSchema, type Result } from '@koma-motion/core';
 import { agentError, type AgentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
 import type { TransitionRegenerationRequest } from '../contract/transition';
@@ -10,6 +10,7 @@ import type {
   ProviderDetectionResult,
   ProviderExecutionResult,
   ProviderMetadata,
+  ProviderModelListing,
 } from '../providers/types';
 import { MAX_AGENT_OUTPUT_BYTES, AGENT_OUTPUT_TOO_LARGE_MESSAGE } from '../validation/extract';
 import {
@@ -20,6 +21,7 @@ import {
   type CliEnvironment,
 } from './cliEnvironment';
 import { redactDiagnostics } from './redact';
+import { discoverModels, validatedReasoning } from './modelCapabilities';
 
 export const CODEX_PROVIDER_ID = 'codex';
 const EXECUTABLE_NAME = 'codex';
@@ -67,6 +69,7 @@ const DISABLED_CODEX_FEATURES = [
 export function buildCodexArguments(options: {
   readonly workingDirectory: string;
   readonly model: string | null;
+  readonly reasoning?: string | null;
 }): string[] {
   const model = options.model === null ? [] : ['--model', modelNameSchema.parse(options.model)];
   return [
@@ -81,6 +84,12 @@ export function buildCodexArguments(options: {
     '--ignore-rules',
     ...DISABLED_CODEX_FEATURES.flatMap((feature) => ['--disable', feature]),
     ...model,
+    ...(options.reasoning
+      ? [
+          '-c',
+          `model_reasoning_effort=${JSON.stringify(reasoningValueSchema.parse(options.reasoning))}`,
+        ]
+      : []),
     '--cd',
     options.workingDirectory,
     '--output-schema',
@@ -139,20 +148,9 @@ export class CodexCliProvider implements AgentProvider {
     supportsModelSelection: true,
     defaultModel: null,
     modelCatalog: {
-      source: 'curated',
-      // Verified against the visible Codex CLI catalog on 2026-10-01.
-      // https://developers.openai.com/api/docs/models
-      models: [
-        { id: 'gpt-6.1-sol', label: 'GPT-6.1 Sol', kind: 'id' },
-        { id: 'gpt-6-astra', label: 'GPT-6 Astra', kind: 'id' },
-        { id: 'gpt-6-sol', label: 'GPT-6 Sol', kind: 'id' },
-        { id: 'gpt-6-luna', label: 'GPT-6 Luna', kind: 'id' },
-        { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', kind: 'id' },
-        { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', kind: 'id' },
-        { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', kind: 'id' },
-        { id: 'gpt-5.5', label: 'GPT-5.5', kind: 'id' },
-      ],
-      note: 'Numbered models from the Codex catalog. Access depends on your sign-in. You can also enter another model id or use the CLI default.',
+      source: 'cli',
+      models: [],
+      note: 'Models and reasoning choices reported by Codex app-server. Account access is checked by the CLI when a run starts.',
     },
     acceptsCustomModel: true,
     streamsOutput: false,
@@ -172,6 +170,22 @@ export class CodexCliProvider implements AgentProvider {
       installationHint: 'Install the Codex CLI and sign in, then check again.',
       environment: this.#environment,
     });
+  }
+
+  listModels(signal: AbortSignal): Promise<ProviderModelListing> {
+    return discoverModels(
+      this.#environment,
+      'codex',
+      [
+        'app-server',
+        '--listen',
+        'stdio://',
+        '-c',
+        'model_provider="openai"',
+        ...DISABLED_CODEX_FEATURES.flatMap((feature) => ['--disable', feature]),
+      ],
+      signal,
+    );
   }
 
   generatePresentation(
@@ -209,6 +223,7 @@ export class CodexCliProvider implements AgentProvider {
       };
     }
 
+    const reasoning = await validatedReasoning(context, (signal) => this.listModels(signal));
     const workingDirectory = await this.#environment.createWorkingDirectory();
     try {
       await writeFile(
@@ -219,7 +234,7 @@ export class CodexCliProvider implements AgentProvider {
       context.reportProgress(progress);
       const outcome = await this.#environment.runProcess({
         executable,
-        arguments: buildCodexArguments({ workingDirectory, model: context.model }),
+        arguments: buildCodexArguments({ workingDirectory, model: context.model, reasoning }),
         // Codex has no separate system prompt in non-interactive mode.
         input: `${context.prompt.system}\n\n${context.prompt.user}`,
         workingDirectory,

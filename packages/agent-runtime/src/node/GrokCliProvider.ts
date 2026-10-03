@@ -1,6 +1,6 @@
 import { writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { modelNameSchema } from '@koma-motion/core';
+import { modelNameSchema, reasoningValueSchema } from '@koma-motion/core';
 import { agentError } from '../contract/errors';
 import type { PresentationGenerationRequest } from '../contract/request';
 import type { TransitionRegenerationRequest } from '../contract/transition';
@@ -20,6 +20,7 @@ import {
   type CliEnvironment,
 } from './cliEnvironment';
 import { redactDiagnostics } from './redact';
+import { discoverModels, validatedReasoning } from './modelCapabilities';
 
 export const GROK_PROVIDER_ID = 'grok';
 const EXECUTABLE_NAME = 'grok';
@@ -61,6 +62,7 @@ export function buildGrokArguments(options: {
   readonly systemPrompt: string;
   readonly responseJsonSchema: string;
   readonly model: string | null;
+  readonly reasoning?: string | null;
 }): string[] {
   const model = options.model === null ? [] : ['--model', modelNameSchema.parse(options.model)];
   return [
@@ -83,6 +85,9 @@ export function buildGrokArguments(options: {
     '--cwd',
     options.workingDirectory,
     ...model,
+    ...(options.reasoning
+      ? ['--reasoning-effort', reasoningValueSchema.parse(options.reasoning)]
+      : []),
     '--system-prompt-override',
     options.systemPrompt,
   ];
@@ -130,10 +135,6 @@ export function parseGrokEnvelope(standardOutput: string): GrokEnvelope | null {
     structuredOutput,
   };
 }
-
-/** Time allowed for `grok models`. It contacts the service of the signed-in account. */
-const LIST_MODELS_TIMEOUT_MS = 20_000;
-const MAX_LIST_OUTPUT_BYTES = 64 * 1024;
 
 /**
  * Reads the output of `grok models`. Grok 1.0.44 prints, for example:
@@ -193,9 +194,8 @@ export class GrokCliProvider implements AgentProvider {
     defaultModel: null,
     modelCatalog: {
       source: 'cli',
-      // https://docs.x.ai/developers/models/grok-4.7 (checked 2026-10-01).
-      models: [{ id: 'grok-4.7', label: 'Grok 4.7', kind: 'id' }],
-      note: 'Grok can list the models of your sign-in. Load them to choose one, or enter a model id.',
+      models: [],
+      note: 'Models and reasoning choices reported by Grok. If this CLI does not report effort choices, its default reasoning is used.',
     },
     acceptsCustomModel: true,
     streamsOutput: false,
@@ -218,12 +218,18 @@ export class GrokCliProvider implements AgentProvider {
     });
   }
 
-  /** Runs `grok models`, which lists the models of the signed-in account. */
+  /** ACP exposes the same model catalog as `grok models`, including per-model metadata. */
   async listModels(signal: AbortSignal): Promise<ProviderModelListing> {
+    const capabilities = await discoverModels(
+      this.#environment,
+      'grok',
+      ['agent', '--no-leader', 'stdio'],
+      signal,
+    );
+    if (capabilities.status !== 'unsupported' || signal.aborted) return capabilities;
+    // Older CLIs can still expose IDs through the documented command, without effort metadata.
     const executable = await this.#environment.resolveExecutable(EXECUTABLE_NAME);
-    if (executable === null) {
-      return { status: 'failed', message: `${this.displayName} is not installed.` };
-    }
+    if (executable === null) return { status: 'failed', message: 'Grok is not installed.' };
     const workingDirectory = await this.#environment.createWorkingDirectory();
     try {
       const outcome = await this.#environment.runProcess({
@@ -231,25 +237,36 @@ export class GrokCliProvider implements AgentProvider {
         arguments: ['models'],
         input: '',
         workingDirectory,
-        signal: AbortSignal.any([signal, AbortSignal.timeout(LIST_MODELS_TIMEOUT_MS)]),
-        maxOutputBytes: MAX_LIST_OUTPUT_BYTES,
+        signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
+        maxOutputBytes: 64 * 1024,
         env: this.#environment.childEnvironment(),
       });
+      if (
+        !outcome.aborted &&
+        !outcome.outputLimitExceeded &&
+        outcome.startError === null &&
+        /unexpected argument|unknown option|unrecognized subcommand/i.test(outcome.standardError)
+      )
+        return { status: 'unsupported' };
       const parsed =
-        outcome.exitCode === 0 && !outcome.aborted && !outcome.outputLimitExceeded
+        outcome.exitCode === 0 &&
+        !outcome.aborted &&
+        !outcome.outputLimitExceeded &&
+        outcome.startError === null
           ? parseGrokModelList(outcome.standardOutput)
           : null;
-      if (parsed === null) {
+      if (parsed === null)
         return {
           status: 'failed',
-          message: outcome.aborted
-            ? 'Grok did not list its models in time. Try again.'
-            : 'Grok could not list its models. Check that you are signed in (grok login), then try again.',
+          message: 'Grok could not list models. Retry or use the CLI default.',
         };
-      }
       return {
         status: 'listed',
-        models: parsed.models,
+        models: parsed.models.map((id) => ({
+          id,
+          label: id,
+          reasoning: { status: 'unsupported' },
+        })),
         defaultModel: parsed.defaultModel,
         checkedAt: this.#environment.now().toISOString(),
       };
@@ -293,6 +310,7 @@ export class GrokCliProvider implements AgentProvider {
       };
     }
 
+    const reasoning = await validatedReasoning(context, (signal) => this.listModels(signal));
     const workingDirectory = await this.#environment.createWorkingDirectory();
     try {
       const promptFile = join(workingDirectory, PROMPT_FILE_NAME);
@@ -306,6 +324,7 @@ export class GrokCliProvider implements AgentProvider {
           systemPrompt: context.prompt.system,
           responseJsonSchema: JSON.stringify(context.prompt.responseJsonSchema),
           model: context.model,
+          reasoning,
         }),
         input: '',
         workingDirectory,

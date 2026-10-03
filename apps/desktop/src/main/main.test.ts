@@ -394,7 +394,16 @@ describe('generatePresentation', () => {
           ...base,
           agentConfiguration: {
             ...base.agentConfiguration,
-            providers: { [provider.id]: { model }, other: { model: 'not-this-one' } },
+            providers: {
+              [provider.id]: {
+                model,
+                reasoningByModel: {
+                  'claude-opus-5-5': 'future-effort',
+                  'other-model': 'wrong-effort',
+                },
+              },
+              other: { model: 'not-this-one' },
+            },
           },
         },
         input,
@@ -403,6 +412,7 @@ describe('generatePresentation', () => {
         onStatus: () => undefined,
       });
       expect(provider.contexts[0]?.model).toBe(model);
+      expect(provider.contexts[0]?.reasoning).toBe(model === null ? null : 'future-effort');
     }
   });
 

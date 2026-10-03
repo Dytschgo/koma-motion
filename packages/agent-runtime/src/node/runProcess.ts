@@ -13,6 +13,8 @@ export interface ProcessSpecification {
   readonly arguments: readonly string[];
   /** Text written to standard input. Everything a user or a project wrote travels here. */
   readonly input: string;
+  /** Capability protocols exchange messages without submitting a generation prompt. */
+  readonly keepInputOpen?: boolean;
   readonly workingDirectory: string;
   /** Stops the process when aborted. */
   readonly signal: AbortSignal;
@@ -29,7 +31,7 @@ export interface ProcessSpecification {
    * beyond `maxOutputBytes` is not delivered. The complete output is still
    * collected in the result.
    */
-  readonly onStandardOutput?: (text: string) => void;
+  readonly onStandardOutput?: (text: string, writeInput: (text: string) => void) => void;
 }
 
 export interface ProcessResult {
@@ -238,7 +240,9 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
     const deliver = (text: string): void => {
       if (listener === undefined || text === '') return;
       try {
-        listener(text);
+        listener(text, (input) => {
+          if (!stdin.destroyed && !stdin.writableEnded) stdin.write(input, 'utf8');
+        });
       } catch {
         // A listener that fails must not stop the process or lose its output.
       }
@@ -291,6 +295,7 @@ export function runProcess(specification: ProcessSpecification): Promise<Process
 
     // A program that exits early closes its input: that is not an error here.
     stdin.on('error', () => undefined);
-    stdin.end(specification.input, 'utf8');
+    if (specification.keepInputOpen) stdin.write(specification.input, 'utf8');
+    else stdin.end(specification.input, 'utf8');
   });
 }
