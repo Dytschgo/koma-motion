@@ -34,7 +34,8 @@ import {
 } from '@koma-motion/core';
 import { writeFileAtomic } from '@koma-motion/project-format/node';
 import type { IpcResponse, SavedBrandKitSummary } from '../../shared/ipc';
-import { detectImageType, toDisplayName } from './imageAsset';
+import { toDisplayName } from './imageAsset';
+import { validateImageBytes } from './imageValidation';
 
 export const LIBRARY_FILE_NAME = 'library.json';
 export const LOGO_DIRECTORY_NAME = 'logos';
@@ -134,6 +135,16 @@ async function writeBytesAtomic(filePath: string, bytes: Uint8Array): Promise<vo
  * an image whose content matches the declared media type.
  */
 export function decodeLogo(logo: BrandKitLogoData): Buffer {
+  if (logo.data.length > Math.ceil(MAX_EMBEDDED_ASSET_BYTES / 3) * 4) {
+    throw new LibraryError('The logo is larger than 2 MB.');
+  }
+  if (!logo.data || logo.data.length % 4 !== 0 || !/^[A-Za-z0-9+/]+={0,2}$/.test(logo.data)) {
+    throw new LibraryError('The logo data could not be read.');
+  }
+  const padding = logo.data.endsWith('==') ? 2 : logo.data.endsWith('=') ? 1 : 0;
+  if ((logo.data.length / 4) * 3 - padding > MAX_EMBEDDED_ASSET_BYTES) {
+    throw new LibraryError('The logo is larger than 2 MB.');
+  }
   const bytes = Buffer.from(logo.data, 'base64');
   if (bytes.byteLength === 0 || bytes.toString('base64') !== logo.data) {
     throw new LibraryError('The logo data could not be read.');
@@ -141,8 +152,8 @@ export function decodeLogo(logo: BrandKitLogoData): Buffer {
   if (bytes.byteLength > MAX_EMBEDDED_ASSET_BYTES) {
     throw new LibraryError('The logo is larger than 2 MB.');
   }
-  if (detectImageType(bytes) !== logo.mediaType) {
-    throw new LibraryError('The logo is not a PNG, JPEG, WebP or GIF image.');
+  if (!validateImageBytes(bytes, logo.mediaType)) {
+    throw new LibraryError('The logo is not a PNG, JPEG, WebP or GIF image that could be read.');
   }
   return bytes;
 }
@@ -223,19 +234,55 @@ export function createBrandKitLibrary(
     return stored;
   }
 
-  async function logoAvailable(logo: SavedBrandKitLogo): Promise<boolean> {
+  /** Read at most the declared size plus one byte, even if the file grows after stat. */
+  async function readLogo(
+    logo: SavedBrandKitLogo,
+  ): Promise<
+    | { readonly status: 'available'; readonly bytes: Buffer }
+    | { readonly status: 'missing' | 'damaged' }
+  > {
+    let handle;
     try {
-      const details = await stat(join(logoDirectory, logoFileName(logo)));
-      return details.isFile() && details.size === logo.byteLength;
-    } catch {
-      return false;
+      handle = await open(join(logoDirectory, logoFileName(logo)), 'r');
+      const details = await handle.stat();
+      if (
+        !details.isFile() ||
+        details.size !== logo.byteLength ||
+        details.size > MAX_EMBEDDED_ASSET_BYTES
+      ) {
+        return { status: 'damaged' };
+      }
+      const buffer = Buffer.alloc(details.size + 1);
+      let length = 0;
+      while (length < buffer.length) {
+        const { bytesRead } = await handle.read(buffer, length, buffer.length - length, length);
+        if (bytesRead === 0) break;
+        length += bytesRead;
+      }
+      const bytes = buffer.subarray(0, length);
+      if (
+        (await handle.stat()).size !== logo.byteLength ||
+        length !== logo.byteLength ||
+        sha256(bytes) !== logo.sha256 ||
+        !validateImageBytes(bytes, logo.mediaType)
+      ) {
+        return { status: 'damaged' };
+      }
+      return { status: 'available', bytes };
+    } catch (error) {
+      return { status: errorCode(error) === 'ENOENT' ? 'missing' : 'damaged' };
+    } finally {
+      await handle?.close();
     }
   }
 
   async function summarise(kit: SavedBrandKit): Promise<SavedBrandKitSummary> {
     return {
       ...kit,
-      logo: kit.logo === null ? null : { ...kit.logo, available: await logoAvailable(kit.logo) },
+      logo:
+        kit.logo === null
+          ? null
+          : { ...kit.logo, available: (await readLogo(kit.logo)).status === 'available' },
     };
   }
 
@@ -265,14 +312,7 @@ export function createBrandKitLibrary(
       byteLength: bytes.byteLength,
     };
     const filePath = join(logoDirectory, logoFileName(stored));
-    try {
-      const existing = await readFile(filePath);
-      if (sha256(existing) === stored.sha256) {
-        return stored;
-      }
-    } catch {
-      // Not stored yet.
-    }
+    if ((await readLogo(stored)).status === 'available') return stored;
     try {
       await mkdir(logoDirectory, { recursive: true });
       await writeBytesAtomic(filePath, bytes);
@@ -463,27 +503,17 @@ export function createBrandKitLibrary(
         try {
           const { kits } = await readReady();
           const kit = find(kits, id);
-          const summary = await summarise(kit);
           if (kit.logo === null) {
-            return { status: 'loaded', kit: summary, logo: null, logoProblem: null };
+            return { status: 'loaded', kit: { ...kit, logo: null }, logo: null, logoProblem: null };
           }
-          const problem = `The logo of "${kit.name}" is missing from the library, so the Brand Kit was applied without a logo.`;
-          let bytes: Buffer;
-          try {
-            bytes = await readFile(join(logoDirectory, logoFileName(kit.logo)));
-          } catch {
-            return { status: 'loaded', kit: summary, logo: null, logoProblem: problem };
-          }
-          if (
-            bytes.byteLength !== kit.logo.byteLength ||
-            sha256(bytes) !== kit.logo.sha256 ||
-            detectImageType(bytes) !== kit.logo.mediaType
-          ) {
+          const read = await readLogo(kit.logo);
+          const summary = { ...kit, logo: { ...kit.logo, available: read.status === 'available' } };
+          if (read.status !== 'available') {
             return {
               status: 'loaded',
-              kit: { ...summary, logo: { ...kit.logo, available: false } },
+              kit: summary,
               logo: null,
-              logoProblem: `The logo of "${kit.name}" is damaged in the library, so the Brand Kit was applied without a logo.`,
+              logoProblem: `The logo of "${kit.name}" is ${read.status === 'missing' ? 'missing from' : 'damaged in'} the library, so the Brand Kit was applied without a logo.`,
             };
           }
           return {
@@ -492,7 +522,7 @@ export function createBrandKitLibrary(
             logo: {
               name: kit.logo.name,
               mediaType: kit.logo.mediaType,
-              data: bytes.toString('base64'),
+              data: read.bytes.toString('base64'),
             },
             logoProblem: null,
           };

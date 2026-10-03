@@ -1,4 +1,9 @@
-import { createDefaultBrandKit } from '@koma-motion/brand-kit';
+import {
+  createDefaultBrandKit,
+  serialiseBrandKitLibrary,
+  toLibraryBrandKit,
+} from '@koma-motion/brand-kit';
+import { createHash } from 'node:crypto';
 import { createProject, createSeededIdGenerator } from '@koma-motion/core';
 import { serialiseProject } from '@koma-motion/project-format';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
@@ -158,6 +163,66 @@ test('saves a Brand Kit with its logo and applies it to another project', async 
     expect(await readFile(harbourPath, 'utf8')).toBe(harbour);
   });
 
+  expect(problems).toEqual([]);
+});
+
+test('reports a matching-hash corrupt historical logo, applies without it, and preserves library bytes through rename and Undo', async () => {
+  const { window, problems } = running;
+  const corrupt = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlK3Y4AAAAASUVORK5CYII=',
+    'base64',
+  );
+  const hash = createHash('sha256').update(corrupt).digest('hex');
+  const kit = {
+    id: 'historical-kit',
+    name: 'Historical kit',
+    createdAt: '2026-09-30T12:00:00.000Z',
+    updatedAt: '2026-09-30T12:00:00.000Z',
+    brandKit: toLibraryBrandKit({ ...createDefaultBrandKit(), name: 'Historical Brand' }),
+    logo: {
+      name: 'historical.png',
+      mediaType: 'image/png' as const,
+      sha256: hash,
+      byteLength: corrupt.length,
+    },
+  };
+  const stored = serialiseBrandKitLibrary([kit], []);
+  const path = join(libraryDirectory(), 'library.json');
+  const logoPath = join(libraryDirectory(), 'logos', `${hash}.png`);
+  await mkdir(join(libraryDirectory(), 'logos'), { recursive: true });
+  await writeFile(path, stored);
+  await writeFile(logoPath, corrupt);
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  await openLibrary(window);
+  await selectKit(window, 'Historical kit');
+  await expect(window.getByText('Logo missing from the library')).toBeVisible();
+  await window.getByRole('button', { name: 'Apply to this project' }).click();
+  await expect(window.getByRole('list', { name: 'Messages' })).toContainText(
+    'damaged in the library',
+  );
+  await window.getByRole('tab', { name: 'This project' }).click();
+  await expect(window.getByLabel('Brand name')).toHaveValue('Historical Brand');
+  await expect(
+    window.getByRole('img', { name: 'Preview of the Brand Kit' }).locator('img'),
+  ).toHaveCount(0);
+  await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(window.getByLabel('Brand name')).not.toHaveValue('Historical Brand');
+  expect(await readFile(path, 'utf8')).toBe(stored);
+  expect(await readFile(logoPath)).toEqual(corrupt);
+  await openLibrary(window);
+  await selectKit(window, 'Historical kit');
+  await window.getByRole('button', { name: 'Rename', exact: true }).click();
+  await window.getByLabel('New name').fill('Historical renamed');
+  await window.getByLabel('New name').press('Enter');
+  await expect(
+    window.getByRole('button', { name: 'Historical renamed', exact: true }),
+  ).toBeVisible();
+  await expect(window.getByText('Logo missing from the library')).toBeVisible();
+  expect(await readFile(logoPath)).toEqual(corrupt);
+  const renamed = await readFile(path, 'utf8');
+  expect(renamed).toContain(hash);
+  expect(renamed).toContain('Historical renamed');
+  await window.screenshot({ path: test.info().outputPath('historical-corrupt-library-logo.png') });
   expect(problems).toEqual([]);
 });
 
