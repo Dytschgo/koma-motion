@@ -22,8 +22,8 @@ when they are opened. See [Installing](#installing).
 | Updates on Windows         | available: downloaded and installed when the user chooses                   |
 | Updates on macOS           | available: verified update runs in Terminal, then replaces and reopens app  |
 | `.koma` file association   | registered by the installers; opening a project this way is not implemented |
-| Code signing               | not set up                                                                  |
-| Notarisation               | not set up                                                                  |
+| Code signing               | optional local packaging path; published installers still unsigned/ad hoc   |
+| Notarisation               | optional local macOS ZIP path; published installers still not notarised     |
 | Linux                      | not supported                                                               |
 
 The repository contains no signing material, no credentials and no secrets.
@@ -320,25 +320,111 @@ On 2026-09-30 this updated the published `0.1.0` to the published
 
 Unsigned installers show warnings, and some organisations block them.
 Signing needs certificates that belong to a person or an organisation, which
-is why it cannot be set up without the maintainer.
+is why signed distribution cannot be validated without the maintainer's
+legitimate credentials. The current release and nightly workflows remain
+unsigned on Windows and ad hoc on macOS.
 
 - Certificates, private keys and passwords are never committed.
-- Signing runs in CI with secrets that are limited to the release workflows
-  and to protected tags.
+- Any future signing CI must limit secrets to protected release environments
+  and trusted revisions. The existing workflows do not use signing secrets.
 - Pull requests from forks never have access to signing secrets.
+
+#### Optional local packaging
+
+The opt-in wrapper uses the locked electron-builder 26 dependency and its
+existing base packaging settings. It never publishes. Run from the repository
+root after `pnpm install --frozen-lockfile`, on the platform being packaged:
+
+```sh
+node apps/desktop/scripts/package-signed.mjs win
+# On macOS instead:
+node apps/desktop/scripts/package-signed.mjs mac
+```
+
+Provide the inputs below through a protected signing host or secret store.
+Keep certificate and key files outside the checkout; they are not package assets.
+The script validates every required input before building or contacting a
+signing service. Missing, blank, partial or conflicting groups fail. It does
+not print credential values or forward child-process output, including failed
+signing output. A failure approves no artifact for distribution; existing
+files are retained for investigation. Do not treat an old output as a new
+successful build.
+
+The configuration is produced by `scripts/signed-configuration.mjs`. Signed
+output is isolated in `apps/desktop/release/signed`, with `forceCodeSigning`
+enabled. Its `afterPack: null` disables the ad-hoc hook for this path only.
+The default YAML, ad-hoc hook, package commands and release workflows are
+unchanged. Keep using `pnpm package:win` or `pnpm package:mac` for the current
+unsigned/ad-hoc packages. No signed package has been produced or accepted
+without credentials.
 
 ### Apple notarisation
 
 - membership in the Apple Developer Program,
 - a Developer ID Application certificate,
-- credentials for the notary service, stored as CI secrets,
+- credentials for the notary service, held outside the repository,
 - the hardened runtime and the entitlements the application needs. Agent
   CLIs are started as child processes, which has to be tested under the
   hardened runtime,
 - stapling the notarisation ticket to the application and the disk image.
 
 With a signed and notarised application, updates on macOS can be installed
-by the application.
+by an appropriate signed-update integration. This optional packaging path does
+not change the current Terminal update flow.
+
+The optional path builds a **universal ZIP only**, containing the signed,
+notarised and stapled application. It requires these complete inputs:
+
+| Input               | Purpose                                                                           |
+| ------------------- | --------------------------------------------------------------------------------- |
+| `CSC_LINK`          | absolute path to the Developer ID Application `.p12` file                         |
+| `CSC_KEY_PASSWORD`  | nonempty password protecting that file                                            |
+| `KOMA_MAC_IDENTITY` | certificate name without `Developer ID Application:` prefix, ending in `(TEAMID)` |
+| `KOMA_MAC_TEAM_ID`  | the ten-character Apple developer team ID                                         |
+| `APPLE_API_KEY`     | absolute path to an existing App Store Connect team-key `.p8` file                |
+| `APPLE_API_KEY_ID`  | ten-character API key ID                                                          |
+| `APPLE_API_ISSUER`  | team key issuer UUID                                                              |
+
+For example, the identity's form is `Organisation Name (TEAMID1234)`; use
+the name of your real certificate. Do not set `CSC_NAME`, Apple ID/password
+or keychain-profile alternatives alongside this API-key path. Apple account
+membership, certificate validity and notary permissions must be established
+by the maintainer. Input presence is not credential validation.
+
+The distribution enables hardened runtime and explicitly supplies
+`build/entitlements.signed.mac.plist` for the app and its nested helpers.
+It grants only `com.apple.security.cs.allow-jit`, as needed by current Electron;
+it does not enable the App Sandbox, disable library validation or add the
+older unsigned-executable-memory exception. Electron's notarization guidance
+specifically advises against that exception on Electron 12 and newer.
+[Electron notarization prerequisites](https://packages.electronjs.org/notarize/main/index.html#prerequisites)
+and [Apple's notarization requirements](https://developer.apple.com/documentation/security/notarizing-macos-software-before-distribution)
+describe the signing and runtime requirements.
+
+electron-builder performs signing and app notarization before making the ZIP.
+The worker then requires a Developer ID Application authority, the configured
+team and hardened-runtime flag, `codesign --verify --deep --strict`,
+`xcrun stapler validate` and Gatekeeper `spctl --assess --type execute` on
+the app. It rejects ad-hoc signatures. These checks are implemented but have
+not been run with a real Developer ID identity or notary key. The installed
+builder requires the identity qualifier without its certificate-type prefix;
+see the [v26 macOS signing configuration](https://www.electron.build/v26/docs/features/code-signing/code-signing-mac/).
+
+The signed path does **not** produce a signed or notarised DMG. A future DMG
+path must sign the image, submit it to the notary service, staple and validate
+its ticket **before** generating final checksums and update metadata. Stapling
+after packaging changes artifact bytes. Follow
+[Apple's custom notarization workflow](https://developer.apple.com/documentation/security/customizing-the-notarization-workflow);
+do not label the current default DMG as notarised.
+
+Before distributing a credentialed build, run packaged startup/edit/save/reopen
+on Intel and Apple silicon, downloaded-file Gatekeeper acceptance, update and
+file-dialog checks, and real local subprocess checks under hardened runtime.
+Koma Motion starts installed agent CLIs and LibreOffice as child processes and
+also launches Electron utility helpers. Configuration tests do not prove
+these paths work in a hardened, signed application. Validate them without
+adding broad entitlements as a workaround. Live provider generation still
+requires separate explicit authorization.
 
 ### Windows signing
 
@@ -348,6 +434,50 @@ by the application.
 
 A new certificate has no reputation at first, so Windows can show a warning
 for downloads even when they are signed.
+
+The optional implementation uses **Microsoft Artifact Signing**, formerly
+Azure Trusted Signing, through electron-builder 26's `win.azureSignOptions`.
+It requires a validated **Public Trust** account/profile and the matching
+publisher name, plus a service principal authorized to sign that profile:
+
+| Input                         | Purpose                                           |
+| ----------------------------- | ------------------------------------------------- |
+| `KOMA_AZURE_SIGNING_ENDPOINT` | HTTPS regional `*.codesigning.azure.net` endpoint |
+| `KOMA_AZURE_SIGNING_ACCOUNT`  | signing account name                              |
+| `KOMA_AZURE_SIGNING_PROFILE`  | Public Trust certificate profile name             |
+| `KOMA_SIGNING_PUBLISHER`      | exact certificate common name                     |
+| `AZURE_TENANT_ID`             | service principal tenant UUID                     |
+| `AZURE_CLIENT_ID`             | application/client UUID                           |
+| `AZURE_CLIENT_SECRET`         | service principal secret value                    |
+
+The regional endpoint must match the account's region. The identity-validated
+account/profile, role assignment and current eligibility must be set up
+through Microsoft's service. The wrapper rejects classic `CSC_*`/`WIN_CSC_*`
+certificate inputs and alternative Azure credential groups, preventing an
+accidental fallback to a different signer. The builder's Azure integration
+installs its TrustedSigning PowerShell module from PSGallery on the signing
+host; this is not part of the unsigned pipeline.
+[electron-builder's v26 Azure setup](https://www.electron.build/v26/docs/features/code-signing/code-signing-win/)
+documents the supported environment credential group and configuration.
+
+SHA-256 file and timestamp digests and Microsoft's RFC 3161 timestamp service
+are configured. After packaging, the wrapper requires Windows Authenticode
+status `Valid`, a timestamp certificate and the exact publisher on both
+the application executable and NSIS installer. It exits unsuccessfully if
+those native checks fail. No account, service principal, trusted signature or
+timestamp has been validated in this repository's credential-free tests.
+
+Do not assume a newly issued public Windows certificate is an exportable
+PFX suitable for unattended CI. Microsoft describes current OV/EV private-key
+hardware protection requirements and cloud signing alternatives in its
+[code signing options](https://learn.microsoft.com/en-us/windows/apps/package-and-deploy/code-signing-options).
+Artifact Signing manages keys in hardware rather than distributing a PFX;
+see [Microsoft's service overview](https://learn.microsoft.com/en-us/azure/artifact-signing/overview).
+If a maintainer already has a legitimate certificate with an allowed export
+or an HSM provider, that provider needs its own reviewed configuration; it is
+not implemented by this wrapper. Signing is not a guarantee that SmartScreen
+or organisational policy will accept a new download. Verify those outcomes
+on clean machines after actual signing and packaged application checks.
 
 ### Further steps
 
