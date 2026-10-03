@@ -1,9 +1,11 @@
+import { komaHoldDurationSchema } from '@koma-motion/core';
 import { z } from 'zod';
 
 export const powerPointOptionsSchema = z
   .object({
     motion: z.enum(['static', 'fade', 'morph']),
     autoAdvance: z.boolean(),
+    defaultHoldDurationMs: komaHoldDurationSchema.optional(),
   })
   .strict();
 

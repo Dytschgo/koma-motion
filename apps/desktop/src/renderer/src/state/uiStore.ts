@@ -124,6 +124,8 @@ interface UiState {
   readonly setInspectorTab: (tab: InspectorTab) => void;
   readonly selectKoma: (komaId: string | null) => void;
   readonly selectElement: (elementId: string | null) => void;
+  /** Explicitly opens element properties, collapsing chat only when it occupies the Inspector column. */
+  readonly inspectSelectedElement: (collapseChat: boolean) => void;
   readonly setZoom: (zoom: number | null) => void;
   readonly setSettingsOpen: (open: boolean) => void;
   /** Opens Settings, on `page` when given. */
@@ -210,6 +212,14 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   setZoom(zoom) {
     set({ zoom: zoom === null ? null : clampZoom(zoom) });
+  },
+  inspectSelectedElement(collapseChat) {
+    if (get().selectedElementId === null) return;
+    set((state) => ({
+      view: 'canvas',
+      inspectorTab: 'element',
+      agentPanelOpen: collapseChat ? false : state.agentPanelOpen,
+    }));
   },
   setSettingsOpen(settingsOpen) {
     set({ settingsOpen });

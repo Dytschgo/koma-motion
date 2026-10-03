@@ -135,6 +135,7 @@ function convertKoma(
     title: koma.title,
     purpose: koma.purpose,
     speakerNotes: koma.speakerNotes,
+    holdDurationMs: null,
     background: { type: 'solid', colour: backgroundColour },
     elements,
   };

@@ -6,7 +6,13 @@ import type {
   ShapeElement,
   TextElement,
 } from '@koma-motion/core';
-import type { CSSProperties, KeyboardEvent, PointerEvent, ReactElement } from 'react';
+import {
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactElement,
+} from 'react';
 import type { AssetResolver } from './assets';
 
 const JUSTIFY_BY_VERTICAL_ALIGN = {
@@ -121,13 +127,15 @@ function ImageContent({
   readonly resolveAsset: AssetResolver;
 }): ReactElement {
   const asset = resolveAsset(element.content.assetId);
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const decodeFailed = asset.status === 'available' && asset.url === failedUrl;
   const radius = element.style.cornerRadius;
-  if (asset.status === 'missing') {
+  if (asset.status === 'missing' || decodeFailed) {
     return (
       <div
         role="img"
         aria-label={`Missing image: ${element.name}`}
-        title={asset.reason}
+        title={asset.status === 'missing' ? asset.reason : 'The stored image could not be decoded.'}
         style={{
           width: '100%',
           height: '100%',
@@ -152,6 +160,7 @@ function ImageContent({
   return (
     <img
       src={asset.url}
+      onError={() => setFailedUrl(asset.url)}
       alt={element.content.altText}
       draggable={false}
       style={{

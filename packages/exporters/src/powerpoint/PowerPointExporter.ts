@@ -1,3 +1,4 @@
+import { DEFAULT_KOMA_HOLD_DURATION_MS, komaHoldDurationSchema } from '@koma-motion/core';
 import { randomUUID } from 'node:crypto';
 import { readFile, rename, unlink, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join } from 'node:path';
@@ -389,18 +390,13 @@ async function addMotion(
               transition.toKomaId === komas[index]?.id,
           )
         : undefined;
-    const outbound =
-      index < komas.length - 1
-        ? project.presentation.transitions.find(
-            (transition) =>
-              transition.fromKomaId === komas[index]?.id &&
-              transition.toKomaId === komas[index + 1]?.id,
-          )
-        : undefined;
     if (index === 0 && !destination.autoAdvance) continue;
     const effect = mode === 'morph' && canMorph(inbound, playable) ? 'morph' : 'fade';
     const duration = inbound && playable.has(inbound) ? inbound.duration : 500;
-    const advance = outbound && playable.has(outbound) ? outbound.duration : 500;
+    const advance =
+      komas[index]?.holdDurationMs ??
+      destination.defaultHoldDurationMs ??
+      DEFAULT_KOMA_HOLD_DURATION_MS;
     const transition = transitionXml(
       effect,
       duration,
@@ -504,6 +500,22 @@ export class PowerPointExporter implements PresentationExporter {
         status: 'failed',
         message: 'Unknown motion mode.',
         issues: [issue('error', 'invalidMotion', 'Choose static, fade or morph export.')],
+      };
+    }
+    if (
+      destination.defaultHoldDurationMs !== undefined &&
+      !komaHoldDurationSchema.safeParse(destination.defaultHoldDurationMs).success
+    ) {
+      return {
+        status: 'failed',
+        message: 'Choose a global hold duration between 1 and 60 seconds.',
+        issues: [
+          issue(
+            'error',
+            'invalidHoldDuration',
+            'The global hold duration must be an integer from 1000 to 60000 milliseconds.',
+          ),
+        ],
       };
     }
     const warnings = [...validation.issues];

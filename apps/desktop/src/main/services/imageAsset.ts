@@ -1,3 +1,5 @@
+import { detectImageType, validateImageBytes } from './imageValidation';
+export { detectImageType } from './imageValidation';
 import {
   err,
   MAX_EMBEDDED_ASSET_BYTES,
@@ -16,33 +18,6 @@ const EXTENSIONS: Readonly<Record<ImageMediaType, string>> = {
 };
 
 export const IMAGE_FILE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'webp', 'gif'] as const;
-
-function startsWith(bytes: Uint8Array, signature: readonly number[], offset = 0): boolean {
-  return signature.every((value, index) => bytes[offset + index] === value);
-}
-
-/**
- * Recognises the image type from the content of the file. File names and
- * extensions are not trusted.
- */
-export function detectImageType(bytes: Uint8Array): ImageMediaType | null {
-  if (startsWith(bytes, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) {
-    return 'image/png';
-  }
-  if (startsWith(bytes, [0xff, 0xd8, 0xff])) {
-    return 'image/jpeg';
-  }
-  if (startsWith(bytes, [0x47, 0x49, 0x46, 0x38])) {
-    return 'image/gif';
-  }
-  if (
-    startsWith(bytes, [0x52, 0x49, 0x46, 0x46]) &&
-    startsWith(bytes, [0x57, 0x45, 0x42, 0x50], 8)
-  ) {
-    return 'image/webp';
-  }
-  return null;
-}
 
 /** Whether a character is a control character or is not allowed in file names. */
 export function isUnsafeCharacter(character: string): boolean {
@@ -80,6 +55,11 @@ export function createImageAsset(options: {
   const mediaType = detectImageType(bytes);
   if (mediaType === null) {
     return err('The selected file is not a PNG, JPEG, WebP or GIF image.');
+  }
+  if (!validateImageBytes(bytes, mediaType)) {
+    return err(
+      'The image data is damaged, incomplete or exceeds the image dimensions limit. Choose another image.',
+    );
   }
   const id = options.idGenerator.next('asset');
   return ok({

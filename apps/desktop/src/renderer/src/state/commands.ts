@@ -48,6 +48,7 @@ import {
   type TransitionSuggestion,
 } from '@koma-motion/motion-engine';
 import { restackElements, type StackMove } from '../lib/layers';
+import { createAuthoredElement, type AuthoringKind } from '../lib/authoring';
 
 export type ProjectCommand = ((project: KomaProject, idGenerator: IdGenerator) => KomaProject) & {
   /** Visual endpoints for PR 3. These commands do not regenerate stored motion. */
@@ -146,7 +147,7 @@ export const changeAgentConfiguration =
   (project) => ({ ...project, agentConfiguration });
 
 export const changeKomaDetails = (komaId: string, patch: KomaDetailsPatch): ProjectCommand =>
-  // Titles, purpose and notes do not enter the element diff or stored motion.
+  // Titles, purpose, notes and hold time do not enter the element diff or stored motion.
   changeKomas(
     (presentation) => updateKomaDetails(presentation, komaId, patch),
     patch.background !== undefined,
@@ -165,6 +166,36 @@ export const changeElement = (komaId: string, element: KomaElement): ProjectComm
     });
     if (JSON.stringify(komaElementSchema.parse(original)) === JSON.stringify(next)) return project;
     return { ...project, presentation: replaceElement(project.presentation, komaId, next) };
+  });
+
+/** Direct creation is a visual edit: keep stored motion for explicit review/recalculation. */
+export const createElement = (komaId: string, kind: AuthoringKind): ProjectCommand =>
+  visualCommand(komaId, (project, ids) => {
+    const koma = findKoma(project.presentation, komaId);
+    if (!koma) return project;
+    if (koma.elements.length >= MAX_ELEMENTS_PER_KOMA)
+      throw new Error('This Koma has reached its element limit.');
+    // Appended elements draw in front even when existing layers already use the maximum.
+    const zIndex = Math.min(10000, Math.max(0, ...koma.elements.map((item) => item.zIndex)) + 1);
+    const element = createAuthoredElement(
+      kind,
+      project.brandKit,
+      project.presentation.aspectRatio,
+      zIndex,
+      ids,
+    );
+    const next = {
+      ...project,
+      presentation: {
+        ...project.presentation,
+        komas: project.presentation.komas.map((item) =>
+          item.id === komaId ? { ...item, elements: [...item.elements, element] } : item,
+        ),
+      },
+    };
+    // Validate identities, per-Koma limits and the whole-project safety budget before committing.
+    komaProjectSchema.parse(next);
+    return next;
   });
 
 /** Import/replacement and its bytes are one atomic undo step. Shared assets survive replacement. */

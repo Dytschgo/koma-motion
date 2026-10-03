@@ -38,7 +38,10 @@ import {
 import { generatePresentation } from './services/generation';
 import { createImageAsset, detectImageType, toDisplayName } from './services/imageAsset';
 
-const PNG = Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+const PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=',
+  'base64',
+);
 
 describe('resolveAppFile', () => {
   let root: string;

@@ -10,6 +10,10 @@ changes to the project format.
 
 ### Changed
 
+- Save per-Koma hold durations with undo and global autoplay/export fallbacks.
+  Format version 5 safely migrates older projects; pause preserves the remaining
+  hold and timed PowerPoint export separates hold time from animation duration.
+
 - The model chooser uses CLI-reported text models and per-model reasoning menus,
   with an expanded selection, refresh/retry states and preserved image controls.
   Saved effort choices are revalidated before execution; unsupported discovery
