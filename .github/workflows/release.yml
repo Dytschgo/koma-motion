@@ -54,6 +54,13 @@ jobs:
     outputs:
       covered: ${{ steps.decision.outputs.covered }}
     steps:
+      # Use the workflow's policy even when building a historical candidate.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+      - name: Preserve the current quality policy
+        shell: bash
+        run: cp apps/desktop/scripts/ci-quality.mjs "$RUNNER_TEMP/koma-ci-quality.mjs"
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.classify.outputs.sha }}
@@ -65,27 +72,38 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&per_page=20" > runs.json
-          run_id="$(node apps/desktop/scripts/ci-quality.mjs select-run runs.json "$SHA")"
+          run_id="$(node "$RUNNER_TEMP/koma-ci-quality.mjs" select-run runs.json "$SHA")"
           if [ -z "$run_id" ]; then
             echo "covered=false" >> "$GITHUB_OUTPUT"
             echo "No completed successful CI run covers ${SHA}." >> "$GITHUB_STEP_SUMMARY"
           else
             gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100" > jobs.json
-            covered="$(node apps/desktop/scripts/ci-quality.mjs covers-windows jobs.json)"
+            covered="$(node "$RUNNER_TEMP/koma-ci-quality.mjs" covers-quality jobs.json)"
             echo "covered=${covered}" >> "$GITHUB_OUTPUT"
-            echo "CI run ${run_id} covers the Windows quality checks: ${covered}." >> "$GITHUB_STEP_SUMMARY"
+            echo "CI run ${run_id} covers the Windows and macOS quality checks: ${covered}." >> "$GITHUB_STEP_SUMMARY"
           fi
 
   quality:
-    name: Check the code
+    name: Check the code (${{ matrix.os }})
     needs: [classify, ci-coverage]
     if: |
       always() &&
       needs.classify.result == 'success' &&
       (needs.ci-coverage.result != 'success' || needs.ci-coverage.outputs.covered != 'true')
-    runs-on: windows-latest
-    timeout-minutes: 20
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
     steps:
+      # Use the workflow's policy even when building a historical candidate.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+      - name: Preserve the current quality policy
+        shell: bash
+        run: cp apps/desktop/scripts/ci-quality.mjs "$RUNNER_TEMP/koma-ci-quality.mjs"
       - uses: actions/checkout@v7
         with:
           ref: ${{ needs.classify.outputs.sha }}
@@ -95,12 +113,31 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm format:check
-      - run: pnpm lint
-      - run: pnpm typecheck
+      - if: matrix.os == 'windows-latest'
+        run: pnpm format:check
+      - if: matrix.os == 'windows-latest'
+        run: pnpm lint
+      - if: matrix.os == 'windows-latest'
+        run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - run: pnpm test:e2e
+      - name: Run application tests
+        id: application
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
+        run: pnpm exec playwright test "--reporter=list,github,json"
+      - name: Summarize retries and skipped tests
+        if: always() && steps.application.outcome != 'skipped'
+        run: node "${{ runner.temp }}/koma-ci-quality.mjs" summarize-report apps/desktop/test-results/report.json
+      - name: Keep application test reports and traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: quality-test-results-${{ matrix.os }}
+          path: apps/desktop/test-results
+          if-no-files-found: ignore
+          retention-days: 7
 
   package:
     name: Package (${{ matrix.platform }})
