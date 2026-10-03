@@ -209,14 +209,12 @@ export async function generate(input: GenerationInput): Promise<void> {
       if (target !== undefined) {
         if (useAgentStore.getState().execution?.cancelRequested) {
           result = 'cancelled';
-          useAgentStore
-            .getState()
-            .addEntry({
-              ...streamed(),
-              kind: 'notApplied',
-              providerName,
-              text: 'The selected-Koma proposal was stopped. Nothing was changed.',
-            });
+          useAgentStore.getState().addEntry({
+            ...streamed(),
+            kind: 'notApplied',
+            providerName,
+            text: 'The selected-Koma proposal was stopped. Nothing was changed.',
+          });
           return;
         }
         const proposed = outcome.presentation.komas[0];

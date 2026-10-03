@@ -1,4 +1,4 @@
-import type { AssetReference, GenerationHistoryEntry } from '@koma-motion/core';
+import type { AssetReference, GenerationHistoryEntry, ImageElement } from '@koma-motion/core';
 import {
   buildKoma,
   buildPresentation,
@@ -7,8 +7,9 @@ import {
   buildText,
   FIXTURE_TIMESTAMP,
 } from '@koma-motion/core/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { GenerationOutcome } from '../../../shared/ipc';
+import { setUnavailableImageAssets } from '@koma-motion/renderer';
 import { useAgentStore } from '../state/agentStore';
 import { changeKomaDetails, deleteKoma } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
@@ -37,6 +38,7 @@ const asset: AssetReference = {
 const target = buildKoma({
   id: 'middle',
   title: 'Middle',
+  holdDurationMs: 2500,
   elements: [buildText({ id: 'middle-text', persistentId: 'heading' })],
 });
 const initial = buildProject({
@@ -93,7 +95,9 @@ function defer() {
   });
   return { promise, resolve };
 }
+afterEach(() => setUnavailableImageAssets([], []));
 beforeEach(() => {
+  setUnavailableImageAssets([], []);
   useAgentStore.setState({
     scopedProposal: null,
     execution: null,
@@ -105,6 +109,69 @@ beforeEach(() => {
 });
 
 describe('selected proposal ownership', () => {
+  function imageOutcome(): GenerationOutcome {
+    const answer = outcome();
+    if (answer.status !== 'succeeded') throw new Error('Expected successful fixture');
+    const image: ImageElement = {
+      ...buildShape(),
+      type: 'image',
+      content: { assetId: asset.id, altText: 'Shared' },
+      style: { fit: 'contain', cornerRadius: 0 },
+    };
+    return {
+      ...answer,
+      presentation: buildPresentation({
+        komas: [buildKoma({ elements: [image] })],
+        transitions: [],
+      }),
+    };
+  }
+
+  it('invalidates only referenced asset changes or removals and never deletes shared bytes', async () => {
+    vi.mocked(invoke).mockResolvedValue(imageOutcome());
+    await generate(input);
+    useProjectStore
+      .getState()
+      .apply((project) => ({ ...project, assets: [{ ...asset, embeddedData: null }] }));
+    expect(useAgentStore.getState().scopedProposal?.invalidReason).toMatch(
+      /changed or was removed/,
+    );
+    useProjectStore.getState().undo();
+    acceptScopedProposal();
+    expect(selectProject(useProjectStore.getState())).toBe(initial);
+    discardScopedProposal();
+    await generate(input);
+    useProjectStore.getState().apply((project) => ({ ...project, assets: [] }));
+    expect(useAgentStore.getState().scopedProposal?.invalidReason).toMatch(/removed/);
+  });
+
+  it('rechecks file-boundary unavailable image verdicts both before preview and at Apply', async () => {
+    vi.mocked(invoke).mockResolvedValue(imageOutcome());
+    setUnavailableImageAssets([asset], [asset.id]);
+    await generate(input);
+    expect(useAgentStore.getState().scopedProposal?.invalidReason).toMatch(/no longer available/);
+    discardScopedProposal();
+    setUnavailableImageAssets([], []);
+    await generate(input);
+    expect(useAgentStore.getState().scopedProposal?.invalidReason).toBeNull();
+    setUnavailableImageAssets([asset], [asset.id]);
+    acceptScopedProposal();
+    expect(selectProject(useProjectStore.getState())).toBe(initial);
+    expect(useAgentStore.getState().scopedProposal?.invalidReason).toMatch(/no longer available/);
+  });
+
+  it('rejects excess generated assets atomically at Apply', async () => {
+    const assets = Array.from({ length: 500 }, (_, index) => ({
+      ...asset,
+      id: `generated-${String(index)}`,
+      projectPath: `assets/${String(index)}.png`,
+    }));
+    vi.mocked(invoke).mockResolvedValue(outcome(assets));
+    await generate(input);
+    acceptScopedProposal();
+    expect(selectProject(useProjectStore.getState())).toBe(initial);
+    expect(useAgentStore.getState().scopedProposal?.invalidReason).not.toBeNull();
+  });
   it('always previews, and Discard leaves content/assets/history and undo unchanged', async () => {
     const history = useProjectStore.getState().history;
     await generate(input);
@@ -128,7 +195,11 @@ describe('selected proposal ownership', () => {
     const next = selectProject(useProjectStore.getState());
     expect(next?.presentation.komas[0]).toBe(initial.presentation.komas[0]);
     expect(next?.presentation.komas[2]?.title).toBe('Edited while reviewing');
-    expect(next?.presentation.komas[1]).toMatchObject({ id: 'middle', title: 'Proposed' });
+    expect(next?.presentation.komas[1]).toMatchObject({
+      id: 'middle',
+      title: 'Proposed',
+      holdDurationMs: 2500,
+    });
     expect(next?.presentation.title).toBe('Manual deck');
     expect(next?.assets).toEqual([asset, generated]);
     expect(next?.generationHistory).toEqual([entry]);

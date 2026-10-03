@@ -19,6 +19,7 @@ export function mergeSelectedKoma(
   assets: readonly AssetReference[],
   entry: GenerationHistoryEntry,
   ids: IdGenerator,
+  unavailableAssetIds: readonly string[] = [],
 ): KomaProject {
   const target = project.presentation.komas.find((koma) => koma.id === targetId);
   if (!target) throw new Error('The target Koma no longer exists. Generate a new proposal.');
@@ -85,7 +86,7 @@ export function mergeSelectedKoma(
   }
   const available = new Set(
     [...project.assets, ...assets]
-      .filter((asset) => asset.embeddedData !== null)
+      .filter((asset) => asset.embeddedData !== null && !unavailableAssetIds.includes(asset.id))
       .map((asset) => asset.id),
   );
   if (

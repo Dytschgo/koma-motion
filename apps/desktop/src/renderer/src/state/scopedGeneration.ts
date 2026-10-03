@@ -7,6 +7,7 @@ import {
   type GenerationHistoryEntry,
 } from '@koma-motion/core';
 import type { ProjectCommand } from './commands';
+import { createAssetResolver } from '@koma-motion/renderer';
 
 export interface ScopedProposal {
   readonly sessionId: number;
@@ -63,14 +64,11 @@ export function scopedProposalIssue(
     ids.add(asset.id);
     paths.add(asset.projectPath);
   }
-  const available = new Set(
-    [...project.assets, ...proposal.assets]
-      .filter((asset) => asset.embeddedData !== null)
-      .map((asset) => asset.id),
-  );
+  const resolveAsset = createAssetResolver([...project.assets, ...proposal.assets]);
   if (
     flattenElements(proposal.proposed.elements).some(
-      (element) => element.type === 'image' && !available.has(element.content.assetId),
+      (element) =>
+        element.type === 'image' && resolveAsset(element.content.assetId).status !== 'available',
     )
   )
     return 'A proposed image is no longer available. Generate again.';
@@ -81,6 +79,8 @@ export function applyScopedProposal(proposal: ScopedProposal, sessionId: number)
   const command: ProjectCommand = (project, ids) => {
     const issue = scopedProposalIssue(proposal, project, sessionId);
     if (issue) throw new Error(issue);
+    const assets = [...project.assets, ...proposal.assets];
+    const resolveAsset = createAssetResolver(assets);
     return mergeSelectedKoma(
       project,
       proposal.target.id,
@@ -88,6 +88,9 @@ export function applyScopedProposal(proposal: ScopedProposal, sessionId: number)
       proposal.assets,
       proposal.historyEntry,
       ids,
+      assets
+        .filter((asset) => resolveAsset(asset.id).status !== 'available')
+        .map((asset) => asset.id),
     );
   };
   return Object.assign(command, { affectedKomaIds: [proposal.target.id] });

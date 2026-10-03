@@ -24,6 +24,7 @@ import {
 import type { GenerationOutcome, TransitionRegenerationOutcome } from '../../shared/ipc';
 import type { ImageGenerator } from '@koma-motion/agent-runtime/node';
 import { generateRequestedImages } from './generatedImages';
+import { unavailableImageAssetIds } from './imageValidation';
 
 const MAX_SUMMARY_LENGTH = 400;
 
@@ -53,7 +54,18 @@ export async function generatePresentation(options: {
   readonly generateImage?: ImageGenerator;
 }): Promise<GenerationOutcome> {
   const { runner, executionId, providerId, project, input, now, onStatus, onOutput } = options;
-  const request = buildGenerationRequest(project, input);
+  const unavailable = new Set(
+    input.targetKomaId === undefined ? [] : unavailableImageAssetIds(project.assets),
+  );
+  const request = buildGenerationRequest(
+    {
+      ...project,
+      assets: project.assets.map((asset) =>
+        unavailable.has(asset.id) ? { ...asset, embeddedData: null } : asset,
+      ),
+    },
+    input,
+  );
   const configuration = project.agentConfiguration;
 
   const historyEntry = (
@@ -171,7 +183,9 @@ export async function generatePresentation(options: {
   const count = presentation.komas.length;
   const entry = historyEntry(
     'succeeded',
-    `Created ${String(count)} ${count === 1 ? 'Koma' : 'Komas'}: ${presentation.komas.map((koma) => koma.title).join(', ')}`,
+    request.targetKoma
+      ? `Proposed changes to ${request.targetKoma.title}: ${presentation.komas[0]?.title ?? ''}`
+      : `Created ${String(count)} ${count === 1 ? 'Koma' : 'Komas'}: ${presentation.komas.map((koma) => koma.title).join(', ')}`,
     warnings,
   );
   let candidateProject;
@@ -186,6 +200,7 @@ export async function generatePresentation(options: {
             assets,
             entry,
             createSeededIdGenerator(seed),
+            unavailableImageAssetIds([...project.assets, ...assets]),
           )
         : appendGenerationHistory(
             { ...project, presentation, assets: [...project.assets, ...assets] },

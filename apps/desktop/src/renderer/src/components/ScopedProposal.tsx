@@ -10,9 +10,11 @@ import { Button } from './ui';
 export function ScopedProposal({
   project,
   sessionId,
+  onReviewed,
 }: {
   readonly project: KomaProject;
   readonly sessionId: number;
+  readonly onReviewed: () => void;
 }): ReactElement | null {
   const proposal = useAgentStore((state) => state.scopedProposal);
   const [previewRef, previewSize] = useElementSize<HTMLDivElement>();
@@ -57,10 +59,23 @@ export function ScopedProposal({
         </p>
       )}
       <div className="mt-3 flex flex-wrap gap-2">
-        <Button type="button" disabled={issue !== null} onClick={acceptScopedProposal}>
+        <Button
+          type="button"
+          disabled={issue !== null}
+          onClick={() => {
+            acceptScopedProposal();
+            onReviewed();
+          }}
+        >
           Apply proposal
         </Button>
-        <Button type="button" onClick={discardScopedProposal}>
+        <Button
+          type="button"
+          onClick={() => {
+            discardScopedProposal();
+            onReviewed();
+          }}
+        >
           Discard proposal
         </Button>
       </div>

@@ -27,6 +27,7 @@ function fixture() {
   const target = buildKoma({
     id: 'middle',
     title: 'Middle',
+    holdDurationMs: 2500,
     elements: [buildText({ id: 'original', persistentId: 'title' })],
   });
   return buildProject({
@@ -95,6 +96,7 @@ describe('selected-Koma generation', () => {
     expect(next.presentation.transitions).toBe(project.presentation.transitions);
     expect(next.presentation.title).toBe('Keep deck title');
     expect(next.presentation.komas[1]?.id).toBe('middle');
+    expect(next.presentation.komas[1]?.holdDurationMs).toBe(2500);
     const elements = flattenElements(next.presentation.komas[1]?.elements ?? []);
     expect(elements[0]?.id).toBe('original');
     expect(elements[0]?.persistentId).toBe('title');

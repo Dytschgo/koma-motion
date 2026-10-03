@@ -646,7 +646,9 @@ export function AgentPanel({
             <div className="m-auto flex max-w-48 flex-col items-center text-center text-ink-300">
               <p>
                 {selectedId === 'mock'
-                  ? 'Try the three-Koma demo.'
+                  ? scope === 'selected'
+                    ? 'Try a selected-Koma proposal.'
+                    : 'Try the three-Koma demo.'
                   : 'What would you like to present?'}
               </p>
               <Button
@@ -679,7 +681,11 @@ export function AgentPanel({
               <RunActivity run={lastRun} onOpenMonitor={() => setMonitorOpen(true)} />
             )
           )}
-          <ScopedProposal project={project} sessionId={sessionId} />
+          <ScopedProposal
+            project={project}
+            sessionId={sessionId}
+            onReviewed={() => requestField.current?.focus()}
+          />
         </div>
 
         <RunMonitor
@@ -796,11 +802,13 @@ export function AgentPanel({
                 type="button"
                 aria-label="Koma count"
                 aria-description={
-                  validCount
-                    ? autoKomaCount
-                      ? 'Automatic Koma count'
-                      : `${komaCount} Komas`
-                    : 'Invalid Koma count. Enter a whole number from 1.'
+                  scope === 'selected'
+                    ? 'One Koma proposal for the selected Koma'
+                    : validCount
+                      ? autoKomaCount
+                        ? 'Automatic Koma count'
+                        : `${komaCount} Komas`
+                      : 'Invalid Koma count. Enter a whole number from 1.'
                 }
                 aria-haspopup="dialog"
                 aria-expanded={choice === 'count'}
@@ -933,7 +941,9 @@ export function AgentPanel({
                   <Availability provider={selected} />
                 )}
                 {selectedId === 'mock' && (
-                  <p className="text-xs text-ink-300">Demo only · 3 Komas</p>
+                  <p className="text-xs text-ink-300">
+                    {scope === 'selected' ? 'Demo only · 1 Koma proposal' : 'Demo only · 3 Komas'}
+                  </p>
                 )}
                 {selected?.metadata.usesExternalService === true && (
                   <p className="text-xs leading-snug text-ink-300">
