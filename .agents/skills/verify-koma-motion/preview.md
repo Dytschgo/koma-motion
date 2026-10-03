@@ -3,7 +3,7 @@
 Entry: create a project, select Mock provider, Use the example request, Generate Komas. Wait for three buttons in the Komas list.
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test preview-identity.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test preview-identity.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 Proof: scrub Position in the transition to 50 percent, then remove its transition with Undo. The Canvas stage must show the selected Koma at rest, the slider must return to 0 percent, and keyboard focus must survive. Also exercise deletion, reordering, paused duration edits with Undo/Redo, and scrubbing during playback.

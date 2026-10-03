@@ -3,7 +3,7 @@
 Entry: Create a project, then Brand Kit.
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test brandKitDraft.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test brandKitDraft.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 The spec must type with `pressSequentially`, including spaces, into Brand name and Heading font. Select existing text with `ControlOrMeta+A`, which uses the platform's editing shortcut. Replacing text with `fill` alone cannot catch the original space-loss bug.

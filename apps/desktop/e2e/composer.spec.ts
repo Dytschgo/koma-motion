@@ -1,9 +1,13 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { komaProjectSchema } from '@koma-motion/core';
+import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
+import { getStarterPreset } from '@koma-motion/brand-kit';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import {
   answerSaveDialog,
+  answerOpenDialog,
+  showChat,
   launchApplication,
   type RunningApplication,
   openSettingsPage,
@@ -24,6 +28,95 @@ test.beforeEach(async () => {
 });
 test.afterEach(async () => {
   await running.close();
+});
+
+test('retains selected draft/count through narrow Inspect collapse and edits, then clears them on same-file reopen', async () => {
+  const { window, application, directory } = running;
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1024, 700);
+  });
+  const fixture = buildProject({
+    name: 'Composer session',
+    presentation: buildPresentation({
+      komas: [
+        buildKoma({ id: 'first', title: 'First', elements: [buildShape({ name: 'Object' })] }),
+      ],
+      transitions: [],
+    }),
+  });
+  const path = join(directory, 'composer-session.koma');
+  const original = JSON.stringify(fixture);
+  await writeFile(path, original);
+  await answerOpenDialog(application, path);
+  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await showChat(window);
+  const counts = await openCountChoices(window);
+  await counts.getByRole('spinbutton', { name: 'Komas' }).fill('6');
+  await counts.getByRole('spinbutton', { name: 'Komas' }).press('Enter');
+  const request = window.getByLabel('Your request');
+  await request.pressSequentially('A selected draft with spaces');
+  await window.getByLabel('Generation scope').selectOption('selected');
+  await window
+    .getByRole('region', { name: 'Canvas' })
+    .getByRole('button', { name: 'Object (shape)' })
+    .click();
+  await window.getByRole('button', { name: 'Inspect selected element' }).click();
+  await expect(request).toBeHidden();
+  await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
+  await window.getByRole('button', { name: 'Show the chat', exact: true }).click();
+  await expect(request).toBeFocused();
+  await expect(request).toHaveValue('A selected draft with spaces');
+  await expect(window.getByLabel('Generation scope')).toHaveValue('selected');
+  await expect(countTrigger(window)).toBeDisabled();
+  await window.getByLabel('Generation scope').selectOption('entire');
+  await expect(countTrigger(window)).toHaveAttribute('aria-description', '6 Komas');
+  await window.getByLabel('Project name').fill('An edit in the same session');
+  await window.getByLabel('Project name').blur();
+  await expect(request).toHaveValue('A selected draft with spaces');
+  await window.getByLabel('Generation scope').selectOption('selected');
+  await answerOpenDialog(application, path);
+  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await window.getByRole('button', { name: 'Discard changes', exact: true }).click();
+  await expect(window.getByLabel('Project name')).toHaveValue('Composer session');
+  await showChat(window);
+  await expect(request).toHaveValue('');
+  await expect(window.getByLabel('Generation scope')).toHaveValue('entire');
+  await expect(countTrigger(window)).toHaveAttribute('aria-description', '5 Komas');
+  expect(await readFile(path, 'utf8')).toBe(original);
+  await window.screenshot({ path: test.info().outputPath('composer-session-reset.png') });
+  expect(running.problems).toEqual([]);
+});
+
+test('starter seeds replace an unsent request/count without being cleared by session initialization', async () => {
+  const { window } = running;
+  const starter = getStarterPreset('solar-system');
+  await window
+    .getByRole('list', { name: 'Starters' })
+    .getByRole('button', { name: 'Start Solar system' })
+    .click();
+  await showChat(window);
+  await expect(window.getByLabel('Your request')).toHaveValue(starter.request);
+  await expect(countTrigger(window)).toHaveAttribute(
+    'aria-description',
+    `${String(starter.komaCount)} Komas`,
+  );
+  await window.getByLabel('Your request').fill('An unsent request before choosing another starter');
+  const counts = await openCountChoices(window);
+  await counts.getByRole('spinbutton', { name: 'Komas' }).fill('4');
+  await counts.getByRole('spinbutton', { name: 'Komas' }).press('Enter');
+  await openSettingsPage(window, 'Templates');
+  await window
+    .getByRole('list', { name: 'Starters' })
+    .getByRole('button', { name: 'Apply Rapunzel story' })
+    .click();
+  await showChat(window);
+  const next = getStarterPreset('rapunzel');
+  await expect(window.getByLabel('Your request')).toHaveValue(next.request);
+  await expect(countTrigger(window)).toHaveAttribute(
+    'aria-description',
+    `${String(next.komaCount)} Komas`,
+  );
+  expect(running.problems).toEqual([]);
 });
 
 async function box(

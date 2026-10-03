@@ -19,10 +19,30 @@ if (Get-ChildItem Env: | Where-Object Name -Like 'KOMA_LIVE_*') {
 }
 pnpm install --frozen-lockfile
 pnpm build
-pnpm --filter @koma-motion/desktop exec playwright test workflow.spec.ts
 ```
 
 Run commands separately and stop on a failure. Building must report `Built Koma Motion into apps/desktop/out`. The workflow spec waits for the actual application window and exercises Create, Generate with the mock provider, preview, edit, save, and reopen. Do not infer readiness from a delay.
+
+Prepare a fresh absolute evidence directory outside every checkout before each
+native invocation, including commands in the feature guides. Record the clean
+revision being tested; if local changes remain, retain the status and diff and
+describe the result as a dirty revision. Use a GUID so two runs cannot share
+output names. For another machine, change the evidence root to an existing
+absolute directory outside its worktrees.
+
+```powershell
+$komaVerifyOutput = Join-Path 'D:/Code/KomaMotion-evidence' ('native-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $komaVerifyOutput | Out-Null
+git rev-parse HEAD | Set-Content (Join-Path $komaVerifyOutput 'revision.txt')
+Set-Content (Join-Path $komaVerifyOutput 'status.txt') -Value ((git status --short) -join [Environment]::NewLine)
+Set-Content (Join-Path $komaVerifyOutput 'local.patch') -Value ((git diff --binary) -join [Environment]::NewLine)
+$env:PLAYWRIGHT_JSON_OUTPUT_NAME = Join-Path $komaVerifyOutput 'report.json'
+pnpm --filter @koma-motion/desktop exec playwright test workflow.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
+```
+
+Record the invocation and exit code alongside that report. Preserve skipped
+and retried attempts; a retry success does not establish that the first run
+passed. Verify the report's outcomes rather than only its file existence.
 
 For a manual session, `pnpm start` launches the built app. The repository scripts and `e2e/application.ts` remove `ELECTRON_RUN_AS_NODE`; preserve that behavior. Launching Electron directly with this variable set starts plain Node instead.
 
@@ -34,7 +54,13 @@ Teardown answers the close prompt with Do not save and removes that test's tempo
 
 ## Evidence and limits
 
-Record the command, revision, platform, outcome, skipped tests, and actual assertions exercised. Preserve `apps/desktop/test-results` outside the checkout before another test run overwrites it. Failure traces are enabled. Put extra screenshots outside the temporary profile; include the native window size, reduced-motion setting, and source revision in the handoff.
+Record the command, revision, dirty status, platform, outcome, skipped tests,
+retries, and actual assertions exercised. Always pass the fresh external
+`--output` directory; the default `apps/desktop/test-results` is shared by
+successive runs and can be overwritten. Failure traces and screenshots written
+with `test.info().outputPath()` then survive profile teardown in that external
+directory. Put other captures there too; include observed native content size,
+reduced-motion setting, and source revision in the handoff.
 
 Native Open and Save dialogs are stubbed in application tests. They verify IPC and actual project-file handling after selection, not operation of the OS dialog. An accessibility assertion is not a screen-reader test. Mock generation does not verify Claude/Codex authentication, flags, sandbox behavior, or structured-output compatibility.
 

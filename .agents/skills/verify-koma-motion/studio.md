@@ -4,8 +4,17 @@ Build first and use the mock-provider workflow in `SKILL.md`. These specs use
 isolated native Electron windows and synthetic files:
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatBrandKit.spec.ts canvas-editing.spec.ts inspector.spec.ts transitionWarnings.spec.ts projectHealth.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatSidebar.spec.ts chatBrandKit.spec.ts providerDisclosure.spec.ts selectedGeneration.spec.ts narrowWindow.spec.ts streaming.spec.ts starters.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
+
+Create a fresh `$komaVerifyOutput` and report path using `SKILL.md` before each
+invocation. This group covers composer responsibilities after extraction:
+request/count/scope, session replacement, starter seeds, mounted narrow Inspect
+collapse, provider choices and disclosure, selected proposal review/focus,
+streaming and cancellation. Run `export-references.spec.ts` separately using
+the same fresh-output preparation for reference consent and saved-file privacy.
+Use `canvas-editing.spec.ts`, `inspector.spec.ts`, `transitionWarnings.spec.ts`
+and `projectHealth.spec.ts` for the editing/health paths described below.
 
 - Composer: create a project, choose a model from the compact searchable list beside
   Brand Kit below the request. The header must have no provider/model selector.
@@ -17,6 +26,13 @@ pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatBra
   dropdown. Toggle Auto and verify keyboard navigation at a narrow chat width. The mock
   disclosure, reference attachment, instructions and Generate action must remain
   reachable in short windows.
+  Type an unsent request with spaces, collapse through Inspect at a narrow
+  native size, reopen, and confirm the draft, count and selected scope survive.
+  Editing the same project must retain the draft; reopening the same file must
+  clear it and restore the default count and entire-presentation scope. Starter
+  request/count seeds must survive session initialization and replace a prior
+  draft when a starter is applied. Selected generation must preview before
+  Apply, disable count choice at one Koma, and restore draft focus after review.
 - Model capabilities: run `modelCapabilities.spec.ts`. The harness replaces CLI
   discovery with synthetic responses (ordinary tests never query live CLIs).
   Verify selected-row expansion only for reported reasoning menus, native radio
@@ -65,7 +81,13 @@ pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatBra
   warnings live in Project health; transition status stays on the transition in
   the Koma strip.
 
-Preserve screenshots and failure traces outside the worktree before cleanup.
+Preserve screenshots and failure traces in the fresh external output directory.
 Record actual native content dimensions and source commit. macOS uses different
 native line-selection shortcuts and may clamp windows to the available screen;
 assert observed dimensions rather than assuming a resize request was honored.
+
+Readiness comes from visible application controls and terminal generation
+results. The current composer/chat/sidebar/reference specs use these observable
+states and have no readiness-only `waitForTimeout`. Presentation pause checks,
+delayed cancellation fixtures and animation-settling screenshot intervals serve
+different purposes; preserve their behavioral observations.

@@ -2,8 +2,8 @@
 
 Run from a dedicated worktree with the merged Brand Kit library dependency.
 Record revision, worktree status, Windows/macOS version, Claude version, and
-LibreOffice version. Preserve `apps/desktop/test-results` outside the worktree
-before another UI run overwrites it.
+LibreOffice version. Prepare a fresh external output and JSON report path using `SKILL.md`
+before each native invocation.
 
 ## Offline application workflow
 
@@ -13,7 +13,7 @@ PPTX integration. If omitted, the focused PPTX test explicitly skips; report it.
 
 ```powershell
 pnpm build
-pnpm --filter @koma-motion/desktop exec playwright test deckBrandKit.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test deckBrandKit.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 The checked-in `e2e/fixtures/decks` files are synthetic Northstar slides, not
@@ -34,7 +34,7 @@ Only when the user requests live provider verification, run separately:
 
 ```powershell
 $env:KOMA_LIVE_DECK_ANALYSIS = '1'
-pnpm --filter @koma-motion/desktop exec playwright test deckBrandKit.live.spec.ts
+pnpm --filter @koma-motion/desktop exec playwright test deckBrandKit.live.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 Remove-Item Env:KOMA_LIVE_DECK_ANALYSIS
 ```
 

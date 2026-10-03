@@ -2,7 +2,8 @@
 
 Read [SKILL.md](SKILL.md) for the isolated Electron harness and the
 mock-provider policy. Record revision, worktree status, platform and whether
-LibreOffice was available. Preserve the Playwright output outside the worktree.
+LibreOffice was available. Prepare fresh external output and a JSON report path using `SKILL.md` before
+each native invocation.
 
 ## Offline application workflow
 
@@ -12,7 +13,7 @@ PPTX test. If omitted, that test explicitly skips; report it.
 
 ```powershell
 pnpm build
-pnpm --filter @koma-motion/desktop exec playwright test brandProfile.spec.ts --output "D:\Code\KomaMotion-evidence\brand-profile-<run>"
+pnpm --filter @koma-motion/desktop exec playwright test brandProfile.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 The spec attaches a PNG, a JPEG made from it and the synthetic Northstar PDF
