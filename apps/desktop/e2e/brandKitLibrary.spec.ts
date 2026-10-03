@@ -200,6 +200,7 @@ test('reports a matching-hash corrupt historical logo, applies without it, and p
   await expect(window.getByRole('list', { name: 'Messages' })).toContainText(
     'damaged in the library',
   );
+  await dismissNotices(window);
   await window.getByRole('tab', { name: 'This project' }).click();
   await expect(window.getByLabel('Brand name')).toHaveValue('Historical Brand');
   await expect(
