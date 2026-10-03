@@ -8,7 +8,7 @@ import { withProjectFileOperation } from '@koma-motion/project-format/node';
 import { MAX_RECOVERY_BYTES, RecoveryService } from './recovery';
 
 vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  const actual = await importOriginal<typeof filesystem>();
   return { ...actual, unlink: vi.fn(actual.unlink) };
 });
 
