@@ -20,6 +20,20 @@ Use `.agents/skills/verify-koma-motion/SKILL.md` for native application checks.
 - Preserve dirty work and unique commits. Remove a worktree only after its work
   is merged or archived and useful ignored evidence has been retained.
 
+## Pull requests
+
+- For each completed task, commit and push the task branch and create a pull
+  request targeting `main`, unless the user explicitly asks to keep it local.
+  Do not leave completed work only in a local branch or worktree.
+- Keep independent tasks in separate PRs so they can be reviewed and integrated
+  together. Describe the resulting behavior, verification, and known limits.
+- Register each PR with the current thread when PR-linking tools are available,
+  and include its URL in the final response.
+- Integrate through PRs; never bypass them with a direct push to `main`. For
+  multiple PRs, use the repository merge queue when available. Otherwise, the
+  integration coordinator merges them in sequence and validates each against
+  the updated `main`, preserving the acceptance requirements below.
+
 ## Acceptance
 
 Run formatting, lint, type checking, unit tests, build, and relevant Electron
