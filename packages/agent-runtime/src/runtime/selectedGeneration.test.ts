@@ -28,7 +28,7 @@ function fixture() {
     id: 'middle',
     title: 'Middle',
     holdDurationMs: 2500,
-    elements: [buildText({ id: 'original', persistentId: 'title' })],
+    elements: [buildText({ id: 'original', persistentId: 'title', locked: true, visible: false })],
   });
   return buildProject({
     presentation: buildPresentation({
@@ -100,9 +100,23 @@ describe('selected-Koma generation', () => {
     const elements = flattenElements(next.presentation.komas[1]?.elements ?? []);
     expect(elements[0]?.id).toBe('original');
     expect(elements[0]?.persistentId).toBe('title');
+    expect(elements[0]).toMatchObject({ locked: true, visible: false });
     expect(elements[1]?.id).not.toBe('other-element');
     expect(elements[1]?.persistentId).not.toBe('other-object');
     expect(next.generationHistory).toEqual([entry]);
     expect(project.presentation.komas[1]?.title).toBe('Middle');
+  });
+
+  it('does not reuse a persistent object identity when its type changes', () => {
+    const next = mergeSelectedKoma(
+      fixture(),
+      'middle',
+      buildKoma({ elements: [buildShape({ persistentId: 'title' })] }),
+      [],
+      entry,
+      createSeededIdGenerator('changed-type'),
+    );
+    expect(next.presentation.komas[1]?.elements[0]?.persistentId).not.toBe('title');
+    expect(next.presentation.komas[1]?.elements[0]?.id).not.toBe('original');
   });
 });
