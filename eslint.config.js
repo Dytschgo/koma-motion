@@ -2,6 +2,7 @@ import js from '@eslint/js';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import { architectureBoundaries } from './scripts/architecture-boundaries.mjs';
 
 export default tseslint.config(
   {
@@ -15,6 +16,14 @@ export default tseslint.config(
     ],
   },
   js.configs.recommended,
+  {
+    files: [
+      'packages/**/*.{ts,tsx,js,mjs,cjs}',
+      'apps/desktop/src/renderer/**/*.{ts,tsx,js,mjs,cjs}',
+    ],
+    plugins: { architecture: { rules: { boundaries: architectureBoundaries } } },
+    rules: { 'architecture/boundaries': 'error' },
+  },
   {
     files: ['**/*.{ts,tsx}'],
     extends: [...tseslint.configs.recommendedTypeChecked],

@@ -61,22 +61,22 @@ The proposed layout was kept. Three decisions need an explanation:
 
 ## Dependency direction
 
-```text
-                 apps/desktop
-                      |
-   +--------+---------+----------+-----------+
-   |        |         |          |           |
-renderer  agent-   project-   exporters   brand-kit
-   |      runtime   format       |           |
-   |       |  |       |          |           |
-   |       |  +-------+----------+-----------+
-   |       |          |          |
-   +------> motion-engine <------+
-              |
-            core
-```
+The desktop application may import the workspace packages. Package imports
+follow this direction:
 
-`renderer`, `agent-runtime` and `project-format` depend on `motion-engine`.
+| Package          | Other workspace packages it may import |
+| ---------------- | -------------------------------------- |
+| `core`           | none                                   |
+| `brand-kit`      | `core`                                 |
+| `motion-engine`  | `core`                                 |
+| `project-format` | `core`, `motion-engine`                |
+| `agent-runtime`  | `core`, `motion-engine`, `brand-kit`   |
+| `renderer`       | `core`, `motion-engine`                |
+| `exporters`      | `core`, `motion-engine`                |
+
+`renderer`, `agent-runtime`, `project-format` and `exporters` depend on
+`motion-engine`. The PowerPoint exporter validates persisted transitions before
+choosing an export animation.
 `project-format` uses it to report stored motion that cannot be played.
 `motion-engine` does not import `project-format`, so that edge does not
 cycle. `agent-runtime` also depends on `brand-kit`. Every package above
@@ -95,6 +95,31 @@ Rules:
   the model.
 - `agent-runtime` produces validated proposals. It does not know the user
   interface.
+
+`pnpm lint` enforces these direct import boundaries through
+`scripts/architecture-boundaries.mjs`. It checks workspace package names,
+normalized relative paths, absolute paths and file URLs in imports, re-exports,
+literal dynamic imports, `require` calls and TypeScript import types. Package
+external dependencies use a deliberate allowlist that is checked against each
+manifest; core production code allows only `zod`. Node built-ins are allowed
+in exporter code and the `src/node` areas of agent-runtime and project-format.
+Renderer code cannot import Node built-ins, Electron, main/preload code or
+the Node-only exporter package or package `/node` entry points. Portable package
+code also cannot import or re-export a `/node` entry point, even within its own
+package. This keeps the renderer's allowed package entries portable. Shared IPC
+types remain available to the renderer.
+
+Files ending in `.test.ts` may import Node utilities and Vitest for fixtures;
+they still obey package directions, the desktop boundary and renderer bans on
+Electron and privileged entry points. Test helpers without that suffix follow
+the production rules, and production code cannot import unit-test modules.
+The regression suite runs with the existing desktop
+script tests and proves the real ESLint CLI rejects an invalid core import
+without disabling type-aware rules.
+
+The rule does not evaluate computed runtime specifiers, custom loader aliases,
+symlink targets or transitive imports. It complements type checking, bundling
+and Electron's runtime isolation rather than replacing them.
 
 ## Core Koma model
 
