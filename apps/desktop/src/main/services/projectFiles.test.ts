@@ -1,3 +1,5 @@
+import { mkdtemp, writeFile as writeBytes, link, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
 import type { KomaProject } from '@koma-motion/core';
 import { err, ok } from '@koma-motion/core';
@@ -308,3 +310,41 @@ function defer<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   });
   return { promise, resolve: resolvePromise };
 }
+
+describe('recovered project copy protection', () => {
+  beforeEach(() => {
+    showSaveDialog.mockReset();
+    writeFile.mockReset();
+  });
+  it('refuses a hard-link alias of the recorded original', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'koma-recovered-copy-'));
+    try {
+      const source = join(directory, 'original.koma');
+      const alias = join(directory, 'alias.koma');
+      await writeBytes(source, 'original bytes');
+      await link(source, alias);
+      const session = createProjectSession();
+      session.recoveredSourcePath = source;
+      showSaveDialog.mockResolvedValue({ canceled: false, filePath: alias });
+      expect((await saveProject(window, session, buildProject(), now)).status).toBe('failed');
+      expect(writeFile).not.toHaveBeenCalled();
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+  it('requires Save As and refuses the original even without renderer preserveOriginal', async () => {
+    const session = createProjectSession();
+    session.recoveredSourcePath = join('original', 'deck.koma');
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath: session.recoveredSourcePath });
+    const response = await saveProject(window, session, buildProject(), now);
+    expect(response.status).toBe('failed');
+    expect(writeFile).not.toHaveBeenCalled();
+    expect(session.filePath).toBeNull();
+    showSaveDialog.mockResolvedValue({ canceled: false, filePath: join('copy', 'deck.koma') });
+    writeFile.mockImplementation((_path, project) =>
+      Promise.resolve(ok({ project, fileRevision: 'copy' })),
+    );
+    expect((await saveProject(window, session, buildProject(), now)).status).toBe('saved');
+    expect(session.filePath).toBe(join('copy', 'deck.koma'));
+  });
+});

@@ -9,6 +9,8 @@ import type { IpcResponse, ProjectFileInfo } from '../../shared/ipc';
 import { isUnsafeCharacter } from './imageAsset';
 import { unavailableImageAssetIds } from './imageValidation';
 
+import type { RecoveryService } from './recovery';
+
 const FILE_FILTERS = [{ name: 'Koma Motion project', extensions: [PROJECT_FILE_EXTENSION] }];
 
 /** What the main process remembers about the project of a window. */
@@ -18,6 +20,9 @@ export interface ProjectSession {
    * renderer can neither read nor change it.
    */
   filePath: string | null;
+  /** Main-owned crash recovery and original-copy protection. */
+  recovery: RecoveryService | null;
+  recoveredSourcePath: string | null;
   /** Shared by queued saves, including paths first chosen by a pending Save as. */
   fileRevisions: Map<string, string>;
   hasUnsavedChanges: boolean;
@@ -42,6 +47,8 @@ export interface ProjectSession {
 export function createProjectSession(): ProjectSession {
   return {
     filePath: null,
+    recovery: null,
+    recoveredSourcePath: null,
     fileRevisions: new Map(),
     hasUnsavedChanges: false,
     sessionId: 0,
@@ -61,9 +68,10 @@ export function canCompleteSaveAndClose(session: ProjectSession): boolean {
   );
 }
 
-function replaceOpenProject(session: ProjectSession): void {
+export function replaceOpenProject(session: ProjectSession): void {
   session.sessionId += 1;
   session.filePath = null;
+  session.recoveredSourcePath = null;
   session.fileRevisions = new Map();
   session.hasUnsavedChanges = false;
   session.saveAndCloseSessionId = null;
@@ -191,6 +199,11 @@ async function writeTo(
   if (session.sessionId === sessionId && ticket > session.publishedSaveTicket) {
     session.filePath = filePath;
     session.publishedSaveTicket = ticket;
+    session.recovery?.saved(
+      session.recovery.sessionId,
+      saved.value.project,
+      session.recoveredSourcePath ?? filePath,
+    );
   }
   return { status: 'saved', project: saved.value.project, file: toFileInfo(filePath) };
 }
@@ -203,7 +216,8 @@ export async function saveProjectAs(
   sessionId = session.sessionId,
   preserveOriginal = false,
 ): Promise<IpcResponse<'koma:project:save-as'>> {
-  const sourcePath = session.filePath;
+  preserveOriginal ||= session.recoveredSourcePath !== null;
+  const sourcePath = session.recoveredSourcePath ?? session.filePath;
   const selection = await dialog.showSaveDialog(window, {
     title: preserveOriginal ? 'Save a project copy' : 'Save project as',
     defaultPath: preserveOriginal

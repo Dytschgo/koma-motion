@@ -3,6 +3,8 @@ import { withProjectFileOperation } from '@koma-motion/project-format/node';
 
 /** Channels that read or write the project file. Dialogs stay outside the limit. */
 export const PROJECT_PERSISTENCE_CHANNELS = [
+  'koma:recovery:capture',
+  'koma:recovery:restore',
   'koma:project:open',
   'koma:project:save',
   'koma:project:save-as',

@@ -1,6 +1,8 @@
 import type { KomaProject } from '@koma-motion/core';
 import { useElementSize } from '@koma-motion/renderer';
 import { useEffect, useRef, type ReactElement } from 'react';
+import { Recovery } from './components/Recovery';
+import { followRecovery } from './lib/recovery';
 import { AgentPanel } from './components/AgentPanel';
 import { BrandKitPanel } from './components/BrandKitPanel';
 import { Inspector } from './components/Inspector';
@@ -48,6 +50,7 @@ function useApplicationEvents(): void {
   const hasUnsavedChanges = useProjectStore(selectHasUnsavedChanges);
 
   useEffect(() => {
+    const unfollowRecovery = followRecovery();
     void detectProviders();
     const unsubscribeStatus = subscribe('koma:providers:status', (event) => {
       useAgentStore.getState().addStatus(event);
@@ -62,6 +65,7 @@ function useApplicationEvents(): void {
     const unfollowUpdates = followUpdates();
     const unfollowFullScreen = followFullScreen();
     return () => {
+      unfollowRecovery();
       unfollowFullScreen();
       unsubscribeStatus();
       unsubscribeOutput();
@@ -202,6 +206,7 @@ export function App(): ReactElement {
     <div className="flex h-full flex-col">
       <TopBar />
       {project === null ? <Welcome /> : <ProjectLayout project={project} />}
+      <Recovery />
       <SettingsDialog project={project} />
       <QuickStartGuide />
       <ConfirmDialog />

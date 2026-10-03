@@ -46,13 +46,16 @@ export function getApplicationEnvironment(): Record<string, string> {
 export async function launchApplication(
   options: {
     readonly executablePath?: string;
+    /** Reuse an isolated profile for crash recovery checks; the test owns its cleanup. */
+    readonly directory?: string;
+    readonly preserveDirectory?: boolean;
     /** Added to the environment, for example KOMA_MOCK_DELAY_MS. */
     readonly env?: Readonly<Record<string, string>>;
     /** Records a video of every window into this folder. */
     readonly recordVideoDirectory?: string;
   } = {},
 ): Promise<RunningApplication> {
-  const directory = await mkdtemp(join(tmpdir(), 'koma-motion-e2e-'));
+  const directory = options.directory ?? (await mkdtemp(join(tmpdir(), 'koma-motion-e2e-')));
   const userData = `--user-data-dir=${join(directory, 'user-data')}`;
   // CI machines have small screens, and a window never grows beyond its
   // screen. At half the device scale factor a Windows screen holds the full
@@ -112,7 +115,8 @@ export async function launchApplication(
         });
         await application.close();
       }
-      await rm(directory, { recursive: true, force: true, maxRetries: 5 });
+      if (!options.preserveDirectory)
+        await rm(directory, { recursive: true, force: true, maxRetries: 5 });
     },
   };
 }

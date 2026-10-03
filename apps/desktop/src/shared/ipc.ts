@@ -57,6 +57,12 @@ import {
 } from './instructionTemplates';
 import { powerPointOptionsSchema, exportValidationSchema, exportIssueSchema } from './export';
 import { referenceSelectionOutcomeSchema } from './references';
+import {
+  recoverySessionSchema,
+  recoveryOfferSchema,
+  recoveryCaptureSchema,
+  recoveryResultSchema,
+} from './recovery';
 
 export const API_KEY = 'komaMotion';
 
@@ -155,6 +161,21 @@ const brandKitContent = {
 };
 
 export const ipcContract = {
+  'koma:recovery:offer': { request: empty, response: recoveryOfferSchema },
+  'koma:recovery:discard': { request: empty, response: actionResult },
+  'koma:recovery:capture': { request: recoveryCaptureSchema, response: recoveryResultSchema },
+  'koma:recovery:restore': {
+    request: empty,
+    response: z.discriminatedUnion('status', [
+      z.object({
+        status: z.literal('recovered'),
+        project: komaProjectSchema,
+        recoverySessionId: recoverySessionSchema,
+        unavailableAssetIds: z.array(idSchema),
+      }),
+      failure,
+    ]),
+  },
   'koma:references:select': {
     request: empty,
     response: referenceSelectionOutcomeSchema,
@@ -287,13 +308,17 @@ export const ipcContract = {
   },
   'koma:project:create': {
     request: z.object({ name: z.string().trim().min(1).max(200) }).strict(),
-    response: z.object({ project: komaProjectSchema }),
+    response: z.object({
+      project: komaProjectSchema,
+      recoverySessionId: recoverySessionSchema.optional(),
+    }),
   },
   'koma:project:open': {
     request: empty,
     response: z.discriminatedUnion('status', [
       z.object({
         status: z.literal('opened'),
+        recoverySessionId: recoverySessionSchema.optional(),
         project: komaProjectSchema,
         file: fileInfo,
         unavailableAssetIds: z.array(idSchema).optional(),

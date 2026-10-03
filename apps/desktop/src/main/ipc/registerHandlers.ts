@@ -24,6 +24,7 @@ import {
   type IpcEventPayload,
   type IpcResponse,
 } from '../../shared/ipc';
+import { unavailableImageAssetIds } from '../services/imageValidation';
 import { isTrustedSender } from '../security';
 import type { BrandKitLibrary } from '../services/brandKitLibrary';
 import { createOutputBatcher } from '../services/outputBatcher';
@@ -35,6 +36,7 @@ import { InstructionTemplateLibrary } from '../services/instructionTemplates';
 import {
   canCompleteSaveAndClose,
   createNewProject,
+  replaceOpenProject,
   openProject,
   saveProject,
   saveProjectAs,
@@ -200,18 +202,69 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
     profiles.save(sessionId, reviewed),
   );
 
-  handle('koma:project:create', ({ name }) => {
+  handle('koma:recovery:offer', () => session.recovery?.offer() ?? { status: 'none' });
+  handle(
+    'koma:recovery:capture',
+    (request) => session.recovery?.capture(request) ?? { status: 'stale' },
+  );
+  handle('koma:recovery:discard', async () => {
+    try {
+      await session.recovery?.discardPending();
+      return { status: 'done' };
+    } catch {
+      return {
+        status: 'failed',
+        message: 'The recovery snapshot could not be discarded. Try again.',
+      };
+    }
+  });
+  handle('koma:recovery:restore', async () => {
+    try {
+      const record = await session.recovery?.restore();
+      if (!record) return { status: 'failed', message: 'No recovery snapshot is available.' };
+      replaceOpenProject(session);
+      session.recoveredSourcePath = record.sourcePath;
+      session.hasUnsavedChanges = true;
+      void decks.cancel();
+      void profiles.cancel();
+      cancelAllGenerations();
+      context.projectStateChanged();
+      return {
+        status: 'recovered',
+        project: record.project,
+        recoverySessionId: record.sessionId,
+        unavailableAssetIds: unavailableImageAssetIds(record.project.assets),
+      };
+    } catch {
+      return {
+        status: 'failed',
+        message:
+          'The recovery snapshot could not be restored. The original project was not changed.',
+      };
+    }
+  });
+
+  handle('koma:project:create', async ({ name }) => {
+    await session.recovery?.assertResolved();
     void decks.cancel();
     void profiles.cancel();
     cancelAllGenerations();
     const response = createNewProject(session, name, new Date());
+    const recoverySessionId = await session.recovery?.activate(response.project, null);
+    if (recoverySessionId) response.recoverySessionId = recoverySessionId;
     context.projectStateChanged();
     return response;
   });
 
   handle('koma:project:open', async () => {
+    await session.recovery?.assertResolved();
     const response = await openProject(window, session);
     if (response.status === 'opened') {
+      const recoverySessionId = await session.recovery?.activate(
+        response.project,
+        session.filePath,
+      );
+      if (recoverySessionId) response.recoverySessionId = recoverySessionId;
       void decks.cancel();
       void profiles.cancel();
       cancelAllGenerations();
