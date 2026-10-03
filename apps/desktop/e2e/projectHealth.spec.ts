@@ -180,53 +180,70 @@ test('Save current format writes the current version; optional generation timing
   expect(running.problems).toEqual([]);
 });
 
-test('missing image replacement reports failure inline, then fixes only its target with undo and persistence', async () => {
-  const testInfo = test.info();
-  const source = await writeProject('images.koma', fixture());
-  const original = await readFile(source, 'utf8');
-  await open(source);
-  await showHealth();
-  const row = health().getByRole('listitem').filter({ hasText: 'image "Photo 1"' });
-  const invalid = join(running.directory, 'bad.png');
-  await writeFile(invalid, 'not an image');
-  await answerOpenDialog(running.application, invalid);
-  await row.getByRole('button', { name: 'Replace image' }).click();
-  await expect(row).toContainText('not a PNG');
-  await expect(health().getByRole('listitem')).toHaveCount(2);
-  expect(await readFile(source, 'utf8')).toBe(original);
-  await running.window.screenshot({ path: testInfo.outputPath('repair-failure.png') });
-  const replacement = join(running.directory, 'replacement.png');
-  await writeFile(replacement, PNG);
-  await answerOpenDialog(running.application, replacement);
-  await row.getByRole('button', { name: 'Replace image' }).click();
-  await expect(health()).toContainText('Image replaced');
-  await expect(row).toHaveCount(0);
-  await expect(health().getByRole('listitem')).toHaveCount(1);
-  await health().getByRole('button', { name: 'Close', exact: true }).click();
-  await running.window.getByRole('button', { name: 'Undo', exact: true }).click();
-  await showHealth();
-  await expect(health().getByRole('listitem')).toHaveCount(2);
-  await health().getByRole('button', { name: 'Close', exact: true }).click();
-  await running.window.getByRole('button', { name: 'Redo', exact: true }).click();
-  await answerSaveDialog(running.application, join(running.directory, 'repaired.koma'));
-  await running.window.getByRole('button', { name: 'Save as', exact: true }).click();
-  await expect(running.window.getByText('All changes saved', { exact: true })).toBeVisible();
-  const savedText = await readFile(join(running.directory, 'repaired.koma'), 'utf8');
-  expect(savedText).not.toContain(running.directory);
-  const saved = komaProjectSchema.parse(JSON.parse(savedText));
-  const images = saved.presentation.komas[0]!.elements.filter(
-    (element) => element.type === 'image',
-  );
-  expect(images[0]?.content.altText).toBe('Keep alt text');
-  expect(images[1]?.content.assetId).toBe('unavailable');
-  expect(saved.assets).toHaveLength(2);
-  await open(join(running.directory, 'repaired.koma'));
-  await showHealth();
-  await expect(health().getByRole('listitem')).toHaveCount(1);
-  await expect(row).toHaveCount(0);
-  expect(await readFile(source, 'utf8')).toBe(original);
-  expect(running.problems).toEqual([]);
-});
+for (const corrupt of [false, true]) {
+  test(`${corrupt ? 'Corrupt embedded' : 'Missing'} image replacement reports failure inline, then fixes only its target with undo and persistence`, async () => {
+    const testInfo = test.info();
+    const project = fixture();
+    if (corrupt)
+      project.assets[0]!.embeddedData = {
+        encoding: 'base64',
+        data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlK3Y4AAAAASUVORK5CYII=',
+      };
+    const source = await writeProject('images.koma', project);
+    const original = await readFile(source, 'utf8');
+    await open(source);
+    await expect(
+      running.window.locator('[data-element-id="image-1"] [role="img"]').first(),
+    ).toHaveAttribute('aria-label', 'Missing image: Photo 1');
+    await showHealth();
+    const row = health().getByRole('listitem').filter({ hasText: 'image "Photo 1"' });
+    const invalid = join(running.directory, 'bad.png');
+    await writeFile(
+      invalid,
+      corrupt ? Buffer.from(project.assets[0]!.embeddedData!.data, 'base64') : 'not an image',
+    );
+    await answerOpenDialog(running.application, invalid);
+    await row.getByRole('button', { name: 'Replace image' }).click();
+    await expect(row).toContainText(corrupt ? 'damaged, incomplete' : 'not a PNG');
+    await expect(health().getByRole('listitem')).toHaveCount(2);
+    expect(await readFile(source, 'utf8')).toBe(original);
+    await running.window.screenshot({ path: testInfo.outputPath('repair-failure.png') });
+    const replacement = join(running.directory, 'replacement.png');
+    await writeFile(replacement, PNG);
+    await answerOpenDialog(running.application, replacement);
+    await row.getByRole('button', { name: 'Replace image' }).click();
+    await expect(health()).toContainText('Image replaced');
+    await expect(row).toHaveCount(0);
+    await expect(health().getByRole('listitem')).toHaveCount(1);
+    await health().getByRole('button', { name: 'Close', exact: true }).click();
+    await running.window.getByRole('button', { name: 'Undo', exact: true }).click();
+    await showHealth();
+    await expect(health().getByRole('listitem')).toHaveCount(2);
+    await health().getByRole('button', { name: 'Close', exact: true }).click();
+    await running.window.getByRole('button', { name: 'Redo', exact: true }).click();
+    await answerSaveDialog(running.application, join(running.directory, 'repaired.koma'));
+    await running.window.getByRole('button', { name: 'Save as', exact: true }).click();
+    await expect(running.window.getByText('All changes saved', { exact: true })).toBeVisible();
+    const savedText = await readFile(join(running.directory, 'repaired.koma'), 'utf8');
+    expect(savedText).not.toContain(running.directory);
+    const saved = komaProjectSchema.parse(JSON.parse(savedText));
+    const images = saved.presentation.komas[0]!.elements.filter(
+      (element) => element.type === 'image',
+    );
+    expect(images[0]?.content.altText).toBe('Keep alt text');
+    expect(images[1]?.content.assetId).toBe('unavailable');
+    expect(saved.assets).toHaveLength(2);
+    expect(saved.assets.find((asset) => asset.id === 'unavailable')?.embeddedData).toEqual(
+      project.assets[0]!.embeddedData,
+    );
+    await open(join(running.directory, 'repaired.koma'));
+    await showHealth();
+    await expect(health().getByRole('listitem')).toHaveCount(1);
+    await expect(row).toHaveCount(0);
+    expect(await readFile(source, 'utf8')).toBe(original);
+    expect(running.problems).toEqual([]);
+  });
+}
 
 test('logo replacement and confirmed clear are undoable and retain shared missing images', async () => {
   const source = await writeProject('logo.koma', fixture(1, true));

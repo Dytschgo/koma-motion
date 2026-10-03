@@ -9,6 +9,29 @@ export type AssetResolver = (assetId: string) => ResolvedAsset;
 
 const BASE64_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
 
+// Session-only file-boundary verdicts. Exact bytes, type and id prevent a repaired
+// asset (or another project's reused id) from inheriting an old failure.
+let unavailableAssets = new Map<string, AssetReference>();
+
+export function setUnavailableImageAssets(
+  assets: readonly AssetReference[],
+  ids: readonly string[],
+): void {
+  const unavailable = new Set(ids);
+  unavailableAssets = new Map(
+    assets.filter((asset) => unavailable.has(asset.id)).map((asset) => [asset.id, asset]),
+  );
+}
+
+function knownUnavailable(asset: AssetReference): boolean {
+  const failed = unavailableAssets.get(asset.id);
+  return (
+    failed !== undefined &&
+    failed.mediaType === asset.mediaType &&
+    failed.embeddedData?.data === asset.embeddedData?.data
+  );
+}
+
 /**
  * Creates the only way in which the renderer loads images: from the bytes
  * stored in the project, as a `data:` URL of an allowed image type. The
@@ -23,12 +46,13 @@ export function createAssetResolver(assets: readonly AssetReference[]): AssetRes
         reason: `The image data of "${asset.name}" is not stored in this project.`,
       });
     } else if (
+      knownUnavailable(asset) ||
       !IMAGE_MEDIA_TYPES.includes(asset.mediaType) ||
       !BASE64_PATTERN.test(asset.embeddedData.data)
     ) {
       resolved.set(asset.id, {
         status: 'missing',
-        reason: `"${asset.name}" is not a supported image.`,
+        reason: `"${asset.name}" could not be read as a supported image.`,
       });
     } else {
       resolved.set(asset.id, {

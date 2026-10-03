@@ -296,6 +296,7 @@ export const ipcContract = {
         status: z.literal('opened'),
         project: komaProjectSchema,
         file: fileInfo,
+        unavailableAssetIds: z.array(idSchema).optional(),
         warnings: z.array(z.string()),
         migratedFrom: z.number().int().positive().nullable().optional(),
       }),
