@@ -270,7 +270,7 @@ jobs:
             "Koma-Motion-$KOMA_EXPECT_VERSION-universal-mac.zip"
           do
             test -f "$file"
-            grep -F "  ${file}" SHA256SUMS.txt | shasum -a 256 -c -
+            awk -v file="$file" '$2 == file' SHA256SUMS.txt | shasum -a 256 -c -
           done
       - name: Unpack and test the download
         working-directory: apps/desktop
