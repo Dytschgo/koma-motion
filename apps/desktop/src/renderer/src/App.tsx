@@ -170,7 +170,13 @@ function ProjectLayout({ project }: { readonly project: KomaProject }): ReactEle
       <KomaStrip project={project} />
       <div ref={attachArea} className="flex min-h-0 min-w-0 flex-1">
         <main className="flex min-h-0 min-w-0 flex-1">
-          <Workspace project={project} />
+          <Workspace
+            project={project}
+            onInspectSelected={() => {
+              collapsedForBrandKit.current = false;
+              useUiStore.getState().inspectSelectedElement(chatLayout.replacesInspector);
+            }}
+          />
           {brandKitOpen ? (
             <div className="contents" hidden={crowded}>
               <BrandKitPanel project={project} />
