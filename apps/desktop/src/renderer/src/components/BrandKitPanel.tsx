@@ -90,7 +90,13 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
         className="min-h-0 flex-1 overflow-y-auto border-t border-line"
       >
         {tab === 'project' ? (
-          <BrandKitEditor project={project} />
+          <>
+            <p className="px-3.5 pt-3 text-sm text-ink-300">
+              New elements and future generations use this kit. Existing elements keep their
+              styling.
+            </p>
+            <BrandKitEditor project={project} />
+          </>
         ) : (
           <BrandKitLibraryView project={project} />
         )}
