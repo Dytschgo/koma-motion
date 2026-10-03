@@ -264,6 +264,13 @@ export function validateAgentResponse(
   }
 
   const issues = checkSemantics(parsed.data, request);
+  if (request.targetKoma !== undefined && parsed.data.komas.length !== 1) {
+    issues.push({
+      code: 'limitExceeded',
+      path: 'komas',
+      message: 'A selected-Koma proposal must contain exactly one Koma.',
+    });
+  }
   const imageIds = new Set<string>();
   for (const image of parsed.data.imageRequests ?? []) {
     const targets = parsed.data.komas

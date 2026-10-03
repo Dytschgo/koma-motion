@@ -8,6 +8,7 @@ import {
   EASINGS,
   getCanvasSize,
   idSchema,
+  komaSchema,
   persistentIdSchema,
   TRANSITION_OPERATIONS,
   TRANSITION_STRATEGIES,
@@ -90,6 +91,8 @@ export const existingPresentationContextSchema = z.object({
 });
 
 export const presentationGenerationRequestSchema = z.object({
+  /** Explicit selected-Koma proposal context; absent for whole-presentation generation. */
+  targetKoma: komaSchema.optional(),
   userRequest: userRequestSchema,
   systemInstructions: systemInstructionsSchema.default(''),
   objective: z.string().max(2000).nullable(),
@@ -120,6 +123,7 @@ export type PresentationGenerationRequest = z.infer<typeof presentationGeneratio
 
 /** What a person enters in the chat panel. */
 export const generationInputSchema = z.object({
+  targetKomaId: idSchema.optional(),
   userRequest: userRequestSchema,
   objective: z.string().max(2000).nullable(),
   audience: z.string().max(1000).nullable(),
@@ -159,17 +163,27 @@ export function buildGenerationRequest(
   project: KomaProject,
   input: GenerationInput,
 ): PresentationGenerationRequest {
+  const targetKoma =
+    input.targetKomaId === undefined
+      ? undefined
+      : project.presentation.komas.find((koma) => koma.id === input.targetKomaId);
+  if (input.targetKomaId !== undefined && targetKoma === undefined) {
+    throw new Error(
+      'The selected Koma no longer exists. Select a current Koma and generate again.',
+    );
+  }
   const canvas = getCanvasSize(project.presentation.aspectRatio);
   const availableAssets = project.assets
     .filter((asset) => asset.embeddedData !== null)
     .map((asset) => ({ id: asset.id, name: asset.name }));
   return {
+    ...(targetKoma === undefined ? {} : { targetKoma }),
     userRequest: input.userRequest.trim(),
     systemInstructions: project.systemInstructions,
     objective: input.objective,
     audience: input.audience,
     brandKit: toBrandKitContext(project.brandKit, project.assets),
-    requestedKomaCount: input.requestedKomaCount,
+    requestedKomaCount: targetKoma === undefined ? input.requestedKomaCount : 1,
     imageGenerationEnabled: ['codex', 'grok'].includes(
       project.agentConfiguration.imageGeneration ?? 'off',
     ),
@@ -186,7 +200,7 @@ export function buildGenerationRequest(
     availableAssets,
     references: input.references ?? [],
     constraints: {
-      maxKomas: null,
+      maxKomas: targetKoma === undefined ? null : 1,
       maxElementsPerKoma: MAX_AGENT_ELEMENTS_PER_KOMA,
       maxTextLength: MAX_AGENT_TEXT_LENGTH,
     },

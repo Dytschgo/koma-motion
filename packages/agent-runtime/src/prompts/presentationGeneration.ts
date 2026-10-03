@@ -401,3 +401,52 @@ export const presentationRepairPromptV7: typeof presentationRepairPromptV5 = {
     };
   },
 };
+
+function selectedKomaPrompt(
+  base: AgentPrompt,
+  request: PresentationGenerationRequest,
+): AgentPrompt {
+  if (request.targetKoma === undefined) return base;
+  return {
+    ...base,
+    templateVersion: 8,
+    user:
+      base.user.replace(
+        'Your response replaces it.',
+        'Your response proposes changes only to the selected Koma; all other Komas and presentation metadata remain unchanged.',
+      ) +
+      '\n\n' +
+      [
+        '# Selected Koma proposal',
+        'Return exactly ONE Koma and no transitions. Revise only this target. Reuse persistent ids only for the same existing objects and types. The user will preview the proposal and choose Apply or Discard. Do not claim it has been applied. Preserve the meaning of locked or hidden objects.',
+        importedData(JSON.stringify(request.targetKoma)),
+      ].join('\n'),
+  };
+}
+
+export const presentationGenerationPromptV8: typeof presentationGenerationPromptV5 = {
+  id: 'presentation-generation',
+  version: 8,
+  render(input) {
+    return selectedKomaPrompt(
+      (input.request.imageGenerationEnabled
+        ? presentationGenerationPromptV7
+        : presentationGenerationPromptV5
+      ).render(input),
+      input.request,
+    );
+  },
+};
+export const presentationRepairPromptV8: typeof presentationRepairPromptV5 = {
+  id: 'presentation-repair',
+  version: 8,
+  render(input) {
+    return selectedKomaPrompt(
+      (input.request.imageGenerationEnabled
+        ? presentationRepairPromptV7
+        : presentationRepairPromptV5
+      ).render(input),
+      input.request,
+    );
+  },
+};

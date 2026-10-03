@@ -3,6 +3,7 @@ import {
   buildGenerationRequest,
   buildTransitionRegenerationRequest,
   convertResponseToPresentation,
+  mergeSelectedKoma,
   type AgentError,
   type ExecutionOutputEvent,
   type ExecutionStatusEvent,
@@ -173,12 +174,33 @@ export async function generatePresentation(options: {
     `Created ${String(count)} ${count === 1 ? 'Koma' : 'Komas'}: ${presentation.komas.map((koma) => koma.title).join(', ')}`,
     warnings,
   );
-  const candidate = komaProjectSchema.safeParse(
-    appendGenerationHistory(
-      { ...project, presentation, assets: [...project.assets, ...assets] },
-      entry,
-    ),
-  );
+  let candidateProject;
+  try {
+    const proposed = presentation.komas[0];
+    candidateProject =
+      request.targetKoma !== undefined && proposed !== undefined
+        ? mergeSelectedKoma(
+            project,
+            request.targetKoma.id,
+            proposed,
+            assets,
+            entry,
+            createSeededIdGenerator(seed),
+          )
+        : appendGenerationHistory(
+            { ...project, presentation, assets: [...project.assets, ...assets] },
+            entry,
+          );
+  } catch {
+    return failed(
+      'failed',
+      agentError(
+        'conversionFailed',
+        'The selected-Koma proposal could not be safely merged. No Komas were replaced.',
+      ),
+    );
+  }
+  const candidate = komaProjectSchema.safeParse(candidateProject);
   if (!candidate.success) {
     const tooLarge = candidate.error.issues.some(
       (issue) => issue.message === PROJECT_TOO_LARGE_MESSAGE,

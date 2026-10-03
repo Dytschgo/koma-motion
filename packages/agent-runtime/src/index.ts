@@ -14,4 +14,5 @@ export * from './providers/types';
 export * from './runtime/GenerationRunner';
 export * from './validation/extract';
 export * from './validation/validateResponse';
+export * from './conversion/selectedKoma';
 export * from './validation/validateTransitionResponse';

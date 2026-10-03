@@ -31,6 +31,7 @@ import { RunActivity, RunMonitor } from './RunActivity';
 import { ReferenceFiles, ReferenceAttachmentButton } from './ReferenceFiles';
 import { ChatBrandKitPicker } from './ChatBrandKitPicker';
 import { BrandMaterial, BrandProfileDialogHost } from './BrandMaterial';
+import { ScopedProposal } from './ScopedProposal';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
 import { Button, Help, IconButton, POPOVER_SURFACE, Select, TextInput } from './ui';
 
@@ -344,6 +345,10 @@ export function AgentPanel({
   const lastRun = useAgentStore((state) => state.lastRun);
   const [monitorOpen, setMonitorOpen] = useState(false);
   const conversation = useAgentStore((state) => state.conversation);
+  const proposal = useAgentStore((state) => state.scopedProposal);
+  const selectedKomaId = useUiStore((state) => state.selectedKomaId);
+  const [scope, setScope] = useState<'entire' | 'selected'>('entire');
+  const selectedKoma = project.presentation.komas.find((koma) => koma.id === selectedKomaId);
   const apply = useProjectStore((state) => state.apply);
   const sessionId = useProjectStore((state) => state.sessionId);
   const referenceState = useReferenceStore();
@@ -358,7 +363,7 @@ export function AgentPanel({
   const [komaCount, setKomaCount] = useState(String(DEFAULT_KOMA_COUNT));
   const [autoKomaCount, setAutoKomaCount] = useState(false);
   const [choice, setChoice] = useState<'model' | 'count' | 'brand' | null>(null);
-  const count = parseKomaCount(autoKomaCount, komaCount);
+  const count = scope === 'selected' ? 1 : parseKomaCount(autoKomaCount, komaCount);
   const validCount = count !== undefined;
   const requestValidation = userRequestSchema.safeParse(request);
   const requestError =
@@ -406,11 +411,16 @@ export function AgentPanel({
     requestValidation.success &&
     validCount &&
     !running &&
+    proposal === null &&
+    (scope !== 'selected' || selectedKoma !== undefined) &&
     !brandBusy &&
     available &&
     referencesReady;
 
   const composerSeed = useUiStore((state) => state.composerSeed);
+  useEffect(() => {
+    setScope('entire');
+  }, [sessionId]);
   const seedComposer = useUiStore((state) => state.seedComposer);
   // A starter puts its first request into the composer, ready to send.
   useEffect(() => {
@@ -476,7 +486,7 @@ export function AgentPanel({
       log.current.scrollTop = log.current.scrollHeight;
       following.current = true;
     }
-  }, [open, conversation.length]);
+  }, [open, conversation.length, proposal]);
 
   useEffect(() => {
     // Growing output and new phases follow only while the person is at the
@@ -508,6 +518,8 @@ export function AgentPanel({
       !userRequestSchema.safeParse(text).success ||
       count === undefined ||
       running ||
+      proposal !== null ||
+      (scope === 'selected' && selectedKoma === undefined) ||
       brandBusy ||
       !available ||
       !referencesReady
@@ -522,6 +534,7 @@ export function AgentPanel({
       // The agent infers the audience from the request.
       audience: null,
       requestedKomaCount: count,
+      ...(scope === 'selected' && selectedKoma ? { targetKomaId: selectedKoma.id } : {}),
       ...(references.length > 0 ? { references: [...references] } : {}),
     });
   };
@@ -666,6 +679,7 @@ export function AgentPanel({
               <RunActivity run={lastRun} onOpenMonitor={() => setMonitorOpen(true)} />
             )
           )}
+          <ScopedProposal project={project} sessionId={sessionId} />
         </div>
 
         <RunMonitor
@@ -683,6 +697,20 @@ export function AgentPanel({
             submit(request);
           }}
         >
+          <Select
+            aria-label="Generation scope"
+            value={scope}
+            disabled={running || proposal !== null}
+            onChange={(event) => {
+              setScope(event.target.value === 'selected' ? 'selected' : 'entire');
+              setChoice(null);
+            }}
+          >
+            <option value="entire">Entire presentation</option>
+            <option value="selected" disabled={selectedKoma === undefined}>
+              Selected Koma
+            </option>
+          </Select>
           <div className="relative flex flex-col gap-2 rounded-card border border-line-strong bg-surface-1 p-2 shadow-raised transition-[border-color,box-shadow] duration-150 focus-within:border-accent/70 focus-within:shadow-[0_0_0_3px_rgb(124_196_232/0.12)]">
             <label htmlFor={requestId} className="sr-only">
               Your request
@@ -696,7 +724,11 @@ export function AgentPanel({
               aria-invalid={requestError === undefined ? undefined : true}
               aria-describedby={requestError === undefined ? undefined : requestErrorId}
               value={request}
-              placeholder="Describe the presentation…"
+              placeholder={
+                scope === 'selected'
+                  ? 'Describe changes to the selected Koma…'
+                  : 'Describe the presentation…'
+              }
               onChange={(event) => setRequest(event.target.value)}
               onKeyDown={(event) => {
                 if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -760,6 +792,7 @@ export function AgentPanel({
               />
               <button
                 ref={countButton}
+                disabled={running || scope === 'selected'}
                 type="button"
                 aria-label="Koma count"
                 aria-description={
@@ -778,7 +811,13 @@ export function AgentPanel({
                 onClick={() => setChoice(choice === 'count' ? null : 'count')}
               >
                 <span>
-                  {validCount ? (autoKomaCount ? 'Auto Komas' : `${komaCount} Komas`) : 'Set Komas'}
+                  {scope === 'selected'
+                    ? '1 Koma'
+                    : validCount
+                      ? autoKomaCount
+                        ? 'Auto Komas'
+                        : `${komaCount} Komas`
+                      : 'Set Komas'}
                 </span>
                 <ChevronIcon direction="down" size={14} />
               </button>
