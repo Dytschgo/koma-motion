@@ -70,6 +70,7 @@ async function openAndEdit() {
   await running.window
     .getByRole('textbox', { name: 'Title', exact: true })
     .fill('Recovered committed title');
+  await running.window.getByLabel('Koma hold duration in seconds').fill('6');
   await expect(running.window.getByText('Recovery snapshot saved', { exact: true })).toBeVisible();
   return { source, original };
 }
@@ -109,7 +110,7 @@ test('forced termination offers committed edits, images and holds as an unsaved 
   await expect(app.window.getByRole('textbox', { name: 'Title', exact: true })).toHaveValue(
     'Recovered committed title',
   );
-  await expect(app.window.getByLabel('Koma hold duration in seconds')).toHaveValue('2.5');
+  await expect(app.window.getByLabel('Koma hold duration in seconds')).toHaveValue('6');
   await expect(
     app.window.getByRole('img', { name: 'Recovered image', exact: true }).first(),
   ).toBeVisible();
@@ -126,7 +127,7 @@ test('forced termination offers committed edits, images and holds as an unsaved 
   await expect(app.window.getByText('All changes saved', { exact: true })).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(copy, 'utf8')));
   expect(saved.presentation.komas[0]?.title).toBe('Recovered committed title');
-  expect(saved.presentation.komas[0]?.holdDurationMs).toBe(2500);
+  expect(saved.presentation.komas[0]?.holdDurationMs).toBe(6000);
   expect(saved.assets).toEqual(fixture().assets);
   expect(await readFile(source, 'utf8')).toBe(original);
   await app.window.keyboard.press('F5');

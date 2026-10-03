@@ -5,6 +5,7 @@ import { registerHandlers } from './ipc/registerHandlers';
 import { APP_URL, hardenWebContents } from './security';
 import type { BrandKitLibrary } from './services/brandKitLibrary';
 import { createProjectSession } from './services/projectFiles';
+import { finishCleanClose } from './services/projectClose';
 import { RecoveryService } from './services/recovery';
 import type { UpdateService } from './updates/service';
 
@@ -76,6 +77,7 @@ export function createMainWindow(
   session.recovery = recovery;
   let closeConfirmed = false;
   let askingToClose = false;
+  let flushingClose = false;
 
   const updateTitle = (): void => {
     if (window.isDestroyed()) {
@@ -109,9 +111,19 @@ export function createMainWindow(
     if (closeConfirmed) return;
     if (!session.hasUnsavedChanges) {
       event.preventDefault();
-      void recovery.flush().then(() => {
-        closeConfirmed = true;
-        window.close();
+      if (flushingClose) return;
+      flushingClose = true;
+      void finishCleanClose(session, () => recovery.flush(), {
+        isOpen: () => !window.isDestroyed(),
+        confirm: () => {
+          closeConfirmed = true;
+          window.close();
+        },
+        askAgain: () => {
+          window.close();
+        },
+      }).finally(() => {
+        flushingClose = false;
       });
       return;
     }
