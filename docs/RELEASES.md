@@ -172,9 +172,10 @@ This **publishes a prerelease** when all checks pass. The workflow
 1. refuses commits that are not part of `main`,
 2. reuses the newest CI run for that exact commit only when the run completed
    successfully and formatting, lint, types, both platforms' unit tests and
-   every Windows and macOS application-test shard succeeded; otherwise it runs
+   every Windows and macOS application-test shard and the required LibreOffice
+   integration lane succeeded; otherwise it runs
    static checks on Windows and unit, build and application checks on both
-   Windows and macOS,
+   Windows and macOS and real LibreOffice integration on Windows,
 3. packages the application for Windows and macOS with the version of the
    nightly,
 4. installs the package and tests it: the application must report the
@@ -192,8 +193,21 @@ CI and release fallback application tests retain their JSON reports and traces
 for seven days on successful and failed runs. Job summaries list flaky tests,
 retry attempts and skipped tests, so a green run does not imply that every test
 passed on its first attempt or that optional integrations ran. Native workers
-remain serial within each shard. LibreOffice-dependent tests require a
-separately provisioned environment and remain skipped in the default lane.
+remain serial within each shard. Optional LibreOffice cases remain skipped in
+the default application lanes. A separate required Windows lane downloads the
+pinned LibreOffice 26.2.6 MSI from The Document Foundation, checks its SHA-256,
+and extracts it into a private runner directory. Its driver checks the actual
+executable/version and requires five integration scenarios to pass with no
+skips or flaky results: PPTX-to-PDF preparation and previews, proposal
+cancellation/retry, bounded/invalid input rejection, shutdown during conversion,
+and PPTX brand material beside an image. Reports, preview screenshots and
+traces are retained for seven days. No live provider is used.
+
+Stable/nightly fallback lanes preserve the driver and pinned provisioner from
+the workflow revision before checking out the candidate. Missing historical
+test files or scenarios fail the gate. Publishing needs this lane to succeed
+or exact-commit CI evidence that includes the lane; older CI without it does
+not cover current quality policy.
 
 Each nightly release page includes a macOS Terminal command to install that
 specific nightly with `scripts/install.sh`. The script verifies the disk
@@ -255,6 +269,23 @@ are the way back.
 | Channels, versions and manifests follow the rules above | unit tests of `src/main/updates` and of the release scripts |
 | The channel is stored and survives a restart            | `e2e/updates.spec.ts`                                       |
 | An update on Windows installs from a published release  | `scripts/verify-update.mjs`, by hand, see below             |
+
+Packaged verification now edits an existing generated object, saves through
+IPC, reopens the actual `.koma` file through a stubbed native dialog, and checks
+its edited geometry and preserved generation history. It also checks packaged
+version, process isolation and bundled fonts. Its smoke-mode updater check
+only establishes that update checks are disabled; it does not establish
+system-wide network isolation.
+
+On macOS the verifier tests the update ZIP and DMG separately. It mounts the
+DMG read-only at a unique private mount point, copies the app out, checks
+`codesign` and both `lipo` architectures, and runs the packaged tests on that
+copy. It detaches in `finally`, including after test/signature failure. A failed
+detach retains the private directory rather than removing a mounted tree.
+Each source has its own test-output directory. Script lifecycle tests verify
+failure cleanup using synthetic files; actual DMG mounting and execution need
+the hosted macOS package lane. Windows install/uninstall checks remain in the
+temporary installer path.
 
 Not verified:
 

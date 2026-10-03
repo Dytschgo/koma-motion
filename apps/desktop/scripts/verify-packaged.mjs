@@ -7,17 +7,18 @@
  *
  * Windows: runs the installer without a window into a temporary folder and
  * removes the application again afterwards.
- * macOS: unpacks the archive that updates use, checks the signature and both
- * architectures.
+ * macOS: tests the update ZIP and a bundle copied from the mounted read-only
+ * DMG separately, checking the signature and both architectures each time.
  *
  * KOMA_EXPECT_VERSION names the version. Without it, the version of
  * package.json is expected.
  */
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { classifyReleaseTag } from './release-channel.mjs';
 import { root } from './config.mjs';
 
@@ -50,7 +51,7 @@ function requireFile(path) {
   return path;
 }
 
-function runTests(executable, version) {
+function runTests(executable, version, source = 'windows') {
   const environment = { ...process.env };
   delete environment.ELECTRON_RUN_AS_NODE;
   run(
@@ -60,6 +61,8 @@ function runTests(executable, version) {
       'test',
       '--config',
       'playwright.packaged.config.ts',
+      '--output',
+      `test-results/packaged-${source}`,
     ],
     {
       cwd: root,
@@ -89,31 +92,55 @@ async function verifyWindows(version, release) {
   }
 }
 
-async function verifyMac(version, release) {
+export async function verifyMac(version, release, execute = run, testBundle = runTests) {
   const archive = requireFile(join(release, `Koma-Motion-${version}-universal-mac.zip`));
-  requireFile(join(release, `Koma-Motion-${version}-universal.dmg`));
+  const image = requireFile(join(release, `Koma-Motion-${version}-universal.dmg`));
   const directory = await mkdtemp(join(tmpdir(), 'koma-motion-install-'));
-  const bundle = join(directory, `${PRODUCT}.app`);
-  const executable = join(bundle, 'Contents', 'MacOS', PRODUCT);
+  const mount = join(directory, 'mounted-image');
+  let mountAttempted = false;
+  let safeToRemove = true;
+  const verify = (bundle, source) => {
+    const executable = requireFile(join(bundle, 'Contents', 'MacOS', PRODUCT));
+    execute('/usr/bin/codesign', ['--verify', '--deep', '--strict', bundle]);
+    execute('/usr/bin/lipo', [executable, '-verify_arch', 'arm64', 'x86_64']);
+    testBundle(executable, version, source);
+  };
   try {
-    run('/usr/bin/ditto', ['-x', '-k', archive, directory]);
-    run('/usr/bin/codesign', ['--verify', '--deep', '--strict', bundle]);
-    run('/usr/bin/lipo', [executable, '-verify_arch', 'arm64', 'x86_64']);
-    runTests(executable, version);
+    const zipDirectory = join(directory, 'zip');
+    await mkdir(zipDirectory);
+    execute('/usr/bin/ditto', ['-x', '-k', archive, zipDirectory]);
+    verify(join(zipDirectory, `${PRODUCT}.app`), 'zip');
+    await mkdir(mount);
+    mountAttempted = true;
+    safeToRemove = false;
+    execute('/usr/bin/hdiutil', ['attach', '-readonly', '-nobrowse', '-mountpoint', mount, image]);
+    const copiedBundle = join(directory, 'dmg', `${PRODUCT}.app`);
+    await mkdir(join(directory, 'dmg'));
+    execute('/usr/bin/ditto', [join(mount, `${PRODUCT}.app`), copiedBundle]);
+    verify(copiedBundle, 'dmg');
   } finally {
-    await rm(directory, { recursive: true, force: true, maxRetries: 5 }).catch(() => undefined);
+    // Never recursively remove a path that could still contain a mounted filesystem.
+    if (mountAttempted) {
+      execute('/usr/bin/hdiutil', ['detach', mount]);
+      safeToRemove = true;
+    }
+    if (safeToRemove) await rm(directory, { recursive: true, force: true, maxRetries: 5 });
   }
 }
 
-const platform = process.argv[2];
-const release = resolve(root, process.argv[3] ?? 'release');
-const version = await readExpectedVersion();
+async function main() {
+  const platform = process.argv[2];
+  const release = resolve(root, process.argv[3] ?? 'release');
+  const version = await readExpectedVersion();
 
-if (platform === 'windows') {
-  await verifyWindows(version, release);
-} else if (platform === 'macos') {
-  await verifyMac(version, release);
-} else {
-  throw new Error('Usage: verify-packaged.mjs <windows|macos> [folder]');
+  if (platform === 'windows') {
+    await verifyWindows(version, release);
+  } else if (platform === 'macos') {
+    await verifyMac(version, release);
+  } else {
+    throw new Error('Usage: verify-packaged.mjs <windows|macos> [folder]');
+  }
+  console.log(`The packaged application confirmed version ${version}.`);
 }
-console.log(`The packaged application confirmed version ${version}.`);
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href)
+  await main();
