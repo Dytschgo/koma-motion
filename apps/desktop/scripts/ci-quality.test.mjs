@@ -41,6 +41,7 @@ test('the Windows and macOS quality jobs are the static, unit and application sh
   assert.match(workflow, /shard: \[1, 2\]\n/);
   assert.deepEqual(qualityJobNames(), [
     'Static checks',
+    'LibreOffice integration (windows)',
     'Unit tests (windows-latest)',
     'Application tests (windows-latest, shard 1 of 2)',
     'Application tests (windows-latest, shard 2 of 2)',
@@ -83,6 +84,7 @@ test('every Windows and macOS quality job must have succeeded', () => {
   assert.equal(jobsCoverQuality(jobs()), true);
   assert.equal(jobsCoverQuality(jobs().slice(1)), false);
   assert.equal(jobsCoverQuality(jobs().filter((job) => !job.name.includes('macos'))), false);
+  assert.equal(jobsCoverQuality(jobs().filter((job) => !job.name.includes('LibreOffice'))), false);
   for (const conclusion of ['failure', 'skipped', 'cancelled', null]) {
     assert.equal(
       jobsCoverQuality(
@@ -101,6 +103,35 @@ test('every Windows and macOS quality job must have succeeded', () => {
     ]),
     false,
   );
+});
+
+test('LibreOffice lanes provision the pinned tool, preserve current policy for candidates and gate publication', async () => {
+  for (const filename of ['ci.yml', 'release.yml', 'nightly.yml']) {
+    const workflow = await readFile(join(scripts, '../../../.github/workflows', filename), 'utf8');
+    const lane = workflow.split('\n  libreoffice:\n')[1].split('\n  package:\n')[0];
+    assert.match(lane, /name: LibreOffice integration \(windows\)/);
+    assert.match(lane, /runs-on: windows-latest/);
+    assert.match(lane, /provision-libreoffice\.ps1/);
+    assert.match(lane, /verify-libreoffice\.mjs/);
+    assert.match(lane, /if: always\(\)/);
+    assert.match(lane, /test-results\/libreoffice/);
+    if (filename !== 'ci.yml') {
+      const policy = lane.indexOf('ref: ${{ github.workflow_sha }}');
+      const preserve = lane.indexOf(
+        'Copy-Item -LiteralPath apps/desktop/scripts/verify-libreoffice.mjs',
+      );
+      const candidate = lane.indexOf('ref: ${{ needs.');
+      assert.ok(policy >= 0 && preserve > policy && candidate > preserve);
+      assert.match(
+        lane,
+        /needs\.ci-coverage\.result != 'success' \|\| needs\.ci-coverage\.outputs\.covered != 'true'/,
+      );
+    }
+  }
+  const provisioner = await readFile(join(scripts, 'provision-libreoffice.ps1'), 'utf8');
+  assert.match(provisioner, /\$version = '26\.2\.6'/);
+  assert.match(provisioner, /Get-FileHash -LiteralPath \$installer -Algorithm SHA256/);
+  assert.match(provisioner, /download\.documentfoundation\.org\/libreoffice\/stable/);
 });
 
 test('the command line fails closed when the jobs page is incomplete', async () => {
@@ -195,7 +226,11 @@ test('release workflows fall back on both platforms and publish only with qualit
         quality.includes(`if: matrix.os == 'windows-latest'\n        run: pnpm ${command}`),
       );
     }
-    assert.ok(workflow.includes(`needs: [${guard}, ci-coverage, quality, package]`));
+    assert.ok(workflow.includes(`needs: [${guard}, ci-coverage, quality, libreoffice, package]`));
+    assert.match(
+      workflow,
+      /needs\.libreoffice\.result == 'success' \|\| \(needs\.libreoffice\.result == 'skipped' && needs\.ci-coverage\.outputs\.covered == 'true'\)/,
+    );
     assert.ok(workflow.includes(`needs.${guard}.result == 'success'`));
     assert.match(workflow, /needs\.package\.result == 'success'/);
     assert.match(

@@ -126,6 +126,34 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  libreoffice:
+    name: LibreOffice integration (windows)
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Provision pinned LibreOffice
+        run: ./apps/desktop/scripts/provision-libreoffice.ps1
+      - run: pnpm build
+      - name: Require real LibreOffice integration coverage
+        run: node apps/desktop/scripts/verify-libreoffice.mjs apps/desktop
+      - name: Keep conversion evidence and traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: libreoffice-results-ci
+          path: |
+            apps/desktop/test-results/libreoffice
+            ${{ runner.temp }}/koma-libreoffice-extract.log
+          if-no-files-found: ignore
+          retention-days: 7
+
   package:
     name: Package (${{ matrix.platform }})
     # Builds the stable installers the way a release does and tests them.
