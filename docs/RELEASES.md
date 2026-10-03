@@ -170,7 +170,9 @@ This **publishes a prerelease** when all checks pass. The workflow
 (`.github/workflows/nightly.yml`):
 
 1. refuses commits that are not part of `main`,
-2. checks the code: format, lint, types, unit tests, build, application tests,
+2. uses the Windows CI result for that commit when formatting, lint, types,
+   unit tests and application tests already succeeded there, and otherwise
+   runs those checks,
 3. packages the application for Windows and macOS with the version of the
    nightly,
 4. installs the package and tests it: the application must report the
@@ -204,9 +206,10 @@ nightly, and in addition:
 - adds `Koma-Motion-Setup.exe` and `Koma-Motion.dmg`, the names without a
   version that links to the latest release use,
 - publishes the release **without** marking it as the latest,
-- downloads the Windows installer from the public release, compares it with
-  the published checksum, installs it and tests it,
-- marks the release as the latest only after that test passed.
+- downloads the Windows installer and the macOS disk image and archive from
+  the public release, compares them with the published checksums, installs or
+  unpacks them and tests them,
+- marks the release as the latest only after those tests passed.
 
 Until the last step, the previous release stays the latest one, and
 installed applications are not offered the new version.
