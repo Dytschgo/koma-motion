@@ -1,5 +1,5 @@
+import { collectAssetWarnings } from './assetHealth';
 import {
-  collectProjectWarnings,
   flattenElements,
   type AssetReference,
   type KomaProject,
@@ -40,7 +40,7 @@ export function repairAssetCommand(
   replacement: AssetReference | null,
 ): ProjectCommand {
   return (project, ids) => {
-    const current = collectProjectWarnings(project).find((item) => item.id === warning.id);
+    const current = collectAssetWarnings(project).find((item) => item.id === warning.id);
     if (!current || current.target.assetId !== warning.target.assetId)
       throw new Error('This item changed while the repair was open. Review it and try again.');
     if (replacement?.embeddedData === null) throw new Error('The replacement has no image data.');
@@ -149,7 +149,7 @@ export async function repairAsset(
       return next;
     });
     const next = selectProject(useProjectStore.getState());
-    if (next === null || collectProjectWarnings(next).some((item) => item.id === warning.id))
+    if (next === null || collectAssetWarnings(next).some((item) => item.id === warning.id))
       throw new Error('The issue is still present. Review the item and try again.');
     return {
       status: 'fixed',
