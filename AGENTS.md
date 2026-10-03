@@ -29,6 +29,9 @@ Use `.agents/skills/verify-koma-motion/SKILL.md` for native application checks.
   together. Describe the resulting behavior, verification, and known limits.
 - Register each PR with the current thread when PR-linking tools are available,
   and include its URL in the final response.
+- Leave PRs open for the user to review and merge, including when all checks
+  pass. Do not merge or enable auto-merge unless the user explicitly requests
+  it for that PR. Creating a PR does not authorize merging it.
 - Integrate through PRs; never bypass them with a direct push to `main`. For
   multiple PRs, use the repository merge queue when available. Otherwise, the
   integration coordinator merges them in sequence and validates each against
