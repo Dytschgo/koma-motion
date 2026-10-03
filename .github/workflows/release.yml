@@ -139,6 +139,50 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  libreoffice:
+    name: LibreOffice integration (windows)
+    needs: [classify, ci-coverage]
+    if: |
+      always() &&
+      needs.classify.result == 'success' &&
+      (needs.ci-coverage.result != 'success' || needs.ci-coverage.outputs.covered != 'true')
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      # Preserve today's driver and pinned provisioner when testing an older candidate.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+      - name: Preserve current LibreOffice verification
+        shell: pwsh
+        run: |
+          Copy-Item -LiteralPath apps/desktop/scripts/verify-libreoffice.mjs -Destination "$env:RUNNER_TEMP/koma-verify-libreoffice.mjs"
+          Copy-Item -LiteralPath apps/desktop/scripts/provision-libreoffice.ps1 -Destination "$env:RUNNER_TEMP/koma-provision-libreoffice.ps1"
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.classify.outputs.sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Provision pinned LibreOffice
+        run: '& "$env:RUNNER_TEMP/koma-provision-libreoffice.ps1"'
+      - run: pnpm build
+      - name: Require real LibreOffice integration coverage
+        run: node "${{ runner.temp }}/koma-verify-libreoffice.mjs" apps/desktop
+      - name: Keep conversion evidence and traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: libreoffice-results-release
+          path: |
+            apps/desktop/test-results/libreoffice
+            ${{ runner.temp }}/koma-libreoffice-extract.log
+          if-no-files-found: ignore
+          retention-days: 7
+
   package:
     name: Package (${{ matrix.platform }})
     # Runs beside the checks of the code. Publishing needs both.
@@ -198,11 +242,12 @@ jobs:
 
   publish:
     name: Publish
-    needs: [classify, ci-coverage, quality, package]
+    needs: [classify, ci-coverage, quality, libreoffice, package]
     if: |
       always() &&
       needs.classify.result == 'success' &&
       needs.package.result == 'success' &&
+      (needs.libreoffice.result == 'success' || (needs.libreoffice.result == 'skipped' && needs.ci-coverage.outputs.covered == 'true')) &&
       (needs.quality.result == 'success' || (needs.quality.result == 'skipped' && needs.ci-coverage.outputs.covered == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 15

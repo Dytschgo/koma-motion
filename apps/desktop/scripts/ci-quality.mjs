@@ -19,6 +19,7 @@ export const QUALITY_JOBS = qualityJobNames();
 export function qualityJobNames(shardCount = 2) {
   return [
     'Static checks',
+    'LibreOffice integration (windows)',
     ...['windows-latest', 'macos-latest'].flatMap((os) => [
       `Unit tests (${os})`,
       ...Array.from(
