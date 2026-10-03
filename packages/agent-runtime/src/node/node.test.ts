@@ -15,6 +15,7 @@ import {
   parseClaudeEnvelope,
 } from './ClaudeCodeProvider';
 import {
+  buildClaudeCodeChildEnvironment,
   buildCliChildEnvironment,
   CLI_CHILD_ENVIRONMENT_ALLOWLIST,
   detectCli,
@@ -229,6 +230,10 @@ function completed(overrides: Partial<ProcessResult> = {}): ProcessResult {
 }
 
 const CHILD_ENVIRONMENT = { PATH: 'C:\\synthetic\\bin' };
+const CLAUDE_CODE_CHILD_ENVIRONMENT = {
+  ...CHILD_ENVIRONMENT,
+  ANTHROPIC_CUSTOM_HEADERS: 'api-key: synthetic-claude-only',
+};
 
 function fakeEnvironment(
   outcome: ProcessResult | ((specification: ProcessSpecification) => Promise<ProcessResult>),
@@ -244,6 +249,7 @@ function fakeEnvironment(
       return typeof outcome === 'function' ? outcome(specification) : Promise.resolve(outcome);
     },
     childEnvironment: () => CHILD_ENVIRONMENT,
+    claudeCodeChildEnvironment: () => CLAUDE_CODE_CHILD_ENVIRONMENT,
     createWorkingDirectory: () => mkdtemp(join(directory, 'work-')),
     removeWorkingDirectory: (path) => rm(path, { recursive: true, force: true }),
     now: () => new Date('2026-01-15T10:30:00.000Z'),
@@ -592,13 +598,15 @@ describe('buildCliChildEnvironment', () => {
     'GROK_HOME',
   ];
 
-  it('copies only allowlisted string values', () => {
+  it('copies only shared allowlisted values and excludes Claude gateway settings', () => {
     expect([...CLI_CHILD_ENVIRONMENT_ALLOWLIST]).toEqual(expectedAllowlist);
     expect(
       buildCliChildEnvironment({
         PATH: 'C:\\synthetic\\koma-path',
         KOMA_UNTRUSTED_SENTINEL: 'synthetic-sentinel',
         ANTHROPIC_API_KEY: 'synthetic-anthropic',
+        ANTHROPIC_CUSTOM_HEADERS: 'api-key: synthetic-proxy-key',
+        CLAUDE_CODE_USE_VERTEX: '1',
         OPENAI_API_KEY: 'synthetic-openai',
         CODEX_HOME: 'C:\\synthetic\\codex-home',
         XAI_API_KEY: 'synthetic-xai',
@@ -619,7 +627,7 @@ describe('buildCliChildEnvironment', () => {
     });
   });
 
-  it('passes only Vertex connection values from the existing Claude settings file', async () => {
+  it('passes Claude Vertex and proxy values only to Claude Code from its settings file', async () => {
     const home = join(directory, 'home');
     const settings = join(home, '.claude', 'settings.json');
     await mkdir(join(home, '.claude'), { recursive: true });
@@ -642,7 +650,7 @@ describe('buildCliChildEnvironment', () => {
       'utf8',
     );
 
-    expect(buildCliChildEnvironment({ HOME: home })).toEqual({
+    expect(buildClaudeCodeChildEnvironment({ HOME: home })).toEqual({
       HOME: home,
       CLAUDE_CODE_USE_VERTEX: '1',
       CLAUDE_CODE_SKIP_VERTEX_AUTH: '1',
@@ -652,6 +660,7 @@ describe('buildCliChildEnvironment', () => {
       GOOGLE_APPLICATION_CREDENTIALS: 'C:\\Users\\test\\gcp.json',
       ANTHROPIC_CUSTOM_HEADERS: 'api-key: synthetic-proxy-key',
     });
+    expect(buildCliChildEnvironment({ HOME: home })).toEqual({ HOME: home });
   });
 
   it('validates Vertex values and lets explicit environment values override settings', async () => {
@@ -672,7 +681,7 @@ describe('buildCliChildEnvironment', () => {
       'utf8',
     );
 
-    expect(buildCliChildEnvironment({ HOME: home, CLAUDE_CODE_USE_VERTEX: '1' })).toEqual({
+    expect(buildClaudeCodeChildEnvironment({ HOME: home, CLAUDE_CODE_USE_VERTEX: '1' })).toEqual({
       HOME: home,
       CLAUDE_CODE_USE_VERTEX: '1',
       CLOUD_ML_REGION: 'global',
@@ -695,7 +704,7 @@ describe('buildCliChildEnvironment', () => {
     );
 
     expect(
-      buildCliChildEnvironment({
+      buildClaudeCodeChildEnvironment({
         HOME: home,
         ANTHROPIC_VERTEX_BASE_URL: 'https://shell-proxy.example/gvai/v1',
         ANTHROPIC_CUSTOM_HEADERS: 'api-key: shell-key',
@@ -706,6 +715,44 @@ describe('buildCliChildEnvironment', () => {
       ANTHROPIC_VERTEX_BASE_URL: 'https://shell-proxy.example/gvai/v1',
       ANTHROPIC_CUSTOM_HEADERS: 'api-key: shell-key',
     });
+    expect(
+      buildCliChildEnvironment({
+        HOME: home,
+        ANTHROPIC_VERTEX_BASE_URL: 'https://shell-proxy.example/gvai/v1',
+        ANTHROPIC_CUSTOM_HEADERS: 'api-key: shell-key',
+      }),
+    ).toEqual({ HOME: home });
+  });
+
+  it('falls back to the Claude settings header when the inherited value is empty', async () => {
+    const home = join(directory, 'home');
+    await mkdir(join(home, '.claude'), { recursive: true });
+    await writeFile(
+      join(home, '.claude', 'settings.json'),
+      JSON.stringify({ env: { ANTHROPIC_CUSTOM_HEADERS: 'api-key: settings-key' } }),
+      'utf8',
+    );
+
+    expect(
+      buildClaudeCodeChildEnvironment({ HOME: home, ANTHROPIC_CUSTOM_HEADERS: '' }),
+    ).toMatchObject({ ANTHROPIC_CUSTOM_HEADERS: 'api-key: settings-key' });
+  });
+
+  it('keeps CLAUDE_CONFIG_DIR scoped to Claude Code and uses its settings file', async () => {
+    const configDirectory = join(directory, 'claude-config');
+    await mkdir(configDirectory, { recursive: true });
+    await writeFile(
+      join(configDirectory, 'settings.json'),
+      JSON.stringify({ env: { ANTHROPIC_CUSTOM_HEADERS: 'api-key: alternate-settings-key' } }),
+      'utf8',
+    );
+    const parent = { HOME: join(directory, 'home'), CLAUDE_CONFIG_DIR: configDirectory };
+
+    expect(buildClaudeCodeChildEnvironment(parent)).toMatchObject({
+      CLAUDE_CONFIG_DIR: configDirectory,
+      ANTHROPIC_CUSTOM_HEADERS: 'api-key: alternate-settings-key',
+    });
+    expect(buildCliChildEnvironment(parent)).toEqual({ HOME: parent.HOME });
   });
 
   it('passes PATH through to a child and drops a sentinel', async () => {
@@ -1027,7 +1074,7 @@ describe('ClaudeCodeProvider', () => {
     const call = environment.calls[0];
     expect(call?.input).toContain('# Request');
     expect(call?.arguments.join(' ')).not.toContain('# Request');
-    expect(call?.env).toEqual(CHILD_ENVIRONMENT);
+    expect(call?.env).toEqual(CLAUDE_CODE_CHILD_ENVIRONMENT);
     expect(call?.arguments).toEqual(
       expect.arrayContaining(['--safe-mode', '--restricted', '--no-chrome', '--strict-mcp-config']),
     );

@@ -43,6 +43,7 @@ async function fixture(mode: string, task: (env: CliEnvironment) => Promise<void
       IMAGE_TEST_MODE: mode,
       OPENAI_API_KEY: 'test-key-must-not-be-passed',
     }),
+    claudeCodeChildEnvironment: () => ({}),
     runProcess: () => Promise.reject(new Error('Not used')),
     createWorkingDirectory: async () => {
       work = await mkdtemp(join(root, 'work-'));

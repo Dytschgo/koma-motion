@@ -55,7 +55,7 @@ export const CLI_CHILD_ENVIRONMENT_ALLOWLIST = [
   'GROK_HOME',
 ] as const;
 
-const VERTEX_ENVIRONMENT_NAMES = [
+const CLAUDE_CODE_ENVIRONMENT_NAMES = [
   'CLAUDE_CODE_USE_VERTEX',
   'CLAUDE_CODE_SKIP_VERTEX_AUTH',
   'ANTHROPIC_VERTEX_BASE_URL',
@@ -65,9 +65,9 @@ const VERTEX_ENVIRONMENT_NAMES = [
   'ANTHROPIC_CUSTOM_HEADERS',
 ] as const;
 
-type VertexEnvironmentName = (typeof VERTEX_ENVIRONMENT_NAMES)[number];
+type ClaudeCodeEnvironmentName = (typeof CLAUDE_CODE_ENVIRONMENT_NAMES)[number];
 
-function isValidVertexValue(name: VertexEnvironmentName, value: string): boolean {
+function isValidClaudeCodeValue(name: ClaudeCodeEnvironmentName, value: string): boolean {
   if (name === 'CLAUDE_CODE_USE_VERTEX') return value === '1';
   if (name === 'CLAUDE_CODE_SKIP_VERTEX_AUTH') return value === '1';
   if (name === 'ANTHROPIC_VERTEX_BASE_URL') {
@@ -84,7 +84,7 @@ function isValidVertexValue(name: VertexEnvironmentName, value: string): boolean
     }
   }
   if (name === 'ANTHROPIC_CUSTOM_HEADERS') {
-    return value.length <= 16 * 1024 && !value.includes('\u0000');
+    return value.length > 0 && value.length <= 16 * 1024 && !value.includes('\u0000');
   }
   if (name === 'ANTHROPIC_VERTEX_PROJECT_ID') {
     return /^[a-z][a-z0-9-]{4,61}[a-z0-9]$/.test(value);
@@ -99,10 +99,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function vertexSettingsEnvironment(
+function claudeSettingsEnvironment(
   home: string | undefined,
   configDirectory: string | undefined,
-): Partial<Record<VertexEnvironmentName, string>> {
+): Partial<Record<ClaudeCodeEnvironmentName, string>> {
   if (
     (configDirectory === undefined || configDirectory === '') &&
     (home === undefined || home === '')
@@ -122,10 +122,10 @@ function vertexSettingsEnvironment(
     const env = settings['env'];
     if (!isRecord(env)) return {};
     const values = env;
-    const selected: Partial<Record<VertexEnvironmentName, string>> = {};
-    for (const name of VERTEX_ENVIRONMENT_NAMES) {
+    const selected: Partial<Record<ClaudeCodeEnvironmentName, string>> = {};
+    for (const name of CLAUDE_CODE_ENVIRONMENT_NAMES) {
       const value = values[name];
-      if (typeof value === 'string' && isValidVertexValue(name, value)) selected[name] = value;
+      if (typeof value === 'string' && isValidClaudeCodeValue(name, value)) selected[name] = value;
     }
     return selected;
   } catch {
@@ -133,10 +133,9 @@ function vertexSettingsEnvironment(
   }
 }
 
-/** Builds the environment passed to a CLI. The result is not merged with the parent. */
+/** Builds the shared environment passed to non-Claude CLI children. */
 export function buildCliChildEnvironment(
   parent: Readonly<NodeJS.ProcessEnv>,
-  options: { readonly claudeHome?: string } = {},
 ): Record<string, string> {
   const child: Record<string, string> = {};
   for (const name of CLI_CHILD_ENVIRONMENT_ALLOWLIST) {
@@ -145,11 +144,34 @@ export function buildCliChildEnvironment(
       child[name] = value;
     }
   }
+  return child;
+}
+
+/** Adds Claude Code and gateway settings without exposing them to other CLI providers. */
+export function buildClaudeCodeChildEnvironment(
+  parent: Readonly<NodeJS.ProcessEnv>,
+  options: { readonly claudeHome?: string } = {},
+): Record<string, string> {
+  const child = buildCliChildEnvironment(parent);
   const home = options.claudeHome ?? parent['HOME'] ?? parent['USERPROFILE'];
-  const configuredVertex = vertexSettingsEnvironment(home, parent['CLAUDE_CONFIG_DIR']);
-  for (const name of VERTEX_ENVIRONMENT_NAMES) {
-    const value = parent[name] ?? configuredVertex[name];
-    if (typeof value === 'string' && isValidVertexValue(name, value)) child[name] = value;
+  const configDirectory = parent['CLAUDE_CONFIG_DIR'];
+  const configured = claudeSettingsEnvironment(home, configDirectory);
+  if (
+    typeof configDirectory === 'string' &&
+    configDirectory.length > 0 &&
+    !configDirectory.includes('\u0000') &&
+    !configDirectory.includes('\r') &&
+    !configDirectory.includes('\n')
+  ) {
+    child['CLAUDE_CONFIG_DIR'] = configDirectory;
+  }
+  for (const name of CLAUDE_CODE_ENVIRONMENT_NAMES) {
+    const fromParent = parent[name];
+    const value =
+      typeof fromParent === 'string' && isValidClaudeCodeValue(name, fromParent)
+        ? fromParent
+        : configured[name];
+    if (typeof value === 'string' && isValidClaudeCodeValue(name, value)) child[name] = value;
   }
   return child;
 }
@@ -160,6 +182,8 @@ export interface CliEnvironment {
   runProcess(specification: ProcessSpecification): Promise<ProcessResult>;
   /** Allowlisted environment for a CLI child. */
   childEnvironment(): Readonly<Record<string, string>>;
+  /** Shared environment plus Claude Code's own settings and gateway headers. */
+  claudeCodeChildEnvironment(): Readonly<Record<string, string>>;
   /** Creates an empty folder that only this execution uses. */
   createWorkingDirectory(): Promise<string>;
   removeWorkingDirectory(path: string): Promise<void>;
@@ -171,6 +195,7 @@ export function createCliEnvironment(): CliEnvironment {
     resolveExecutable: (name) => resolveExecutable(name),
     runProcess,
     childEnvironment: () => buildCliChildEnvironment(process.env),
+    claudeCodeChildEnvironment: () => buildClaudeCodeChildEnvironment(process.env),
     createWorkingDirectory: () => mkdtemp(join(tmpdir(), 'koma-motion-agent-')),
     removeWorkingDirectory: async (path) => {
       await rm(path, { recursive: true, force: true, maxRetries: 3 });
