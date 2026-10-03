@@ -19,6 +19,8 @@ import {
   presentationRepairPromptV5,
   presentationGenerationPromptV7,
   presentationRepairPromptV7,
+  presentationGenerationPromptV8,
+  presentationRepairPromptV8,
   type AgentPrompt,
 } from '../prompts/presentationGeneration';
 import {
@@ -143,14 +145,18 @@ const PRESENTATION_TASK: Task<PresentationGenerationRequest, AgentPresentationRe
   parseRequest: parseWith(presentationGenerationRequestSchema),
   responseJsonSchema: (request) => getResponseJsonSchema(request.imageGenerationEnabled === true),
   render: (request, responseJsonSchema) =>
-    (request.imageGenerationEnabled
-      ? presentationGenerationPromptV7
-      : presentationGenerationPromptV5
+    (request.targetKoma !== undefined
+      ? presentationGenerationPromptV8
+      : request.imageGenerationEnabled
+        ? presentationGenerationPromptV7
+        : presentationGenerationPromptV5
     ).render({ request, responseJsonSchema }),
   renderRepair: (input) =>
-    (input.request.imageGenerationEnabled
-      ? presentationRepairPromptV7
-      : presentationRepairPromptV5
+    (input.request.targetKoma !== undefined
+      ? presentationRepairPromptV8
+      : input.request.imageGenerationEnabled
+        ? presentationRepairPromptV7
+        : presentationRepairPromptV5
     ).render(input),
   invoke: (provider, request, context) => provider.generatePresentation(request, context),
   validate: validateAgentResponse,

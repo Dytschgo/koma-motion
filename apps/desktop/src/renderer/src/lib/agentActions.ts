@@ -10,7 +10,47 @@ import { useAgentStore, type RunResult } from '../state/agentStore';
 import { applyGeneration, recordGeneration } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
+import {
+  applyScopedProposal,
+  scopedProposalIssue,
+  scopedSnapshotIssue,
+  type ScopedProposal,
+} from '../state/scopedGeneration';
 import { invoke } from './api';
+
+// Invalidation is permanent, including an edit followed by Undo while a proposal waits.
+useProjectStore.subscribe((state) => {
+  const proposal = useAgentStore.getState().scopedProposal;
+  if (proposal === null || proposal.invalidReason !== null) return;
+  const issue = scopedProposalIssue(proposal, selectProject(state), state.sessionId);
+  if (issue) useAgentStore.getState().setScopedProposal({ ...proposal, invalidReason: issue });
+});
+
+export function discardScopedProposal(): void {
+  useAgentStore.getState().setScopedProposal(null);
+}
+
+export function acceptScopedProposal(): void {
+  const proposal = useAgentStore.getState().scopedProposal;
+  if (proposal === null) return;
+  try {
+    useProjectStore
+      .getState()
+      .apply(applyScopedProposal(proposal, useProjectStore.getState().sessionId));
+    useUiStore.getState().selectKoma(proposal.target.id);
+    useAgentStore.getState().setScopedProposal(null);
+    useAgentStore.getState().addEntry({
+      kind: 'result',
+      providerName: proposal.providerName,
+      text: `Applied proposal to ${proposal.target.title || 'selected Koma'}.`,
+      warnings: proposal.warnings,
+    });
+  } catch (error) {
+    const issue =
+      error instanceof Error ? error.message : 'This proposal cannot be applied. Generate again.';
+    useAgentStore.getState().setScopedProposal({ ...proposal, invalidReason: issue });
+  }
+}
 
 function createExecutionId(): string {
   return `execution-${crypto.randomUUID()}`;
@@ -91,10 +131,29 @@ export async function generate(input: GenerationInput): Promise<void> {
   const project = selectProject(useProjectStore.getState());
   const sessionId = useProjectStore.getState().sessionId;
   const agent = useAgentStore.getState();
-  if (project === null || agent.execution !== null) {
+  if (project === null || agent.execution !== null || agent.scopedProposal !== null) {
     return;
   }
   const providerId = project.agentConfiguration.selectedProviderId;
+  const target =
+    input.targetKomaId === undefined
+      ? undefined
+      : project.presentation.komas.find((koma) => koma.id === input.targetKomaId);
+  if (input.targetKomaId !== undefined && target === undefined) {
+    useUiStore.getState().notify('error', 'Select a current Koma and generate again.');
+    return;
+  }
+  let snapshotIssue: string | null = null;
+  const unsubscribeSnapshot =
+    target === undefined
+      ? () => undefined
+      : useProjectStore.subscribe((state) => {
+          snapshotIssue ??= scopedSnapshotIssue(
+            { sessionId, target, originalAssets: project.assets },
+            selectProject(state),
+            state.sessionId,
+          );
+        });
   const presentationAtStart = project.presentation;
   const metadata = agent.providers.find(
     (provider) => provider.metadata.id === providerId,
@@ -147,6 +206,42 @@ export async function generate(input: GenerationInput): Promise<void> {
       return;
     }
     if (outcome.status === 'succeeded') {
+      if (target !== undefined) {
+        if (useAgentStore.getState().execution?.cancelRequested) {
+          result = 'cancelled';
+          useAgentStore.getState().addEntry({
+            ...streamed(),
+            kind: 'notApplied',
+            providerName,
+            text: 'The selected-Koma proposal was stopped. Nothing was changed.',
+          });
+          return;
+        }
+        const proposed = outcome.presentation.komas[0];
+        if (outcome.presentation.komas.length !== 1 || proposed === undefined)
+          throw new Error('A selected-Koma response must contain one Koma.');
+        const proposal: ScopedProposal = {
+          sessionId,
+          target,
+          originalAssets: project.assets,
+          proposed,
+          assets: outcome.assets ?? [],
+          historyEntry: outcome.historyEntry,
+          providerName,
+          warnings: outcome.warnings,
+          invalidReason: snapshotIssue,
+        };
+        const current = selectProject(useProjectStore.getState());
+        const issue = scopedProposalIssue(proposal, current, useProjectStore.getState().sessionId);
+        useAgentStore.getState().setScopedProposal({ ...proposal, invalidReason: issue });
+        useAgentStore.getState().addEntry({
+          ...streamed(),
+          kind: 'notApplied',
+          providerName,
+          text: `Proposal ready for ${target.title || 'selected Koma'}. Review it before applying.`,
+        });
+        return;
+      }
       let currentPresentation = selectProject(useProjectStore.getState())?.presentation;
       while (currentPresentation !== presentationAtStart) {
         const presentationAtPrompt = currentPresentation;
@@ -235,7 +330,8 @@ export async function generate(input: GenerationInput): Promise<void> {
         warnings: outcome.warnings,
       });
     } else {
-      useProjectStore.getState().apply(recordGeneration(outcome.historyEntry));
+      if (target === undefined)
+        useProjectStore.getState().apply(recordGeneration(outcome.historyEntry));
       useAgentStore.getState().addEntry({
         ...streamed(),
         kind: 'failure',
@@ -275,6 +371,7 @@ export async function generate(input: GenerationInput): Promise<void> {
       request: input.userRequest,
     });
   } finally {
+    unsubscribeSnapshot();
     useAgentStore.getState().finishExecution(executionId, result);
   }
 }

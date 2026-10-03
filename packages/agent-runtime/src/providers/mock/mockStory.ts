@@ -314,6 +314,28 @@ export function buildMockResponse(
   };
 
   const objective = request.objective ?? request.userRequest;
+  if (request.targetKoma !== undefined) {
+    return {
+      presentation: {
+        title: 'Selected Koma proposal',
+        objective: objective.slice(0, 2000),
+        audience: request.audience ?? '',
+        narrative: 'A preview of one revised Koma.',
+      },
+      komas: [
+        {
+          ...focus,
+          key: 'selected-proposal',
+          title: `Revised: ${request.targetKoma.title}`.slice(0, 300),
+          purpose: request.userRequest.slice(0, 2000),
+        },
+      ],
+      transitions: [],
+      warnings: [],
+      visualRationale:
+        'The mock proposes a focused layout for the selected Koma; Apply is required to change the project.',
+    };
+  }
   const warnings =
     request.requestedKomaCount !== null && request.requestedKomaCount !== 3
       ? ['The mock provider always creates its demonstration story with three Komas.']

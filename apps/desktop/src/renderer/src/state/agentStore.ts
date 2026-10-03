@@ -7,6 +7,7 @@ import type {
   ProviderModelListing,
 } from '@koma-motion/agent-runtime';
 import { create } from 'zustand';
+import type { ScopedProposal } from './scopedGeneration';
 import type { IpcResponse } from '../../../shared/ipc';
 import {
   appendStreamedOutput,
@@ -83,6 +84,8 @@ type NewEntry = ConversationEntry extends infer Entry
   : never;
 
 interface AgentState {
+  readonly scopedProposal: ScopedProposal | null;
+  readonly setScopedProposal: (proposal: ScopedProposal | null) => void;
   readonly providers: readonly DetectedProvider[];
   readonly detection: 'idle' | 'running' | 'done' | 'failed';
   readonly execution: RunningExecution | null;
@@ -119,6 +122,10 @@ interface AgentState {
 let nextEntryId = 1;
 
 export const useAgentStore = create<AgentState>((set) => ({
+  scopedProposal: null,
+  setScopedProposal(scopedProposal) {
+    set({ scopedProposal });
+  },
   providers: [],
   detection: 'idle',
   execution: null,
@@ -181,7 +188,7 @@ export const useAgentStore = create<AgentState>((set) => ({
     }));
   },
   clearConversation() {
-    set({ conversation: [], lastRun: null });
+    set({ conversation: [], lastRun: null, scopedProposal: null });
   },
   setModelListing(providerId, listing) {
     set((state) => ({ modelListings: { ...state.modelListings, [providerId]: listing } }));
