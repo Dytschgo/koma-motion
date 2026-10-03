@@ -14,14 +14,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  check:
-    name: Check (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, macos-latest]
+  static:
+    name: Static checks
+    # Formatting, lint and types are platform-neutral. Windows runs them once.
+    # apps/desktop/scripts/ci-quality.mjs matches this job name.
+    runs-on: windows-latest
+    timeout-minutes: 10
 
     steps:
       - name: Check out the repository
@@ -48,27 +46,83 @@ jobs:
       - name: Check types
         run: pnpm typecheck
 
+  unit:
+    name: Unit tests (${{ matrix.os }})
+    # Some tests run on one operating system only. Keep both.
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Run unit tests
         run: pnpm test
+
+  application:
+    name: Application tests (${{ matrix.os }}, shard ${{ matrix.shard }} of 2)
+    # Each shard stays at one worker. Tests still get a private profile.
+    # ci-quality.mjs matches these job names for the Windows shards.
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+        shard: [1, 2]
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Build the application
         run: pnpm build
 
       - name: Run application tests
-        run: pnpm test:e2e
+        working-directory: apps/desktop
+        run: pnpm exec playwright test --shard=${{ matrix.shard }}/2
 
       - name: Keep the results of failed application tests
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: application-test-results-${{ matrix.os }}
+          name: application-test-results-${{ matrix.os }}-${{ matrix.shard }}
           path: apps/desktop/test-results
           if-no-files-found: ignore
           retention-days: 7
 
   package:
     name: Package (${{ matrix.platform }})
-    # Builds the installers the way a release does and tests them. Nothing is published.
+    # Builds the stable installers the way a release does and tests them.
+    # Nightly packaging stays in the nightly workflow. Nothing is published.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -136,22 +190,6 @@ jobs:
             }
             console.log('$manifest describes ' + parsed.entries.map((entry) => entry.url).join(', '));
           "
-
-      - name: Package and test a nightly version
-        working-directory: apps/desktop
-        shell: bash
-        # The same command as in the nightly workflow. Nothing is published.
-        run: |
-          set -euo pipefail
-          version="$(node scripts/release-channel.mjs nightly-version "$(node -p "require('./package.json').version")" "$(date -u +%Y%m%d)" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT")"
-          rm -rf release
-          pnpm exec electron-builder ${{ matrix.builder }} --publish never \
-            --config.extraMetadata.version="$version" \
-            --config.publish.channel=nightly \
-            --config.publish.releaseType=prerelease
-          ls release
-          test -f release/nightly${{ matrix.platform == 'macos' && '-mac' || '' }}.yml
-          KOMA_EXPECT_VERSION="$version" node scripts/verify-packaged.mjs ${{ matrix.platform }}
 
       - name: Keep the results of failed tests
         if: failure()

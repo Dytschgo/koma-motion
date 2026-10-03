@@ -1,17 +1,22 @@
 import { expect, test } from '@playwright/test';
 import { launchApplication, showChat, type RunningApplication } from './application';
 
-let running: RunningApplication;
-test.beforeEach(async () => {
-  // Keep each streamed phase visible long enough to observe on slower CI runners.
-  running = await launchApplication({ env: { KOMA_MOCK_DELAY_MS: '6000' } });
-});
+let running: RunningApplication | undefined;
+
+async function start(delayMs: string): Promise<RunningApplication> {
+  const launched = await launchApplication({ env: { KOMA_MOCK_DELAY_MS: delayMs } });
+  running = launched;
+  return launched;
+}
+
 test.afterEach(async () => {
-  await running.close();
+  await running?.close();
+  running = undefined;
 });
 
 test('streams what the provider writes into the chat and keeps it with the result', async () => {
-  const { window, problems } = running;
+  // Three streamed sentences share this delay. Keep each one visible on a slow runner.
+  const { window, problems } = await start('6000');
   await window.getByRole('button', { name: 'Create a project' }).click();
   await showChat(window);
   await window.getByRole('button', { name: 'Use the example request' }).click();
@@ -39,7 +44,9 @@ test('streams what the provider writes into the chat and keeps it with the resul
 });
 
 test('does not pull the conversation down while the person reads earlier text', async () => {
-  const { window, application, problems } = running;
+  // The last sentence is followed by one of the three delay slices. 1800ms leaves
+  // about 600ms to record the scroll position before the reply finishes.
+  const { window, application, problems } = await start('1800');
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1480, 700);
   });

@@ -43,9 +43,46 @@ jobs:
           echo "sha=$candidate" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
+  ci-coverage:
+    name: Check existing CI
+    needs: classify
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      covered: ${{ steps.decision.outputs.covered }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.classify.outputs.sha }}
+      - id: decision
+        shell: bash
+        env:
+          SHA: ${{ needs.classify.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&per_page=20" > runs.json
+          run_id="$(node apps/desktop/scripts/ci-quality.mjs select-run runs.json "$SHA")"
+          if [ -z "$run_id" ]; then
+            echo "covered=false" >> "$GITHUB_OUTPUT"
+            echo "No completed successful CI run covers ${SHA}." >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100" > jobs.json
+            covered="$(node apps/desktop/scripts/ci-quality.mjs covers-windows jobs.json)"
+            echo "covered=${covered}" >> "$GITHUB_OUTPUT"
+            echo "CI run ${run_id} covers the Windows quality checks: ${covered}." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   quality:
     name: Check the code
-    needs: classify
+    needs: [classify, ci-coverage]
+    if: |
+      always() &&
+      needs.classify.result == 'success' &&
+      (needs.ci-coverage.result != 'success' || needs.ci-coverage.outputs.covered != 'true')
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -124,7 +161,12 @@ jobs:
 
   publish:
     name: Publish
-    needs: [classify, quality, package]
+    needs: [classify, ci-coverage, quality, package]
+    if: |
+      always() &&
+      needs.classify.result == 'success' &&
+      needs.package.result == 'success' &&
+      (needs.quality.result == 'success' || (needs.quality.result == 'skipped' && needs.ci-coverage.outputs.covered == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -193,9 +235,50 @@ jobs:
         working-directory: apps/desktop
         run: node scripts/verify-packaged.mjs windows ../../public-download
 
+  verify-public-download-macos:
+    name: Test the public macOS download
+    needs: [classify, publish]
+    runs-on: macos-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KOMA_EXPECT_VERSION: ${{ needs.classify.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.classify.outputs.sha }}
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Download what users download
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir public-download
+          gh release download "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --dir public-download \
+            --pattern "Koma-Motion-$KOMA_EXPECT_VERSION-universal.dmg" \
+            --pattern "Koma-Motion-$KOMA_EXPECT_VERSION-universal-mac.zip" \
+            --pattern SHA256SUMS.txt
+          cd public-download
+          for file in \
+            "Koma-Motion-$KOMA_EXPECT_VERSION-universal.dmg" \
+            "Koma-Motion-$KOMA_EXPECT_VERSION-universal-mac.zip"
+          do
+            test -f "$file"
+            grep -F "  ${file}" SHA256SUMS.txt | shasum -a 256 -c -
+          done
+      - name: Unpack and test the download
+        working-directory: apps/desktop
+        run: node scripts/verify-packaged.mjs macos ../../public-download
+
   promote-latest:
     name: Mark as the latest release
-    needs: verify-public-download
+    needs: [verify-public-download, verify-public-download-macos]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:

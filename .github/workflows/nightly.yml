@@ -51,9 +51,46 @@ jobs:
           echo "tag=v$version" >> "$GITHUB_OUTPUT"
           echo "Nightly $version from $actual" >> "$GITHUB_STEP_SUMMARY"
 
+  ci-coverage:
+    name: Check existing CI
+    needs: guard
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    outputs:
+      covered: ${{ steps.decision.outputs.covered }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+      - id: decision
+        shell: bash
+        env:
+          SHA: ${{ needs.guard.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&per_page=20" > runs.json
+          run_id="$(node apps/desktop/scripts/ci-quality.mjs select-run runs.json "$SHA")"
+          if [ -z "$run_id" ]; then
+            echo "covered=false" >> "$GITHUB_OUTPUT"
+            echo "No completed successful CI run covers ${SHA}." >> "$GITHUB_STEP_SUMMARY"
+          else
+            gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/jobs?per_page=100" > jobs.json
+            covered="$(node apps/desktop/scripts/ci-quality.mjs covers-windows jobs.json)"
+            echo "covered=${covered}" >> "$GITHUB_OUTPUT"
+            echo "CI run ${run_id} covers the Windows quality checks: ${covered}." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
   quality:
     name: Check the code
-    needs: guard
+    needs: [guard, ci-coverage]
+    if: |
+      always() &&
+      needs.guard.result == 'success' &&
+      (needs.ci-coverage.result != 'success' || needs.ci-coverage.outputs.covered != 'true')
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -138,7 +175,12 @@ jobs:
 
   publish:
     name: Publish
-    needs: [guard, quality, package]
+    needs: [guard, ci-coverage, quality, package]
+    if: |
+      always() &&
+      needs.guard.result == 'success' &&
+      needs.package.result == 'success' &&
+      (needs.quality.result == 'success' || (needs.quality.result == 'skipped' && needs.ci-coverage.outputs.covered == 'true'))
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
