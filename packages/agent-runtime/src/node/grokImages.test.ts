@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { generateGrokImage, parseGrokImageOutput, readGrokImage } from './grokImages';
-import { createCliEnvironment } from './cliEnvironment';
+import { buildCliChildEnvironment, createCliEnvironment } from './cliEnvironment';
 
 // Synthetic peer implements the documented streaming-json events and session media layout.
 const peer = `
@@ -11,6 +11,7 @@ import { mkdir, writeFile, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 const args = process.argv.slice(2), value = flag => args[args.indexOf(flag) + 1];
 if (process.env.XAI_API_KEY || process.env.GROK_DISABLE_API_KEY_AUTH !== '1') throw Error('API key fallback');
+if (process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || process.env.CODEX_HOME || process.env.ANTHROPIC_CUSTOM_HEADERS) throw Error('Unrelated auth leaked to image child');
 if (value('--tools') !== 'image_gen' || value('--permission-mode') !== 'dontAsk' || !args.includes('MCPTool')) throw Error('Wrong tools');
 if (!(await readFile(value('--prompt-file'), 'utf8')).includes('blue illustration')) throw Error('Lost prompt');
 const sessionId = value('--session-id');
@@ -38,11 +39,24 @@ describe('Grok CLI images', () => {
       ...createCliEnvironment(),
       resolveExecutable: () =>
         Promise.resolve({ command: process.execPath, prefixArguments: [script] }),
-      childEnvironment: () => ({
-        GROK_HOME: join(root, 'grok'),
-        GROK_TEST_MODE: mode,
-        XAI_API_KEY: 'must-not-leak',
-      }),
+      childEnvironment: (provider: 'codex' | 'grok') => {
+        expect(provider).toBe('grok');
+        return {
+          ...buildCliChildEnvironment(
+            {
+              SystemRoot: process.env['SystemRoot'],
+              GROK_HOME: join(root, 'grok'),
+              XAI_API_KEY: 'synthetic-xai',
+              OPENAI_API_KEY: 'synthetic-openai',
+              CODEX_HOME: 'synthetic-codex-home',
+              ANTHROPIC_API_KEY: 'synthetic-anthropic',
+              ANTHROPIC_CUSTOM_HEADERS: 'synthetic-gateway',
+            },
+            provider,
+          ),
+          GROK_TEST_MODE: mode,
+        };
+      },
       createWorkingDirectory: () => Promise.resolve(work),
     };
     try {

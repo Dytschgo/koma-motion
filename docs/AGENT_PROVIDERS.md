@@ -555,8 +555,8 @@ can contain anything.
 
 ### Child environment
 
-CLI children do not inherit the application environment. Detection and
-generation both pass an explicit environment, and `spawn` uses that object
+CLI children do not inherit the application environment. Detection, model
+discovery and generation pass an explicit provider-specific environment, and `spawn` uses that object
 alone. When a caller of `runProcess` omits `env`, the child still inherits,
 so unrelated process calls do not change.
 
@@ -569,11 +569,18 @@ A name is copied only when the parent already has a string value:
 - TLS and proxies, because corporate installs need them: `SSL_CERT_FILE`,
   `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`, `HTTP_PROXY`, `HTTPS_PROXY`,
   `NO_PROXY`, and the same names in lowercase.
-- Auth named by the installed help or by this document: `ANTHROPIC_API_KEY`,
-  `OPENAI_API_KEY`, `CODEX_HOME`, `XAI_API_KEY` and `GROK_HOME`.
 
-Codex and Grok receive only the shared environment above. Claude Code receives
-that shared environment plus its own allowlisted Vertex and gateway settings
+Each provider adds only its own auth and configuration to those shared values:
+
+- Codex: `OPENAI_API_KEY` and `CODEX_HOME`.
+- Grok: `XAI_API_KEY` and `GROK_HOME`.
+- Claude Code: `ANTHROPIC_API_KEY`, `CLAUDE_CONFIG_DIR` and the validated settings below.
+
+The image adapters additionally remove API keys to keep their existing CLI
+sign-in requirement. Custom provider homes are preserved for sign-in and
+configuration, but are never forwarded to another provider.
+
+Claude Code receives its own allowlisted Vertex and gateway settings
 `CLAUDE_CODE_USE_VERTEX`, `CLAUDE_CODE_SKIP_VERTEX_AUTH`,
 `ANTHROPIC_VERTEX_BASE_URL`, `ANTHROPIC_VERTEX_PROJECT_ID`, `CLOUD_ML_REGION`,
 `GOOGLE_APPLICATION_CREDENTIALS` and `ANTHROPIC_CUSTOM_HEADERS`. They may come
@@ -858,7 +865,8 @@ in the colours of the Brand Kit, and a rationale for both transitions.
 
 1. Create a class that implements `AgentProvider`. For a CLI, use
    `CliEnvironment` from `src/node/cliEnvironment.ts` for detection and for
-   starting the process, and pass `childEnvironment()` as `env`, so that the
+   starting the process, and pass `childEnvironment('codex')`,
+   `childEnvironment('grok')` or `claudeCodeChildEnvironment()` as `env`, so that the
    rules above apply.
 2. Read the help output of the CLI and run it before you write the
    invocation. Do not assume flags. Document the verified arguments here.

@@ -58,7 +58,7 @@ export async function generateCodexImage(
   const directory = await environment.createWorkingDirectory();
   try {
     signal.throwIfAborted();
-    const env = { ...environment.childEnvironment() };
+    const env = { ...environment.childEnvironment('codex') };
     delete env['OPENAI_API_KEY'];
     delete env['ANTHROPIC_API_KEY'];
     delete env['XAI_API_KEY'];

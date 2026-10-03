@@ -230,9 +230,25 @@ function completed(overrides: Partial<ProcessResult> = {}): ProcessResult {
 }
 
 const CHILD_ENVIRONMENT = { PATH: 'C:\\synthetic\\bin' };
+const CODEX_CHILD_ENVIRONMENT = {
+  ...CHILD_ENVIRONMENT,
+  OPENAI_API_KEY: 'synthetic-openai',
+  CODEX_HOME: 'synthetic-codex-home',
+};
+const GROK_CHILD_ENVIRONMENT = {
+  ...CHILD_ENVIRONMENT,
+  XAI_API_KEY: 'synthetic-xai',
+  GROK_HOME: 'synthetic-grok-home',
+};
 const CLAUDE_CODE_CHILD_ENVIRONMENT = {
   ...CHILD_ENVIRONMENT,
+  ANTHROPIC_API_KEY: 'synthetic-anthropic',
   ANTHROPIC_CUSTOM_HEADERS: 'api-key: synthetic-claude-only',
+};
+const PROVIDER_PARENT_ENVIRONMENT = {
+  ...CODEX_CHILD_ENVIRONMENT,
+  ...GROK_CHILD_ENVIRONMENT,
+  ...CLAUDE_CODE_CHILD_ENVIRONMENT,
 };
 
 function fakeEnvironment(
@@ -248,8 +264,8 @@ function fakeEnvironment(
       calls.push(specification);
       return typeof outcome === 'function' ? outcome(specification) : Promise.resolve(outcome);
     },
-    childEnvironment: () => CHILD_ENVIRONMENT,
-    claudeCodeChildEnvironment: () => CLAUDE_CODE_CHILD_ENVIRONMENT,
+    childEnvironment: (provider) => buildCliChildEnvironment(PROVIDER_PARENT_ENVIRONMENT, provider),
+    claudeCodeChildEnvironment: () => buildClaudeCodeChildEnvironment(PROVIDER_PARENT_ENVIRONMENT),
     createWorkingDirectory: () => mkdtemp(join(directory, 'work-')),
     removeWorkingDirectory: (path) => rm(path, { recursive: true, force: true }),
     now: () => new Date('2026-01-15T10:30:00.000Z'),
@@ -556,6 +572,61 @@ describe('assertSafeArguments', () => {
 });
 
 describe('buildCliChildEnvironment', () => {
+  it.each([
+    ['codex', CODEX_CHILD_ENVIRONMENT],
+    ['grok', GROK_CHILD_ENVIRONMENT],
+    ['claude', CLAUDE_CODE_CHILD_ENVIRONMENT],
+  ] as const)(
+    'passes only %s credentials and configuration to an actual child',
+    async (provider, own) => {
+      const common = {
+        HOME: join(directory, 'empty-home'),
+        USERPROFILE: join(directory, 'empty-home'),
+        HTTPS_PROXY: 'https://synthetic-proxy.example',
+        SSL_CERT_FILE: 'synthetic-certificate.pem',
+      };
+      const claudeSettings = {
+        CLAUDE_CONFIG_DIR: join(directory, 'empty-claude-config'),
+        CLAUDE_CODE_USE_VERTEX: '1',
+        CLAUDE_CODE_SKIP_VERTEX_AUTH: '1',
+        ANTHROPIC_VERTEX_BASE_URL: 'https://synthetic-gateway.example',
+        ANTHROPIC_VERTEX_PROJECT_ID: 'synthetic-project',
+        CLOUD_ML_REGION: 'global',
+        GOOGLE_APPLICATION_CREDENTIALS: 'synthetic-google-credentials.json',
+      };
+      const parent = {
+        ...common,
+        ...PROVIDER_PARENT_ENVIRONMENT,
+        ...claudeSettings,
+        // Windows Node needs the system directory, but no real auth settings are inherited.
+        ...(process.env['SystemRoot'] ? { SystemRoot: process.env['SystemRoot'] } : {}),
+        UNRELATED_TOKEN: 'synthetic-unrelated',
+      };
+      const env =
+        provider === 'claude'
+          ? buildClaudeCodeChildEnvironment(parent)
+          : buildCliChildEnvironment(parent, provider);
+      const result = await run('process.stdout.write(JSON.stringify(process.env))', { env });
+      expect(result.exitCode).toBe(0);
+      const captured = readJsonObject(result.standardOutput);
+      expect(captured).toMatchObject({
+        ...common,
+        ...own,
+        ...(provider === 'claude' ? claudeSettings : {}),
+      });
+      const providerNames = [
+        ...Object.keys(PROVIDER_PARENT_ENVIRONMENT),
+        ...Object.keys(claudeSettings),
+        'UNRELATED_TOKEN',
+      ].filter((name) => name !== 'PATH');
+      for (const name of providerNames) {
+        if (!(name in own) && !(provider === 'claude' && name in claudeSettings)) {
+          expect(captured).not.toHaveProperty(name);
+        }
+      }
+    },
+  );
+
   const expectedAllowlist = [
     'SystemRoot',
     'SYSTEMROOT',
@@ -591,11 +662,6 @@ describe('buildCliChildEnvironment', () => {
     'http_proxy',
     'https_proxy',
     'no_proxy',
-    'ANTHROPIC_API_KEY',
-    'OPENAI_API_KEY',
-    'CODEX_HOME',
-    'XAI_API_KEY',
-    'GROK_HOME',
   ];
 
   it('copies only shared allowlisted values and excludes Claude gateway settings', () => {
@@ -618,11 +684,6 @@ describe('buildCliChildEnvironment', () => {
       }),
     ).toEqual({
       PATH: 'C:\\synthetic\\koma-path',
-      ANTHROPIC_API_KEY: 'synthetic-anthropic',
-      OPENAI_API_KEY: 'synthetic-openai',
-      CODEX_HOME: 'C:\\synthetic\\codex-home',
-      XAI_API_KEY: 'synthetic-xai',
-      GROK_HOME: 'C:\\synthetic\\grok-home',
       http_proxy: 'http://synthetic-proxy.example',
     });
   });
@@ -800,9 +861,9 @@ describe('buildCliChildEnvironment', () => {
     const keyNames = readStringArray(printed['names']);
     expect(values['PATH']).toBe('C:\\synthetic\\koma-path');
     expect(values['KOMA_UNTRUSTED_SENTINEL']).toBeNull();
-    expect(values['ANTHROPIC_API_KEY']).toBe('synthetic-anthropic');
-    expect(values['OPENAI_API_KEY']).toBe('synthetic-openai');
-    expect(values['CODEX_HOME']).toBe('C:\\synthetic\\codex-home');
+    expect(values['ANTHROPIC_API_KEY']).toBeNull();
+    expect(values['OPENAI_API_KEY']).toBeNull();
+    expect(values['CODEX_HOME']).toBeNull();
     expect(values['AWS_SECRET_ACCESS_KEY']).toBeNull();
     expect(values['GITHUB_TOKEN']).toBeNull();
     expect(values['http_proxy']).toBe('http://synthetic-proxy.example');
@@ -958,6 +1019,16 @@ describe('resolveExecutable', () => {
 });
 
 describe('detectCli', () => {
+  it.each([
+    [CodexCliProvider, CODEX_CHILD_ENVIRONMENT],
+    [GrokCliProvider, GROK_CHILD_ENVIRONMENT],
+    [ClaudeCodeProvider, CLAUDE_CODE_CHILD_ENVIRONMENT],
+  ] as const)('scopes version detection to the selected provider', async (Provider, expected) => {
+    const environment = fakeEnvironment(completed({ standardOutput: '1.2.3' }));
+    expect((await new Provider(environment).detect()).availability).toBe('available');
+    expect(environment.calls[0]?.env).toEqual(expected);
+  });
+
   const detect = (environment: CliEnvironment): ReturnType<typeof detectCli> =>
     detectCli({
       providerId: 'claude-code',
@@ -977,7 +1048,7 @@ describe('detectCli', () => {
       checkedAt: '2026-01-15T10:30:00.000Z',
     });
     expect(environment.calls[0]?.arguments).toEqual(['--version']);
-    expect(environment.calls[0]?.env).toEqual(CHILD_ENVIRONMENT);
+    expect(environment.calls[0]?.env).toEqual(CLAUDE_CODE_CHILD_ENVIRONMENT);
   });
 
   it('reports a CLI that is not installed', async () => {
@@ -1252,7 +1323,7 @@ describe('CodexCliProvider', () => {
     expect(result.ok && result.output.rawText).toBe(answer);
     expect(environment.calls[0]?.input).toContain('You are the presentation designer');
     expect(environment.calls[0]?.input).toContain('# Request');
-    expect(environment.calls[0]?.env).toEqual(CHILD_ENVIRONMENT);
+    expect(environment.calls[0]?.env).toEqual(CODEX_CHILD_ENVIRONMENT);
     expect(environment.calls[0]?.arguments).toEqual(
       expect.arrayContaining([
         '--ignore-user-config',
@@ -1390,7 +1461,7 @@ describe('GrokCliProvider', () => {
     }
     const call = environment.calls[0];
     expect(call?.input).toBe('');
-    expect(call?.env).toEqual(CHILD_ENVIRONMENT);
+    expect(call?.env).toEqual(GROK_CHILD_ENVIRONMENT);
     expect(call?.maxOutputBytes).toBe(MAX_CLI_OUTPUT_BYTES);
     expect(writtenPrompt).toContain('# Request');
     expect(writtenPrompt).toContain('Create a three-frame presentation introducing Koma Motion.');

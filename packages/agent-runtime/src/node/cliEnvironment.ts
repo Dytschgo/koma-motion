@@ -48,12 +48,12 @@ export const CLI_CHILD_ENVIRONMENT_ALLOWLIST = [
   'http_proxy',
   'https_proxy',
   'no_proxy',
-  'ANTHROPIC_API_KEY',
-  'OPENAI_API_KEY',
-  'CODEX_HOME',
-  'XAI_API_KEY',
-  'GROK_HOME',
 ] as const;
+
+const PROVIDER_ENVIRONMENT_NAMES = {
+  codex: ['OPENAI_API_KEY', 'CODEX_HOME'],
+  grok: ['XAI_API_KEY', 'GROK_HOME'],
+} as const;
 
 const CLAUDE_CODE_ENVIRONMENT_NAMES = [
   'CLAUDE_CODE_USE_VERTEX',
@@ -133,12 +133,17 @@ function claudeSettingsEnvironment(
   }
 }
 
-/** Builds the shared environment passed to non-Claude CLI children. */
+/** Common OS/network settings, with auth and configuration only for the selected provider. */
 export function buildCliChildEnvironment(
   parent: Readonly<NodeJS.ProcessEnv>,
+  provider?: 'codex' | 'grok',
 ): Record<string, string> {
   const child: Record<string, string> = {};
-  for (const name of CLI_CHILD_ENVIRONMENT_ALLOWLIST) {
+  const names = [
+    ...CLI_CHILD_ENVIRONMENT_ALLOWLIST,
+    ...(provider === undefined ? [] : PROVIDER_ENVIRONMENT_NAMES[provider]),
+  ];
+  for (const name of names) {
     const value = parent[name];
     if (typeof value === 'string') {
       child[name] = value;
@@ -153,6 +158,9 @@ export function buildClaudeCodeChildEnvironment(
   options: { readonly claudeHome?: string } = {},
 ): Record<string, string> {
   const child = buildCliChildEnvironment(parent);
+  if (typeof parent['ANTHROPIC_API_KEY'] === 'string') {
+    child['ANTHROPIC_API_KEY'] = parent['ANTHROPIC_API_KEY'];
+  }
   const home = options.claudeHome ?? parent['HOME'] ?? parent['USERPROFILE'];
   const configDirectory = parent['CLAUDE_CONFIG_DIR'];
   const configured = claudeSettingsEnvironment(home, configDirectory);
@@ -180,8 +188,8 @@ export function buildClaudeCodeChildEnvironment(
 export interface CliEnvironment {
   resolveExecutable(name: string): Promise<ResolvedExecutable | null>;
   runProcess(specification: ProcessSpecification): Promise<ProcessResult>;
-  /** Allowlisted environment for a CLI child. */
-  childEnvironment(): Readonly<Record<string, string>>;
+  /** Common environment plus only this provider's auth and custom home. */
+  childEnvironment(provider: 'codex' | 'grok'): Readonly<Record<string, string>>;
   /** Shared environment plus Claude Code's own settings and gateway headers. */
   claudeCodeChildEnvironment(): Readonly<Record<string, string>>;
   /** Creates an empty folder that only this execution uses. */
@@ -194,7 +202,7 @@ export function createCliEnvironment(): CliEnvironment {
   return {
     resolveExecutable: (name) => resolveExecutable(name),
     runProcess,
-    childEnvironment: () => buildCliChildEnvironment(process.env),
+    childEnvironment: (provider) => buildCliChildEnvironment(process.env, provider),
     claudeCodeChildEnvironment: () => buildClaudeCodeChildEnvironment(process.env),
     createWorkingDirectory: () => mkdtemp(join(tmpdir(), 'koma-motion-agent-')),
     removeWorkingDirectory: async (path) => {
@@ -213,7 +221,7 @@ const MAX_VERSION_OUTPUT_BYTES = 64 * 1024;
 export async function detectCli(options: {
   readonly providerId: string;
   readonly displayName: string;
-  readonly executableName: string;
+  readonly executableName: 'claude' | 'codex' | 'grok';
   readonly installationHint: string;
   readonly environment: CliEnvironment;
 }): Promise<ProviderDetectionResult> {
@@ -248,7 +256,10 @@ export async function detectCli(options: {
       workingDirectory,
       signal: AbortSignal.timeout(DETECTION_TIMEOUT_MS),
       maxOutputBytes: MAX_VERSION_OUTPUT_BYTES,
-      env: environment.childEnvironment(),
+      env:
+        executableName === 'claude'
+          ? environment.claudeCodeChildEnvironment()
+          : environment.childEnvironment(executableName),
     });
     if (outcome.startError !== null) {
       return result('error', null, `${displayName} was found but could not be started.`);

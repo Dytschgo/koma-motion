@@ -103,7 +103,7 @@ export async function generateGrokImage(
     const cwd = await realpath(workingDirectory);
     const sessionId = randomUUID();
     const env = Object.fromEntries(
-      Object.entries(environment.childEnvironment()).filter(
+      Object.entries(environment.childEnvironment('grok')).filter(
         ([name]) =>
           !['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'XAI_API_KEY'].includes(name.toUpperCase()),
       ),
