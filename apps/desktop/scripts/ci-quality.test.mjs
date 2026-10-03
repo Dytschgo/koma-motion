@@ -6,9 +6,10 @@ import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
-  jobsCoverWindowsQuality,
+  jobsCoverQuality,
   selectCoveringRun,
-  windowsQualityJobNames,
+  summarizePlaywrightReport,
+  qualityJobNames,
 } from './ci-quality.mjs';
 
 const SHA = 'abc123';
@@ -26,10 +27,10 @@ function run(overrides = {}) {
 }
 
 function jobs(conclusion = 'success') {
-  return windowsQualityJobNames().map((name) => ({ name, conclusion }));
+  return qualityJobNames().map((name) => ({ name, conclusion }));
 }
 
-test('the Windows quality jobs are the static, unit and application shard names', async () => {
+test('the Windows and macOS quality jobs are the static, unit and application shard names', async () => {
   const workflow = await readFile(join(scripts, '../../../.github/workflows/ci.yml'), 'utf8');
   assert.match(workflow, /name: Static checks\n/);
   assert.match(workflow, /name: Unit tests \(\$\{\{ matrix\.os \}\}\)\n/);
@@ -38,11 +39,14 @@ test('the Windows quality jobs are the static, unit and application shard names'
     /name: Application tests \(\$\{\{ matrix\.os \}\}, shard \$\{\{ matrix\.shard \}\} of 2\)\n/,
   );
   assert.match(workflow, /shard: \[1, 2\]\n/);
-  assert.deepEqual(windowsQualityJobNames(), [
+  assert.deepEqual(qualityJobNames(), [
     'Static checks',
     'Unit tests (windows-latest)',
     'Application tests (windows-latest, shard 1 of 2)',
     'Application tests (windows-latest, shard 2 of 2)',
+    'Unit tests (macos-latest)',
+    'Application tests (macos-latest, shard 1 of 2)',
+    'Application tests (macos-latest, shard 2 of 2)',
   ]);
 });
 
@@ -70,22 +74,32 @@ test('an older success does not cover a newer in-progress or failed run', () => 
     ),
     null,
   );
+  assert.equal(selectCoveringRun([], SHA), null);
   assert.equal(selectCoveringRun([run({ head_sha: 'other' })], SHA), null);
   assert.equal(selectCoveringRun([older], SHA)?.id, 10);
 });
 
-test('every Windows quality job must have succeeded', () => {
-  assert.equal(jobsCoverWindowsQuality(jobs()), true);
-  assert.equal(jobsCoverWindowsQuality(jobs().slice(1)), false);
+test('every Windows and macOS quality job must have succeeded', () => {
+  assert.equal(jobsCoverQuality(jobs()), true);
+  assert.equal(jobsCoverQuality(jobs().slice(1)), false);
+  assert.equal(jobsCoverQuality(jobs().filter((job) => !job.name.includes('macos'))), false);
+  for (const conclusion of ['failure', 'skipped', 'cancelled', null]) {
+    assert.equal(
+      jobsCoverQuality(
+        jobs().map((job) => (job.name.includes('macos') ? { ...job, conclusion } : job)),
+      ),
+      false,
+    );
+  }
   const failed = jobs();
   failed[2] = { ...failed[2], conclusion: 'failure' };
-  assert.equal(jobsCoverWindowsQuality(failed), false);
+  assert.equal(jobsCoverQuality(failed), false);
   assert.equal(
-    jobsCoverWindowsQuality([
+    jobsCoverQuality([
       ...jobs(),
       { name: 'Application tests (macos-latest, shard 1 of 2)', conclusion: 'failure' },
     ]),
-    true,
+    false,
   );
 });
 
@@ -116,19 +130,175 @@ test('the command line fails closed when the jobs page is incomplete', async () 
     await writeFile(
       jobsFile,
       JSON.stringify({
-        total_count: windowsQualityJobNames().length + 1,
+        total_count: qualityJobNames().length + 1,
         jobs: jobs(),
       }),
     );
-    const incomplete = spawnSync(process.execPath, [script, 'covers-windows', jobsFile], {
+    const incomplete = spawnSync(process.execPath, [script, 'covers-quality', jobsFile], {
       encoding: 'utf8',
     });
     assert.equal(incomplete.status, 0);
     assert.equal(incomplete.stdout, 'false\n');
+
+    await writeFile(jobsFile, JSON.stringify({ total_count: jobs().length, jobs: jobs() }));
+    const covered = spawnSync(process.execPath, [script, 'covers-quality', jobsFile], {
+      encoding: 'utf8',
+    });
+    assert.equal(covered.status, 0);
+    assert.equal(covered.stdout, 'true\n');
+
+    const report = join(directory, 'report.json');
+    const summaryFile = join(directory, 'summary.md');
+    await writeFile(
+      report,
+      JSON.stringify({
+        suites: [
+          {
+            specs: [{ title: 'skipped integration', tests: [{ status: 'skipped', results: [] }] }],
+          },
+        ],
+      }),
+    );
+    const summary = spawnSync(process.execPath, [script, 'summarize-report', report], {
+      encoding: 'utf8',
+      env: { ...process.env, GITHUB_STEP_SUMMARY: summaryFile },
+    });
+    assert.equal(summary.status, 0);
+    assert.match(summary.stdout, /skipped: 1/);
+    assert.equal(await readFile(summaryFile, 'utf8'), summary.stdout);
 
     const usage = spawnSync(process.execPath, [script, 'unknown'], { encoding: 'utf8' });
     assert.equal(usage.status, 1);
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
+});
+
+test('release workflows fall back on both platforms and publish only with quality evidence', async () => {
+  for (const [filename, guard] of [
+    ['release.yml', 'classify'],
+    ['nightly.yml', 'guard'],
+  ]) {
+    const workflow = await readFile(join(scripts, '../../../.github/workflows', filename), 'utf8');
+    const quality = workflow.split('\n  quality:\n')[1].split('\n  package:\n')[0];
+    assert.match(quality, /runs-on: \$\{\{ matrix\.os \}\}/);
+    assert.match(quality, /os: \[windows-latest, macos-latest\]/);
+    assert.match(
+      quality,
+      /needs\.ci-coverage\.result != 'success' \|\| needs\.ci-coverage\.outputs\.covered != 'true'/,
+    );
+    assert.match(quality, /run: pnpm test\n/);
+    assert.match(quality, /run: pnpm build\n/);
+    assert.match(quality, /ref: \$\{\{ needs\.(classify|guard)\.outputs\.sha \}\}/);
+    for (const command of ['format:check', 'lint', 'typecheck']) {
+      assert.ok(
+        quality.includes(`if: matrix.os == 'windows-latest'\n        run: pnpm ${command}`),
+      );
+    }
+    assert.ok(workflow.includes(`needs: [${guard}, ci-coverage, quality, package]`));
+    assert.ok(workflow.includes(`needs.${guard}.result == 'success'`));
+    assert.match(workflow, /needs\.package\.result == 'success'/);
+    assert.match(
+      workflow,
+      /needs\.quality\.result == 'success' \|\| \(needs\.quality\.result == 'skipped' && needs\.ci-coverage\.outputs\.covered == 'true'\)/,
+    );
+    assert.match(workflow, /koma-ci-quality\.mjs" covers-quality jobs\.json/);
+    assert.match(workflow, /select-run runs\.json "\$SHA"/);
+    const coverage = workflow.split('\n  ci-coverage:\n')[1].split('\n  quality:\n')[0];
+    for (const block of [coverage, quality]) {
+      const policyIndex = block.indexOf('ref: ${{ github.workflow_sha }}');
+      const copyIndex = block.indexOf(
+        'cp apps/desktop/scripts/ci-quality.mjs "$RUNNER_TEMP/koma-ci-quality.mjs"',
+      );
+      const candidateIndex = block.indexOf('ref: ${{ needs.' + guard + '.outputs.sha }}');
+      assert.ok(policyIndex >= 0 && copyIndex > policyIndex && candidateIndex > copyIndex);
+      assert.doesNotMatch(block, /run: node apps\/desktop\/scripts\/ci-quality\.mjs/);
+    }
+    assert.match(quality, /node "\$\{\{ runner\.temp \}\}\/koma-ci-quality\.mjs" summarize-report/);
+  }
+});
+
+test('all application lanes retain JSON and summaries on success, without increasing native workers', async () => {
+  for (const filename of ['ci.yml', 'release.yml', 'nightly.yml']) {
+    const workflow = await readFile(join(scripts, '../../../.github/workflows', filename), 'utf8');
+    assert.match(workflow, /PLAYWRIGHT_JSON_OUTPUT_NAME: test-results\/report\.json/);
+    assert.match(workflow, /"--reporter=list,github,json"/);
+    assert.match(
+      workflow,
+      /Summarize retries and skipped tests\n\s+if: always\(\) && steps\.application\.outcome != 'skipped'/,
+    );
+    assert.match(workflow, /Keep application test reports and traces\n\s+if: always\(\)/);
+    assert.doesNotMatch(workflow, /--workers/);
+  }
+  const config = await readFile(join(scripts, '../playwright.config.ts'), 'utf8');
+  assert.match(config, /workers: 1,/);
+  assert.match(config, /fullyParallel: false,/);
+});
+
+test('report summaries identify retries and intentional skips, including nested suites', () => {
+  const report = {
+    suites: [
+      {
+        title: 'workflow.spec.ts',
+        suites: [
+          {
+            title: 'project workflow',
+            specs: [
+              {
+                title: 'first pass',
+                tests: [{ status: 'expected', results: [{ retry: 0, status: 'passed' }] }],
+              },
+              {
+                title: 'retry pass',
+                tests: [
+                  {
+                    status: 'flaky',
+                    results: [
+                      { retry: 0, status: 'failed' },
+                      { retry: 1, status: 'passed' },
+                    ],
+                  },
+                ],
+              },
+              {
+                title: 'LibreOffice',
+                tests: [
+                  {
+                    status: 'skipped',
+                    annotations: [{ type: 'skip', description: 'LibreOffice required' }],
+                    results: [{ retry: 0, status: 'skipped' }],
+                  },
+                ],
+              },
+              {
+                title: 'failed',
+                tests: [
+                  {
+                    status: 'unexpected',
+                    results: [
+                      { retry: 0, status: 'failed' },
+                      { retry: 1, status: 'failed' },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+  const summary = summarizePlaywrightReport(report);
+  assert.match(summary, /Expected: 1; unexpected: 1; flaky: 1; skipped: 1/);
+  assert.match(
+    summary,
+    /flaky: workflow\.spec\.ts › project workflow › retry pass \(attempt 1: failed, attempt 2: passed\)/,
+  );
+  assert.match(summary, /skipped: .*LibreOffice.*LibreOffice required/);
+  assert.match(summary, /unexpected: .*attempt 2: failed/);
+  assert.doesNotMatch(summary, /first pass/);
+  assert.throws(
+    () => summarizePlaywrightReport({ suites: [{ specs: [{ tests: [{ status: 'unknown' }] }] }] }),
+    /Unknown Playwright/,
+  );
 });

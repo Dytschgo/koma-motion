@@ -78,7 +78,7 @@ jobs:
   application:
     name: Application tests (${{ matrix.os }}, shard ${{ matrix.shard }} of 2)
     # Each shard stays at one worker. Tests still get a private profile.
-    # ci-quality.mjs matches these job names for the Windows shards.
+    # ci-quality.mjs matches these job names for both platforms.
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
@@ -107,11 +107,18 @@ jobs:
         run: pnpm build
 
       - name: Run application tests
+        id: application
         working-directory: apps/desktop
-        run: pnpm exec playwright test --shard=${{ matrix.shard }}/2
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
+        run: pnpm exec playwright test --shard=${{ matrix.shard }}/2 "--reporter=list,github,json"
 
-      - name: Keep the results of failed application tests
-        if: failure()
+      - name: Summarize retries and skipped tests
+        if: always() && steps.application.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report apps/desktop/test-results/report.json
+
+      - name: Keep application test reports and traces
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: application-test-results-${{ matrix.os }}-${{ matrix.shard }}

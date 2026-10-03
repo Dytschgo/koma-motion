@@ -170,15 +170,30 @@ This **publishes a prerelease** when all checks pass. The workflow
 (`.github/workflows/nightly.yml`):
 
 1. refuses commits that are not part of `main`,
-2. uses the Windows CI result for that commit when formatting, lint, types,
-   unit tests and application tests already succeeded there, and otherwise
-   runs those checks,
+2. reuses the newest CI run for that exact commit only when the run completed
+   successfully and formatting, lint, types, both platforms' unit tests and
+   every Windows and macOS application-test shard succeeded; otherwise it runs
+   static checks on Windows and unit, build and application checks on both
+   Windows and macOS,
 3. packages the application for Windows and macOS with the version of the
    nightly,
 4. installs the package and tests it: the application must report the
    expected version from the inside and complete the main workflow,
 5. checks that the update manifests describe exactly the packaged files,
 6. creates a draft with the checked files and publishes it as a prerelease.
+
+Coverage decisions and report summaries use the policy helper from the exact
+workflow revision (`github.workflow_sha`). The helper is copied outside the
+checkout before selecting the guarded build SHA. Historical candidates therefore
+use current release policy while their dependencies, tests, build and installers
+still come from the chosen commit.
+
+CI and release fallback application tests retain their JSON reports and traces
+for seven days on successful and failed runs. Job summaries list flaky tests,
+retry attempts and skipped tests, so a green run does not imply that every test
+passed on its first attempt or that optional integrations ran. Native workers
+remain serial within each shard. LibreOffice-dependent tests require a
+separately provisioned environment and remain skipped in the default lane.
 
 Each nightly release page includes a macOS Terminal command to install that
 specific nightly with `scripts/install.sh`. The script verifies the disk
