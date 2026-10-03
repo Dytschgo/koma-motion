@@ -8,14 +8,20 @@ import {
   createDefaultBrandKit,
   getProjectLogoData,
   MAX_BRAND_KIT_LIBRARY_BYTES,
+  serialiseBrandKitLibrary,
   type BrandKitLogoData,
 } from '@koma-motion/brand-kit';
-import { createSeededIdGenerator, komaProjectSchema } from '@koma-motion/core';
+import {
+  createSeededIdGenerator,
+  komaProjectSchema,
+  MAX_EMBEDDED_ASSET_BYTES,
+} from '@koma-motion/core';
 import { buildBrandKit, buildProject } from '@koma-motion/core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { IpcResponse } from '../../shared/ipc';
 import {
   createBrandKitLibrary,
+  decodeLogo,
   LIBRARY_FILE_NAME,
   LOGO_DIRECTORY_NAME,
   type BrandKitLibrary,
@@ -27,6 +33,8 @@ const ONE_PIXEL_SHA256 = createHash('sha256')
   .update(Buffer.from(ONE_PIXEL, 'base64'))
   .digest('hex');
 const logo: BrandKitLogoData = { name: 'acme.png', mediaType: 'image/png', data: ONE_PIXEL };
+const CORRUPT_PNG =
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlK3Y4AAAAASUVORK5CYII=';
 
 type State = IpcResponse<'koma:brand-kits:list'>;
 
@@ -69,6 +77,99 @@ afterEach(async () => {
 });
 
 describe('Brand Kit library', () => {
+  it('rejects signed corrupt PNG create/update without changing authoritative files', async () => {
+    const library = open();
+    const created = ready(
+      await library.create({ name: 'Valid kit', brandKit: buildBrandKit(), logo }),
+    );
+    const path = join(libraryDirectory, LIBRARY_FILE_NAME);
+    const original = await readFile(path);
+    const logoPath = join(libraryDirectory, LOGO_DIRECTORY_NAME, `${ONE_PIXEL_SHA256}.png`);
+    const originalLogo = await readFile(logoPath);
+    const bad = { ...logo, data: CORRUPT_PNG };
+    expect(
+      await library.create({ name: 'Corrupt', brandKit: buildBrandKit(), logo: bad }),
+    ).toMatchObject({ status: 'failed' });
+    expect(
+      await library.update(created.kitId ?? '', {
+        brandKit: buildBrandKit({ name: 'Changed' }),
+        logo: bad,
+      }),
+    ).toMatchObject({ status: 'failed' });
+    expect(await readFile(path)).toEqual(original);
+    expect(await readFile(logoPath)).toEqual(originalLogo);
+    expect(await readdir(join(libraryDirectory, LOGO_DIRECTORY_NAME))).toEqual([
+      `${ONE_PIXEL_SHA256}.png`,
+    ]);
+  });
+
+  it('rejects noncanonical and oversized renderer data before accepting a logo', () => {
+    for (const data of ['', 'abc', 'ab==', ONE_PIXEL + '=', ONE_PIXEL + '\n']) {
+      expect(() => decodeLogo({ ...logo, data })).toThrow(/could not be read/);
+    }
+    const oversized = Buffer.alloc(MAX_EMBEDDED_ASSET_BYTES + 1).toString('base64');
+    expect(() => decodeLogo({ ...logo, data: oversized })).toThrow(/larger than 2 MB/);
+    expect(() =>
+      decodeLogo({ ...logo, data: 'A'.repeat(Math.ceil(MAX_EMBEDDED_ASSET_BYTES / 3) * 4 + 4) }),
+    ).toThrow(/larger than 2 MB/);
+  });
+
+  it('marks matching-hash historical corrupt PNG unavailable and preserves its bytes through unrelated rename', async () => {
+    const library = open();
+    const created = ready(
+      await library.create({ name: 'Historical', brandKit: buildBrandKit(), logo: null }),
+    );
+    const kit = created.kits[0]!;
+    const bytes = Buffer.from(CORRUPT_PNG, 'base64');
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    const savedLogo = {
+      name: 'historical.png',
+      mediaType: 'image/png' as const,
+      sha256: hash,
+      byteLength: bytes.length,
+    };
+    const libraryPath = join(libraryDirectory, LIBRARY_FILE_NAME);
+    const original = serialiseBrandKitLibrary([{ ...kit, logo: savedLogo }], []);
+    await writeFile(libraryPath, original);
+    await mkdir(join(libraryDirectory, LOGO_DIRECTORY_NAME));
+    const logoPath = join(libraryDirectory, LOGO_DIRECTORY_NAME, `${hash}.png`);
+    await writeFile(logoPath, bytes);
+    expect(ready(await library.list()).kits[0]?.logo?.available).toBe(false);
+    const loaded = await library.load(kit.id);
+    expect(loaded).toMatchObject({
+      status: 'loaded',
+      logo: null,
+      kit: { logo: { available: false } },
+    });
+    expect(messageOf(loaded)).toContain('damaged in the library');
+    expect(await readFile(libraryPath, 'utf8')).toBe(original);
+    ready(await library.rename(kit.id, 'Renamed historical'));
+    expect(ready(await library.list()).kits[0]).toMatchObject({
+      name: 'Renamed historical',
+      logo: { ...savedLogo, available: false },
+    });
+    expect(await readFile(logoPath)).toEqual(bytes);
+    expect(await readdir(join(libraryDirectory, LOGO_DIRECTORY_NAME))).toEqual([`${hash}.png`]);
+  });
+
+  it('refuses oversized disk logos even when library metadata claims a small valid file', async () => {
+    const library = open();
+    const created = ready(await library.create({ name: 'Acme', brandKit: buildBrandKit(), logo }));
+    const path = join(libraryDirectory, LOGO_DIRECTORY_NAME, `${ONE_PIXEL_SHA256}.png`);
+    const oversized = Buffer.alloc(MAX_EMBEDDED_ASSET_BYTES + 1);
+    Buffer.from(ONE_PIXEL, 'base64').copy(oversized);
+    await writeFile(path, oversized);
+    const libraryText = await readFile(join(libraryDirectory, LIBRARY_FILE_NAME));
+    expect(ready(await library.list()).kits[0]?.logo?.available).toBe(false);
+    expect(await library.load(created.kitId ?? '')).toMatchObject({
+      status: 'loaded',
+      logo: null,
+      kit: { logo: { available: false } },
+    });
+    expect((await readFile(path)).equals(oversized)).toBe(true);
+    expect(await readFile(join(libraryDirectory, LIBRARY_FILE_NAME))).toEqual(libraryText);
+  });
+
   it('starts empty when nothing is stored and creates no files by reading', async () => {
     const state = ready(await open().list());
     expect(state).toEqual({ status: 'ready', kits: [], unreadableCount: 0, kitId: null });
