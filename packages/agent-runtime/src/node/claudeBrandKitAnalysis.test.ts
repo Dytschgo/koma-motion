@@ -48,6 +48,7 @@ function environment(overrides: Partial<ProcessResult> = {}) {
       }),
     ),
     childEnvironment: () => ({}),
+    claudeCodeChildEnvironment: () => ({}),
     createWorkingDirectory: () => Promise.resolve('/isolated/analysis'),
     removeWorkingDirectory: vi.fn(() => Promise.resolve()),
     now: () => new Date(),

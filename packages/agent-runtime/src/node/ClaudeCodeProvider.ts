@@ -316,7 +316,7 @@ export class ClaudeCodeProvider implements AgentProvider {
         workingDirectory,
         signal: context.signal,
         maxOutputBytes: MAX_CLI_OUTPUT_BYTES,
-        env: this.#environment.childEnvironment(),
+        env: this.#environment.claudeCodeChildEnvironment(),
         onStandardOutput: (text) => {
           parser.push(text);
         },

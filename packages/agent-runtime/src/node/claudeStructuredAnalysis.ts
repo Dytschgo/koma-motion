@@ -70,7 +70,7 @@ export async function runClaudeStructuredAnalysis(
       signal: run.signal,
       maxOutputBytes: 2 * 1024 * 1024,
       env: {
-        ...environment.childEnvironment(),
+        ...environment.claudeCodeChildEnvironment(),
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1',
         CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1',
       },
