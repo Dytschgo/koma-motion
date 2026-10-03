@@ -20,3 +20,11 @@ Proof:
 - Reduced motion: emulate `prefers-reduced-motion`; transitions cut and the player says so.
 
 The full-screen check uses the native window state. It was verified on Windows; macOS animates full screen into its own Space, so a slow runner can need the poll's full timeout. Playwright media emulation is not a test of the operating system setting.
+
+Saved timing: run `holdTiming.spec.ts` with `presentation.spec.ts` and
+`export-references.spec.ts`. Set explicit 1 s and 2.5 s holds in Inspector →
+Koma, Undo/Redo, save a copy, and reopen. Check that global fallback remains
+selected for untimed Komas. Autoplay must preserve the hold across pause/resume,
+start each transition after the current hold, and remain at End. Reduced motion
+changes only animation time. The export spec checks the global fallback field
+and its resulting `advTm`; unit tests compare explicit holds to transition time.

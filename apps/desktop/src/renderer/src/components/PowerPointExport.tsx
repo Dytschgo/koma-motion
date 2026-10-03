@@ -1,14 +1,19 @@
 import { useState, type ReactElement } from 'react';
-import type { KomaProject } from '@koma-motion/core';
+import {
+  MIN_KOMA_HOLD_DURATION_MS,
+  MAX_KOMA_HOLD_DURATION_MS,
+  type KomaProject,
+} from '@koma-motion/core';
 import {
   powerPointOptionsSchema,
   type ExportValidation,
   type PowerPointOptions,
 } from '../../../shared/export';
 import { invoke } from '../lib/api';
+import { usePresenterStore } from '../state/presenterStore';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { DownloadIcon } from './icons';
-import { Button, Modal, Select } from './ui';
+import { Button, Field, Modal, NumberInput, Select } from './ui';
 
 /** This control is keyed by project session, so a replacement closes its dialog. */
 export function PowerPointExport(): ReactElement {
@@ -28,6 +33,11 @@ export function PowerPointExport(): ReactElement {
     if (project === null) return;
     const session = useProjectStore.getState().sessionId;
     setSnapshot(project);
+    setOptions((previous) => ({
+      ...previous,
+      defaultHoldDurationMs:
+        previous.defaultHoldDurationMs ?? usePresenterStore.getState().autoplayDelayMs,
+    }));
     setValidation(null);
     setError(null);
     setSaved(null);
@@ -136,8 +146,31 @@ export function PowerPointExport(): ReactElement {
               disabled={busy || options.motion === 'static'}
               onChange={(event) => setOptions({ ...options, autoAdvance: event.target.checked })}
             />
-            <span>Advance automatically using transition timing</span>
+            <span>Advance automatically using Koma hold durations</span>
           </label>
+          {options.autoAdvance && (
+            <Field
+              label="Global export hold duration in seconds"
+              hint="Used for Komas without a saved hold duration. Transition animation time is separate."
+            >
+              {(ids) => (
+                <NumberInput
+                  {...ids}
+                  value={
+                    (options.defaultHoldDurationMs ??
+                      usePresenterStore.getState().autoplayDelayMs) / 1000
+                  }
+                  minimum={MIN_KOMA_HOLD_DURATION_MS / 1000}
+                  maximum={MAX_KOMA_HOLD_DURATION_MS / 1000}
+                  precision={3}
+                  disabled={busy}
+                  onValue={(seconds) =>
+                    setOptions({ ...options, defaultHoldDurationMs: Math.round(seconds * 1000) })
+                  }
+                />
+              )}
+            </Field>
+          )}
           <p className="text-sm text-ink-400">
             References attached in chat stay in this session and are not included in this file.
           </p>

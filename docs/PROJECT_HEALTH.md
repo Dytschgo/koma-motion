@@ -13,7 +13,7 @@ loader remain informational notices about possible data loss when saving.
 
 ## Format upgrades
 
-The current format is version 3. Versions 1 and 2 migrate in memory. A
+The current format is version 5. Versions 1–4 migrate in memory. A
 successful upgrade opens the health panel with **Save current format** and
 **Save a copy**. Until a save succeeds, the top bar marks the upgraded document
 as unsaved. This status does not create an undo entry. Saving a copy refuses

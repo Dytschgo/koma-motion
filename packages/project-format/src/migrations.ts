@@ -63,6 +63,31 @@ export const MIGRATIONS: readonly Migration[] = [
       };
     },
   },
+  {
+    fromVersion: 4,
+    migrate: (document) => {
+      const presentation = document['presentation'];
+      if (
+        typeof presentation !== 'object' ||
+        presentation === null ||
+        !('komas' in presentation) ||
+        !Array.isArray(presentation.komas)
+      )
+        return document;
+      return {
+        ...document,
+        presentation: {
+          ...presentation,
+          // Older unknown fields must not become active playback timing.
+          komas: presentation.komas.map((koma: unknown) =>
+            typeof koma === 'object' && koma !== null && !Array.isArray(koma)
+              ? { ...koma, holdDurationMs: null }
+              : koma,
+          ),
+        },
+      };
+    },
+  },
 ];
 
 export interface MigrationOutcome {

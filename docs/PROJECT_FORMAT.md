@@ -13,7 +13,7 @@ The code lives in `packages/core` (schemas) and `packages/project-format`
 | Encoding        | UTF-8, line feeds, final newline  |
 | Syntax          | JSON, indented with two spaces    |
 | Format marker   | `"format": "koma-motion-project"` |
-| Current version | `"schemaVersion": 4`              |
+| Current version | `"schemaVersion": 5`              |
 | Size limit      | 64 MiB (67,108,864 UTF-8 bytes)   |
 
 The format is an early-stage format. It can change before version 1.0 of Koma
@@ -26,7 +26,7 @@ An example is in `examples/generated-with-claude-code.koma`.
 ```jsonc
 {
   "format": "koma-motion-project",
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "id": "project_3f0c…",
   "name": "Introducing Koma Motion",
   "createdAt": "2026-09-29T13:43:35.965Z",
@@ -117,6 +117,7 @@ Colours are stored in one format: `#RRGGBB` in uppercase. The editor accepts
   "title": "The motion engine",
   "purpose": "…",
   "speakerNotes": "…",
+  "holdDurationMs": null,
   "background": { "type": "solid", "colour": "#182033" },
   "elements": [ … ]
 }
@@ -299,8 +300,8 @@ to an existing file, it reads the schema version of that file and refuses to
 save if it is newer than its own. "Save as" with another name remains
 possible.
 
-The current format is version 4, with migrations registered for versions 1,
-2 and 3. To change the schema:
+The current format is version 5, with migrations registered for versions 1,
+2, 3 and 4. To change the schema:
 
 1. Increase `CURRENT_SCHEMA_VERSION` in `packages/core/src/schema/project.ts`.
 2. Add a migration from the previous version to
@@ -449,3 +450,24 @@ so they cannot become active settings. Formats 1 and 2 pass through this migrati
 after their existing upgrades. Saving writes format 4; older applications refuse
 the newer format rather than silently discarding preferences. No reasoning content
 or capability catalogs are stored in the project.
+
+## Version 5: saved Koma hold timing
+
+Each Koma has a `holdDurationMs` of `null` (use the global hold) or an integer
+from 1000 to 60000 milliseconds. An omitted value is read as `null`. This is
+the time spent at rest before the next transition, separate from the stored
+transition animation duration. New Komas use the global hold; copying a Koma
+keeps its explicit duration.
+
+Version 4 migrates to version 5 by setting every hold to `null`, including any
+previously unknown property with the same name. Versions 1–3 pass through that
+migration too. Existing presentation timing therefore keeps the global fallback.
+Opening only migrates in memory. Saving writes version 5; older applications
+refuse to open that version. Save a copy to retain an older-format source.
+
+Timing edits are undoable and leave stored motion unchanged. During autoplay,
+pause retains the remaining hold, navigation starts the destination's hold, and
+the final Koma stays at End. Reduced motion cuts the animation while keeping the
+hold. Timed PowerPoint export uses each saved hold, then its global export
+fallback (5 seconds by default), instead of reusing transition duration for
+advance time. Static and click-advance exports retain their existing behavior.

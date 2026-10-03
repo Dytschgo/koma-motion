@@ -6,6 +6,16 @@ import { komaElementSchema, type KomaElement, type LeafElement } from './element
 /** Top-level rendering safety budget; groups retain their separate child budget; see docs/GENERATION_LIMITS.md. */
 export const MAX_ELEMENTS_PER_KOMA = 2000;
 
+/** At-rest autoplay time, separate from transition animation duration. */
+export const MIN_KOMA_HOLD_DURATION_MS = 1000;
+export const MAX_KOMA_HOLD_DURATION_MS = 60_000;
+export const DEFAULT_KOMA_HOLD_DURATION_MS = 5000;
+export const komaHoldDurationSchema = z
+  .number()
+  .int()
+  .min(MIN_KOMA_HOLD_DURATION_MS)
+  .max(MAX_KOMA_HOLD_DURATION_MS);
+
 export const komaBackgroundSchema = z.object({
   type: z.literal('solid'),
   colour: hexColourSchema,
@@ -59,6 +69,8 @@ export const komaSchema = z
     title: z.string().max(300),
     purpose: z.string().max(2000),
     speakerNotes: z.string().max(20000),
+    /** null uses the presentation or export global hold time. */
+    holdDurationMs: komaHoldDurationSchema.nullable().default(null),
     background: komaBackgroundSchema,
     elements: z
       .array(komaElementSchema)

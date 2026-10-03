@@ -211,9 +211,9 @@ test('starts from the selected Koma, autoplays to the end and goes full screen',
   await expect(controls(window).getByRole('button', { name: 'Leave full screen' })).toBeVisible();
   await capture(window, 'presentation-full-screen');
 
-  await expect(controls(window).getByLabel('Seconds on each Koma')).toBeDisabled();
+  await expect(controls(window).getByLabel('Global hold duration in seconds')).toBeDisabled();
   await controls(window).getByRole('switch', { name: 'Autoplay' }).check();
-  await controls(window).getByLabel('Seconds on each Koma').fill('1');
+  await controls(window).getByLabel('Global hold duration in seconds').fill('1');
   await expect(position(window)).toHaveText('3 of 3');
   await expect(playerStage(window)).toHaveAttribute('aria-label', /^Koma 3 of 3: /, {
     timeout: 15_000,
@@ -387,7 +387,9 @@ test('keeps every control usable at the minimum window size', async () => {
     });
   }
   await expect(controls(window).getByRole('switch', { name: 'Autoplay' })).toBeInViewport();
-  await expect(controls(window).getByLabel('Seconds on each Koma')).toBeInViewport({ ratio: 1 });
+  await expect(controls(window).getByLabel('Global hold duration in seconds')).toBeInViewport({
+    ratio: 1,
+  });
   await expect(controls(window).getByRole('button', { name: 'Full screen' })).toBeInViewport({
     ratio: 1,
   });
