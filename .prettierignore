@@ -7,3 +7,4 @@ test-results
 playwright-report
 pnpm-lock.yaml
 CHANGELOG.md
+docs/schema/koma-project.schema.json

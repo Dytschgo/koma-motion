@@ -7,17 +7,18 @@ The code lives in `packages/core` (schemas) and `packages/project-format`
 
 ## Overview
 
-| Property        | Value                             |
-| --------------- | --------------------------------- |
-| Extension       | `.koma`                           |
-| Encoding        | UTF-8, line feeds, final newline  |
-| Syntax          | JSON, indented with two spaces    |
-| Format marker   | `"format": "koma-motion-project"` |
-| Current version | `"schemaVersion": 5`              |
-| Size limit      | 64 MiB (67,108,864 UTF-8 bytes)   |
+| Property        | Value                                  |
+| --------------- | -------------------------------------- |
+| Extension       | `.koma`                                |
+| Encoding        | UTF-8, line feeds, final newline       |
+| Syntax          | JSON, indented with two spaces         |
+| Format marker   | `"format": "koma-motion-project"`      |
+| Current version | `"schemaVersion": 5`                   |
+| Size limit      | 64 MiB (67,108,864 UTF-8 bytes)        |
+| JSON Schema     | `docs/schema/koma-project.schema.json` |
 
-The format is an early-stage format. It can change before version 1.0 of Koma
-Motion. Changes are handled through schema versions and migrations.
+The format is not yet stable. It can change before it is declared stable;
+every change follows the compatibility rules in [Stability](#stability).
 
 An example is in `examples/generated-with-claude-code.koma`.
 
@@ -307,16 +308,73 @@ The current format is version 5, with migrations registered for versions 1,
 2. Add a migration from the previous version to
    `packages/project-format/src/migrations.ts`.
 3. Add a test with a project file of the previous version.
-4. Describe the change in this document and in `CHANGELOG.md`.
+4. Run `pnpm schema:generate` and commit the updated JSON Schema.
+5. Describe the change in this document and in `CHANGELOG.md`.
+
+## JSON Schema
+
+[`docs/schema/koma-project.schema.json`](schema/koma-project.schema.json) is a
+JSON Schema (draft 2020-12) of the current format version. It is generated
+from the runtime schema in `packages/core` and is not edited by hand:
+
+```sh
+pnpm schema:generate
+```
+
+A unit test fails when the committed file differs from the runtime schema, so
+a schema change and its JSON Schema land in the same commit.
+
+The JSON Schema describes the documents that the current version opens without
+warnings. Properties with a default (`systemInstructions`, `holdDurationMs`)
+may be omitted. Unknown top-level properties are allowed; unknown nested
+properties are not (see [Unknown data](#unknown-data)). Colours may use
+lower case; opening converts them to upper case.
+
+The runtime validation remains the authority. JSON Schema cannot express these
+rules, so a document that matches the JSON Schema can still be rejected:
+
+- unique ids of Komas, transitions and assets, and unique ids and persistent
+  ids within a Koma,
+- transitions that refer to existing Komas,
+- the 64 MiB file limit and the limits of extension data.
+
+The JSON Schema covers the current version only. Older versions are opened
+through migrations, not through their own JSON Schema.
 
 ## Unknown data
 
-- **Unknown top-level properties are kept** when they are JSON and fit in the
-  limits below, so a project that was touched by a newer minor revision does
-  not lose them.
-- **Unknown nested properties are removed and reported.** Opening the project
-  shows a warning that names each property and states that it is not kept
-  when the project is saved.
+Koma Motion handles data it does not know as follows:
+
+| Data                                                       | Opening                      | Saving                      |
+| ---------------------------------------------------------- | ---------------------------- | --------------------------- |
+| Unknown top-level property (extension data)                | kept, no warning             | kept, sorted by name        |
+| Unknown nested property, at any depth                      | removed, warning names path  | not written                 |
+| Unknown entry of a map (provider id, metadata key)         | kept when the value is valid | kept, sorted by key         |
+| Unknown value of a known property, e.g. a new element type | the project does not open    | –                           |
+| A newer `schemaVersion`                                    | the project does not open    | the file is not overwritten |
+
+The reasons:
+
+- **Top-level properties are kept** so that independent data added by a
+  newer revision, or by another tool, survives a round trip. Koma Motion never
+  interprets extension data. When a later version gives an extension property
+  a meaning, its migration sets or validates the value instead of trusting it,
+  as version 2 did for `systemInstructions`.
+- **Nested properties are removed** because nested objects describe content
+  that the user edits. A kept nested value would not follow those edits: a
+  property of an element would survive while its position, type or Koma
+  changed around it, and a newer version would then trust stale data. The
+  removal is never silent: opening reports every removed path.
+- **Unknown values are rejected**, because removing them would change what
+  the project shows.
+- **Newer versions are refused**, because an older version cannot tell
+  which of their changes it would lose.
+
+This sets a rule for changes to the format: a new nested property, a new
+value of an existing property, or a changed meaning requires a new
+`schemaVersion`. Then an older application refuses the file instead of
+removing data. Only a new top-level property that remains correct when the
+rest of the project is edited without it may be added without a new version.
 
 Extension data is the unknown top-level properties. It may contain only JSON
 values: strings, finite numbers, booleans, null, arrays and objects. It may
@@ -396,6 +454,55 @@ directory, can leave the folder without the new file. The previous file is
 still there when the rename itself had not been stored. This is not a
 guarantee against crashes or power loss. It is a guarantee that a failed save
 does not destroy the previous project.
+
+## Stability
+
+The format is not yet stable. "Stable" is a promise about files, separate
+from the version number of the application.
+
+### Rules until the format is stable
+
+- Every change that an older version cannot read increases `schemaVersion`
+  and adds a migration from the previous version, with a test that opens a
+  file of the previous version. See [Unknown data](#unknown-data) for which
+  changes need a new version.
+- Every format version that a released Koma Motion has written keeps opening
+  in later versions. Migrations are not removed.
+- There is no downgrade. A file saved in a newer version is refused by older
+  versions; "Save as" keeps a copy for them.
+- Opening never changes the file. Only saving writes the current version.
+- The JSON Schema and this document change in the same commit as the runtime
+  schema.
+- Breaking changes are allowed, but each one is listed in `CHANGELOG.md` with
+  its migration.
+
+### When the format is declared stable
+
+The format is declared stable when all of these hold:
+
+1. The open structural decisions are settled and implemented: the asset
+   packaging format ([#15](https://github.com/Dytschgo/koma-motion/issues/15))
+   and how intermediate Komas are marked
+   ([#13](https://github.com/Dytschgo/koma-motion/issues/13)). Both can change
+   the structure of a project.
+2. No incompatible change was needed during one complete minor release of
+   Koma Motion after those decisions shipped.
+3. Files of every earlier version open and save in automated tests.
+4. The examples in `examples/` are saved in the stable version, and an
+   automated test checks them against the published JSON Schema.
+
+Koma Motion 1.0 is not released before the format is declared stable. The
+declaration names the stable `schemaVersion` and is recorded in this document
+and in `CHANGELOG.md`.
+
+### After the format is stable
+
+- A file saved by a stable version opens in every later version.
+- New optional data uses a new `schemaVersion` with a migration, following
+  the same unknown-data policy. Older stable versions refuse those files
+  rather than lose data.
+- Removing or renaming a property, or changing its meaning, is announced in a
+  release before it ships, and its migration keeps the user's content.
 
 ## Future: packaged projects
 
