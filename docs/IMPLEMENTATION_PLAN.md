@@ -36,6 +36,18 @@ Beyond the milestone:
 
 - undo and redo for all document changes,
 - canvas move and resize, in-place text editing, and image import or replacement,
+- direct creation of text, rectangles, circles and lines, and removal of
+  elements, without a provider ([direct authoring](DIRECT_AUTHORING.md)),
+- whole-presentation playback with keyboard navigation and optional saved hold
+  durations per Koma (project format 5),
+- a searchable deck overview with moves to a numbered position
+  ([deck navigation](DECK_NAVIGATION.md)),
+- generation proposals for the selected Koma, applied only on confirmation
+  ([selected Koma proposals](SELECTED_KOMA_GENERATION.md)),
+- recovery of interrupted sessions as protected unsaved copies
+  ([crash recovery](CRASH_RECOVERY.md)),
+- content checks for embedded images and Brand Kit logos, with targeted repairs
+  in Project health,
 - Claude Code and Grok providers, verified on Windows,
 - Codex CLI provider, implemented but not verified,
 - application tests on macOS and Windows in CI,
@@ -79,13 +91,13 @@ before the next one depended on it.
 
 Interface:
 
-- Text and shape elements cannot be added by hand. Existing elements can be
-  moved, resized, rotated and edited on the canvas; images can be imported or
-  replaced.
-- Komas are reordered with buttons, not by dragging.
+- Images can be imported, replaced or removed, but not cropped or otherwise
+  edited.
+- Komas are reordered with buttons or by position in the deck overview, not by
+  dragging.
 - The preview plays one transition at a time. **Present** plays the whole
-  presentation; it advances on request, or with autoplay after a fixed time
-  per Koma for this window. Komas have no stored display time.
+  presentation; autoplay uses each Koma's saved hold duration, or a global hold
+  for the window when none is saved.
 - The window has a minimum size of 1120 x 700 and no layout for smaller
   sizes.
 
@@ -101,8 +113,9 @@ Model and motion:
 
 Agents:
 
-- Generation replaces the whole presentation. An agent receives a summary of
-  the existing presentation, but it cannot change single Komas.
+- Entire-presentation generation replaces the whole presentation. Selected
+  Koma generation proposes one Koma at a time; neighbouring motion is left
+  unchanged and may need repair.
 - The Codex CLI provider has not been run against Codex.
 - Claude Code and Grok generation have been tested on Windows only.
 - Reference ingestion supports TXT, Markdown and PDF text only. References
@@ -112,8 +125,10 @@ Agents:
 
 Distribution:
 
-- Installers and update channels exist, but installers are unsigned and not
-  notarised. macOS update installation is not implemented.
+- Installers and update channels exist, but published installers are unsigned
+  and not notarised. An opt-in signing path with strict preflight exists; it
+  has not been run with real certificates. macOS update installation is not
+  implemented.
 - PowerPoint export preserves native editable objects but approximates motion.
   Font layout and several visual effects can differ; macOS PowerPoint has not
   been verified with a generated deck.
@@ -122,18 +137,15 @@ Distribution:
 
 The order reflects dependencies, not dates.
 
-### Editing: partly complete
+### Editing: remaining work
 
-- Create and remove text and shapes directly in the editor; expand image
-  editing beyond import and replacement.
-- Play the whole presentation.
-- Keyboard navigation between Komas during playback.
+- Expand image editing beyond import and replacement.
+- Reorder Komas by dragging.
 
 ### Agents: remaining work
 
 - Verify the Codex CLI provider.
 - Verify Claude Code and Grok generation on macOS.
-- Change single Komas through chat.
 - Broaden reference ingestion only after format-specific extraction and
   privacy checks.
 
@@ -145,7 +157,7 @@ The order reflects dependencies, not dates.
 
 ### Distribution: remaining work
 
-- Signing and notarisation.
+- Sign and notarise published installers with real certificates.
 - Test installed update handoffs and macOS update installation.
 
 ### Research
