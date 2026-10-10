@@ -409,7 +409,11 @@ implemented. The format is prepared for it:
 - the renderer receives assets through a resolver and does not know where
   their data comes from.
 
-Open questions are tracked in the issue "Design the asset packaging format".
+Open questions are tracked in the issue "Design the asset packaging format"
+([#15](https://github.com/Dytschgo/koma-motion/issues/15)). The proposed design
+is in [Asset packages](ASSET_PACKAGES.md). It covers the ZIP container, atomic
+saving, zip-slip protection, limits, migration and removal of unused assets.
+None of it is implemented.
 
 ### Version 3: larger presentations and optional deadlines
 
