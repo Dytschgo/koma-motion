@@ -102,6 +102,12 @@ interface UiState {
   readonly inspectorTab: InspectorTab;
   readonly selectedKomaId: string | null;
   readonly selectedElementId: string | null;
+  /**
+   * Every selected element of the selected Koma, in the order they were
+   * selected. It contains `selectedElementId`, which the Inspector shows,
+   * and more elements when the person adds them with Shift or Ctrl/Cmd.
+   */
+  readonly selectedElementIds: readonly string[];
   /** `null` fits the canvas into the workspace. */
   readonly zoom: number | null;
   readonly settingsOpen: boolean;
@@ -124,6 +130,10 @@ interface UiState {
   readonly setInspectorTab: (tab: InspectorTab) => void;
   readonly selectKoma: (komaId: string | null) => void;
   readonly selectElement: (elementId: string | null) => void;
+  /** Adds an element to the selection, or removes it when it is already selected. */
+  readonly toggleElementSelection: (elementId: string) => void;
+  /** Selects several elements; the last one is shown in the Inspector. */
+  readonly selectElements: (elementIds: readonly string[]) => void;
   /** Explicitly opens element properties, collapsing chat only when it occupies the Inspector column. */
   readonly inspectSelectedElement: (collapseChat: boolean) => void;
   readonly setZoom: (zoom: number | null) => void;
@@ -171,6 +181,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   inspectorTab: 'koma',
   selectedKomaId: null,
   selectedElementId: null,
+  selectedElementIds: [],
   zoom: null,
   settingsOpen: false,
   settingsPage: DEFAULT_SETTINGS_PAGE,
@@ -195,6 +206,7 @@ export const useUiStore = create<UiState>((set, get) => ({
     set((state) => ({
       selectedKomaId,
       selectedElementId: null,
+      selectedElementIds: [],
       preview: null,
       inspectorTab: state.inspectorTab === 'element' ? 'koma' : state.inspectorTab,
     }));
@@ -205,10 +217,40 @@ export const useUiStore = create<UiState>((set, get) => ({
       selectedElementId === null
         ? {
             selectedElementId,
+            selectedElementIds: [],
             inspectorTab: state.inspectorTab === 'element' ? 'koma' : state.inspectorTab,
           }
-        : { selectedElementId, view: 'canvas', inspectorTab: 'element' },
+        : {
+            selectedElementId,
+            selectedElementIds: [selectedElementId],
+            view: 'canvas',
+            inspectorTab: 'element',
+          },
     );
+  },
+  toggleElementSelection(elementId) {
+    const { selectedElementIds, selectElement, selectElements } = get();
+    if (!selectedElementIds.includes(elementId)) {
+      selectElements([...selectedElementIds, elementId]);
+      return;
+    }
+    const remaining = selectedElementIds.filter((id) => id !== elementId);
+    if (remaining.length === 0) selectElement(null);
+    else selectElements(remaining);
+  },
+  selectElements(elementIds) {
+    const unique = [...new Set(elementIds)];
+    const primary = unique.at(-1);
+    if (primary === undefined) {
+      get().selectElement(null);
+      return;
+    }
+    set({
+      selectedElementId: primary,
+      selectedElementIds: unique,
+      view: 'canvas',
+      inspectorTab: 'element',
+    });
   },
   setZoom(zoom) {
     set({ zoom: zoom === null ? null : clampZoom(zoom) });
@@ -269,6 +311,7 @@ export const useUiStore = create<UiState>((set, get) => ({
         token: nextToken++,
       },
       selectedElementId: null,
+      selectedElementIds: [],
       inspectorTab: 'motion',
     });
   },
@@ -294,6 +337,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       inspectorTab: 'koma',
       selectedKomaId: null,
       selectedElementId: null,
+      selectedElementIds: [],
       zoom: null,
       preview: null,
       brandKitDraft: null,

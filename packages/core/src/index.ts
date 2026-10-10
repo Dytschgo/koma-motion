@@ -1,6 +1,7 @@
 export * from './colour';
 export * from './factories';
 export * from './geometry';
+export * from './grouping';
 export * from './ids';
 export * from './operations';
 export * from './projectWarnings';

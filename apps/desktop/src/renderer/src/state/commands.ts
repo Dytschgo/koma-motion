@@ -21,12 +21,14 @@ import {
   createKoma,
   duplicateKoma,
   findKoma,
+  groupElements,
   insertKoma,
   moveKoma,
   removeElement,
   removeKoma,
   replaceElement,
   setBrandLogo,
+  ungroupElement,
   systemInstructionsSchema,
   updateKomaDetails,
   updateTransitionSettings,
@@ -35,6 +37,7 @@ import {
   type BrandKit,
   type GenerationHistoryEntry,
   type IdGenerator,
+  type Koma,
   type KomaDetailsPatch,
   type KomaElement,
   type KomaProject,
@@ -280,6 +283,44 @@ export const restackElement = (
         ),
       },
     };
+  });
+
+function replaceKoma(presentation: Presentation, koma: Koma): Presentation {
+  return {
+    ...presentation,
+    komas: presentation.komas.map((item) => (item.id === koma.id ? koma : item)),
+  };
+}
+
+/**
+ * Puts selected elements of one Koma into a new group. Like deleting an
+ * element, this changes which objects the Koma has at the top level, so the
+ * transitions on both sides are recomputed (settings and rationale are kept)
+ * and stay playable. Throws a message for the person when the selection
+ * cannot be grouped, before anything changes.
+ */
+export const groupKomaElements =
+  (komaId: string, elementIds: readonly string[]): ProjectCommand =>
+  (project, idGenerator) =>
+    changeKomas((presentation) => {
+      const koma = findKoma(presentation, komaId);
+      if (!koma) return presentation;
+      const result = groupElements(koma, elementIds, idGenerator);
+      if (!result.ok) throw new Error(result.error.message);
+      return replaceKoma(presentation, result.value.koma);
+    })(project, idGenerator);
+
+/**
+ * Replaces a group with its children, drawn where they were. The transitions
+ * on both sides are recomputed, as for grouping.
+ */
+export const ungroupKomaElement = (komaId: string, groupId: string): ProjectCommand =>
+  changeKomas((presentation) => {
+    const koma = findKoma(presentation, komaId);
+    if (!koma) return presentation;
+    const result = ungroupElement(koma, groupId);
+    if (!result.ok) throw new Error(result.error.message);
+    return replaceKoma(presentation, result.value.koma);
   });
 
 export const deleteElement = (komaId: string, elementId: string): ProjectCommand =>

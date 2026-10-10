@@ -98,6 +98,9 @@ export const leafElementSchema = z.discriminatedUnion('type', [
   imageElementSchema,
 ]);
 
+/** Children of one group: a separate rendering budget from the Koma's top-level elements. */
+export const MAX_GROUP_CHILDREN = 200;
+
 /**
  * A group positions its children in a local coordinate space of
  * `referenceSize`. When the size of the group differs from `referenceSize`,
@@ -108,7 +111,7 @@ export const groupElementSchema = z.object({
   type: z.literal('group'),
   content: z.object({
     referenceSize: sizeSchema,
-    children: z.array(leafElementSchema).max(200),
+    children: z.array(leafElementSchema).max(MAX_GROUP_CHILDREN),
   }),
   style: z.object({}),
 });

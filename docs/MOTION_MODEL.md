@@ -87,6 +87,36 @@ appears. Within one Koma every `persistentId` is unique.
 Adding a Koma in the application copies the selected Koma and keeps every
 `persistentId`, because a new Koma is the next state of the same objects.
 
+### Groups created in the application
+
+Grouping two or more elements of a Koma (see
+[Direct element authoring](DIRECT_AUTHORING.md#groups)) keeps the `id` and
+`persistentId` of every child. The new group gets a new `id` and a
+`persistentId` derived from the persistent ids of its children
+(`derivePersistentGroupId`): the same set of objects always gives the same
+group identity, on any Koma and after ungrouping and grouping again. If
+another object of that Koma already uses the derived id, a suffix is added.
+
+The motion engine compares only top-level objects, so grouping changes what
+the neighbouring transitions see:
+
+| Situation                                        | Motion between the two Komas                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------------------- |
+| Objects grouped on one Koma only                 | the separate objects fade out and the group fades in (or the reverse)           |
+| The same objects grouped on both Komas           | one retained group: `move`, `scale` and the other operations of a single object |
+| Same group, children arranged differently inside | `replace`: the group cross-fades; children are not animated individually        |
+| Group dissolved again                            | the children are the original objects, so their motion returns                  |
+
+Grouping and ungrouping change which objects a Koma has, like deleting an
+element. Both recompute the transitions on either side of that Koma, keep
+their duration, strategy, easing and rationale, and are one undoable step.
+Like a deletion, the recomputation also replaces motion of those two
+transitions that was already out of date. Leaving it stored would make both
+transitions unplayable, because their operations name objects that are no
+longer at the top level of the Koma.
+To keep objects moving together across Komas, group the same objects on each
+Koma; **Add Koma** after grouping copies the group with its identity.
+
 ## Transitions
 
 A transition connects two adjacent Komas:

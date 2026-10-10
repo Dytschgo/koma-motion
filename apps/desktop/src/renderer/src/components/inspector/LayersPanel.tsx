@@ -87,7 +87,8 @@ function LayerRow({
   /** The row that the Tab key reaches. The arrow keys move between rows. */
   readonly tabStop: boolean;
   readonly disabled: boolean;
-  readonly onSelect: () => void;
+  /** `extend` adds the row to the selection or removes it (Shift or Ctrl/Cmd). */
+  readonly onSelect: (extend: boolean) => void;
   readonly onKeyDown: (event: KeyboardEvent<HTMLButtonElement>) => void;
 }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
@@ -112,8 +113,20 @@ function LayerRow({
         tabIndex={tabStop ? 0 : -1}
         disabled={disabled}
         className="flex min-w-0 flex-1 items-center gap-2.5 rounded-control py-1 pl-1.5 text-left disabled:cursor-not-allowed"
-        onClick={onSelect}
-        onKeyDown={onKeyDown}
+        onClick={(event) => {
+          onSelect(event.shiftKey || event.ctrlKey || event.metaKey);
+        }}
+        onKeyDown={(event) => {
+          if (
+            (event.key === 'Enter' || event.key === ' ') &&
+            (event.shiftKey || event.ctrlKey || event.metaKey)
+          ) {
+            event.preventDefault();
+            onSelect(true);
+            return;
+          }
+          onKeyDown(event);
+        }}
       >
         <IconTile size="sm" className={selected ? 'text-accent' : 'text-ink-400'}>
           <ElementTypeIcon element={element} />
@@ -170,7 +183,9 @@ export function LayersPanel({
   readonly disabled: boolean;
 }): ReactElement {
   const selectedElementId = useUiStore((state) => state.selectedElementId);
+  const selectedElementIds = useUiStore((state) => state.selectedElementIds);
   const selectElement = useUiStore((state) => state.selectElement);
+  const toggleElementSelection = useUiStore((state) => state.toggleElementSelection);
   const [open, setOpen] = useState(true);
   const [query, setQuery] = useState('');
   const [limit, setLimit] = useState(LAYER_PAGE_SIZE);
@@ -195,8 +210,9 @@ export function LayersPanel({
       ?.scrollIntoView({ block: 'nearest' });
   }, [selectedElementId]);
 
-  const select = (element: KomaElement): void => {
-    selectElement(element.id);
+  const select = (element: KomaElement, extend = false): void => {
+    if (extend) toggleElementSelection(element.id);
+    else selectElement(element.id);
     // Keeps the selected element in view on a zoomed canvas.
     document
       .querySelector(`[data-koma-stage] [data-element-id="${CSS.escape(element.id)}"]`)
@@ -297,11 +313,11 @@ export function LayersPanel({
                       komaId={koma.id}
                       element={element}
                       canvas={canvas}
-                      selected={element.id === selectedElementId}
+                      selected={selectedElementIds.includes(element.id)}
                       tabStop={element.id === tabStopId}
                       disabled={disabled}
-                      onSelect={() => {
-                        select(element);
+                      onSelect={(extend) => {
+                        select(element, extend);
                       }}
                       onKeyDown={(event) => {
                         moveFocus(event, index);

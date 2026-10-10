@@ -20,6 +20,7 @@ import {
   useSelectedKoma,
 } from '../lib/selectors';
 import { addKomaAfter, chooseKomaImage } from '../lib/projectActions';
+import { getGroupingAvailability, groupSelection, ungroupSelection } from '../lib/groupActions';
 import { AUTHORING_KINDS, AUTHORING_LABELS, type AuthoringKind } from '../lib/authoring';
 import { assessTransition } from '../lib/transitionIssues';
 import { changeElement, changeTransition, createElement } from '../state/commands';
@@ -47,6 +48,8 @@ export function Workspace({
   const apply = useProjectStore((state) => state.apply);
   const selectedElementId = useUiStore((state) => state.selectedElementId);
   const selectElement = useUiStore((state) => state.selectElement);
+  const selectedElementIds = useUiStore((state) => state.selectedElementIds);
+  const toggleElementSelection = useUiStore((state) => state.toggleElementSelection);
   const selectKoma = useUiStore((state) => state.selectKoma);
   const preview = useUiStore((state) => state.preview);
   const startPreview = useUiStore((state) => state.startPreview);
@@ -61,6 +64,7 @@ export function Workspace({
 
   const koma = useSelectedKoma();
   const selectedElement = koma?.elements.find((element) => element.id === selectedElementId);
+  const grouping = getGroupingAvailability(koma, selectedElementIds);
   const addElement = (): void => {
     if (koma === null || preview !== null) return;
     const known = new Set(koma.elements.map((element) => element.id));
@@ -293,8 +297,34 @@ export function Workspace({
         >
           Inspect
         </Button>
+        {grouping.group === null ? (
+          <Button
+            compact
+            aria-label="Group selected elements"
+            title="Group (Ctrl/Command+G)"
+            disabled={!grouping.canGroup || preview !== null}
+            onClick={() => {
+              groupSelection();
+            }}
+          >
+            Group
+          </Button>
+        ) : (
+          <Button
+            compact
+            aria-label="Ungroup selected group"
+            title="Ungroup (Ctrl/Command+Shift+G)"
+            disabled={preview !== null}
+            onClick={() => {
+              ungroupSelection();
+            }}
+          >
+            Ungroup
+          </Button>
+        )}
         <Help label="Canvas shortcuts">
-          Drag to move. Drag corners to resize. Enter edits text; Esc cancels.
+          Drag to move. Drag corners to resize. Enter edits text; Esc cancels. Shift-click or
+          Ctrl/Command-click adds to the selection. Ctrl/Command+G groups; add Shift to ungroup.
         </Help>
         {preview !== null && (
           <Button compact onClick={stopPreview}>
@@ -366,7 +396,9 @@ export function Workspace({
                     : `Koma ${String(komaIndex + 1)}: ${koma?.title ?? ''}`
                 }
                 selectedElementId={preview !== null ? null : selectedElementId}
+                selectedElementIds={preview !== null ? [] : selectedElementIds}
                 onSelectElement={preview !== null ? undefined : selectElement}
+                onToggleElement={preview !== null ? undefined : toggleElementSelection}
               />
             </div>
           )

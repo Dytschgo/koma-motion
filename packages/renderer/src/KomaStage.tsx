@@ -21,7 +21,14 @@ export interface KomaStageProps {
   readonly resolveAsset: AssetResolver;
   readonly label: string;
   readonly selectedElementId?: string | null;
+  /**
+   * Every selected element, including `selectedElementId`. With more than
+   * one, each is outlined and none shows handles.
+   */
+  readonly selectedElementIds?: readonly string[] | undefined;
   readonly onSelectElement?: ((elementId: string | null) => void) | undefined;
+  /** Shift or Ctrl/Cmd with a click, Enter or Space adds or removes one element. */
+  readonly onToggleElement?: ((elementId: string) => void) | undefined;
   /** Only committed edits leave the stage; pointer and text drafts are disposable. */
   readonly onCommitElement?: ((element: KomaElement) => void) | undefined;
 }
@@ -52,7 +59,9 @@ export function KomaStage({
   resolveAsset,
   label,
   selectedElementId = null,
+  selectedElementIds,
   onSelectElement,
+  onToggleElement,
   onCommitElement,
 }: KomaStageProps): ReactElement {
   const stage = useRef<HTMLDivElement>(null);
@@ -61,7 +70,12 @@ export function KomaStage({
   const [textDraft, setTextDraft] = useState<{ source: Frame; id: string } | null>(null);
   const interactive = onSelectElement !== undefined;
   const editable = interactive && onCommitElement !== undefined;
-  const selected = frame.layers.find((layer) => layer.element.id === selectedElementId)?.element;
+  const selection = selectedElementIds ?? (selectedElementId === null ? [] : [selectedElementId]);
+  const multiple = selection.length > 1;
+  // Handles and text editing belong to a single selection.
+  const selected = multiple
+    ? undefined
+    : frame.layers.find((layer) => layer.element.id === selectedElementId)?.element;
   const textEditing =
     editable && textDraft?.source === frame && textDraft.id === selectedElementId
       ? textDraft
@@ -234,15 +248,17 @@ export function KomaStage({
             key={layer.key}
             element={shown?.id === layer.element.id ? shown : layer.element}
             resolveAsset={resolveAsset}
-            selected={interactive && layer.element.id === selectedElementId}
+            selected={interactive && selection.includes(layer.element.id)}
             editingText={textEditing?.id === layer.element.id}
             outlineWidth={scale > 0 ? 2 / scale : 2}
             onSelect={onSelectElement}
+            onToggleSelect={onToggleElement}
             onManipulate={begin}
             onEditText={layer.element.id === selectedElementId ? editText : undefined}
             onElementKeyDown={(event, element) => {
               if (
                 !editable ||
+                multiple ||
                 element.locked ||
                 element.id !== selectedElementId ||
                 textEditing ||
