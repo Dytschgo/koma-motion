@@ -28,7 +28,7 @@ is in `packages/agent-runtime/src/node` and runs in the Electron main process.
 | --------------- | ------------- | ------------------- | ------------------------------------ |
 | Mock provider   | `mock`        | verified            | verified, covered by automated tests |
 | Claude Code CLI | `claude-code` | verified on Windows | verified on Windows                  |
-| Codex CLI       | `codex`       | verified on Windows | **implemented, not verified**        |
+| Codex CLI       | `codex`       | verified on Windows | verified on Windows                  |
 | Grok CLI        | `grok`        | verified on Windows | verified on Windows                  |
 
 What "verified" means here:
@@ -53,11 +53,27 @@ What "verified" means here:
 - **Codex CLI** detection was tested with Codex CLI 0.157.1 on Windows 11,
   including the resolution of the npm command shim. The arguments for
   generation, including every `--disable`, were taken from that help output
-  and from `codex features list`. Generation has never been run against a
-  real Codex installation, with or without those flags. Treat it as
-  experimental. Two points are known to be open: whether the response schema
-  is accepted by the structured output feature of Codex, and the behaviour
-  on macOS.
+  and from `codex features list`.
+- **Codex CLI generation** was run on 10 October 2026 on Windows 11 with
+  Codex CLI 0.162.1 (`codex --version`), signed in with a ChatGPT account and
+  with `OPENAI_API_KEY` not set. `codex exec --help` and
+  `codex features list` of that version still list every flag and feature
+  name the provider passes. Two runs went through the runtime with the
+  provider's exact arguments (listed under
+  [Verified arguments](#verified-arguments)), the allowlisted child
+  environment, the model `gpt-6-luna` and no reasoning override. Each asked
+  for three Komas. Both runs exited with code 0 in about 22 seconds. Codex
+  accepted the full presentation response schema in `--output-schema`, wrote
+  `answer.json`, and the answer passed validation and conversion without a
+  repair attempt: three Komas, two transitions and retained objects between
+  them. Codex reported `reasoning effort: none` for these runs, because
+  `--ignore-user-config` skips the configured default and no override was
+  given. A third invocation with the same flags, a short prompt and an
+  unsupported model name exited with code 1 and showed how Codex reports
+  errors on standard error (see [Codex standard error](#codex-standard-error)).
+  Not verified: macOS, other models and reasoning overrides, API-key
+  sign-in, transition regeneration, the repair prompt with Codex, the image
+  pipeline, and a run through the Electron application.
 - **Grok** help was inspected on Windows on 30 September 2026 with Grok
   1.0.44 (`grok --help`, `grok --version`). Flags that were not in that help
   output are not used. `--no-auto-update` is described in the installed
@@ -546,7 +562,7 @@ can contain anything.
 | No shell                                    | `spawn` with `shell: false`, an executable path and an argument array                                                                                                                                                                                                                                                                                      |
 | The request of the user is not an argument  | Claude and Codex read the request, the Brand Kit and the project context from standard input. Grok does not read a prompt from standard input, so that text is written to a file Koma Motion creates in the temporary directory and the argument is that path. Claude and Grok receive the fixed system instructions and the response schema as arguments. |
 | Arguments are controlled                    | all arguments are fixed, except the model name, which must match a restricted pattern                                                                                                                                                                                                                                                                      |
-| The invocation limits what the agent can do | Claude: no tools, safe mode, restricted mode, Chrome disabled; managed settings still apply. Codex: read-only, which still allows reads; generation has not been run. Grok: no built-in tools, web search disabled, subagents disabled, plan mode disabled, permission mode `dontAsk`, sandbox profile `strict`.                                           |
+| The invocation limits what the agent can do | Claude: no tools, safe mode, restricted mode, Chrome disabled; managed settings still apply. Codex: read-only, which still allows reads; shell tool and other capability features disabled. Grok: no built-in tools, web search disabled, subagents disabled, plan mode disabled, permission mode `dontAsk`, sandbox profile `strict`.                     |
 | No project context for the agent            | the working directory is an empty temporary folder that is removed afterwards                                                                                                                                                                                                                                                                              |
 | Output is data                              | output is parsed as JSON and validated; it is never executed                                                                                                                                                                                                                                                                                               |
 | Output cannot name files                    | the response has no paths; asset ids are checked against the project                                                                                                                                                                                                                                                                                       |
@@ -678,7 +694,8 @@ Claude keeps its existing sign-in. `ANTHROPIC_API_KEY` is passed through
 only when the parent process already has it, because the `--bare` help text
 names that variable. Koma Motion does not store keys.
 
-**Codex CLI** (from help and `codex features list`, not run as a generation):
+**Codex CLI** (from help and `codex features list` of 0.157.1, rechecked
+against 0.162.1 and run as a generation on Windows on 10 October 2026):
 
 ```text
 codex exec --sandbox read-only --skip-git-repo-check --ephemeral
@@ -686,8 +703,9 @@ codex exec --sandbox read-only --skip-git-repo-check --ephemeral
            --disable hooks --disable plugins --disable plugin_sharing
            --disable remote_plugin --disable browser_use
            --disable browser_use_external --disable browser_use_full_cdp_access
-           --disable computer_use --disable shell_tool
-           [--model <model>] --cd <temporary folder>
+           --disable computer_use --disable shell_tool --disable image_generation
+           [--model <model>] [-c model_reasoning_effort="<value>"]
+           --cd <temporary folder>
            --output-schema <temporary folder>/response-schema.json
            --output-last-message <temporary folder>/answer.json -
 ```
@@ -713,9 +731,22 @@ by a stronger verified switch. `CODEX_HOME` is not pointed at a sandbox.
 
 `OPENAI_API_KEY` and `CODEX_HOME` are passed through only when the parent
 already has them, so API-key auth and the existing auth files still work.
-Koma Motion does not store keys. Generation with this combination was not
-executed. The arguments come from help plus `features list`, not from a live
-run.
+Koma Motion does not store keys. Generation with this combination, without
+`-c model_reasoning_effort`, succeeded with Codex CLI 0.162.1 on Windows on
+10 October 2026 (see [Integration status](#integration-status)). The
+reasoning override was not part of that run.
+
+#### Codex standard error
+
+Codex CLI 0.162.1 writes a banner (version, working folder, model, provider,
+approval, sandbox, reasoning effort, session id) to standard error, then
+`user` and the complete prompt it read from standard input, then warnings and
+errors such as `ERROR: {"type":"error","status":400,...}`. Diagnostics and
+the failure message keep only the start of standard error, so without
+treatment they would show the banner and the request of the user instead of
+the error. The provider removes everything up to the end of the echoed
+prompt before it redacts and shortens standard error. If the echo is not
+found exactly, standard error is kept as it is.
 
 **Grok** (help of Grok 1.0.44 on Windows, 30 September 2026, then run):
 
@@ -814,8 +845,8 @@ on Windows.
 - Admin-managed Claude settings still apply. Managed policy settings cannot
   be disabled by the flags above.
 - Codex read-only is not "no filesystem access".
-- Codex generation was not run. The Codex argument list is unverified against
-  a real generation.
+- Codex generation was run on Windows only, with one model and the ChatGPT
+  sign-in. It has not been run on macOS.
 - Grok session transcripts stay in the CLI's own data directory. User Grok
   config and hooks still load. Sandbox enforcement on Windows is not
   established. MCP meta-tools were not given a separate test.
@@ -894,12 +925,20 @@ KOMA_LIVE_GENERATION=claude-code KOMA_LIVE_MODEL=claude-opus-5-5 \
 # One generation with Grok through the runtime. Leave the model unset for the CLI default.
 KOMA_LIVE_GENERATION=grok pnpm vitest run packages/agent-runtime/src/node/live.test.ts
 
+# One generation with Codex CLI through the runtime. Without a model, Codex
+# uses its built-in default, because the provider skips config.toml.
+KOMA_LIVE_GENERATION=codex KOMA_LIVE_MODEL=gpt-6-luna \
+  pnpm vitest run --reporter=verbose packages/agent-runtime/src/node/live.test.ts
+
 # One generation with Claude Code through the application.
 KOMA_LIVE_E2E=claude-code pnpm test:e2e -- live.spec.ts
 ```
 
 Build first with `pnpm build`. Leave `KOMA_LIVE_MODEL` unset to use the CLI's
-default model, or set it to a model your account supports. Installation
+default model, or set it to a model your account supports. Add
+`--reporter=verbose` to see the logged phases and diagnostics. Set
+`KOMA_LIVE_OUTPUT_DIR` to an absolute folder to also write the events and the
+result of a runtime generation as `<execution id>.json`. Installation
 detection checks the executable and version; it does not check sign-in.
 
 The Electron test sends a fictional cafe launch brief. It sets the project's

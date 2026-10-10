@@ -22,7 +22,7 @@ import {
   MAX_CLI_OUTPUT_BYTES,
   type CliEnvironment,
 } from './cliEnvironment';
-import { buildCodexArguments, CodexCliProvider } from './CodexCliProvider';
+import { buildCodexArguments, CodexCliProvider, stripCodexPromptEcho } from './CodexCliProvider';
 import {
   buildGrokArguments,
   GrokCliProvider,
@@ -1358,6 +1358,69 @@ describe('CodexCliProvider', () => {
     if (!result.ok) {
       expect(result.error.code).toBe('outputTooLarge');
       expect(result.error.message).toContain('No partial presentation');
+    }
+  });
+
+  /** Standard error as Codex CLI 0.162.1 wrote it on Windows: banner, echoed prompt, error. */
+  const codexStandardError = (prompt: string, tail: string, newline = '\n'): string =>
+    [
+      'OpenAI Codex v0.162.1',
+      '--------',
+      'workdir: C:\\synthetic\\koma-motion-agent',
+      'model: synthetic-model',
+      'provider: openai',
+      'approval: never',
+      'sandbox: read-only',
+      'reasoning effort: none',
+      'reasoning summaries: none',
+      'session id: 00000000-0000-0000-0000-000000000000',
+      '--------',
+      'user',
+      prompt,
+      tail,
+    ].join(newline);
+
+  it('removes the banner and the echoed prompt from standard error', () => {
+    const prompt = 'Line one.\n\nSecret plan for the launch.';
+    const tail = 'ERROR: {"type":"error","status":400}';
+    expect(stripCodexPromptEcho(codexStandardError(prompt, tail), prompt)).toBe(tail);
+    expect(stripCodexPromptEcho(codexStandardError(prompt, tail, '\r\n'), prompt)).toBe(tail);
+    expect(stripCodexPromptEcho(codexStandardError(prompt, ''), prompt)).toBe('');
+    expect(stripCodexPromptEcho('ERROR: other', prompt)).toBe('ERROR: other');
+  });
+
+  it('reports the Codex error instead of the echoed request when the run fails', async () => {
+    const environment = fakeEnvironment((specification) =>
+      Promise.resolve(
+        completed({
+          exitCode: 1,
+          standardError: codexStandardError(
+            specification.input ?? '',
+            'ERROR: {"type":"error","status":400,"error":{"message":"The model is not supported."}}',
+          ),
+        }),
+      ),
+    );
+    const request = buildRequest({ userRequest: 'A confidential product launch' });
+    const result = await new CodexCliProvider(environment).generatePresentation(
+      request,
+      context({
+        prompt: presentationGenerationPromptV2.render({
+          request,
+          responseJsonSchema: getResponseJsonSchema(),
+        }),
+      }),
+    );
+
+    expect(environment.calls[0]?.input).toContain('confidential product launch');
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error.code).toBe('executionFailed');
+      expect(result.error.message).toContain('The model is not supported.');
+      expect(result.error.message).not.toContain('OpenAI Codex v0.162.1');
+      expect(result.details.errorOutput).toMatch(/^ERROR: /);
+      expect(result.details.errorOutput).not.toContain('presentation designer');
+      expect(result.details.errorOutput).not.toContain('confidential product launch');
     }
   });
 

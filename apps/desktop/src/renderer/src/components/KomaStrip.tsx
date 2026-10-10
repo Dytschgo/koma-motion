@@ -11,6 +11,8 @@ import { createAssetResolver, KomaStage, type AssetResolver } from '@koma-motion
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { formatSeconds, useSelectedKoma } from '../lib/selectors';
 import { assessTransition } from '../lib/transitionIssues';
+import { getDropOffset } from '../lib/komaDrag';
+import { useKomaDrag, type KomaDragHandlers } from '../lib/useKomaDrag';
 import { addKomaAfter } from '../lib/projectActions';
 import { deleteKoma, renameProject, reorderKoma } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
@@ -115,6 +117,9 @@ function KomaItem({
   project,
   resolveAsset,
   selected,
+  dragHandlers,
+  dragging,
+  dropIndicator,
 }: {
   readonly koma: Koma;
   readonly index: number;
@@ -122,6 +127,11 @@ function KomaItem({
   readonly project: KomaProject;
   readonly resolveAsset: AssetResolver;
   readonly selected: boolean;
+  readonly dragHandlers: KomaDragHandlers;
+  /** This Koma is being dragged. */
+  readonly dragging: boolean;
+  /** Where a drop would place the dragged Koma relative to this one. */
+  readonly dropIndicator: 'before' | 'after' | null;
 }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
   const selectKoma = useUiStore((state) => state.selectKoma);
@@ -147,9 +157,18 @@ function KomaItem({
   };
 
   return (
-    <li>
+    <li data-koma-drag-item="" className="relative">
+      {dropIndicator !== null && (
+        <span
+          aria-hidden="true"
+          data-koma-drop-indicator={dropIndicator}
+          className={`pointer-events-none absolute inset-x-1 z-10 h-1 rounded-full bg-accent shadow-[0_0_0_1px_rgb(124_196_232/0.35)] ${
+            dropIndicator === 'before' ? '-top-[2px]' : '-bottom-[2px]'
+          }`}
+        />
+      )}
       <div
-        className={`rounded-card p-1.5 transition-colors ${selected ? 'bg-accent-deep/45 shadow-[inset_0_0_0_1px_rgb(124_196_232/0.35)]' : 'hover:bg-surface-2'}`}
+        className={`rounded-card p-1.5 transition-colors ${dragging ? 'opacity-50' : ''} ${selected ? 'bg-accent-deep/45 shadow-[inset_0_0_0_1px_rgb(124_196_232/0.35)]' : 'hover:bg-surface-2'}`}
       >
         <div className="relative flex items-start gap-2">
           <span
@@ -182,6 +201,7 @@ function KomaItem({
             aria-current={selected ? 'true' : undefined}
             aria-label={`Koma ${String(number)}: ${koma.title}`}
             className="absolute inset-0 rounded-md"
+            {...dragHandlers}
             onClick={() => {
               selectKoma(koma.id);
             }}
@@ -225,10 +245,17 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
   const selectedKoma = useSelectedKoma();
   const [overviewOpen, setOverviewOpen] = useState(false);
   const strip = useRef<HTMLDivElement>(null);
+  const { drag, announcement, handlers } = useKomaDrag(strip, project.presentation.komas.length);
   const resolveAsset = useMemo(() => createAssetResolver(project.assets), [project.assets]);
   const { komas } = project.presentation;
   const selectedId = selectedKoma?.id;
   const selectedIndex = komas.findIndex((koma) => koma.id === selectedId);
+  /** Shown only where a drop would change the order. */
+  const dropIndicatorFor = (index: number, count: number): 'before' | 'after' | null => {
+    if (drag === null || getDropOffset(drag.from, drag.insertion) === 0) return null;
+    if (drag.insertion === index) return 'before';
+    return drag.insertion === count && index === count - 1 ? 'after' : null;
+  };
   useEffect(() => {
     strip.current
       ?.querySelector<HTMLButtonElement>('button[aria-current="true"]')
@@ -270,11 +297,17 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
         </Button>
       </div>
 
+      <p aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
       <div ref={strip} className="min-h-0 flex-1 overflow-y-auto p-2">
         {komas.length === 0 ? (
           <p className="px-2 py-6 text-ink-400">Your Komas will appear here.</p>
         ) : (
-          <ol aria-label="Komas" className="flex flex-col">
+          <ol
+            aria-label="Komas"
+            className={`flex flex-col ${drag === null ? '' : 'cursor-grabbing select-none'}`}
+          >
             {komas.map((koma, index) => {
               const previous = komas[index - 1];
               const transition =
@@ -307,6 +340,9 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
                   project={project}
                   resolveAsset={resolveAsset}
                   selected={selectedKoma?.id === koma.id}
+                  dragHandlers={handlers(koma.id, index)}
+                  dragging={drag?.komaId === koma.id}
+                  dropIndicator={dropIndicatorFor(index, komas.length)}
                 />,
               ];
             })}

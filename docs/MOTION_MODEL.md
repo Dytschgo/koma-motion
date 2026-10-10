@@ -333,7 +333,9 @@ How the current model supports this:
 - Intermediate Komas keep the `persistentId` of every object, so they stay
   part of the same motion.
 
-Open design questions:
+Open design questions follow. [Stop-motion research](STOP_MOTION_RESEARCH.md)
+answers them with a recommendation and measurements. It proposes to derive
+intermediate Komas instead of storing them. Nothing there is implemented.
 
 - **Frame density.** The number of intermediate Komas per transition must be
   configurable, per presentation and per transition.

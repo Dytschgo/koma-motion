@@ -19,6 +19,7 @@
     "typecheck": "pnpm -r --no-bail typecheck",
     "test": "vitest run && pnpm --filter @koma-motion/desktop test:scripts",
     "test:watch": "vitest",
+    "schema:generate": "vitest run packages/core/src/schema/jsonSchema.test.ts --update",
     "test:e2e": "pnpm --filter @koma-motion/desktop test:e2e",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build",
     "package:win": "pnpm --filter @koma-motion/desktop package:win",
