@@ -8,28 +8,34 @@ changes to the project format.
 
 ## [Unreleased]
 
-### Changed
+## [0.2.0] - 2026-10-10
 
-- Save per-Koma hold durations with undo and global autoplay/export fallbacks.
-  Format version 5 safely migrates older projects; pause preserves the remaining
-  hold and timed PowerPoint export separates hold time from animation duration.
+Projects now use format 5. Projects of formats 1 to 4 are upgraded in memory
+and marked unsaved until saved in the current format. Koma Motion 0.1.x cannot
+open a project saved by this version: keep a copy before upgrading. The
+installers remain unsigned.
 
-- The model chooser uses CLI-reported text models and per-model reasoning menus,
-  with an expanded selection, refresh/retry states and preserved image controls.
-  Saved effort choices are revalidated before execution; unsupported discovery
-  leaves defaults available. Project format 4 stores reasoning preferences per
-  provider and model, with migrations from older projects.
-
-- An out-of-date transition shows a compact status in the Koma strip, between
-  its source and destination Komas, with **Regenerate transition** on that
-  transition. The explanation and links to both Komas open from a disclosure
-  there. Regeneration reports running, failed and cancelled states on the
-  transition and announces success when it can play again. A failed or
-  cancelled regeneration leaves both Komas unchanged.
 ### Added
 
-- macOS updates can be started from the app in Terminal. The release archive
-  and app bundle are verified before replacement, and a rollback copy is kept.
+- Text, rectangles, circles and lines can be created on any Koma without a
+  provider, and elements can be removed. **Inspect** opens the Inspector for
+  the selected object, also in a narrow window.
+- Elements can be grouped and ungrouped. Select several elements with Shift or
+  Ctrl/Command on the canvas or in Layers, then use **Group** (Ctrl/Command+G)
+  or **Ungroup** (Ctrl/Command+Shift+G). Nothing moves on the canvas, each
+  action is one undo step, and the same objects grouped on neighbouring Komas
+  move as one object. Agents are not offered groups yet.
+- Komas can be reordered by dragging them in the Koma strip. A bar marks the
+  drop position, the strip scrolls at its edges, Escape cancels, and each drop
+  is one undo step that behaves like the move buttons.
+- A searchable **Deck overview** finds Komas by number, title and purpose, and
+  moves the selected Koma to a numbered position in one undo step.
+- Generation for the selected Koma creates a proposal with a preview. **Apply**
+  changes only that Koma in one undo step; **Discard** leaves the project
+  unchanged.
+- After an interruption, Koma Motion offers to recover the unsaved work as a
+  protected copy, or to discard it. The recovered copy must be saved under a
+  new name.
 - **Present** plays the whole presentation in the window or full screen, from
   the beginning (F5) or from the selected Koma (Shift+F5). Each Koma plays in
   order with its transition. Previous, next, pause and resume, replay, the
@@ -39,6 +45,55 @@ changes to the project format.
   Transitions that cannot play are listed before the presentation starts:
   return to edit them, or cut across exactly the listed transitions. Edits,
   deletions, reordering and undo while presenting are followed.
+- Each Koma can store its own hold duration for presenting and timed
+  PowerPoint export, with undo. Komas without one use the global setting.
+- A Brand Kit and matching project instructions can be created from brand
+  material attached in the chat, reviewed with evidence per finding, and saved
+  to the library.
+- A quick-start guide opens from Welcome and from **Getting started**. It
+  never opens by itself.
+- macOS updates can be started from the app in Terminal. The release archive
+  and app bundle are verified before replacement, and a rollback copy is kept.
+- Claude Code can run through Google Vertex AI and Claude gateways configured
+  in the environment or in Claude's settings file.
+- A JSON Schema of the `.koma` format is published at
+  `docs/schema/koma-project.schema.json`, generated from the runtime schema and
+  checked against it by a unit test.
+- Opt-in live generation test for Codex: `KOMA_LIVE_GENERATION=codex`.
+- An optional local signing path for Windows and macOS packages, with a strict
+  preflight. It has not been run with real certificates; published installers
+  stay unsigned.
+
+### Changed
+
+- The model chooser lists the models and reasoning options that the installed
+  CLIs report, instead of a built-in list. Format 4 stores reasoning choices
+  per provider and model; saved choices are checked again before each run.
+- An out-of-date transition shows a compact status in the Koma strip, between
+  its source and destination Komas, with **Regenerate transition** on that
+  transition. A failed or cancelled regeneration leaves both Komas unchanged.
+- The Codex CLI provider has generated presentations on Windows with Codex CLI
+  0.162.1 and is no longer marked experimental. It is not verified on macOS.
+- CLI providers receive only their own API key, home folder and gateway
+  settings, not those of the other providers.
+- PowerPoint export uses Morph only for transitions that can play in Koma
+  Motion; stale stored motion is exported as a fade.
+- The project format documents which unknown data is kept, the compatibility
+  rules until the format is stable, and when it will be declared stable.
+
+### Fixed
+
+- Corrupt embedded images and corrupt Brand Kit library logos are detected on
+  open, import and reuse, shown as placeholders, and listed in Project health
+  with a targeted repair.
+- A failed Codex run shows the Codex error instead of the echoed prompt.
+- Applying a Brand Kit returns keyboard focus to the picker after loading.
+
+### Not included
+
+- Code signing and notarisation of the published installers.
+- Verification of the providers and of PowerPoint export on macOS.
+- Opening a project by double-clicking a `.koma` file.
 
 ## [0.1.1] - 2026-10-02
 

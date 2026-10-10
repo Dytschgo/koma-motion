@@ -38,6 +38,8 @@ Beyond the milestone:
 - canvas move and resize, in-place text editing, and image import or replacement,
 - direct creation of text, rectangles, circles and lines, and removal of
   elements, without a provider ([direct authoring](DIRECT_AUTHORING.md)),
+- grouping and ungrouping of elements, with multiple selection,
+- reordering Komas by dragging in the Koma strip,
 - whole-presentation playback with keyboard navigation and optional saved hold
   durations per Koma (project format 5),
 - a searchable deck overview with moves to a numbered position
@@ -48,8 +50,11 @@ Beyond the milestone:
   ([crash recovery](CRASH_RECOVERY.md)),
 - content checks for embedded images and Brand Kit logos, with targeted repairs
   in Project health,
-- Claude Code and Grok providers, verified on Windows,
-- Codex CLI provider, implemented but not verified,
+- Claude Code, Grok and Codex CLI providers, verified on Windows,
+- a JSON Schema of the project format and documented compatibility rules
+  ([project format](PROJECT_FORMAT.md)),
+- design documents for packaged projects ([asset packages](ASSET_PACKAGES.md))
+  and stop-motion frames ([research](STOP_MOTION_RESEARCH.md)),
 - application tests on macOS and Windows in CI,
 - session-only TXT, Markdown and PDF references for generation,
 - editable PowerPoint slides with static, fade and Morph choices; a generated
@@ -93,8 +98,8 @@ Interface:
 
 - Images can be imported, replaced or removed, but not cropped or otherwise
   edited.
-- Komas are reordered with buttons or by position in the deck overview, not by
-  dragging.
+- Komas are dragged in the Koma strip only; the deck overview moves them by
+  position.
 - The preview plays one transition at a time. **Present** plays the whole
   presentation; autoplay uses each Koma's saved hold duration, or a global hold
   for the window when none is saved.
@@ -106,7 +111,8 @@ Model and motion:
 - Changes of content and of styles that cannot be interpolated, such as font
   size, are cross-fades.
 - The children of groups are not animated individually.
-- Groups cannot be created in the interface and are not offered to agents.
+- Groups cannot be nested and are not offered to agents. Ungrouping a group
+  that was stretched unevenly is approximate.
 - Images are embedded in the project and limited to 2 MB per asset.
 - Fonts are the fonts installed on the computer. A project does not contain
   fonts.
@@ -116,8 +122,7 @@ Agents:
 - Entire-presentation generation replaces the whole presentation. Selected
   Koma generation proposes one Koma at a time; neighbouring motion is left
   unchanged and may need repair.
-- The Codex CLI provider has not been run against Codex.
-- Claude Code and Grok generation have been tested on Windows only.
+- Claude Code, Grok and Codex generation have been tested on Windows only.
 - Reference ingestion supports TXT, Markdown and PDF text only. References
   stay in the current project session, outside the saved project. Each file is
   limited to 10 MiB and 100,000 extracted characters; no more than five files,
@@ -127,8 +132,8 @@ Distribution:
 
 - Installers and update channels exist, but published installers are unsigned
   and not notarised. An opt-in signing path with strict preflight exists; it
-  has not been run with real certificates. macOS update installation is not
-  implemented.
+  has not been run with real certificates. macOS updates run in Terminal,
+  started from the app.
 - PowerPoint export preserves native editable objects but approximates motion.
   Font layout and several visual effects can differ; macOS PowerPoint has not
   been verified with a generated deck.
@@ -140,12 +145,11 @@ The order reflects dependencies, not dates.
 ### Editing: remaining work
 
 - Expand image editing beyond import and replacement.
-- Reorder Komas by dragging.
+- Offer groups to agents and animate the children of groups.
 
 ### Agents: remaining work
 
-- Verify the Codex CLI provider.
-- Verify Claude Code and Grok generation on macOS.
+- Verify Claude Code, Grok and Codex generation on macOS.
 - Broaden reference ingestion only after format-specific extraction and
   privacy checks.
 
@@ -162,5 +166,9 @@ The order reflects dependencies, not dates.
 
 ### Research
 
-- Stop Motion Mode: intermediate frames between major Komas.
+- Stop Motion Mode: intermediate frames between major Komas. The
+  [research](STOP_MOTION_RESEARCH.md) recommends computing them at export
+  instead of storing them.
+- Packaged projects with separate asset files, as designed in
+  [asset packages](ASSET_PACKAGES.md).
 - Additional operations: morph, reveal, path motion, camera, masks.
