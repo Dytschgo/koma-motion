@@ -31,8 +31,9 @@ const ANSWER_FILE_NAME = 'answer.json';
 /**
  * Features that `codex features list` showed as stable and enabled on Codex
  * CLI 0.157.1 and that grant extra capability. `--disable` is an invocation
- * override; it does not write config.toml. Generation with these flags was
- * not run.
+ * override; it does not write config.toml. Codex CLI 0.162.1 still lists all
+ * of them, and generations with these flags succeeded on Windows on
+ * 10 October 2026.
  */
 const DISABLED_CODEX_FEATURES = [
   'hooks',
@@ -51,7 +52,10 @@ const DISABLED_CODEX_FEATURES = [
 /**
  * Arguments of the non-interactive invocation, taken from `codex exec --help`
  * and `codex features list` of Codex CLI 0.157.1 on Windows on 29 September
- * 2026. Detection has been run; generation has NOT been run. See
+ * 2026, rechecked against the help of Codex CLI 0.162.1. Two generations with
+ * exactly these arguments succeeded on Windows on 10 October 2026: Codex
+ * accepted the response schema in `--output-schema` and the answer file
+ * passed validation without repair. Not run on macOS. See
  * docs/AGENT_PROVIDERS.md.
  *
  * - `exec` runs non-interactively. The final `-` reads the prompt from
@@ -100,6 +104,23 @@ export function buildCodexArguments(options: {
   ];
 }
 
+/**
+ * `codex exec` writes a banner and then echoes the whole prompt to standard
+ * error before anything else (observed with Codex CLI 0.162.1 on Windows):
+ * `OpenAI Codex v…`, settings, `--------`, `user`, the prompt, then warnings
+ * and errors such as `ERROR: {…}`. Diagnostics keep only the start of
+ * standard error, so the echo would hide the actual error and repeat the
+ * request of the user. Everything up to the end of the echoed prompt is
+ * removed. If the echo is not found, the text is returned unchanged.
+ */
+export function stripCodexPromptEcho(standardError: string, prompt: string): string {
+  const normalized = standardError.replace(/\r\n/g, '\n');
+  const echo = `\nuser\n${prompt.replace(/\r\n/g, '\n')}`;
+  const index = normalized.indexOf(echo);
+  if (index === -1) return standardError;
+  return normalized.slice(index + echo.length).replace(/^\n+/, '');
+}
+
 /** Read at most the response budget plus one byte, even if the file grows after stat. */
 async function readAnswer(workingDirectory: string): Promise<Result<string, AgentError>> {
   const path = join(workingDirectory, ANSWER_FILE_NAME);
@@ -142,7 +163,7 @@ export class CodexCliProvider implements AgentProvider {
     id: CODEX_PROVIDER_ID,
     displayName: this.displayName,
     description:
-      'Uses the Codex CLI installed on this computer and its existing sign-in. Requests are sent to OpenAI. Experimental: generation with this provider has not been verified yet.',
+      'Uses the Codex CLI installed on this computer and its existing sign-in. Requests are sent to OpenAI. Generation has been tested on Windows only.',
     kind: 'cli',
     usesExternalService: true,
     supportsModelSelection: true,
@@ -232,16 +253,21 @@ export class CodexCliProvider implements AgentProvider {
         'utf8',
       );
       context.reportProgress(progress);
-      const outcome = await this.#environment.runProcess({
+      // Codex has no separate system prompt in non-interactive mode.
+      const input = `${context.prompt.system}\n\n${context.prompt.user}`;
+      const result = await this.#environment.runProcess({
         executable,
         arguments: buildCodexArguments({ workingDirectory, model: context.model, reasoning }),
-        // Codex has no separate system prompt in non-interactive mode.
-        input: `${context.prompt.system}\n\n${context.prompt.user}`,
+        input,
         workingDirectory,
         signal: context.signal,
         maxOutputBytes: MAX_CLI_OUTPUT_BYTES,
         env: this.#environment.childEnvironment('codex'),
       });
+      const outcome = {
+        ...result,
+        standardError: stripCodexPromptEcho(result.standardError, input),
+      };
       const details = {
         exitCode: outcome.exitCode,
         errorOutput: redactDiagnostics(outcome.standardError),
