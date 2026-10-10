@@ -21,6 +21,35 @@ remain available for one-position moves, including during preview. A move that
 changes the previewed pair cancels that preview. Stop transition preview before
 using the overview's direct-position form.
 
+## Dragging in the Koma strip
+
+Any Koma in the strip can also be dragged to a new place with the mouse. A
+press becomes a drag after a few pixels of movement, so a click still selects
+the Koma. While dragging, the Koma is dimmed and a bar marks the gap it will
+drop into; no bar is shown where dropping would leave the order unchanged.
+Holding the pointer near the strip's top or bottom edge scrolls the strip in
+that direction, so a Koma can reach positions that are off screen, including
+in the 1120 x 668 window used by CI.
+
+Dropping applies the same move as the up/down controls and **Move to
+position**: one undo step, the same transition handling, and the same
+unsaved-changes state. The dropped Koma becomes the selected Koma. Dropping a
+Koma beside itself, pressing Escape during the drag, or losing the pointer
+changes nothing and records no undo step. A polite live region announces the
+result, for example "Koma 2 moved to position 1." or "Move cancelled.".
+
+Dragging is an addition for pointer users. Keyboard and screen-reader users
+reorder with the up/down controls or **Move to position**. The deck overview
+does not support dragging, because its results can be filtered and their
+numbers refer to the full deck.
+
+The native regression (`e2e/komaDrag.spec.ts`) runs in the small window. It
+drags a Koma upwards, checks the indicator, order, selection, announcement and
+unsaved state, undoes and redoes, cancels with Escape, drops in place, holds a
+drag at the strip's edge until it scrolls, mixes a drag with the move buttons,
+and saves. Pure tests cover the gap and offset geometry, edge scrolling and
+announcements, and check that a drop matches the equivalent position move.
+
 The native regression uses a 100-Koma deck with customised transitions and
 per-Koma holds. It exercises metadata search, narrow-window keyboard focus,
 first-to-last and reverse moves, a middle move, invalid positions, undo/redo,
