@@ -161,7 +161,7 @@ The screenshots are created from the running application with
 | Brand Kit                    | available                                              |
 | Mock provider                | available                                              |
 | Claude Code provider         | available, tested on Windows                           |
-| Codex CLI provider           | experimental, generation has never been tested         |
+| Codex CLI provider           | available, tested on Windows with Codex CLI 0.162.1    |
 | Grok provider                | available, tested on Windows with Grok 1.0.44          |
 | Undo and redo                | available                                              |
 | Editing on the canvas        | move, resize, edit text, import and replace images     |
@@ -243,12 +243,12 @@ installed and signed in on this computer; the panel shows whether Koma Motion
 can find it.
 Save the resulting editable project as a `.koma` file.
 
-| Provider        | Needs                                | State                                          |
-| --------------- | ------------------------------------ | ---------------------------------------------- |
-| Mock provider   | nothing                              | available                                      |
-| Claude Code CLI | Claude Code, installed and signed in | tested on Windows with Claude Code 2.1.285     |
-| Codex CLI       | Codex CLI, installed and signed in   | experimental, generation has never been tested |
-| Grok CLI        | Grok, installed and signed in        | tested on Windows with Grok 1.0.44             |
+| Provider        | Needs                                | State                                      |
+| --------------- | ------------------------------------ | ------------------------------------------ |
+| Mock provider   | nothing                              | available                                  |
+| Claude Code CLI | Claude Code, installed and signed in | tested on Windows with Claude Code 2.1.285 |
+| Codex CLI       | Codex CLI, installed and signed in   | tested on Windows with Codex CLI 0.162.1   |
+| Grok CLI        | Grok, installed and signed in        | tested on Windows with Grok 1.0.44         |
 
 Providers that use an agent CLI send your request, project instructions, your
 Brand Kit, a text summary of existing Komas, and asset names to the online
