@@ -19,6 +19,7 @@ import { detectProviders } from './lib/agentActions';
 import { invoke, subscribe } from './lib/api';
 import { getBrandKitPanelWidth, getChatLayout, INSPECTOR_WIDTH } from './lib/chatLayout';
 import { followUpdates } from './lib/updateActions';
+import { groupSelection, ungroupSelection } from './lib/groupActions';
 import { followFullScreen } from './lib/presentationActions';
 import {
   createNewProject,
@@ -116,6 +117,20 @@ function useApplicationEvents(): void {
       } else if (key === 'y' && !isEditingText(event.target)) {
         event.preventDefault();
         useProjectStore.getState().redo();
+      } else if (
+        key === 'g' &&
+        !isEditingText(event.target) &&
+        usePresenterStore.getState().session === null &&
+        useUiStore.getState().confirmation === null &&
+        !useUiStore.getState().settingsOpen
+      ) {
+        // Ctrl/Cmd+G groups the selected elements, with Shift it ungroups a group.
+        event.preventDefault();
+        if (event.shiftKey) {
+          ungroupSelection();
+        } else {
+          groupSelection();
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);

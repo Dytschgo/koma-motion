@@ -14,6 +14,7 @@ import { ElementPanel } from './inspector/ElementPanel';
 import { KomaPanel } from './inspector/KomaPanel';
 import { LayersPanel } from './inspector/LayersPanel';
 import { MotionPanel, type TransitionHealth } from './inspector/MotionPanel';
+import { SelectionPanel } from './inspector/SelectionPanel';
 import { SEGMENT_TRACK, segmentClass } from './ui';
 
 const TABS: readonly { readonly id: InspectorTab; readonly label: string }[] = [
@@ -51,6 +52,7 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
   const setTab = useUiStore((state) => state.setInspectorTab);
   const selectedElementId = useUiStore((state) => state.selectedElementId);
   const selectElement = useUiStore((state) => state.selectElement);
+  const selectedElementIds = useUiStore((state) => state.selectedElementIds);
   const koma = useSelectedKoma();
   const element = useSelectedElement();
   const transition = useCurrentTransition();
@@ -113,11 +115,13 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
               {TABS.map((item, position) => {
                 const selected = item.id === tab;
                 const label =
-                  item.id === 'element' && element !== null
-                    ? `${item.label}: ${element.name.trim() === '' ? element.type : element.name}`
-                    : item.id === 'motion' && motionNeedsAttention
-                      ? `${item.label}, needs attention`
-                      : item.label;
+                  item.id === 'element' && selectedElementIds.length > 1
+                    ? `${item.label}: ${String(selectedElementIds.length)} selected`
+                    : item.id === 'element' && element !== null
+                      ? `${item.label}: ${element.name.trim() === '' ? element.type : element.name}`
+                      : item.id === 'motion' && motionNeedsAttention
+                        ? `${item.label}, needs attention`
+                        : item.label;
                 return (
                   <button
                     key={item.id}
@@ -165,7 +169,9 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
             ) : (
               <fieldset disabled={preview !== null} className="min-w-0">
                 {tab === 'element' ? (
-                  element === null ? (
+                  selectedElementIds.length > 1 ? (
+                    <SelectionPanel koma={koma} selection={selectedElementIds} />
+                  ) : element === null ? (
                     <div className="flex flex-col gap-2 px-3 py-3">
                       <h2 className="text-base font-semibold text-ink-100">Element</h2>
                       <p className="text-ink-400">

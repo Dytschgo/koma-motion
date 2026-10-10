@@ -15,6 +15,7 @@ import {
 import type { ReactElement } from 'react';
 import { describeElementKind, getLayerName, orderLayers, type StackMove } from '../../lib/layers';
 import { chooseKomaImage } from '../../lib/projectActions';
+import { ungroupSelection } from '../../lib/groupActions';
 import { changeElement, deleteElement, restackElement } from '../../state/commands';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
@@ -642,10 +643,35 @@ export function ElementPanel({
         />
       )}
       {element.type === 'group' && (
-        <Section title="Group">
+        <Section
+          title="Group"
+          action={
+            <Button
+              compact
+              variant="outline"
+              disabled={locked}
+              onClick={() => {
+                ungroupSelection();
+              }}
+            >
+              Ungroup
+            </Button>
+          }
+        >
           <p className="text-ink-400">
             This group contains {element.content.children.length} elements. They move and scale with
             the group.
+          </p>
+          <ul aria-label="Elements in this group" className="flex flex-col gap-0.5 text-sm">
+            {element.content.children.map((child) => (
+              <li key={child.id} className="truncate text-ink-300">
+                {getLayerName(child)}
+              </li>
+            ))}
+          </ul>
+          <p className="text-sm text-ink-400">
+            Group the same elements on neighbouring Komas to move them together; otherwise the group
+            fades into and out of them.
           </p>
         </Section>
       )}

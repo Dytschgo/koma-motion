@@ -241,6 +241,15 @@ export function getBoxStyle(element: KomaElement | LeafElement): CSSProperties {
   };
 }
 
+/** Shift, Ctrl or Cmd extend a selection instead of replacing it. */
+function isToggleModifier(event: {
+  readonly shiftKey: boolean;
+  readonly ctrlKey: boolean;
+  readonly metaKey: boolean;
+}): boolean {
+  return event.shiftKey || event.ctrlKey || event.metaKey;
+}
+
 export interface ElementViewProps {
   readonly element: KomaElement;
   readonly resolveAsset: AssetResolver;
@@ -250,6 +259,8 @@ export interface ElementViewProps {
   readonly outlineWidth: number;
   /** When given, the element can be selected with pointer and keyboard. */
   readonly onSelect?: ((elementId: string) => void) | undefined;
+  /** Adds the element to the selection or removes it (Shift or Ctrl/Cmd). */
+  readonly onToggleSelect?: ((elementId: string) => void) | undefined;
   readonly onManipulate?:
     ((event: PointerEvent<HTMLDivElement>, element: KomaElement) => void) | undefined;
   readonly onEditText?: (() => void) | undefined;
@@ -264,12 +275,22 @@ export function ElementView({
   editingText = false,
   outlineWidth,
   onSelect,
+  onToggleSelect,
   onManipulate,
   onEditText,
   onElementKeyDown,
 }: ElementViewProps): ReactElement {
   const interactive = onSelect !== undefined;
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
+    if (
+      onToggleSelect !== undefined &&
+      (event.key === 'Enter' || event.key === ' ') &&
+      isToggleModifier(event)
+    ) {
+      event.preventDefault();
+      onToggleSelect(element.id);
+      return;
+    }
     onElementKeyDown?.(event, element);
     if (event.defaultPrevented) return;
     if (event.key === 'Enter' || event.key === ' ') {
@@ -304,6 +325,10 @@ export function ElementView({
               event.stopPropagation();
               if (event.button !== 0) return;
               event.currentTarget.focus({ preventScroll: true });
+              if (onToggleSelect !== undefined && isToggleModifier(event)) {
+                onToggleSelect(element.id);
+                return;
+              }
               onSelect(element.id);
               onManipulate?.(event, element);
             },
