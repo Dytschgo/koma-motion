@@ -199,6 +199,7 @@
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-gutter: stable;
+    scroll-padding-block: 0.5rem;
     padding: 0.25rem 1rem 1rem;
   }
 

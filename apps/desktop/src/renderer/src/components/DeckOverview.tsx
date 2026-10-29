@@ -156,13 +156,13 @@ function OverviewContent({
                   />
                   <span className="min-w-0 flex-1">
                     <span
-                      className="block line-clamp-2 font-medium wrap-anywhere"
+                      className="line-clamp-2 font-medium wrap-anywhere"
                       title={koma.title || 'Untitled Koma'}
                     >
                       {koma.title || 'Untitled Koma'}
                     </span>
                     {koma.purpose && (
-                      <span className="mt-0.5 block line-clamp-2 text-sm wrap-anywhere text-ink-400">
+                      <span className="mt-0.5 line-clamp-2 text-sm wrap-anywhere text-ink-400">
                         {koma.purpose}
                       </span>
                     )}
