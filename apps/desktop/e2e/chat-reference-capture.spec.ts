@@ -66,8 +66,12 @@ for (const width of [1480, 1120] as const) {
         join(output, `manifest-${String(width)}.json`),
         JSON.stringify(
           {
-            sourceRevision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
-            sourceStatus: execFileSync('git', ['status', '--short'], { encoding: 'utf8' }).trim(),
+            sourceRevision:
+              process.env['KOMA_CHAT_SOURCE_REVISION'] ??
+              execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+            sourceStatus:
+              process.env['KOMA_CHAT_SOURCE_STATUS'] ??
+              execFileSync('git', ['status', '--short'], { encoding: 'utf8' }).trim(),
             platform: process.platform,
             viewport,
             chatWidth: chatBounds?.width,
