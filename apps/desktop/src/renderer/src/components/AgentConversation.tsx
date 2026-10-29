@@ -41,8 +41,8 @@ function Entry({
 }): ReactElement {
   if (entry.kind === 'request') {
     return (
-      <li className="ml-auto flex max-w-full items-start justify-end gap-2 wrap-break-word select-text">
-        <div className="max-w-[calc(100%-2rem)] whitespace-pre-wrap rounded-card rounded-tr-sm border border-line bg-surface-3 px-3.5 py-2.5 text-ink-100">
+      <li className="chat-message chat-message-user">
+        <div className="chat-user-bubble">
           <span className="sr-only">You asked: </span>
           {entry.text}
           {entry.referenceNames !== undefined && (
@@ -51,34 +51,12 @@ function Entry({
             </p>
           )}
         </div>
-        <span
-          aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-line-strong bg-surface-2 text-ink-300"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-          >
-            <circle cx="8" cy="5" r="2.2" />
-            <path d="M3.5 13c.3-2.3 2-3.5 4.5-3.5s4.2 1.2 4.5 3.5" />
-          </svg>
-        </span>
       </li>
     );
   }
   if (entry.kind === 'result') {
     return (
-      <li className="flex max-w-full items-start gap-2.5 wrap-break-word select-text">
-        <span
-          aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-line bg-surface-2"
-        >
-          <KomaMark size={15} />
-        </span>
+      <li className="chat-message chat-message-agent">
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="mb-1 text-xs font-medium text-ink-400">{entry.providerName}</p>
           <p className="whitespace-pre-wrap leading-relaxed">{entry.text}</p>
@@ -103,13 +81,7 @@ function Entry({
   }
   if (entry.kind === 'notApplied') {
     return (
-      <li className="flex max-w-full items-start gap-2.5 wrap-break-word select-text">
-        <span
-          aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-line bg-surface-2"
-        >
-          <KomaMark size={15} />
-        </span>
+      <li className="chat-message chat-message-agent">
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="mb-1 text-xs text-ink-400">{entry.providerName}</p>
           <p className="font-semibold">Generated Komas were not applied</p>
@@ -230,24 +202,28 @@ export function AgentConversation({
         ref={log}
         role="log"
         aria-label="Conversation"
-        className="flex min-h-32 flex-1 flex-col overflow-y-auto bg-surface-2 px-4 py-5"
+        className="chat-conversation"
         onScroll={(event) => {
           const element = event.currentTarget;
           following.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
         }}
       >
         {conversation.length === 0 && !running ? (
-          <div className="m-auto flex max-w-48 flex-col items-center text-center text-ink-300">
+          <div className="chat-empty">
+            <span className="chat-empty-mark" aria-hidden="true">
+              <KomaMark size={30} />
+            </span>
+            <h3>What would you like to present?</h3>
             <p>
               {selectedId === 'mock'
                 ? scope === 'selected'
                   ? 'Try a selected-Koma proposal.'
                   : 'Try the three-Koma demo.'
-                : 'What would you like to present?'}
+                : 'Describe your idea. Build the story together.'}
             </p>
             <Button
-              variant="outline"
-              className="mt-3"
+              variant="quiet"
+              className="chat-example"
               onClick={() => {
                 onExample();
               }}
@@ -256,7 +232,7 @@ export function AgentConversation({
             </Button>
           </div>
         ) : (
-          <ol className="flex flex-col gap-6">
+          <ol className="chat-messages">
             {conversation.map((entry) => (
               <Entry
                 key={entry.id}

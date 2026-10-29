@@ -108,6 +108,23 @@ test('cancels from the monitor and shows the stopped run', async () => {
   expect(running?.problems).toEqual([]);
 });
 
+test('stops from the composer and preserves an unsent draft', async () => {
+  const window = await start({ KOMA_MOCK_DELAY_MS: '8000' });
+  const request = window.getByLabel('Your request');
+  await request.fill('Keep this idea for the next run');
+  await request.press('Enter');
+  await expect(
+    window.getByRole('log', { name: 'Conversation' }).getByText(/You asked:/),
+  ).toHaveCount(1);
+  await window.getByRole('button', { name: 'Stop generating', exact: true }).click();
+  await expect(window.getByText('Generation stopped')).toBeVisible();
+  await expect(request).toHaveValue('Keep this idea for the next run');
+  await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeEnabled();
+  await expect(window.getByRole('button', { name: 'Stop generating' })).toHaveCount(0);
+  await expect(window.getByRole('button', { name: /^Koma 1:/ })).toHaveCount(0);
+  expect(running?.problems).toEqual([]);
+});
+
 test('keeps a still pose with reduced motion and survives hiding the chat during a long run', async () => {
   running = await launchApplication({ env: { KOMA_MOCK_DELAY_MS: '6000' } });
   const { window } = running;

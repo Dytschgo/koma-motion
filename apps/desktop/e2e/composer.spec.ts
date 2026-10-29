@@ -30,6 +30,30 @@ test.afterEach(async () => {
   await running.close();
 });
 
+test('sends with Enter, keeps Shift+Enter as a newline and does not submit IME composition', async () => {
+  const { window, problems } = running;
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  await showChat(window);
+  const request = window.getByLabel('Your request');
+  const log = window.getByRole('log', { name: 'Conversation' });
+  await request.press('Enter');
+  await expect(log.locator('li')).toHaveCount(0);
+  await window.getByRole('button', { name: 'Use the example request' }).click();
+  await expect(request).toBeFocused();
+  await request.fill('Explain the idea');
+  await request.press('End');
+  await request.press('Shift+Enter');
+  await request.pressSequentially('Then show the motion');
+  await expect(request).toHaveValue('Explain the idea\nThen show the motion');
+  await request.dispatchEvent('keydown', { key: 'Enter', isComposing: true });
+  await expect(log.locator('li')).toHaveCount(0);
+  await request.press('Enter');
+  await expect(log.getByText(/Created 3 Komas/)).toBeVisible();
+  await expect(log.getByText('Explain the idea\nThen show the motion')).toBeVisible();
+  await expect(log.getByText(/You asked:/)).toHaveCount(1);
+  expect(problems).toEqual([]);
+});
+
 test('retains selected draft/count through narrow Inspect collapse and edits, then clears them on same-file reopen', async () => {
   const { window, application, directory } = running;
   await application.evaluate(({ BrowserWindow }) => {
