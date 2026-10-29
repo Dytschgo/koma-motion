@@ -15,8 +15,7 @@ test.afterEach(async () => {
   await running.close();
 });
 
-async function openLongDeck() {
-  const project = buildNavigationProject();
+async function openLongDeck(project: KomaProject = buildNavigationProject()) {
   const encoded = serialiseProject(project);
   if (!encoded.ok) throw new Error(encoded.error.message);
   const source = join(running.directory, 'navigation.koma');
@@ -148,6 +147,93 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   });
   expect(running.problems).toEqual([]);
 });
+
+for (const aspectRatio of ['16:9', '4:3'] as const) {
+  test(`visual overview keeps search and move controls reachable in a short window (${aspectRatio})`, async () => {
+    const { window, application } = running;
+    await application.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 668);
+    });
+    await expect
+      .poll(() => window.evaluate(() => ({ width: innerWidth, height: innerHeight })))
+      .toEqual({ width: 1120, height: 668 });
+    await window.emulateMedia({ reducedMotion: 'reduce' });
+    const fixture = buildNavigationProject();
+    const title = 'UnbrokenLongTitle'.repeat(15);
+    await openLongDeck({
+      ...fixture,
+      presentation: {
+        ...fixture.presentation,
+        aspectRatio,
+        komas: fixture.presentation.komas.map((koma, index) =>
+          index === 99 ? { ...koma, title } : koma,
+        ),
+      },
+    });
+    const dialog = await overview();
+    const results = dialog.getByRole('list', { name: 'Deck overview', exact: true });
+    const current = results.getByRole('button', { name: 'Koma 1: Chapter 1', exact: true });
+    await expect(current).toHaveAttribute('aria-current', 'true');
+    await expect(current.getByText('Selected', { exact: true })).toBeVisible();
+    await expect(current.locator('[data-koma-stage]')).toBeVisible();
+    await dialog.getByLabel('Find a Koma').press('Enter');
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel('Find a Koma').press('Tab');
+    await expect(current).toBeFocused();
+    await current.press('Tab');
+    await expect(dialog.getByLabel('Move to position')).toBeFocused();
+    await dialog.getByLabel('Move to position').press('Shift+Tab');
+    await current.press('ArrowUp');
+    await expect(dialog.getByLabel('Find a Koma')).toBeFocused();
+    await expect(
+      results.getByRole('button', { name: 'Koma 2: Chapter 2', exact: true }),
+    ).toContainText('Hold 1.2 s');
+    await dialog.getByLabel('Find a Koma').press('ArrowDown');
+    await window.keyboard.press('End');
+    const last = results.getByRole('button', { name: `Koma 100: ${title}`, exact: true });
+    await expect(last).toBeFocused();
+    await expect(last).toBeInViewport({ ratio: 1 });
+    await expect(last.locator('[data-koma-stage]')).toBeVisible();
+    await expect(dialog.getByLabel('Find a Koma')).toBeInViewport({ ratio: 1 });
+    await expect(dialog.getByLabel('Move to position')).toBeInViewport({ ratio: 1 });
+    await expect(dialog.getByRole('button', { name: 'Close overview' })).toBeInViewport({
+      ratio: 1,
+    });
+    expect(
+      await dialog.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth && node.scrollHeight <= node.clientHeight,
+      ),
+    ).toBe(true);
+    await window.screenshot({
+      path: test.info().outputPath(`overview-short-${aspectRatio.replace(':', '-')}.png`),
+      scale: 'css',
+    });
+    await last.press('Enter');
+    await expectSelected(100, title);
+    const reopened = await overview();
+    await expect(
+      reopened.getByRole('button', { name: `Koma 100: ${title}`, exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await reopened.getByLabel('Find a Koma').press('Enter');
+    await expect(reopened).toBeVisible();
+    await reopened.getByLabel('Find a Koma').press('ArrowDown');
+    await expect(
+      reopened.getByRole('button', { name: `Koma 100: ${title}`, exact: true }),
+    ).toBeFocused();
+    await expect(
+      reopened.getByText(`Selected: Koma 100 — ${title}`, { exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await reopened.getByLabel('Find a Koma').fill('no matching metadata');
+    await expect(reopened.getByText('No Komas match this search.')).toBeVisible();
+    await expect(reopened.getByRole('button', { name: 'Close overview' })).toBeInViewport({
+      ratio: 1,
+    });
+    await reopened.getByRole('button', { name: 'Close overview' }).click();
+    await expect(window.getByRole('button', { name: /^Deck overview/ })).toBeFocused();
+    await expect(window.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+    expect(running.problems).toEqual([]);
+  });
+}
 
 test('moves first to last and back, moves a middle Koma, and retains holds and adjacent motion through undo, redo and save/reopen', async () => {
   test.setTimeout(120_000);

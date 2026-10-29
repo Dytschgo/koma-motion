@@ -9,6 +9,15 @@ import { getKomaMoveOffset, searchKomas } from './deckNavigation';
 import { buildNavigationProject } from './deckNavigation.fixture';
 
 describe('long deck navigation', () => {
+  it('ranks an exact deck position before incidental numeric metadata', () => {
+    const komas = buildNavigationProject().presentation.komas.map((koma, index) =>
+      index === 0 ? { ...koma, title: 'Revenue in 2012' } : koma,
+    );
+    const results = searchKomas(komas, ' 12 ');
+    expect(results.map((result) => result.number)).toEqual([12, 1]);
+    expect(searchKomas(komas, 'Revenue 2012').map((result) => result.number)).toEqual([1]);
+    expect(komas[0]?.title).toBe('Revenue in 2012');
+  });
   it('searches number, title and purpose without changing full-deck positions or adjacency', () => {
     const project = buildNavigationProject();
     const original = JSON.stringify(project);

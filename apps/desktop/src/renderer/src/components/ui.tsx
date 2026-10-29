@@ -341,10 +341,7 @@ export function Field({ label, error, hint, className, children }: FieldProps): 
   );
 }
 
-export function TextInput({
-  className,
-  ...rest
-}: InputHTMLAttributes<HTMLInputElement>): ReactElement {
+export function TextInput({ className, ...rest }: ComponentPropsWithRef<'input'>): ReactElement {
   return (
     <input
       type="text"
