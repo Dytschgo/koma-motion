@@ -1,4 +1,7 @@
 import { expect, test } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { createDefaultBrandKit, serialiseBrandKitLibrary } from '@koma-motion/brand-kit';
 import { launchApplication, showChat, type RunningApplication } from './application';
 import { countTrigger, openCountChoices, openModelChoices } from './composerControls';
 
@@ -15,6 +18,37 @@ async function demo() {
   await running.window.getByRole('button', { name: 'Generate Komas', exact: true }).click();
   await expect(running.window.getByText(/Created 3 Komas/)).toBeVisible();
 }
+
+test('reloads the saved library when returning to Inspect while retaining its tab', async () => {
+  const { window, directory } = running;
+  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await window.getByRole('tab', { name: /^Library/ }).click();
+  await expect(window.getByText('No saved Brand Kits yet', { exact: true })).toBeVisible();
+  await showChat(window);
+  const folder = join(directory, 'user-data', 'brand-kits');
+  await mkdir(folder, { recursive: true });
+  const name = 'Arrived from another window';
+  await writeFile(
+    join(folder, 'library.json'),
+    serialiseBrandKitLibrary([
+      {
+        id: 'external-kit',
+        name,
+        createdAt: '2026-10-01T12:00:00Z',
+        updatedAt: '2026-10-01T12:00:00Z',
+        logo: null,
+        brandKit: { ...createDefaultBrandKit(), name, logoAssetId: null },
+      },
+    ]),
+  );
+  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
+  await expect(window.getByRole('tab', { name: /^Library/ })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  await expect(window.getByRole('button', { name, exact: true })).toBeVisible();
+  expect(running.problems).toEqual([]);
+});
 
 test('shares a single dock and keeps drafts, transcript, selection and keyboard focus across contexts', async () => {
   const { window, application } = running;

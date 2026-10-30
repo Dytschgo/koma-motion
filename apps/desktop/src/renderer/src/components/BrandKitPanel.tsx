@@ -17,7 +17,13 @@ const TABS: readonly { readonly id: BrandKitTab; readonly label: string }[] = [
  * The Brand Kit beside the canvas. It takes the place of the inspector, so
  * the canvas, the Komas and the transition controls stay where they are.
  */
-export function BrandKitPanel({ project }: { readonly project: KomaProject }): ReactElement {
+export function BrandKitPanel({
+  project,
+  active,
+}: {
+  readonly project: KomaProject;
+  readonly active: boolean;
+}): ReactElement {
   const tab = useUiStore((state) => state.brandKitTab);
   const setTab = useUiStore((state) => state.setBrandKitTab);
   const setView = useUiStore((state) => state.setView);
@@ -26,8 +32,8 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
 
   // The library can change outside this window, so it is read each time the panel opens.
   useEffect(() => {
-    void loadBrandKitLibrary();
-  }, []);
+    if (active) void loadBrandKitLibrary();
+  }, [active]);
 
   const onTabKeyDown = (event: KeyboardEvent<HTMLButtonElement>): void => {
     if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {

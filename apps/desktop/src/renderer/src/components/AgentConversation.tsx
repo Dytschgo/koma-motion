@@ -1,5 +1,13 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactElement,
+} from 'react';
 import { useAgentStore, type ConversationEntry } from '../state/agentStore';
 import { ChevronIcon, KomaMark, WarningIcon } from './icons';
 import { Button } from './ui';
@@ -193,6 +201,8 @@ export function AgentConversation({
   const logId = useId();
   const log = useRef<HTMLDivElement>(null);
   const following = useRef(true);
+  const readingPosition = useRef(0);
+  const previousSession = useRef(sessionId);
   const logSize = useRef({ width: 0, height: 0 });
   const lastRequestId = conversation.findLast((entry) => entry.kind === 'request')?.id;
   const previousRequestId = useRef(lastRequestId);
@@ -203,8 +213,15 @@ export function AgentConversation({
     setShowJump(false);
   }, []);
 
-  useEffect(() => {
-    if (open) followLatest();
+  useLayoutEffect(() => {
+    if (previousSession.current !== sessionId) {
+      previousSession.current = sessionId;
+      following.current = true;
+      readingPosition.current = 0;
+    }
+    if (!open || log.current === null) return;
+    if (following.current) followLatest();
+    else log.current.scrollTop = readingPosition.current;
   }, [open, sessionId, followLatest]);
 
   useEffect(() => {
@@ -245,6 +262,9 @@ export function AgentConversation({
           aria-label="Conversation"
           className="chat-conversation"
           onScroll={(event) => {
+            // Hiding a dock context can dispatch a layout scroll. It is not a
+            // request to leave the reader's place or resume following output.
+            if (!open) return;
             const element = event.currentTarget;
             // Layout can dispatch scroll before ResizeObserver. Let the observer
             // restore following before interpreting a changed viewport as reading.
@@ -254,6 +274,7 @@ export function AgentConversation({
                 element.clientHeight !== logSize.current.height)
             )
               return;
+            readingPosition.current = element.scrollTop;
             following.current =
               element.scrollHeight - element.scrollTop - element.clientHeight < 48;
             setShowJump(!following.current);

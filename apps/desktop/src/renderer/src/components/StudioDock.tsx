@@ -105,7 +105,7 @@ export function StudioDock({
           </button>
           <button
             type="button"
-            aria-label="Show Inspector"
+            aria-label="Show Inspect panel"
             aria-expanded={false}
             aria-controls={`${id}-body`}
             onClick={() => reveal('inspect')}
@@ -233,7 +233,9 @@ export function StudioDock({
           <div hidden={view !== 'canvas'} className="studio-dock-context">
             <Inspector project={project} />
           </div>
-          {view === 'brandKit' && <BrandKitPanel project={project} />}
+          {view === 'brandKit' && (
+            <BrandKitPanel project={project} active={open && mode === 'inspect'} />
+          )}
         </div>
       </div>
     </aside>

@@ -151,7 +151,7 @@ export async function isWideWindow(window: Page): Promise<boolean> {
 
 /** Opens the shared dock's Inspect context, at every window size. */
 export async function showInspector(window: Page): Promise<void> {
-  const show = window.getByRole('button', { name: 'Show Inspector', exact: true });
+  const show = window.getByRole('button', { name: 'Show Inspect panel', exact: true });
   if (await show.isVisible()) {
     await show.click();
   } else {

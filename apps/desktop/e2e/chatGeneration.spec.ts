@@ -102,6 +102,26 @@ test('keeps the composer and header stationary around a scrollable conversation 
   });
   expect(await log.evaluate((element) => element.scrollTop)).toBeLessThan(10);
   await expect(window.getByTestId('chat-header')).toBeInViewport({ ratio: 1 });
+  // Reading history is still reading history after visiting another dock context.
+  for (const target of [0, 120]) {
+    await log.evaluate((element, top) => {
+      element.scrollTop = top;
+      element.dispatchEvent(new Event('scroll'));
+    }, target);
+    const readingPosition = await log.evaluate((element) => element.scrollTop);
+    await expect(chat.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
+    await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
+    await window.getByRole('tab', { name: 'Chat', exact: true }).click();
+    await expect.poll(() => log.evaluate((element) => element.scrollTop)).toBe(readingPosition);
+    await expect(chat.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
+    await expect(request).toHaveValue('Shorter draft while I keep reading history.');
+  }
+  await chat.getByRole('button', { name: 'Jump to latest' }).click();
+  await expect
+    .poll(() =>
+      log.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight),
+    )
+    .toBeLessThan(48);
   await window.screenshot({ path: test.info().outputPath('short-studio.png'), scale: 'css' });
   expect(problems).toEqual([]);
 });

@@ -22,7 +22,7 @@ the current Koma without an object selected. **Chat** and **Inspect** share one
 resizable dock at every window size; switching tabs keeps the canvas width,
 chat draft and history. Selecting another Koma keeps the active dock tab.
 Collapse the dock for more canvas room, then use **Show the chat** or **Show
-Inspector** to return. Locked elements retain their existing edit limits.
+Inspect panel** to return. Locked elements retain their existing edit limits.
 
 ## Selecting several elements
 
