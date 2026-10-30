@@ -351,6 +351,17 @@ export const addKoma =
 export const deleteKoma = (komaId: string): ProjectCommand =>
   changeKomas((presentation) => removeKoma(presentation, komaId));
 
+/** An exact next-frame copy with new document IDs and the same visual identities. */
+export const duplicateKomaInProject =
+  (komaId: string): ProjectCommand =>
+  (project, idGenerator) =>
+    changeKomas((presentation) => {
+      const source = findKoma(presentation, komaId);
+      return source === undefined
+        ? presentation
+        : insertKoma(presentation, duplicateKoma(source, idGenerator, source.title), source.id);
+    })(project, idGenerator);
+
 export const reorderKoma = (komaId: string, offset: number): ProjectCommand =>
   changeKomas((presentation) => moveKoma(presentation, komaId, offset));
 

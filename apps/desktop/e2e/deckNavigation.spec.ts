@@ -126,6 +126,7 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await expect(dialog.getByText('No Komas match this search.')).toBeVisible();
   await dialog.getByLabel('Find a Koma').press('Escape');
   await expectSelected(19, 'Chapter 19');
+  await window.getByRole('button', { name: 'Show Koma details' }).click();
   await window
     .getByRole('button', { name: 'Preview the transition from Koma 19 to Koma 20', exact: true })
     .click();

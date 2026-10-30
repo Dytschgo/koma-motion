@@ -1,5 +1,32 @@
 # Navigating a long deck
 
+The left pane follows the familiar presentation-editor layout: numbered,
+rectangular thumbnails and an outline around the current Koma. Drag its right
+edge to resize the thumbnails, double-click the edge to reset, or drag toward
+the left edge to collapse. The header's collapse button does the same; **Show
+Koma thumbnails** restores the pane and focuses the selected Koma. Width,
+visibility and the details toggle are remembered on this device, independently
+of the project and its undo history.
+
+With a thumbnail focused, Up/Down selects the previous/next Koma, and Home/End
+selects the first/last. The selected thumbnail scrolls into view. Ctrl (Command
+on macOS) + Up/Down moves it one place; add Shift to move it to the beginning
+or end. Ctrl/Command + D duplicates it, preserving its title, content, notes and
+hold time with new document IDs. Control + M adds a next frame after it
+using the existing new-Koma defaults. Delete asks for confirmation. These
+shortcuts apply to thumbnails, so editing text elsewhere keeps its usual keys.
+On macOS, Command + M keeps its native Minimize action; use Control + M to add.
+
+Right-click a thumbnail, press Shift+F10, or use **Koma actions** in the footer
+for the same insert, duplicate, move and delete actions. Arrow keys navigate
+that menu; Escape closes it and returns focus. Each document action is undoable.
+The footer also keeps the move, delete, Add Koma and Brand Kit controls visible.
+
+**Show Koma details** restores thumbnail titles and the transition timing and
+preview rows between Komas. Motion warnings and their recovery actions remain
+visible in compact mode. The resize divider also supports Left/Right (Shift
+for larger steps), Home for minimum width and End for maximum width.
+
 Open **Deck overview** above the Koma strip to find a Koma by its number, title
 or purpose. Search terms are matched together, ignoring case. Result numbers
 always refer to the full deck. Filtering the overview does not change the deck
@@ -55,8 +82,8 @@ Koma beside itself, pressing Escape during the drag, or losing the pointer
 changes nothing and records no undo step. A polite live region announces the
 result, for example "Koma 2 moved to position 1." or "Move cancelled.".
 
-Dragging is an addition for pointer users. Keyboard and screen-reader users
-reorder with the up/down controls or **Move to position**. The deck overview
+Dragging is an addition for pointer users. Keyboard users can also use the
+thumbnail shortcuts, up/down controls or **Move to position**. The deck overview
 does not support dragging, because its results can be filtered and their
 numbers refer to the full deck.
 

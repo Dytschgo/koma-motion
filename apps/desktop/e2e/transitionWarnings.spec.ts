@@ -164,6 +164,7 @@ test('explains a stale transition, links its Komas and regenerates it from the k
   await expect(transport.getByRole('button', { name: 'Play' })).toBeEnabled();
   await expect(transport.getByRole('button', { name: 'Play' })).toBeFocused();
   await expect(window.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+  await window.getByRole('button', { name: 'Show Koma details' }).click();
   await expect(
     window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
   ).toBeVisible();
