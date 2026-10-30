@@ -121,20 +121,23 @@ function Entry({
       {!(entry.status === 'cancelled' && error.message === 'The generation was stopped.') && (
         <p className="whitespace-pre-wrap">{error.message.split('\n')[0]}</p>
       )}
-      {error.issues.length > 0 && (
-        <ul className="mt-2 list-disc pl-5 text-sm text-ink-300">
-          {error.issues.slice(0, 8).map((issue, index) => (
-            <li key={index}>
-              {issue.path}: {issue.message}
-            </li>
-          ))}
-          {error.issues.length > 8 && <li>and {error.issues.length - 8} more</li>}
-        </ul>
-      )}
       <p className="mt-2 text-sm text-ink-400">Your presentation was not changed.</p>
       {entry.output !== undefined && <KeptOutput text={entry.output} name={entry.providerName} />}
       <details className="mt-1 text-sm text-ink-400">
         <summary className="cursor-pointer hover:text-ink-100">Diagnostics</summary>
+        {error.issues.length > 0 && (
+          <ul
+            aria-label="Response validation details"
+            className="my-2 list-disc ps-5 text-sm text-ink-300"
+          >
+            {error.issues.slice(0, 8).map((issue, index) => (
+              <li key={index}>
+                {issue.path}: {issue.message}
+              </li>
+            ))}
+            {error.issues.length > 8 && <li>and {error.issues.length - 8} more</li>}
+          </ul>
+        )}
         <dl className="mt-1 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3">
           <dt>Error code</dt>
           <dd>{error.code}</dd>

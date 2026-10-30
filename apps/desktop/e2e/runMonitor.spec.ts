@@ -82,6 +82,31 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
     .toBe('failed');
   expect([...seen]).toEqual(expect.arrayContaining(['generating', 'repairing', 'failed']));
   await expect(window.getByText('Generation failed')).toBeVisible();
+  const failure = window.getByRole('alert').filter({ hasText: 'Generation failed' });
+  const issue = failure.getByText(
+    'presentation: Invalid input: expected object, received undefined',
+    { exact: true },
+  );
+  await expect(issue).toBeHidden();
+  await expect(
+    failure.getByText('Your presentation was not changed.', { exact: true }),
+  ).toBeVisible();
+  await expect(failure.getByRole('button', { name: 'Try again', exact: true })).toBeEnabled();
+  await window.screenshot({ path: test.info().outputPath('failure-summary.png'), scale: 'css' });
+  const details = failure.locator('summary').filter({ hasText: 'Diagnostics' });
+  await details.focus();
+  await details.press('Enter');
+  await expect(issue).toBeVisible();
+  await expect(
+    failure.getByText('komas: Invalid input: expected array, received string', { exact: true }),
+  ).toBeVisible();
+  await expect(failure.getByText('invalidResponse', { exact: true })).toBeVisible();
+  await window.screenshot({
+    path: test.info().outputPath('failure-diagnostics.png'),
+    scale: 'css',
+  });
+  await details.press('Enter');
+  await expect(issue).toBeHidden();
   await expect(activity(window)).toContainText('Failed after');
   await expect(activity(window).locator('svg.pixel-sprite')).not.toHaveAttribute(
     'data-animated',
