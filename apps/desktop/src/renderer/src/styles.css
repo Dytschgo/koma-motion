@@ -813,12 +813,18 @@
   margin-inline-start: auto;
 }
 .studio-project-identity {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  flex: 0 1 auto;
+  grid-template-columns: minmax(0, 1fr);
   min-inline-size: 0;
-  inline-size: clamp(9rem, 12vw, 15rem);
+  inline-size: fit-content;
+  max-inline-size: min(32rem, 100%);
 }
 .studio-project-identity .studio-project-name {
+  field-sizing: content;
+  inline-size: auto;
+  min-inline-size: min(8rem, 100%);
+  max-inline-size: 100%;
   min-block-size: 1.75rem;
   block-size: 1.75rem;
   border-color: transparent;

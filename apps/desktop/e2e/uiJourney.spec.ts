@@ -64,6 +64,62 @@ test('the title-bar name stays editable with thumbnails collapsed and saves inde
   expect(running.problems).toEqual([]);
 });
 
+test('long project names use available title-bar space without displacing narrow-window actions', async () => {
+  await demo();
+  const { window, application, directory } = running;
+  const header = window.getByRole('banner');
+  const name = header.getByLabel('Project name', { exact: true });
+  const projectName = 'Q4 2026 — Strategy and investor update';
+  const fileName = 'quarterly-strategy-and-investor-update-2026.koma';
+  await name.fill(projectName);
+  await name.press('Tab');
+  await answerSaveDialog(application, join(directory, fileName));
+  await header.getByRole('button', { name: 'Save as', exact: true }).click();
+  await expect(header.getByText('All changes saved', { exact: true })).toBeVisible();
+  const filename = header.getByText(fileName, { exact: true });
+  for (const width of [1480, 1120]) {
+    await application.evaluate(({ BrowserWindow }, contentWidth) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(contentWidth, 700);
+    }, width);
+    await expect(name).toHaveValue(projectName);
+    await expect
+      .poll(() => name.evaluate((field) => field.scrollWidth <= field.clientWidth + 1))
+      .toBe(true);
+    await expect
+      .poll(() => filename.evaluate((label) => label.scrollWidth <= label.clientWidth + 1))
+      .toBe(true);
+    for (const action of [
+      'Save',
+      'Save as',
+      'Export',
+      'Preview',
+      'Present',
+      'Getting started',
+      'Settings',
+    ]) {
+      await expect(header.getByRole('button', { name: action, exact: true })).toBeInViewport({
+        ratio: 1,
+      });
+    }
+    await expect(header.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+    await window.screenshot({
+      path: test.info().outputPath(`long-title-${width}.png`),
+      scale: 'css',
+    });
+  }
+  await name.fill('');
+  await expect(header.getByRole('alert')).toContainText('A project needs a name');
+  await expect(header.getByRole('alert')).toBeInViewport({ ratio: 1 });
+  await window.screenshot({
+    path: test.info().outputPath('empty-title-error-1120.png'),
+    scale: 'css',
+  });
+  await name.fill(projectName);
+  await name.press('Tab');
+  await expect(header.getByRole('alert')).toHaveCount(0);
+  expect(running.problems).toEqual([]);
+});
+
 test('the example count agrees with its request and does not manufacture a mismatch warning', async () => {
   await create();
   const { window } = running;
