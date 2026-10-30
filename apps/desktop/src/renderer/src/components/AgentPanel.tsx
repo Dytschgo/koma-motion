@@ -34,7 +34,7 @@ export function AgentPanel({
     <section
       ref={section}
       aria-label="Agent chat"
-      className="chat-panel relative flex min-h-0 flex-none flex-col border-l border-line bg-surface-2"
+      className="chat-panel relative flex min-h-0 flex-none flex-col border-l border-line"
       style={open ? { width: layout.width } : undefined}
     >
       {open ? (
@@ -71,12 +71,8 @@ export function AgentPanel({
         </button>
       )}
 
-      <div id={bodyId} hidden={!open} className="flex min-h-0 flex-1 flex-col overflow-y-auto">
-        <div
-          ref={header}
-          data-testid="chat-header"
-          className="flex h-11 flex-none flex-col justify-center border-b border-line bg-surface-1 pr-1.5 pl-3.5"
-        >
+      <div id={bodyId} hidden={!open} className="chat-body">
+        <div ref={header} data-testid="chat-header" className="chat-header">
           <div className="flex items-center gap-2">
             <h2 className="min-w-0 flex-1 text-base font-semibold">Chat</h2>
             <IconButton
@@ -128,8 +124,15 @@ export function AgentPanel({
           open={open}
           selectedId={draft.selectedId}
           scope={draft.scope}
-          onExample={() => draft.setRequest(EXAMPLE_REQUEST)}
-          onRetry={draft.submit}
+          canRetry={draft.canRetry}
+          onExample={() => {
+            draft.setRequest(EXAMPLE_REQUEST);
+            panel.requestField.current?.focus();
+          }}
+          onRetry={(text) => {
+            draft.submit(text, { preserveDraft: true });
+            panel.requestField.current?.focus();
+          }}
           onReviewed={() => panel.requestField.current?.focus()}
         />
         <BrandProfileDialogHost />

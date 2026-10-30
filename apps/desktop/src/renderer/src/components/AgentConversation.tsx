@@ -1,7 +1,7 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useEffect, useId, useRef, useState, type ReactElement } from 'react';
 import { useAgentStore, type ConversationEntry } from '../state/agentStore';
-import { KomaMark, WarningIcon } from './icons';
+import { ChevronIcon, KomaMark, WarningIcon } from './icons';
 import { Button } from './ui';
 import { RunActivity, RunMonitor } from './RunActivity';
 import { ScopedProposal } from './ScopedProposal';
@@ -35,14 +35,16 @@ function KeptOutput({
 function Entry({
   entry,
   onRetry,
+  canRetry,
 }: {
   readonly entry: ConversationEntry;
   readonly onRetry: (request: string) => void;
+  readonly canRetry: boolean;
 }): ReactElement {
   if (entry.kind === 'request') {
     return (
-      <li className="ml-auto flex max-w-full items-start justify-end gap-2 wrap-break-word select-text">
-        <div className="max-w-[calc(100%-2rem)] whitespace-pre-wrap rounded-card rounded-tr-sm border border-line bg-surface-3 px-3.5 py-2.5 text-ink-100">
+      <li className="chat-message chat-message-user">
+        <div className="chat-user-bubble">
           <span className="sr-only">You asked: </span>
           {entry.text}
           {entry.referenceNames !== undefined && (
@@ -51,34 +53,12 @@ function Entry({
             </p>
           )}
         </div>
-        <span
-          aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-line-strong bg-surface-2 text-ink-300"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.4"
-          >
-            <circle cx="8" cy="5" r="2.2" />
-            <path d="M3.5 13c.3-2.3 2-3.5 4.5-3.5s4.2 1.2 4.5 3.5" />
-          </svg>
-        </span>
       </li>
     );
   }
   if (entry.kind === 'result') {
     return (
-      <li className="flex max-w-full items-start gap-2.5 wrap-break-word select-text">
-        <span
-          aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-line bg-surface-2"
-        >
-          <KomaMark size={15} />
-        </span>
+      <li className="chat-message chat-message-agent">
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="mb-1 text-xs font-medium text-ink-400">{entry.providerName}</p>
           <p className="whitespace-pre-wrap leading-relaxed">{entry.text}</p>
@@ -103,13 +83,7 @@ function Entry({
   }
   if (entry.kind === 'notApplied') {
     return (
-      <li className="flex max-w-full items-start gap-2.5 wrap-break-word select-text">
-        <span
-          aria-hidden="true"
-          className="flex size-6 flex-none items-center justify-center rounded-full border border-line bg-surface-2"
-        >
-          <KomaMark size={15} />
-        </span>
+      <li className="chat-message chat-message-agent">
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="mb-1 text-xs text-ink-400">{entry.providerName}</p>
           <p className="font-semibold">Generated Komas were not applied</p>
@@ -169,6 +143,7 @@ function Entry({
       </details>
       <Button
         variant="outline"
+        disabled={!canRetry}
         className="mt-2"
         onClick={() => {
           onRetry(entry.request);
@@ -186,6 +161,7 @@ export function AgentConversation({
   open,
   selectedId,
   scope,
+  canRetry,
   onExample,
   onRetry,
   onReviewed,
@@ -195,6 +171,7 @@ export function AgentConversation({
   readonly open: boolean;
   readonly selectedId: string;
   readonly scope: 'entire' | 'selected';
+  readonly canRetry: boolean;
   readonly onExample: () => void;
   readonly onRetry: (text: string) => void;
   readonly onReviewed: () => void;
@@ -205,77 +182,137 @@ export function AgentConversation({
   const lastRun = useAgentStore((state) => state.lastRun);
   const running = execution !== null;
   const [monitorOpen, setMonitorOpen] = useState(false);
+  const [showJump, setShowJump] = useState(false);
+  const logId = useId();
   const log = useRef<HTMLDivElement>(null);
   const following = useRef(true);
+  const logSize = useRef({ width: 0, height: 0 });
+  const lastRequestId = conversation.findLast((entry) => entry.kind === 'request')?.id;
+  const previousRequestId = useRef(lastRequestId);
+  const followLatest = useCallback((): void => {
+    if (log.current === null) return;
+    log.current.scrollTop = log.current.scrollHeight;
+    following.current = true;
+    setShowJump(false);
+  }, []);
+
   useEffect(() => {
-    // Scrolls the conversation only, never the window around it. A new
-    // entry always scrolls; see the effect below for growing output.
-    if (open && log.current !== null) {
-      log.current.scrollTop = log.current.scrollHeight;
-      following.current = true;
-    }
-  }, [open, conversation.length, proposal]);
+    if (open) followLatest();
+  }, [open, sessionId, followLatest]);
+
+  useEffect(() => {
+    if (!open || log.current === null) return;
+    // A growing draft or window resize changes the visible transcript height
+    // without adding output. Keep its end visible only while already following.
+    const observer = new ResizeObserver(() => {
+      if (log.current === null) return;
+      logSize.current = { width: log.current.clientWidth, height: log.current.clientHeight };
+      if (following.current) followLatest();
+    });
+    observer.observe(log.current);
+    return () => observer.disconnect();
+  }, [open, followLatest]);
+
+  useEffect(() => {
+    // Follow a request the person sent, but keep their reading position when
+    // a result or proposal arrives while they are looking through history.
+    const sent = previousRequestId.current !== lastRequestId;
+    previousRequestId.current = lastRequestId;
+    if (open && (sent || following.current)) followLatest();
+  }, [open, lastRequestId, conversation.length, proposal, followLatest]);
 
   useEffect(() => {
     // Growing output and new phases follow only while the person is at the
     // bottom, so reading earlier text is not interrupted.
-    if (open && log.current !== null && following.current) {
-      log.current.scrollTop = log.current.scrollHeight;
-    }
-  }, [open, execution?.events.length, execution?.output.text]);
+    if (open && following.current) followLatest();
+  }, [open, execution?.events.length, execution?.output.text, followLatest]);
 
   return (
     <>
-      <div
-        ref={log}
-        role="log"
-        aria-label="Conversation"
-        className="flex min-h-32 flex-1 flex-col overflow-y-auto bg-surface-2 px-4 py-5"
-        onScroll={(event) => {
-          const element = event.currentTarget;
-          following.current = element.scrollHeight - element.scrollTop - element.clientHeight < 48;
-        }}
-      >
-        {conversation.length === 0 && !running ? (
-          <div className="m-auto flex max-w-48 flex-col items-center text-center text-ink-300">
-            <p>
-              {selectedId === 'mock'
-                ? scope === 'selected'
-                  ? 'Try a selected-Koma proposal.'
-                  : 'Try the three-Koma demo.'
-                : 'What would you like to present?'}
-            </p>
-            <Button
-              variant="outline"
-              className="mt-3"
-              onClick={() => {
-                onExample();
-              }}
-            >
-              Use the example request
-            </Button>
-          </div>
-        ) : (
-          <ol className="flex flex-col gap-6">
-            {conversation.map((entry) => (
-              <Entry
-                key={entry.id}
-                entry={entry}
-                onRetry={(text) => {
-                  onRetry(text);
+      <div className="chat-conversation-panel">
+        <div
+          ref={log}
+          id={logId}
+          role="log"
+          tabIndex={-1}
+          aria-label="Conversation"
+          className="chat-conversation"
+          onScroll={(event) => {
+            const element = event.currentTarget;
+            // Layout can dispatch scroll before ResizeObserver. Let the observer
+            // restore following before interpreting a changed viewport as reading.
+            if (
+              following.current &&
+              (element.clientWidth !== logSize.current.width ||
+                element.clientHeight !== logSize.current.height)
+            )
+              return;
+            following.current =
+              element.scrollHeight - element.scrollTop - element.clientHeight < 48;
+            setShowJump(!following.current);
+          }}
+        >
+          {conversation.length === 0 && !running ? (
+            <div className="chat-empty">
+              <span className="chat-empty-mark" aria-hidden="true">
+                <KomaMark size={30} />
+              </span>
+              <h3>What would you like to present?</h3>
+              <p>
+                {selectedId === 'mock'
+                  ? scope === 'selected'
+                    ? 'Try a selected-Koma proposal.'
+                    : 'Try the three-Koma demo.'
+                  : 'Describe your idea. Build the story together.'}
+              </p>
+              <Button
+                variant="quiet"
+                className="chat-example"
+                onClick={() => {
+                  onExample();
                 }}
-              />
-            ))}
-          </ol>
+              >
+                Use the example request
+              </Button>
+            </div>
+          ) : (
+            <ol className="chat-messages">
+              {conversation.map((entry) => (
+                <Entry
+                  key={entry.id}
+                  entry={entry}
+                  canRetry={canRetry}
+                  onRetry={(text) => {
+                    onRetry(text);
+                  }}
+                />
+              ))}
+            </ol>
+          )}
+          {execution !== null ? (
+            <RunActivity run={execution} onOpenMonitor={() => setMonitorOpen(true)} />
+          ) : (
+            lastRun !== null && (
+              <RunActivity run={lastRun} onOpenMonitor={() => setMonitorOpen(true)} />
+            )
+          )}
+          <ScopedProposal project={project} sessionId={sessionId} onReviewed={onReviewed} />
+        </div>
+        {showJump && (
+          <button
+            type="button"
+            className="chat-jump-latest"
+            aria-label="Jump to latest"
+            aria-controls={logId}
+            onClick={() => {
+              followLatest();
+              log.current?.focus({ preventScroll: true });
+            }}
+          >
+            <ChevronIcon direction="down" size={16} />
+            Latest
+          </button>
         )}
-        {execution !== null ? (
-          <RunActivity run={execution} onOpenMonitor={() => setMonitorOpen(true)} />
-        ) : (
-          lastRun !== null && (
-            <RunActivity run={lastRun} onOpenMonitor={() => setMonitorOpen(true)} />
-          )
-        )}
-        <ScopedProposal project={project} sessionId={sessionId} onReviewed={onReviewed} />
       </div>
 
       <RunMonitor

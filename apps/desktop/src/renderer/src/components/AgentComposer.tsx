@@ -2,6 +2,8 @@ import type { KomaProject } from '@koma-motion/core';
 import { useId, type ReactElement } from 'react';
 import type { DetectedProvider } from '../state/agentStore';
 import { useProjectStore } from '../state/projectStore';
+import { useAgentStore } from '../state/agentStore';
+import { cancelGeneration } from '../lib/agentActions';
 import { changeAgentConfiguration } from '../state/commands';
 import type { ComposerDraft } from '../lib/useComposerDraft';
 import type { ComposerPanel } from '../lib/useComposerPanel';
@@ -89,6 +91,7 @@ export function AgentComposer({
     pickerMaxHeight,
   } = panel;
   const apply = useProjectStore((state) => state.apply);
+  const stopping = useAgentStore((state) => state.execution?.cancelRequested ?? false);
   const models = useModelChoices(project, selected);
   const requestId = useId();
   const requestErrorId = useId();
@@ -100,13 +103,15 @@ export function AgentComposer({
   return (
     <form
       ref={composer}
-      className="relative flex min-h-0 flex-none flex-col gap-2 overflow-visible bg-surface-2 px-3 pt-2 pb-3"
+      className="chat-composer relative flex min-h-0 flex-none flex-col gap-2 overflow-visible"
       onSubmit={(event) => {
         event.preventDefault();
         submit(request);
+        requestField.current?.focus();
       }}
     >
       <Select
+        className="chat-scope"
         aria-label="Generation scope"
         value={scope}
         disabled={running || proposal !== null}
@@ -120,7 +125,7 @@ export function AgentComposer({
           Selected Koma
         </option>
       </Select>
-      <div className="relative flex flex-col gap-2 rounded-card border border-line-strong bg-surface-1 p-2 shadow-raised transition-[border-color,box-shadow] duration-150 focus-within:border-accent/70 focus-within:shadow-[0_0_0_3px_rgb(124_196_232/0.12)]">
+      <div className="chat-composer-surface">
         <label htmlFor={requestId} className="sr-only">
           Your request
         </label>
@@ -129,7 +134,7 @@ export function AgentComposer({
           id={requestId}
           ref={requestField}
           rows={1}
-          className="min-h-16 max-h-36 w-full min-w-0 field-sizing-content resize-none bg-transparent px-2 py-2 text-ink-100 placeholder:text-ink-400 focus-visible:outline-none"
+          className="chat-request"
           aria-invalid={requestError === undefined ? undefined : true}
           aria-describedby={requestError === undefined ? undefined : requestErrorId}
           value={request}
@@ -140,7 +145,12 @@ export function AgentComposer({
           }
           onChange={(event) => setRequest(event.target.value)}
           onKeyDown={(event) => {
-            if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+            if (
+              event.key === 'Enter' &&
+              !event.shiftKey &&
+              !event.altKey &&
+              !event.nativeEvent.isComposing
+            ) {
               event.preventDefault();
               submit(request);
             }
@@ -172,7 +182,7 @@ export function AgentComposer({
             aria-controls={choice === 'model' ? modelChoicesId : undefined}
             disabled={running}
             title={`${providerName}: next run uses ${models.effectiveLabel}`}
-            className="chat-model-trigger flex h-9 min-w-0 items-center gap-1 rounded-control bg-accent-deep px-2 text-left text-sm text-accent hover:bg-accent/20 disabled:opacity-50"
+            className="chat-model-trigger"
             onClick={() => setChoice(choice === 'model' ? null : 'model')}
           >
             <ProviderLogo providerId={selectedId} size={15} />
@@ -218,7 +228,7 @@ export function AgentComposer({
             aria-controls={choice === 'count' ? countChoicesId : undefined}
             aria-invalid={validCount ? undefined : true}
             aria-describedby={validCount ? undefined : countErrorId}
-            className={`chat-count-trigger flex h-9 flex-none items-center gap-1 rounded-md px-2 text-sm hover:bg-surface-3 ${validCount ? 'text-ink-300 hover:text-ink-100' : 'text-motion'}`}
+            className={`chat-count-trigger ${validCount ? '' : 'text-motion'}`}
             onClick={() => setChoice(choice === 'count' ? null : 'count')}
           >
             <span>
@@ -233,13 +243,29 @@ export function AgentComposer({
             <ChevronIcon direction="down" size={14} />
           </button>
           <button
-            type="submit"
-            aria-label="Generate Komas"
-            title="Generate Komas (Ctrl/Command+Enter)"
-            disabled={!canSubmit}
-            className="chat-send flex size-9 flex-none items-center justify-center rounded-control bg-accent text-surface-0 transition-colors hover:bg-accent-hover disabled:cursor-not-allowed disabled:bg-surface-3 disabled:text-ink-400"
+            type={running ? 'button' : 'submit'}
+            aria-label={running ? 'Stop generating' : 'Generate Komas'}
+            title={
+              running ? 'Stop generating' : 'Generate Komas (Enter). Shift+Enter for a new line.'
+            }
+            disabled={running ? stopping : !canSubmit}
+            onClick={
+              running
+                ? () => {
+                    void cancelGeneration();
+                    requestField.current?.focus();
+                  }
+                : undefined
+            }
+            className="chat-send"
           >
-            <SendIcon size={18} />
+            {running ? (
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+                <rect x="3.5" y="3.5" width="9" height="9" rx="1.5" fill="currentColor" />
+              </svg>
+            ) : (
+              <SendIcon size={18} />
+            )}
           </button>
           {!validCount && (
             <span id={countErrorId} className="sr-only">
@@ -248,6 +274,9 @@ export function AgentComposer({
           )}
         </div>
       </div>
+      <p className="chat-keyboard-hint">
+        Enter to send <span aria-hidden="true">·</span> Shift+Enter for a new line
+      </p>
       {project.agentConfiguration.timeoutSeconds !== null && (
         <p className="px-2 text-xs text-ink-400">
           Stops after {String(project.agentConfiguration.timeoutSeconds)} seconds. Change the limit

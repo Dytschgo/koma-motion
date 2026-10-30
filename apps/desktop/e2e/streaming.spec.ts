@@ -73,10 +73,32 @@ test('does not pull the conversation down while the person reads earlier text', 
   await expect(output).toContainText('Then it picks a staged transition');
   expect(await log.evaluate((node) => node.scrollTop)).toBeLessThan(10);
 
-  // A new entry scrolls to the end again.
+  // Completion must not interrupt reading earlier messages either.
   await expect(window.getByText(/Created 3 Komas/)).toHaveCount(4);
+  expect(await log.evaluate((node) => node.scrollTop)).toBeLessThan(10);
+
+  // Returning to the latest output is deliberate and keeps keyboard focus.
+  const latest = window.getByRole('button', { name: 'Jump to latest' });
+  await expect(latest).toBeVisible();
+  await latest.focus();
+  await window.keyboard.press('Enter');
   await expect
     .poll(() => log.evaluate((node) => node.scrollHeight - node.scrollTop - node.clientHeight))
     .toBeLessThan(48);
+  await expect(latest).toBeHidden();
+  await expect(log).toBeFocused();
+
+  // Sending a new request always follows that request, even from earlier history.
+  await log.evaluate((node) => {
+    node.scrollTop = 0;
+    node.dispatchEvent(new Event('scroll'));
+  });
+  await window.getByLabel('Your request').fill('Request 5: keep following my new request.');
+  await window.getByRole('button', { name: 'Generate Komas' }).click();
+  await expect(latest).toBeHidden();
+  await expect
+    .poll(() => log.evaluate((node) => node.scrollHeight - node.scrollTop - node.clientHeight))
+    .toBeLessThan(48);
+  await expect(window.getByText(/Created 3 Komas/)).toHaveCount(5);
   expect(problems).toEqual([]);
 });

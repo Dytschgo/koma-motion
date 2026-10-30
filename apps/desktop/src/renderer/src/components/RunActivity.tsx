@@ -177,14 +177,11 @@ export function RunActivity({
 
   if (finished) {
     return (
-      <div
-        data-run-phase={phase}
-        className="mt-5 flex items-center gap-3 rounded-card border border-line bg-surface-2/50 px-3 py-2"
-      >
-        <PixelSprite phase={phase} size={32} />
-        <p className="min-w-0 flex-1 text-sm text-ink-300">
+      <div data-run-phase={phase} className="chat-run-finished">
+        <PixelSprite phase={phase} size={20} />
+        <p className="min-w-0">
           <span className={`font-medium ${PHASE_TONES[phase]}`}>{ACTIVITY_LABELS[phase]}</span>{' '}
-          after {formatElapsed(elapsed)} · {run.providerName}
+          after {formatElapsed(elapsed)}
         </p>
         <Button variant="quiet" compact onClick={onOpenMonitor}>
           Run details
@@ -194,13 +191,10 @@ export function RunActivity({
   }
 
   return (
-    <div
-      data-run-phase={phase}
-      className="mt-5 rounded-card border border-line bg-surface-2/70 px-3 py-3 wrap-break-word"
-    >
+    <div data-run-phase={phase} className="chat-run-active">
       <div className="flex items-start gap-3">
         <div className="flex flex-col items-center gap-1">
-          <PixelSprite phase={phase} />
+          <PixelSprite phase={phase} size={28} />
           <span className="font-mono text-xs text-ink-400 tabular-nums" aria-hidden="true">
             {formatElapsed(elapsed)}
           </span>
@@ -230,7 +224,7 @@ export function RunActivity({
           </div>
         </div>
       </div>
-      <StreamedText run={run} className="mt-3 ml-[3.75rem]" />
+      <StreamedText run={run} className="chat-run-output" />
     </div>
   );
 }

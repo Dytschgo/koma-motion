@@ -282,44 +282,320 @@
   }
 }
 
-/* Compact chat composer: preserve useful label space at the minimum sidebar width. */
+/* Chat follows T3 Code's quiet transcript and rounded, self-contained composer. */
 .chat-panel {
+  --chat-composer-background: oklch(24% 0 none);
+  --chat-message-background: oklch(27% 0 none);
   container-type: inline-size;
   container-name: chat;
+  background: var(--color-surface-1);
+}
+.chat-body:not([hidden]) {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+  overflow-y: auto;
+}
+.chat-header {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  min-block-size: 3.25rem;
+  padding-inline: 1.25rem 0.75rem;
+}
+.chat-conversation-panel {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-block-size: 8rem;
+}
+.chat-conversation {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 8rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding-block: 1rem 1.5rem;
+  padding-inline: clamp(1rem, 5cqi, 1.75rem);
+}
+.chat-jump-latest {
+  position: absolute;
+  inset-block-end: 0.5rem;
+  inset-inline-end: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-block-size: 2.25rem;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 999px;
+  padding-inline: 0.875rem;
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-raised);
+  font-size: 0.8125rem;
+}
+.chat-jump-latest:active {
+  background: var(--color-surface-3);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chat-jump-latest:hover {
+    border-color: var(--color-ink-400);
+    background: var(--color-surface-3);
+  }
+}
+.chat-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+.chat-message {
+  min-inline-size: 0;
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  user-select: text;
+}
+.chat-message-user {
+  display: flex;
+  justify-content: flex-end;
+  padding-inline-start: 0.75rem;
+}
+.chat-user-bubble {
+  max-inline-size: 100%;
+  border-radius: 1.125rem;
+  background: var(--chat-message-background);
+  padding-block: 0.75rem;
+  padding-inline: 1rem;
+  white-space: pre-wrap;
+}
+.chat-message-agent {
+  padding-inline: 0.125rem;
+}
+.chat-message-agent > div > p:first-child {
+  margin-block-end: 0.5rem;
+  font-size: 0.75rem;
+}
+.chat-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-block: auto;
+  max-inline-size: 19rem;
+  margin-inline: auto;
+  padding-block: 1.5rem;
+  text-align: center;
+}
+.chat-empty-mark {
+  display: grid;
+  place-items: center;
+  inline-size: 3.5rem;
+  block-size: 3.5rem;
+  margin-block-end: 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--color-line) 60%, transparent);
+  border-radius: 1.125rem;
+}
+.chat-empty h3 {
+  font-size: 1.125rem;
+  font-weight: 550;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.chat-empty p {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: var(--color-ink-400);
+  text-wrap: balance;
+}
+.chat-empty .chat-example {
+  margin-block-start: 0.25rem;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  padding-inline: 1rem;
+  font-size: 0.8125rem;
+}
+.chat-composer {
+  padding-block: 0.5rem 0.875rem;
+  padding-inline: 0.875rem;
+}
+.chat-composer .chat-scope {
+  align-self: flex-start;
+  inline-size: auto;
+  max-inline-size: 100%;
+  min-block-size: 1.75rem;
+  block-size: auto;
+  border-color: transparent;
+  background-color: transparent;
+  padding-block: 0.25rem;
+  padding-inline: 0.75rem 1.75rem;
+  font-size: 0.75rem;
+  color: var(--color-ink-400);
+  box-shadow: none;
+}
+.chat-composer-surface {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--color-line-strong) 65%, transparent);
+  border-radius: 1.5rem;
+  padding-block: 0.375rem 0.625rem;
+  padding-inline: 0.625rem;
+  background: var(--chat-composer-background);
+  box-shadow: 0 1px 0 color-mix(in oklch, white 3%, transparent) inset;
+}
+.chat-composer-surface:focus-within {
+  border-color: color-mix(in oklch, var(--color-accent) 55%, var(--color-line));
+}
+.chat-request {
+  field-sizing: content;
+  inline-size: 100%;
+  min-inline-size: 0;
+  min-block-size: 4.5rem;
+  max-block-size: 9rem;
+  resize: none;
+  background: transparent;
+  padding-block: 0.75rem;
+  padding-inline: 0.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--color-ink-100);
+}
+.chat-request::placeholder {
+  color: var(--color-ink-400);
+}
+.chat-request:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 0;
+  border-radius: 0.875rem;
 }
 .chat-composer-toolbar {
   display: grid;
-  grid-template-columns: 2.25rem minmax(0, 1fr) minmax(0, 0.85fr) auto 2.25rem;
+  grid-template-columns: 2rem minmax(0, 1fr) minmax(0, 1fr) 2rem;
+  grid-template-areas:
+    'model model brand brand'
+    'attach count count send';
   align-items: center;
   gap: 0.25rem;
 }
-/*
- * Too narrow for one row: the two pickers share the first row at equal
- * width, and the actions sit below them, attach and count on the left, send
- * on the right, where the eye ends.
- */
-@container chat (max-width: 390px) {
-  .chat-composer-toolbar {
-    grid-template-columns: 2.25rem minmax(0, 1fr) minmax(0, 1fr) 2.25rem;
-    grid-template-areas:
-      'model model brand brand'
-      'attach count . send';
-    row-gap: 0.375rem;
+.chat-model-trigger,
+.chat-brand-trigger,
+.chat-count-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-inline-size: 0;
+  min-block-size: 2rem;
+  border: 0;
+  border-radius: 999px;
+  padding-inline: 0.5rem;
+  background: transparent;
+  font-size: 0.75rem;
+  color: var(--color-ink-300);
+  text-align: start;
+}
+.chat-model-trigger {
+  grid-area: model;
+  color: var(--color-ink-100);
+}
+.chat-brand-picker {
+  grid-area: brand;
+}
+.chat-brand-trigger {
+  inline-size: 100%;
+}
+.chat-count-trigger {
+  grid-area: count;
+  justify-self: start;
+}
+.chat-count-trigger[aria-invalid='true'] {
+  color: var(--color-motion);
+}
+.chat-composer .chat-attach {
+  grid-area: attach;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 999px;
+}
+.chat-send {
+  grid-area: send;
+  display: grid;
+  place-items: center;
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 999px;
+  background: var(--color-ink-100);
+  color: var(--color-surface-1);
+}
+.chat-send:disabled {
+  cursor: not-allowed;
+  background: color-mix(in oklch, var(--color-ink-100) 12%, transparent);
+  color: var(--color-ink-400);
+}
+.chat-composer-toolbar button:disabled {
+  opacity: 0.5;
+}
+.chat-keyboard-hint {
+  text-align: center;
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  color: var(--color-ink-400);
+}
+.chat-keyboard-hint span {
+  padding-inline: 0.25rem;
+}
+.chat-run-finished {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-block-start: 1rem;
+  font-size: 0.75rem;
+  color: var(--color-ink-400);
+}
+.chat-run-finished button {
+  margin-inline-start: auto;
+}
+.chat-run-active {
+  margin-block-start: 1.5rem;
+  padding-block: 0.75rem;
+  overflow-wrap: anywhere;
+}
+.chat-run-active .chat-run-output {
+  margin-block-start: 0.75rem;
+  margin-inline-start: 2.5rem;
+}
+.chat-composer-toolbar button:active:not(:disabled),
+.chat-example:active {
+  background: color-mix(in oklch, var(--color-ink-100) 15%, var(--color-surface-3));
+}
+.chat-send:active:not(:disabled) {
+  background: var(--color-accent);
+}
+@media (hover: hover) and (pointer: fine) {
+  .chat-model-trigger:hover:not(:disabled),
+  .chat-brand-trigger:hover:not(:disabled),
+  .chat-count-trigger:hover:not(:disabled) {
+    background: color-mix(in oklch, var(--color-ink-100) 7%, transparent);
+    color: var(--color-ink-100);
   }
-  .chat-attach {
-    grid-area: attach;
+  .chat-send:hover:not(:disabled) {
+    background: var(--color-accent-hover);
   }
-  .chat-model-trigger {
-    grid-area: model;
-  }
-  .chat-brand-picker {
-    grid-area: brand;
-  }
-  .chat-count-trigger {
-    grid-area: count;
-    justify-self: start;
+}
+@media (forced-colors: active) {
+  .chat-composer-surface:focus-within {
+    border-color: Highlight;
   }
   .chat-send {
-    grid-area: send;
+    border: 1px solid ButtonText;
+  }
+}
+@container chat (min-width: 460px) {
+  .chat-composer-toolbar {
+    grid-template-columns: 2rem minmax(0, 1.1fr) minmax(0, 1fr) auto 2rem;
+    grid-template-areas: 'attach model brand count send';
   }
 }
