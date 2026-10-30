@@ -150,6 +150,23 @@ like a generation. The model is the one configured for the selected provider.
 | no metadata                                   | `metadata` describes the provider     | The interface shows whether a provider sends data to an online service and whether it supports model selection.         |
 | the provider builds its own prompt            | the prompt is rendered by the runtime | Prompts are versioned in one place and are the same for every provider.                                                 |
 
+## Chat generation
+
+Enter sends a request; Shift+Enter inserts a new line. Ctrl/Command+Enter also
+sends, and composing text with an IME does not submit. Sending with the button
+returns focus to the request so a follow-up can be drafted during generation.
+The send button becomes Stop while a run is active. Stopping preserves the draft.
+
+Try again resends a failed or stopped request without clearing a separate draft.
+It is disabled while another run or proposal is pending, or while the current
+generation choices or reference consent are incomplete.
+
+The conversation follows a newly sent request and output while the reader is at
+the bottom, including when a growing draft or window resize changes the visible
+conversation height. Reading earlier messages suspends following, including when a run
+finishes. Jump to latest returns to the end and places keyboard focus on the
+conversation; sending another request or reopening the chat resumes following.
+
 ## Model and reasoning selection
 
 The Text tab in the composer combines provider and model selection, with search,

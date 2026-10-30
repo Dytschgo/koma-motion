@@ -54,6 +54,42 @@ for (const width of [1480, 1120] as const) {
         path: join(output, `generated-chat-${String(width)}.png`),
         scale: 'css',
       });
+
+      const request = window.getByLabel('Your request');
+      const log = chat.getByRole('log', { name: 'Conversation' });
+      await request.fill('Explore another way to tell the story.');
+      await request.press('Enter');
+      await expect(chat.getByRole('region', { name: 'Output from Mock provider' })).toContainText(
+        'Demo narration',
+      );
+      await window.getByRole('button', { name: 'Stop generating' }).click();
+      await expect(log.getByText('Generation stopped')).toBeVisible();
+      await expect(request).toBeFocused();
+      await request.fill('Keep this separate follow-up draft.');
+      await chat.screenshot({
+        path: join(output, `stopped-chat-${String(width)}.png`),
+        scale: 'css',
+      });
+      await log.getByRole('button', { name: 'Try again', exact: true }).click();
+      await expect(log.getByText(/Created 3 Komas/)).toHaveCount(2);
+      await expect(request).toHaveValue('Keep this separate follow-up draft.');
+      await chat.screenshot({
+        path: join(output, `retried-chat-${String(width)}.png`),
+        scale: 'css',
+      });
+      await log.evaluate((element) => {
+        element.scrollTop = 0;
+        element.dispatchEvent(new Event('scroll'));
+      });
+      const latest = chat.getByRole('button', { name: 'Jump to latest' });
+      await expect(latest).toBeVisible();
+      await chat.screenshot({
+        path: join(output, `history-chat-${String(width)}.png`),
+        scale: 'css',
+      });
+      await latest.click();
+      await expect(latest).toBeHidden();
+      await expect(log).toBeFocused();
       expect(running.problems).toEqual([]);
       const viewport = await window.evaluate(() => ({
         width: innerWidth,
@@ -81,9 +117,12 @@ for (const width of [1480, 1120] as const) {
               `working-chat-${String(width)}.png`,
               `generated-studio-${String(width)}.png`,
               `generated-chat-${String(width)}.png`,
+              `stopped-chat-${String(width)}.png`,
+              `retried-chat-${String(width)}.png`,
+              `history-chat-${String(width)}.png`,
             ],
             behavior:
-              'Native Electron: create project, use example request, generate three mock Komas, no renderer errors',
+              'Native Electron: generate mock Komas, stop a second run, retry without losing a separate draft, browse history and jump to latest with retained focus; no renderer errors',
           },
           null,
           2,

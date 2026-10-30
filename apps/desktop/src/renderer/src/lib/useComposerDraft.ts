@@ -47,9 +47,7 @@ export function useComposerDraft(project: KomaProject) {
     references.length > 0 && selected?.metadata.usesExternalService === true;
   const referencesReady =
     !referenceState.selecting && (!needsReferenceConsent || referenceConsent === consentKey);
-  const canSubmit =
-    trimmed !== '' &&
-    requestValidation.success &&
+  const readyToGenerate =
     validCount &&
     !running &&
     proposal === null &&
@@ -57,6 +55,7 @@ export function useComposerDraft(project: KomaProject) {
     !brandBusy &&
     available &&
     referencesReady;
+  const canSubmit = trimmed !== '' && requestValidation.success && readyToGenerate;
 
   const draftSession = useRef(sessionId);
   useEffect(() => {
@@ -80,20 +79,14 @@ export function useComposerDraft(project: KomaProject) {
     seedComposer(null);
   }, [composerSeed, seedComposer]);
 
-  const submit = (text: string): void => {
-    if (
-      !userRequestSchema.safeParse(text).success ||
-      count === undefined ||
-      running ||
-      proposal !== null ||
-      (scope === 'selected' && selectedKoma === undefined) ||
-      brandBusy ||
-      !available ||
-      !referencesReady
-    ) {
+  const submit = (
+    text: string,
+    { preserveDraft = false }: { readonly preserveDraft?: boolean } = {},
+  ): void => {
+    if (!userRequestSchema.safeParse(text).success || count === undefined || !readyToGenerate) {
       return;
     }
-    setRequest('');
+    if (!preserveDraft) setRequest('');
     setReferenceConsent(null);
     void generate({
       userRequest: text.trim(),
@@ -128,6 +121,7 @@ export function useComposerDraft(project: KomaProject) {
     autoKomaCount,
     setAutoKomaCount,
     canSubmit,
+    canRetry: readyToGenerate,
     references,
     needsReferenceConsent,
     referenceConsent,

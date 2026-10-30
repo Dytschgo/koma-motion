@@ -124,11 +124,15 @@ export function AgentPanel({
           open={open}
           selectedId={draft.selectedId}
           scope={draft.scope}
+          canRetry={draft.canRetry}
           onExample={() => {
             draft.setRequest(EXAMPLE_REQUEST);
             panel.requestField.current?.focus();
           }}
-          onRetry={draft.submit}
+          onRetry={(text) => {
+            draft.submit(text, { preserveDraft: true });
+            panel.requestField.current?.focus();
+          }}
           onReviewed={() => panel.requestField.current?.focus()}
         />
         <BrandProfileDialogHost />

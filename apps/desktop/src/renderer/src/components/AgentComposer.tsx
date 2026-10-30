@@ -107,6 +107,7 @@ export function AgentComposer({
       onSubmit={(event) => {
         event.preventDefault();
         submit(request);
+        requestField.current?.focus();
       }}
     >
       <Select
@@ -248,7 +249,14 @@ export function AgentComposer({
               running ? 'Stop generating' : 'Generate Komas (Enter). Shift+Enter for a new line.'
             }
             disabled={running ? stopping : !canSubmit}
-            onClick={running ? () => void cancelGeneration() : undefined}
+            onClick={
+              running
+                ? () => {
+                    void cancelGeneration();
+                    requestField.current?.focus();
+                  }
+                : undefined
+            }
             className="chat-send"
           >
             {running ? (
