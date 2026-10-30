@@ -95,6 +95,7 @@ export function StudioDock({
             ref={showButton}
             type="button"
             aria-label={running ? 'Show the chat. Komas are being generated.' : 'Show the chat'}
+            aria-description={chatStatus ?? undefined}
             aria-expanded={false}
             aria-controls={`${id}-body`}
             onClick={() => reveal('chat')}
@@ -174,7 +175,7 @@ export function StudioDock({
             </div>
           )}
           <IconButton
-            label={mode === 'chat' ? 'Hide the chat' : 'Hide Inspector'}
+            label={mode === 'chat' ? 'Hide the chat' : 'Hide Inspect panel'}
             aria-expanded={open}
             aria-controls={`${id}-body`}
             onClick={() => {
@@ -201,8 +202,9 @@ export function StudioDock({
               selectedId={draft.selectedId}
               scope={draft.scope}
               canRetry={draft.canRetry}
-              onExample={() => {
-                if (draft.scope === 'selected') {
+              onExample={(exampleScope) => {
+                if ((exampleScope ?? draft.scope) === 'selected') {
+                  draft.setScope('selected');
                   draft.setRequest(
                     'Make this Koma clearer while keeping its main idea and styling.',
                   );

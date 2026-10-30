@@ -15,6 +15,7 @@ import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { recordInputEvidence } from './inputEvidence';
 import {
   answerOpenDialog,
   answerSaveDialog,
@@ -24,10 +25,16 @@ import {
 } from './application';
 
 let running: RunningApplication;
+let inputEvidence: () => readonly unknown[];
 test.beforeEach(async () => {
   running = await launchApplication();
+  inputEvidence = await recordInputEvidence(running.window);
 });
 test.afterEach(async () => {
+  await writeFile(
+    test.info().outputPath('input-events.json'),
+    JSON.stringify(inputEvidence(), null, 2),
+  );
   await running.close();
 });
 
@@ -454,6 +461,7 @@ test('retains invalid drafts on focus exit, blocks preview/selection and recover
   await text.press('Enter');
   const invalid = 'x'.repeat(MAX_ELEMENT_TEXT_LENGTH + 1);
   await editor.fill(invalid);
+  await expect(editor).toHaveValue(invalid);
   await editor.press('Tab');
   await expect(error).toBeFocused();
   await expect(editor).toHaveValue(invalid);
@@ -474,6 +482,7 @@ test('retains invalid drafts on focus exit, blocks preview/selection and recover
   await expect(text).toHaveText('Recovered copy');
   await text.press('Enter');
   await editor.fill(invalid);
+  await expect(editor).toHaveValue(invalid);
   await editor.press('ControlOrMeta+Enter');
   await expect(error).toBeFocused();
   await error.press('Escape');

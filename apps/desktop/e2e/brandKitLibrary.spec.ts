@@ -330,9 +330,11 @@ test('keeps the canvas controls usable beside the Brand Kit at the minimum width
   await expect(panel).toBeVisible();
   await window.getByRole('button', { name: 'Close panel' }).click();
   await expect(panel).toHaveCount(0);
-  // The chat made room for the Brand Kit and comes back in the narrow window.
+  // Closing Brand Kit returns to properties in the shared dock.
+  await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
+  await window.getByRole('tab', { name: 'Chat', exact: true }).click();
   await expect(window.getByRole('region', { name: 'Agent chat' })).toBeVisible();
-  await window.getByRole('button', { name: 'Hide the chat' }).click();
+  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
 });
 

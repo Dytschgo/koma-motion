@@ -299,6 +299,7 @@ test('selects hidden, covered and off-canvas elements from Layers and changes th
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   await answerOpenDialog(application, path);
   await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await showInspector(window);
   await expectTab(window, 'Koma');
   await expect(layer(window, 'Corner badge')).toHaveAccessibleName(/locked/);
   await expect(layer(window, 'Covered circle')).toHaveAttribute('aria-pressed', 'false');

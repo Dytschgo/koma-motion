@@ -63,7 +63,21 @@ test('shares a single dock and keeps drafts, transcript, selection and keyboard 
   const canvas = window.getByRole('region', { name: 'Canvas' });
   const dock = window.getByRole('complementary', { name: 'Studio dock' });
   const bounds = await canvas.boundingBox();
-  expect(bounds?.width).toBeGreaterThan(800);
+  const viewportWidth = await window.evaluate(() => innerWidth);
+  const komaPane = await window
+    .getByRole('complementary', { name: 'Project', exact: true })
+    .boundingBox();
+  expect(bounds?.width).toBeGreaterThanOrEqual(420);
+  // Native screens can clamp the requested width. Verify no extra Inspector
+  // column consumes canvas space at the actual width, without skipping it.
+  expect(
+    Math.abs(
+      (bounds?.width ?? 0) +
+        (komaPane?.width ?? 0) +
+        ((await dock.boundingBox())?.width ?? 0) -
+        viewportWidth,
+    ),
+  ).toBeLessThanOrEqual(2);
   const originalDockWidth = (await dock.boundingBox())?.width;
   await chat.focus();
   await chat.press('ArrowRight');
@@ -84,7 +98,7 @@ test('shares a single dock and keeps drafts, transcript, selection and keyboard 
     'aria-selected',
     'true',
   );
-  await window.getByRole('button', { name: 'Hide Inspector', exact: true }).click();
+  await window.getByRole('button', { name: 'Hide Inspect panel', exact: true }).click();
   await expect(window.getByRole('button', { name: 'Show the chat', exact: true })).toBeFocused();
   await window.getByRole('button', { name: 'Show the chat', exact: true }).press('Enter');
   await expect(request).toBeFocused();

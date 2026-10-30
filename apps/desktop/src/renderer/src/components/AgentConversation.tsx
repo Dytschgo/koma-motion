@@ -119,7 +119,7 @@ function Entry({
       <p className="text-sm text-ink-400">{entry.providerName}</p>
       <p className="font-semibold text-motion">{FAILURE_TITLES[entry.status]}</p>
       {!(entry.status === 'cancelled' && error.message === 'The generation was stopped.') && (
-        <p className="whitespace-pre-wrap">{error.message.split('\n')[0]}</p>
+        <p className="whitespace-pre-wrap">{error.message.split('\n')[0]?.replace(/:$/, '.')}</p>
       )}
       <p className="mt-2 text-sm text-ink-400">Your presentation was not changed.</p>
       {entry.output !== undefined && <KeptOutput text={entry.output} name={entry.providerName} />}
@@ -190,7 +190,7 @@ export function AgentConversation({
   readonly selectedId: string;
   readonly scope: 'entire' | 'selected';
   readonly canRetry: boolean;
-  readonly onExample: () => void;
+  readonly onExample: (scope?: 'selected') => void;
   readonly onRetry: (text: string) => void;
   readonly onReviewed: () => void;
 }): ReactElement {
@@ -209,6 +209,8 @@ export function AgentConversation({
   const logSize = useRef({ width: 0, height: 0 });
   const lastRequestId = conversation.findLast((entry) => entry.kind === 'request')?.id;
   const previousRequestId = useRef(lastRequestId);
+  const hasKomas = project.presentation.komas.length > 0;
+  const selectedExample = hasKomas && scope === 'entire';
   const followLatest = useCallback((): void => {
     if (log.current === null) return;
     log.current.scrollTop = log.current.scrollHeight;
@@ -288,22 +290,24 @@ export function AgentConversation({
               <span className="chat-empty-mark" aria-hidden="true">
                 <KomaMark size={30} />
               </span>
-              <h3>What would you like to present?</h3>
-              <p>
-                {selectedId === 'mock'
-                  ? scope === 'selected'
-                    ? 'Try a selected-Koma proposal.'
-                    : 'Try the three-Koma demo.'
-                  : 'Describe your idea. Build the story together.'}
-              </p>
+              <h3>
+                {hasKomas ? 'What would you like to change?' : 'What would you like to present?'}
+              </h3>
+              {!hasKomas && (
+                <p>
+                  {selectedId === 'mock'
+                    ? 'Try the three-Koma demo.'
+                    : 'Describe your idea. Build the story together.'}
+                </p>
+              )}
               <Button
                 variant="quiet"
                 className="chat-example"
                 onClick={() => {
-                  onExample();
+                  onExample(selectedExample ? 'selected' : undefined);
                 }}
               >
-                Use the example request
+                {selectedExample ? 'Try a selected-Koma proposal' : 'Use the example request'}
               </Button>
             </div>
           ) : (

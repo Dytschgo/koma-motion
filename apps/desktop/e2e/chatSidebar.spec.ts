@@ -168,7 +168,7 @@ test('keeps the canvas and the chat usable in a narrow window', async () => {
   await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
   await expect(inspector).toBeVisible();
   expect(await getBox(canvas)).toEqual(canvasBox);
-  await window.getByRole('button', { name: 'Hide Inspector' }).click();
+  await window.getByRole('button', { name: 'Hide Inspect panel' }).click();
   await expect(inspector).toBeHidden();
   await expect(window.getByRole('button', { name: 'Show the chat' })).toBeFocused();
   await window.screenshot({ path: test.info().outputPath('chat-narrow-collapsed.png') });

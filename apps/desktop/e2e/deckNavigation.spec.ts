@@ -4,14 +4,21 @@ import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { recordInputEvidence } from './inputEvidence';
 import { buildNavigationProject } from '../src/renderer/src/lib/deckNavigation.fixture';
 import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
 
 let running: RunningApplication;
+let inputEvidence: () => readonly unknown[];
 test.beforeEach(async () => {
   running = await launchApplication();
+  inputEvidence = await recordInputEvidence(running.window);
 });
 test.afterEach(async () => {
+  await writeFile(
+    test.info().outputPath('input-events.json'),
+    JSON.stringify(inputEvidence(), null, 2),
+  );
   await running.close();
 });
 

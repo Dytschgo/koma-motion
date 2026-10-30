@@ -238,7 +238,7 @@ export async function generate(input: GenerationInput): Promise<void> {
           ...streamed(),
           kind: 'proposalReady',
           providerName,
-          text: `Proposal ready for ${target.title || 'selected Koma'}. Review it before applying.`,
+          text: `Review the proposal for ${target.title || 'selected Koma'} before applying.`,
         });
         return;
       }

@@ -176,7 +176,7 @@ function HealthContents(): ReactElement {
           ? 'Review recovery options below.'
           : issues.length === 0
             ? 'No project issues found.'
-            : `${String(issues.length)} project status items.`}
+            : `${String(issues.length)} project status ${issues.length === 1 ? 'item' : 'items'}.`}
         {(failure || issues.length > 0) && (
           <>
             {' '}

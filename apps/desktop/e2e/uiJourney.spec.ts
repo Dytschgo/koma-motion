@@ -38,6 +38,26 @@ test('the example count agrees with its request and does not manufacture a misma
   await expect(window.getByText(/5 Komas were requested/)).toHaveCount(0);
 });
 
+test('an existing deck offers a selected-Koma example instead of the new-deck demo', async () => {
+  await create();
+  const { window } = running;
+  await window.getByRole('button', { name: 'Add first Koma', exact: true }).click();
+  await expect(
+    window.getByRole('heading', { name: 'What would you like to change?', exact: true }),
+  ).toBeVisible();
+  await expect(window.getByText('Try the three-Koma demo.', { exact: true })).toHaveCount(0);
+  await window.getByRole('button', { name: 'Try a selected-Koma proposal', exact: true }).click();
+  await expect(window.getByLabel('Generation scope')).toHaveValue('selected');
+  await expect(window.getByLabel('Your request')).toHaveValue(
+    'Make this Koma clearer while keeping its main idea and styling.',
+  );
+  await window.getByRole('button', { name: 'Generate Komas', exact: true }).click();
+  await expect(window.getByRole('region', { name: 'Selected Koma proposal' })).toBeVisible();
+  await expect(
+    window.getByRole('list', { name: 'Komas', exact: true }).getByRole('listitem'),
+  ).toHaveCount(1);
+});
+
 test('a selected-Koma proposal reads as ready for review and stays undoable after applying', async () => {
   await demo();
   const { window } = running;

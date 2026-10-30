@@ -83,6 +83,11 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
   expect([...seen]).toEqual(expect.arrayContaining(['generating', 'repairing', 'failed']));
   await expect(window.getByText('Generation failed')).toBeVisible();
   const failure = window.getByRole('alert').filter({ hasText: 'Generation failed' });
+  await expect(
+    failure.getByText('The response of the agent does not follow the required structure.', {
+      exact: true,
+    }),
+  ).toBeVisible();
   const issue = failure.getByText(
     'presentation: Invalid input: expected object, received undefined',
     { exact: true },

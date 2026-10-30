@@ -9,6 +9,7 @@ import {
   answerSaveDialog,
   launchApplication,
   showInspector,
+  showChat,
   type RunningApplication,
   openSettingsPage,
 } from './application';
@@ -100,6 +101,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   });
 
   await test.step('select the mock provider', async () => {
+    await showChat(window);
     const providerChoices = await openProviderChoices(window);
     const provider = providerChoices.getByLabel('Provider', { exact: true });
     await provider.selectOption('mock');
