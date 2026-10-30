@@ -181,70 +181,72 @@ export function TopBar(): ReactElement {
         )}
       </div>
 
-      {updateReady && (
+      <div className="studio-topbar-utilities">
+        {updateReady && (
+          <Button
+            icon={<DownloadIcon size={14} />}
+            className="text-accent"
+            disabled={updateBusy}
+            onClick={() => {
+              if (update.terminalCommand !== undefined && update.state === 'available') {
+                void downloadUpdate();
+              } else {
+                openSettings('updates');
+              }
+            }}
+          >
+            {update.terminalCommand !== undefined && update.state === 'available'
+              ? 'Update in Terminal'
+              : update.state === 'downloaded'
+                ? 'Update ready'
+                : 'Update available'}
+          </Button>
+        )}
+        <ProjectHealthButton />
         <Button
-          icon={<DownloadIcon size={14} />}
-          className="text-accent"
-          disabled={updateBusy}
+          icon={<PlayIcon size={12} />}
+          disabled={transition === null || blocked}
+          title={
+            blocked
+              ? 'This transition cannot play. Use Regenerate transition in the Koma strip.'
+              : undefined
+          }
           onClick={() => {
-            if (update.terminalCommand !== undefined && update.state === 'available') {
-              void downloadUpdate();
-            } else {
-              openSettings('updates');
+            if (transition !== null && !blocked) {
+              startPreview(transition.id);
             }
           }}
         >
-          {update.terminalCommand !== undefined && update.state === 'available'
-            ? 'Update in Terminal'
-            : update.state === 'downloaded'
-              ? 'Update ready'
-              : 'Update available'}
+          Preview
         </Button>
-      )}
-      <ProjectHealthButton />
-      <Button
-        icon={<PlayIcon size={12} />}
-        disabled={transition === null || blocked}
-        title={
-          blocked
-            ? 'This transition cannot play. Use Regenerate transition in the Koma strip.'
-            : undefined
-        }
-        onClick={() => {
-          if (transition !== null && !blocked) {
-            startPreview(transition.id);
-          }
-        }}
-      >
-        Preview
-      </Button>
-      <PresentButton />
-      <IconButton
-        label="Getting started"
-        onClick={() => useQuickStartStore.getState().setOpen(true)}
-      >
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          aria-hidden="true"
+        <PresentButton />
+        <IconButton
+          label="Getting started"
+          onClick={() => useQuickStartStore.getState().setOpen(true)}
         >
-          <circle cx="8" cy="8" r="6" />
-          <path d="M6.3 6a1.7 1.7 0 0 1 3.4 0c0 1.4-1.7 1.3-1.7 2.7" strokeLinecap="round" />
-          <circle cx="8" cy="11.3" r=".7" fill="currentColor" stroke="none" />
-        </svg>
-      </IconButton>
-      <IconButton
-        label="Settings"
-        onClick={() => {
-          openSettings();
-        }}
-      >
-        <SettingsIcon />
-      </IconButton>
+          <svg
+            width="17"
+            height="17"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.4"
+            aria-hidden="true"
+          >
+            <circle cx="8" cy="8" r="6" />
+            <path d="M6.3 6a1.7 1.7 0 0 1 3.4 0c0 1.4-1.7 1.3-1.7 2.7" strokeLinecap="round" />
+            <circle cx="8" cy="11.3" r=".7" fill="currentColor" stroke="none" />
+          </svg>
+        </IconButton>
+        <IconButton
+          label="Settings"
+          onClick={() => {
+            openSettings();
+          }}
+        >
+          <SettingsIcon />
+        </IconButton>
+      </div>
     </header>
   );
 }
