@@ -1,5 +1,5 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { isWideWindow, launchApplication, type RunningApplication } from './application';
+import { isWideWindow, launchApplication, showChat, type RunningApplication } from './application';
 import { openCountChoices } from './composerControls';
 
 let running: RunningApplication;
@@ -25,10 +25,10 @@ function getParts(window: Page): {
   divider: Locator;
 } {
   return {
-    chat: window.getByRole('region', { name: 'Agent chat' }),
+    chat: window.getByRole('complementary', { name: 'Studio dock', exact: true }),
     canvas: window.getByRole('region', { name: 'Canvas' }),
     inspector: window.getByRole('complementary', { name: 'Inspector' }),
-    divider: window.getByRole('separator', { name: 'Resize the chat' }),
+    divider: window.getByRole('separator', { name: 'Resize studio dock' }),
   };
 }
 
@@ -36,17 +36,21 @@ test('prompts beside the canvas, collapses, reopens and resizes the chat', async
   const { window, problems } = running;
   test.skip(
     !(await isWideWindow(window)),
-    'The screen of this machine cannot hold the canvas, the Inspector and the chat side by side.',
+    'This sizing test needs a window at least 1400 pixels wide.',
   );
   await window.getByRole('button', { name: 'Create a project' }).click();
   const { chat, canvas, inspector, divider } = getParts(window);
 
-  // The chat is a sidebar to the right of the canvas and the Inspector.
+  // One dock sits beside the larger canvas; Inspect shares that dock.
   const canvasBox = await getBox(canvas);
-  const inspectorBox = await getBox(inspector);
   const chatBox = await getBox(chat);
   expect(chatBox.x).toBeGreaterThanOrEqual(canvasBox.x + canvasBox.width);
-  expect(chatBox.x).toBeGreaterThanOrEqual(inspectorBox.x + inspectorBox.width);
+  await expect(inspector).toBeHidden();
+  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
+  const inspectorBox = await getBox(inspector);
+  expect(Math.abs(inspectorBox.width - chatBox.width)).toBeLessThanOrEqual(2);
+  expect(Math.abs(inspectorBox.x - chatBox.x)).toBeLessThanOrEqual(2);
+  await showChat(window);
 
   // Prompt and submit without scrolling.
   const request = window.getByLabel('Your request');
@@ -137,7 +141,7 @@ test('keeps the canvas and the chat usable in a narrow window', async () => {
   // The chat header offers only actions: no help buttons.
   await expect(chat.getByRole('button', { name: 'About the chat' })).toHaveCount(0);
   await expect(chat.getByRole('button', { name: 'Generation settings' })).toHaveCount(0);
-  await expect(chat.getByRole('button', { name: 'Hide the chat' })).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Hide the chat' })).toBeVisible();
   const viewport = await window.evaluate(() => innerWidth);
   const canvasBox = await getBox(canvas);
   const chatBox = await getBox(chat);
@@ -160,57 +164,46 @@ test('keeps the canvas and the chat usable in a narrow window', async () => {
   await expect(window.getByRole('button', { name: 'Zoom in' })).toBeInViewport({ ratio: 1 });
   await window.screenshot({ path: test.info().outputPath('chat-narrow.png') });
 
-  // Hiding the chat brings the Inspector back.
-  await window.getByRole('button', { name: 'Hide the chat' }).click();
+  // Inspect shares the same dock without changing the canvas.
+  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
   await expect(inspector).toBeVisible();
+  expect(await getBox(canvas)).toEqual(canvasBox);
+  await window.getByRole('button', { name: 'Hide Inspector' }).click();
+  await expect(inspector).toBeHidden();
   await expect(window.getByRole('button', { name: 'Show the chat' })).toBeFocused();
   await window.screenshot({ path: test.info().outputPath('chat-narrow-collapsed.png') });
   expect(problems).toEqual([]);
 });
 
-test('lets the Brand Kit and the chat take turns in a narrow window', async () => {
+test('shares the dock with Brand Kit in narrow and wide windows, preserving its context', async () => {
   const { window, application, problems } = running;
-  await application.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0]?.setSize(1120, 760);
-  });
   await window.getByRole('button', { name: 'Create a project' }).click();
-  const { chat, canvas } = getParts(window);
+  const { canvas } = getParts(window);
   const brandKit = window.getByRole('button', { name: 'Brand Kit', exact: true });
   const brandKitName = window.getByLabel('Brand name');
-  await expect(chat).toBeVisible();
-
-  // Opening the Brand Kit collapses the chat, so the canvas keeps its room.
-  await brandKit.click();
-  await expect(brandKitName).toBeVisible();
-  await expect(window.getByRole('button', { name: 'Show the chat' })).toBeVisible();
-  expect((await getBox(canvas)).width).toBeGreaterThanOrEqual(400);
-  await expect(window.getByRole('button', { name: 'Zoom in' })).toBeInViewport({ ratio: 1 });
-
-  // Closing the Brand Kit brings the chat back.
-  await window.getByRole('button', { name: 'Close panel' }).click();
-  await expect(chat).toBeVisible();
-
-  // Opening the chat while the Brand Kit is open closes the Brand Kit.
-  await brandKit.click();
-  await expect(brandKitName).toBeVisible();
-  await window.getByRole('button', { name: 'Show the chat' }).click();
-  await expect(chat).toBeVisible();
-  await expect(brandKitName).toBeHidden();
-  await expect(brandKit).toHaveAttribute('aria-pressed', 'false');
-  expect((await getBox(canvas)).width).toBeGreaterThanOrEqual(400);
-  expect(problems).toEqual([]);
-});
-
-test('shows the Brand Kit and the chat side by side in a wide window', async () => {
-  const { window, application, problems } = running;
-  await application.evaluate(({ BrowserWindow }) => {
-    BrowserWindow.getAllWindows()[0]?.setSize(1800, 900);
-  });
-  await window.getByRole('button', { name: 'Create a project' }).click();
-  const { chat, canvas } = getParts(window);
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
-  await expect(window.getByLabel('Brand name')).toBeVisible();
-  await expect(chat).toBeVisible();
-  expect((await getBox(canvas)).width).toBeGreaterThanOrEqual(420);
+  for (const width of [1120, 1800]) {
+    await application.evaluate(({ BrowserWindow }, size) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(size, 800);
+    }, width);
+    await showChat(window);
+    const canvasBefore = await getBox(canvas);
+    await brandKit.click();
+    await expect(brandKitName).toBeVisible();
+    await expect(window.getByRole('region', { name: 'Agent chat' })).toBeHidden();
+    expect(await getBox(canvas)).toEqual(canvasBefore);
+    expect(canvasBefore.width).toBeGreaterThanOrEqual(420);
+    await expect(window.getByRole('button', { name: 'Zoom in' })).toBeInViewport({ ratio: 1 });
+    await showChat(window);
+    await expect(brandKitName).toBeHidden();
+    await expect(brandKit).toHaveAttribute('aria-pressed', 'false');
+    // Clicking Brand Kit again returns to it rather than closing a hidden editor.
+    await brandKit.click();
+    await expect(brandKitName).toBeVisible();
+    await expect(brandKit).toHaveAttribute('aria-pressed', 'true');
+    await window.getByRole('button', { name: 'Close panel' }).click();
+    await expect(
+      window.getByRole('complementary', { name: 'Inspector', exact: true }),
+    ).toBeVisible();
+  }
   expect(problems).toEqual([]);
 });

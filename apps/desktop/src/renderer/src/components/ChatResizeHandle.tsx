@@ -36,14 +36,14 @@ export function ChatResizeHandle({
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize the chat"
+      aria-label="Resize studio dock"
       aria-controls={controls}
       aria-valuemin={CHAT_MIN_WIDTH}
       aria-valuemax={maxWidth}
       aria-valuenow={width}
       aria-valuetext={`${String(width)} pixels wide`}
       tabIndex={0}
-      title="Drag to resize the chat. Double-click to restore the default width."
+      title="Drag to resize the dock. Double-click to restore the default width."
       data-dragging={dragging ? '' : undefined}
       className="group absolute inset-y-0 -left-1.5 z-10 w-3 cursor-col-resize touch-none focus-visible:outline-none"
       onPointerDown={(event) => {

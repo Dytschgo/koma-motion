@@ -99,7 +99,7 @@ test('switches saved kits beside the model, follows undo and persists the select
     .getByRole('button', { name: 'Dismiss' });
   while (await notices.count()) await notices.first().click();
   for (const width of [480, 300]) {
-    const divider = window.getByRole('separator', { name: 'Resize the chat' });
+    const divider = window.getByRole('separator', { name: 'Resize studio dock' });
     await divider.focus();
     await divider.press('Home');
     for (let current = 300; current < width; current += 16) await divider.press('ArrowLeft');
@@ -139,7 +139,7 @@ test('switches saved kits beside the model, follows undo and persists the select
   await expect(window.getByRole('dialog', { name: 'Model', exact: true })).toBeVisible();
   await window.keyboard.press('Escape');
   await trigger.click();
-  await window.getByRole('heading', { name: 'Chat', exact: true }).click();
+  await window.getByRole('tab', { name: 'Chat', exact: true }).click();
   await expect(chooser).toBeHidden();
   await trigger.click();
   await window.getByRole('button', { name: 'Hide the chat' }).click();
@@ -319,7 +319,7 @@ test('keeps provider logos beside Brand Kit at wide and narrow widths', async ()
   while (await notices.count()) await notices.first().click();
 
   for (const width of [480, 300]) {
-    const divider = window.getByRole('separator', { name: 'Resize the chat' });
+    const divider = window.getByRole('separator', { name: 'Resize studio dock' });
     await divider.focus();
     await divider.press('Home');
     for (let current = 300; current < width; current += 16) await divider.press('ArrowLeft');
@@ -327,7 +327,7 @@ test('keeps provider logos beside Brand Kit at wide and narrow widths', async ()
     await expect(choices.getByRole('button', { name: 'Model', exact: true })).toHaveCount(1);
     await expect(chat.getByRole('button', { name: 'Provider', exact: true })).toHaveCount(0);
     await expect(
-      chat.getByTestId('chat-header').getByRole('button', { name: /Model|Provider/ }),
+      window.getByTestId('chat-header').getByRole('button', { name: /Model|Provider/ }),
     ).toHaveCount(0);
     const modelBox = await model.boundingBox();
     const brandBox = await brand.boundingBox();

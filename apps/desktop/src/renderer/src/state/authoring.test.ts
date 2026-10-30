@@ -130,26 +130,28 @@ describe('direct authoring', () => {
     expect(opened.value.project.presentation).toEqual(created.presentation);
   });
 
-  it('reveals properties only on request and preserves wide chat and chosen width', () => {
+  it('shares the dock without losing selection, preferred width or chat on Koma navigation', () => {
     const ui = useUiStore;
     ui.getState().reset();
     ui.getState().setAgentPanelOpen(true);
     ui.getState().setAgentPanelWidth(410);
+    ui.getState().selectKoma('koma');
     ui.getState().selectElement('element');
-    expect(ui.getState().agentPanelOpen).toBe(true);
-    ui.getState().inspectSelectedElement(false);
-    expect(ui.getState().agentPanelOpen).toBe(true);
-    ui.getState().inspectSelectedElement(true);
+    ui.getState().inspectSelection();
     expect(ui.getState()).toMatchObject({
       view: 'canvas',
       inspectorTab: 'element',
-      agentPanelOpen: false,
+      studioPanel: 'inspect',
+      agentPanelOpen: true,
       agentPanelWidth: 410,
       selectedElementId: 'element',
     });
-    ui.getState().setAgentPanelOpen(true);
+    ui.getState().setStudioPanel('chat');
+    ui.getState().selectKoma('other-koma');
+    expect(ui.getState().studioPanel).toBe('chat');
     ui.getState().selectElement(null);
-    ui.getState().inspectSelectedElement(true);
+    ui.getState().inspectSelection();
+    expect(ui.getState().inspectorTab).toBe('koma');
     expect(ui.getState().agentPanelOpen).toBe(true);
     ui.getState().reset();
   });

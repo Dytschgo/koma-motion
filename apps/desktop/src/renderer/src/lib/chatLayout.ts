@@ -11,14 +11,6 @@ export const CHAT_DEFAULT_WIDTH = 380;
 export const CHAT_RESIZE_STEP = 16;
 /** The canvas and its preview controls stay usable down to this width. */
 export const CANVAS_MIN_WIDTH = 420;
-/** Width of the Inspector (`Inspector.tsx`). */
-export const INSPECTOR_WIDTH = 304;
-
-/** Width of the Brand Kit panel (`BrandKitPanel.tsx`): 32% of the window, from 360 to 480 px. */
-export function getBrandKitPanelWidth(windowWidth: number): number {
-  return Math.min(480, Math.max(360, windowWidth * 0.32));
-}
-
 export interface ChatPreferences {
   readonly open: boolean;
   /** The width the user chose. The sidebar is narrower when the window has no room. */
@@ -40,42 +32,29 @@ export interface ChatLayout {
   readonly width: number;
   /** The widest the sidebar can be made in the current window. */
   readonly maxWidth: number;
-  /**
-   * The window is too narrow for the canvas, the Inspector and the chat side
-   * by side. The chat then takes the column of the Inspector while it is open.
-   */
-  readonly replacesInspector: boolean;
 }
 
 /**
  * Decides how wide the chat is. `available` is the width shared by the main
- * area and the chat; `inspector` is the width of the Inspector next to the
- * canvas, or 0 when no Inspector is shown. Before the area is measured
- * (`available` is 0) the preferred width is used.
+ * area and the shared Chat/Inspect dock. Before the area is measured
+ * (`available` is 0) the preferred width is used. Switching contexts never
+ * changes the canvas width.
  */
 export function getChatLayout(input: {
   readonly available: number;
   readonly preferred: number;
-  readonly inspector: number;
 }): ChatLayout {
-  const { available, preferred, inspector } = input;
+  const { available, preferred } = input;
   if (available <= 0) {
     return {
       width: clampChatWidth(preferred),
       maxWidth: CHAT_MAX_WIDTH,
-      replacesInspector: false,
     };
-  }
-  const besideInspector = available - inspector - CANVAS_MIN_WIDTH;
-  if (besideInspector >= CHAT_MIN_WIDTH) {
-    const maxWidth = clampChatWidth(besideInspector);
-    return { width: clampChatWidth(preferred, maxWidth), maxWidth, replacesInspector: false };
   }
   const maxWidth = clampChatWidth(available - CANVAS_MIN_WIDTH);
   return {
     width: clampChatWidth(preferred, maxWidth),
     maxWidth,
-    replacesInspector: inspector > 0,
   };
 }
 

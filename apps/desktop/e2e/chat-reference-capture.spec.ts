@@ -21,7 +21,7 @@ for (const width of [1480, 1120] as const) {
       await expect.poll(() => window.evaluate(() => innerWidth)).toBe(width);
       await window.getByRole('button', { name: 'Create a project' }).click();
       const chat = window.getByRole('region', { name: 'Agent chat' });
-      const divider = window.getByRole('separator', { name: 'Resize the chat' });
+      const divider = window.getByRole('separator', { name: 'Resize studio dock' });
       await divider.focus();
       if (width === 1120) {
         await window.keyboard.press('Home');

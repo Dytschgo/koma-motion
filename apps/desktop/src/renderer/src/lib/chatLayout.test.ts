@@ -6,7 +6,6 @@ import {
   CHAT_MAX_WIDTH,
   CHAT_MIN_WIDTH,
   DEFAULT_CHAT_PREFERENCES,
-  INSPECTOR_WIDTH,
   clampChatWidth,
   getChatLayout,
   parseChatPreferences,
@@ -27,59 +26,51 @@ describe('chat layout', () => {
   });
 
   it('uses the preferred width before the area is measured', () => {
-    expect(getChatLayout({ available: 0, preferred: 450, inspector: INSPECTOR_WIDTH })).toEqual({
+    expect(getChatLayout({ available: 0, preferred: 450 })).toEqual({
       width: 450,
       maxWidth: CHAT_MAX_WIDTH,
-      replacesInspector: false,
     });
   });
 
-  it('shows the canvas, the Inspector and the chat side by side in a wide window', () => {
+  it('uses one dock beside the canvas in a wide window', () => {
     const available = 1480 - KOMA_STRIP_WIDTH;
     const layout = getChatLayout({
       available,
       preferred: CHAT_DEFAULT_WIDTH,
-      inspector: INSPECTOR_WIDTH,
     });
     expect(layout).toEqual({
       width: CHAT_DEFAULT_WIDTH,
-      maxWidth: available - INSPECTOR_WIDTH - CANVAS_MIN_WIDTH,
-      replacesInspector: false,
+      maxWidth: CHAT_MAX_WIDTH,
     });
   });
 
   it('narrows the chat before the canvas becomes too small, and keeps the preference', () => {
-    const available = 1480 - KOMA_STRIP_WIDTH;
-    const layout = getChatLayout({ available, preferred: 640, inspector: INSPECTOR_WIDTH });
-    expect(layout.width).toBe(available - INSPECTOR_WIDTH - CANVAS_MIN_WIDTH);
-    expect(available - layout.width - INSPECTOR_WIDTH).toBe(CANVAS_MIN_WIDTH);
-    expect(layout.replacesInspector).toBe(false);
+    const available = 1120 - KOMA_STRIP_WIDTH;
+    const layout = getChatLayout({ available, preferred: 640 });
+    expect(layout.width).toBe(available - CANVAS_MIN_WIDTH);
+    expect(available - layout.width).toBe(CANVAS_MIN_WIDTH);
   });
 
-  it('shows the chat in place of the Inspector in a narrow window', () => {
+  it('reserves usable canvas space in narrow windows', () => {
     for (const windowWidth of [1024, 1120, 1200]) {
       const available = windowWidth - KOMA_STRIP_WIDTH;
       const layout = getChatLayout({
         available,
         preferred: CHAT_DEFAULT_WIDTH,
-        inspector: INSPECTOR_WIDTH,
       });
-      expect(layout.replacesInspector).toBe(true);
       expect(layout.width).toBeGreaterThanOrEqual(CHAT_MIN_WIDTH);
       expect(available - layout.width).toBeGreaterThanOrEqual(CANVAS_MIN_WIDTH);
     }
   });
 
-  it('keeps the chat beside a view without an Inspector', () => {
+  it('keeps the preferred dock width when it fits', () => {
     const layout = getChatLayout({
       available: 1120 - KOMA_STRIP_WIDTH,
       preferred: CHAT_DEFAULT_WIDTH,
-      inspector: 0,
     });
     expect(layout).toEqual({
       width: CHAT_DEFAULT_WIDTH,
       maxWidth: 1120 - KOMA_STRIP_WIDTH - CANVAS_MIN_WIDTH,
-      replacesInspector: false,
     });
   });
 });

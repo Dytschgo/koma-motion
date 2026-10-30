@@ -57,7 +57,7 @@ export function Workspace({
   const zoom = useUiStore((state) => state.zoom);
   const setZoom = useUiStore((state) => state.setZoom);
   const chatOpen = useUiStore((state) => state.agentPanelOpen);
-  const setChatOpen = useUiStore((state) => state.setAgentPanelOpen);
+  const setStudioPanel = useUiStore((state) => state.setStudioPanel);
   const generating = useAgentStore((state) => state.execution !== null);
   const [authoringKind, setAuthoringKind] = useState<AuthoringKind>('text');
   const toolbar = useRef<HTMLDivElement>(null);
@@ -291,8 +291,8 @@ export function Workspace({
         </IconButton>
         <Button
           compact
-          aria-label="Inspect selected element"
-          disabled={!selectedElement || preview !== null}
+          aria-label={selectedElement ? 'Inspect selected element' : 'Inspect Koma'}
+          disabled={koma === null || preview !== null}
           onClick={onInspectSelected}
         >
           Inspect
@@ -369,7 +369,10 @@ export function Workspace({
                 variant="outline"
                 className="mt-4"
                 onClick={() => {
-                  setChatOpen(true);
+                  setStudioPanel('chat');
+                  requestAnimationFrame(() => {
+                    document.querySelector<HTMLElement>('[data-guide-target="request"]')?.focus();
+                  });
                 }}
               >
                 Open the chat

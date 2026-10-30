@@ -9,6 +9,7 @@ import {
   answerOpenDialog,
   answerSaveDialog,
   launchApplication,
+  showChat,
   type RunningApplication,
 } from './application';
 
@@ -34,7 +35,7 @@ test('authors a blank Koma without generation, selects each object, and saves/re
   await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
   await expect(
     window.getByText(
-      'New elements and future generations use this kit. Existing elements keep their styling.',
+      'New elements use this kit. It is sent with every generation request. Existing Komas keep their styling.',
     ),
   ).toBeVisible();
   await window.getByLabel('Primary colour').fill('#123456');
@@ -125,20 +126,20 @@ test('narrow pointer and keyboard selection expose Inspect while preserving draf
   const existing = stage().getByRole('button', { name: 'Existing text (text)', exact: true });
   await existing.click();
   const inspector = window.getByRole('complementary', { name: 'Inspector' });
-  await expect(inspector).toBeHidden();
+  await expect(inspector).toBeVisible();
   const inspect = window.getByRole('button', { name: 'Inspect selected element' });
   await expect(inspect).toBeEnabled();
   await inspect.click();
   await expect(inspector).toBeVisible();
   await expect(inspect).toBeFocused();
   await expect(inspector.getByLabel('Text', { exact: true })).toHaveValue(text.content.text);
-  await window.getByRole('button', { name: /^Show the chat/ }).click();
+  await showChat(window);
   await expect(request).toHaveValue(draft);
-  await expect(request).toBeFocused();
+  await expect(window.getByRole('tab', { name: 'Chat', exact: true })).toBeFocused();
   await expect(inspector).toBeHidden();
   await stage().click({ position: { x: 5, y: 5 } });
   await expect(existing).toHaveAttribute('aria-pressed', 'false');
-  await expect(inspect).toBeDisabled();
+  await expect(window.getByRole('button', { name: 'Inspect Koma', exact: true })).toBeEnabled();
   await existing.focus();
   await existing.press(' ');
   await expect(existing).toHaveAttribute('aria-pressed', 'true');
@@ -167,10 +168,10 @@ test('narrow pointer and keyboard selection expose Inspect while preserving draf
   expect(repaired.presentation.transitions).not.toEqual(project.presentation.transitions);
   await window.getByLabel('Position in the transition').fill('500');
   await expect(window.getByRole('button', { name: 'Add rectangle', exact: true })).toBeDisabled();
-  await expect(inspect).toBeDisabled();
+  await expect(window.getByRole('button', { name: 'Inspect Koma', exact: true })).toBeDisabled();
   await window.getByRole('button', { name: 'Stop preview', exact: true }).click();
   await expect(window.getByRole('button', { name: 'Add rectangle', exact: true })).toBeEnabled();
-  await window.getByRole('button', { name: /^Show the chat/ }).click();
+  await showChat(window);
   await expect(request).toHaveValue(draft);
   expect(running.problems).toEqual([]);
 });

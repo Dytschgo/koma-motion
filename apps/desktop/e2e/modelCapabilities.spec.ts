@@ -168,7 +168,7 @@ test('keeps reasoning, tabs and image controls usable in a 300px chat', async ()
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
   });
-  await window.getByRole('separator', { name: 'Resize the chat' }).focus();
+  await window.getByRole('separator', { name: 'Resize studio dock' }).focus();
   await window.keyboard.press('Home');
   const picker = await openModelChoices(window);
   await picker.locator('[data-model-value="fixture-opus"]').click();

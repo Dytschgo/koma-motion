@@ -40,7 +40,6 @@ export function QuickStartGuide(): ReactElement {
   const brandKit = (library: boolean): void =>
     visit(() => {
       const ui = useUiStore.getState();
-      ui.setAgentPanelOpen(false);
       ui.setBrandKitTab(library ? 'library' : 'project');
       ui.setView('brandKit');
     }, '[aria-label="Brand Kit"] [role="tab"][aria-selected="true"]');
@@ -50,7 +49,7 @@ export function QuickStartGuide(): ReactElement {
         const ui = useUiStore.getState();
         ui.stopPreview();
         ui.setView('canvas');
-        ui.setAgentPanelOpen(false);
+        ui.setStudioPanel('inspect');
         ui.setInspectorTab(motion ? 'motion' : 'koma');
       },
       motion ? '[data-tab="motion"]' : '[data-guide-target="canvas"]',
@@ -242,7 +241,7 @@ export function QuickStartGuide(): ReactElement {
                       visit(() => {
                         const ui = useUiStore.getState();
                         ui.setView('canvas');
-                        ui.setAgentPanelOpen(true);
+                        ui.setStudioPanel('chat');
                       }, '[data-guide-target="request"]')
                     }
                   >

@@ -35,7 +35,7 @@ for (const provider of ['codex', 'grok'] as const) {
         await window
           .getByRole('region', { name: 'Agent chat' })
           .screenshot({ path: info.outputPath('images-picker.png'), scale: 'css' });
-        const divider = window.getByRole('separator', { name: 'Resize the chat' });
+        const divider = window.getByRole('separator', { name: 'Resize studio dock' });
         await window.keyboard.press('Escape');
         await divider.focus();
         await divider.press('Home');

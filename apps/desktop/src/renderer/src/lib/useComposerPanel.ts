@@ -12,7 +12,6 @@ export function useComposerPanel(projectId: string, open: boolean) {
   const modelButton = useRef<HTMLButtonElement>(null);
   const countButton = useRef<HTMLButtonElement>(null);
   const choicesPanel = useRef<HTMLDivElement>(null);
-  const wasOpen = useRef(open);
   const choiceProject = useRef(projectId);
   useEffect(() => {
     if (!open || choiceProject.current !== projectId) {
@@ -61,23 +60,6 @@ export function useComposerPanel(projectId: string, open: boolean) {
     document.addEventListener('pointerdown', dismiss);
     return () => document.removeEventListener('pointerdown', dismiss);
   }, [choice]);
-
-  // Opening moves focus to the request. Closing moves it to the control that
-  // opens the chat again, so focus is never lost in the hidden panel.
-  useEffect(() => {
-    if (wasOpen.current === open) {
-      return;
-    }
-    wasOpen.current = open;
-    if (open) {
-      requestField.current?.focus();
-      return;
-    }
-    const active = document.activeElement;
-    if (active === null || active === document.body || section.current?.contains(active)) {
-      showButton.current?.focus();
-    }
-  }, [open]);
 
   return {
     choice,

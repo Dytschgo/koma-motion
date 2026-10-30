@@ -108,6 +108,8 @@ interface UiState {
   readonly view: WorkspaceView;
   readonly brandKitTab: BrandKitTab;
   readonly inspectorTab: InspectorTab;
+  readonly studioPanel: 'chat' | 'inspect';
+  readonly setStudioPanel: (panel: 'chat' | 'inspect') => void;
   readonly selectedKomaId: string | null;
   readonly selectedElementId: string | null;
   /**
@@ -142,8 +144,8 @@ interface UiState {
   readonly toggleElementSelection: (elementId: string) => void;
   /** Selects several elements; the last one is shown in the Inspector. */
   readonly selectElements: (elementIds: readonly string[]) => void;
-  /** Explicitly opens element properties, collapsing chat only when it occupies the Inspector column. */
-  readonly inspectSelectedElement: (collapseChat: boolean) => void;
+  /** Opens properties for the current Koma or element in the shared dock. */
+  readonly inspectSelection: () => void;
   readonly setZoom: (zoom: number | null) => void;
   readonly setSettingsOpen: (open: boolean) => void;
   /** Opens Settings, on `page` when given. */
@@ -198,6 +200,10 @@ export const useUiStore = create<UiState>((set, get) => ({
   view: 'canvas',
   brandKitTab: 'project',
   inspectorTab: 'koma',
+  studioPanel: 'chat',
+  setStudioPanel(studioPanel) {
+    set({ studioPanel, agentPanelOpen: true });
+  },
   selectedKomaId: null,
   selectedElementId: null,
   selectedElementIds: [],
@@ -213,7 +219,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   composerSeed: null,
 
   setView(view) {
-    set({ view });
+    set(view === 'brandKit' ? { view, studioPanel: 'inspect', agentPanelOpen: true } : { view });
   },
   setBrandKitTab(brandKitTab) {
     set({ brandKitTab });
@@ -244,6 +250,8 @@ export const useUiStore = create<UiState>((set, get) => ({
             selectedElementIds: [selectedElementId],
             view: 'canvas',
             inspectorTab: 'element',
+            studioPanel: 'inspect',
+            agentPanelOpen: true,
           },
     );
   },
@@ -269,17 +277,20 @@ export const useUiStore = create<UiState>((set, get) => ({
       selectedElementIds: unique,
       view: 'canvas',
       inspectorTab: 'element',
+      studioPanel: 'inspect',
+      agentPanelOpen: true,
     });
   },
   setZoom(zoom) {
     set({ zoom: zoom === null ? null : clampZoom(zoom) });
   },
-  inspectSelectedElement(collapseChat) {
-    if (get().selectedElementId === null) return;
+  inspectSelection() {
+    if (get().selectedKomaId === null) return;
     set((state) => ({
       view: 'canvas',
-      inspectorTab: 'element',
-      agentPanelOpen: collapseChat ? false : state.agentPanelOpen,
+      inspectorTab: state.selectedElementId === null ? 'koma' : 'element',
+      studioPanel: 'inspect',
+      agentPanelOpen: true,
     }));
   },
   setSettingsOpen(settingsOpen) {
@@ -354,6 +365,7 @@ export const useUiStore = create<UiState>((set, get) => ({
       view: 'canvas',
       brandKitTab: 'project',
       inspectorTab: 'koma',
+      studioPanel: 'chat',
       selectedKomaId: null,
       selectedElementId: null,
       selectedElementIds: [],

@@ -87,8 +87,8 @@ test('retains selected draft/count through narrow Inspect collapse and edits, th
   await window.getByRole('button', { name: 'Inspect selected element' }).click();
   await expect(request).toBeHidden();
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
-  await window.getByRole('button', { name: 'Show the chat', exact: true }).click();
-  await expect(request).toBeFocused();
+  await window.getByRole('tab', { name: 'Chat', exact: true }).click();
+  await expect(window.getByRole('tab', { name: 'Chat', exact: true })).toBeFocused();
   await expect(request).toHaveValue('A selected draft with spaces');
   await expect(window.getByLabel('Generation scope')).toHaveValue('selected');
   await expect(countTrigger(window)).toBeDisabled();
@@ -304,7 +304,7 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
 test('keeps both pickers usable at 300 pixels, including invalid count and keyboard dismissal', async () => {
   const { window, application, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
-  const divider = window.getByRole('separator', { name: 'Resize the chat' });
+  const divider = window.getByRole('separator', { name: 'Resize studio dock' });
   for (const [width, height] of [
     [1120, 700],
     [1024, 655],
@@ -380,7 +380,7 @@ test('keeps both pickers usable at 300 pixels, including invalid count and keybo
 
   await modelTrigger(window).click();
   const longRequestPicker = window.getByRole('dialog', { name: 'Model', exact: true });
-  const headerBox = await box(chat.getByTestId('chat-header'));
+  const headerBox = await box(window.getByTestId('chat-header'));
   expect((await box(longRequestPicker)).y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
   await window.getByRole('button', { name: 'Hide the chat' }).click();
   await window.getByRole('button', { name: 'Show the chat' }).click();

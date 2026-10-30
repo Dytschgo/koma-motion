@@ -4,13 +4,13 @@ Build first and use the mock-provider workflow in `SKILL.md`. These specs use
 isolated native Electron windows and synthetic files:
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test composer.spec.ts chatSidebar.spec.ts chatBrandKit.spec.ts providerDisclosure.spec.ts selectedGeneration.spec.ts narrowWindow.spec.ts streaming.spec.ts starters.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
+pnpm --filter @koma-motion/desktop exec playwright test focusDock.spec.ts uiJourney.spec.ts composer.spec.ts chatSidebar.spec.ts chatBrandKit.spec.ts providerDisclosure.spec.ts selectedGeneration.spec.ts narrowWindow.spec.ts streaming.spec.ts starters.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 Create a fresh `$komaVerifyOutput` and report path using `SKILL.md` before each
 invocation. This group covers composer responsibilities after extraction:
-request/count/scope, session replacement, starter seeds, mounted narrow Inspect
-collapse, provider choices and disclosure, selected proposal review/focus,
+request/count/scope, session replacement, starter seeds, shared Chat/Inspect dock,
+provider choices and disclosure, selected proposal review/focus,
 streaming and cancellation. Run `export-references.spec.ts` separately using
 the same fresh-output preparation for reference consent and saved-file privacy.
 Use `canvas-editing.spec.ts`, `inspector.spec.ts`, `transitionWarnings.spec.ts`
@@ -26,8 +26,13 @@ and `projectHealth.spec.ts` for the editing/health paths described below.
   dropdown. Toggle Auto and verify keyboard navigation at a narrow chat width. The mock
   disclosure, reference attachment, instructions and Generate action must remain
   reachable in short windows.
-  Type an unsent request with spaces, collapse through Inspect at a narrow
-  native size, reopen, and confirm the draft, count and selected scope survive.
+  Type an unsent request with spaces, switch to Inspect with the tab's arrow keys,
+  return to Chat, then collapse/reopen at a narrow native size. Confirm the draft,
+  count, selected scope, transcript and selected Koma survive. Tab switching keeps
+  focus on the tab; the collapsed Show the chat action focuses the request.
+  Object selection opens Inspect; Koma navigation keeps the active dock tab.
+  Check Generating/Review/Complete/Stopped/Failed feedback on the Chat tab while
+  Inspect is active, and confirm tab switching never changes the canvas width.
   Editing the same project must retain the draft; reopening the same file must
   clear it and restore the default count and entire-presentation scope. Starter
   request/count seeds must survive session initialization and replace a prior
@@ -66,7 +71,10 @@ and `projectHealth.spec.ts` for the editing/health paths described below.
   then verify Undo and Redo restore the previous and rotated angles.
 - Inspector: switch Element, Koma and Motion tabs with keyboard and pointer;
   select hidden and covered elements from Layers; change visibility and lock;
-  verify restacking and Undo. Hide chat when the narrow layout replaces Inspector.
+  verify restacking and Undo. Chat and Inspect share one dock at all sizes;
+  switch contexts with their tabs. The toolbar's Inspect action must also open
+  Koma properties when no element is selected. Brand Kit uses the Inspect context;
+  switching to Chat and back must preserve its input and library context.
 - Motion: an edit can make stored motion stale. The Koma strip shows a compact
   status on that transition, between its source and destination Komas, with
   Regenerate transition. The explanation and links to both Komas are in the

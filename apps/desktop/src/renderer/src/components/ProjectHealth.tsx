@@ -137,7 +137,6 @@ function HealthContents(): ReactElement {
                           element.content.children.some((child) => child.id === target.elementId),
                       );
                     useUiStore.getState().selectElement(parent?.id ?? target.elementId);
-                    useUiStore.getState().setAgentPanelOpen(false);
                     useHealthStore.getState().setOpen(false);
                   }}
                 >

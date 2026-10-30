@@ -144,21 +144,18 @@ export async function answerOpenDialog(
   }, filePath);
 }
 
-/** The window is wide enough for the canvas, the Inspector and the chat side by side. */
+/** Whether a requested wide sizing scenario fits on this screen. */
 export async function isWideWindow(window: Page): Promise<boolean> {
   return (await window.evaluate(() => innerWidth)) >= 1400;
 }
 
-/**
- * Makes the Inspector visible. In a narrow window the open chat takes its
- * place, so the chat is hidden, as a user would do.
- */
+/** Opens the shared dock's Inspect context, at every window size. */
 export async function showInspector(window: Page): Promise<void> {
-  if (!(await isWideWindow(window))) {
-    const hide = window.getByRole('button', { name: 'Hide the chat' });
-    if (await hide.isVisible()) {
-      await hide.click();
-    }
+  const show = window.getByRole('button', { name: 'Show Inspector', exact: true });
+  if (await show.isVisible()) {
+    await show.click();
+  } else {
+    await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
   }
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
 }
@@ -168,6 +165,8 @@ export async function showChat(window: Page): Promise<void> {
   const show = window.getByRole('button', { name: /^Show the chat/ });
   if (await show.isVisible()) {
     await show.click();
+  } else {
+    await window.getByRole('tab', { name: 'Chat', exact: true }).click();
   }
   await expect(window.getByRole('button', { name: 'Hide the chat' })).toBeVisible();
 }

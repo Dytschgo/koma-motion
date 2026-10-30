@@ -5,6 +5,7 @@ import {
   answerSaveDialog,
   launchApplication,
   openSettingsPage,
+  showChat,
   type RunningApplication,
 } from './application';
 import { countTrigger } from './composerControls';
@@ -169,6 +170,7 @@ test('canvas and panel navigation preserve the sent request and the empty follow
     await window.getByRole('button', { name: 'Koma 1: One connected system', exact: true }).click();
     await stage.locator('[data-element-id]').first().click({ force: true });
     await window.getByRole('tab', { name: /^Element(?::|$)/ }).click();
+    await showChat(window);
     await expect(bubble).toHaveText(expectedBubble);
     await expect(request).toHaveValue('');
     await window.getByRole('button', { name: /^Deck overview/ }).click();

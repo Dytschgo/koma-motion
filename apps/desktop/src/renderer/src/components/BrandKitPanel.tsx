@@ -40,10 +40,7 @@ export function BrandKitPanel({ project }: { readonly project: KomaProject }): R
   };
 
   return (
-    <aside
-      aria-label="Brand Kit"
-      className="flex w-[clamp(360px,32vw,480px)] flex-none flex-col border-l border-line bg-surface-1"
-    >
+    <aside aria-label="Brand Kit" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-1">
       <div className="flex h-11 flex-none items-center justify-between gap-2 border-b border-line pr-1.5 pl-3.5">
         <h2 className="text-base font-semibold">Brand Kit</h2>
         <IconButton

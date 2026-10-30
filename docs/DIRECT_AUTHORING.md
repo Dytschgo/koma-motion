@@ -16,11 +16,13 @@ Saving and reopening retains the objects and their styling. Creation observes
 the element count and project safety budgets; a failed addition leaves the
 document unchanged and shows an error.
 
-Choose **Inspect** after selecting an object on the canvas or in Layers to
-open its precise controls. In a narrow window, this collapses the chat to make
-room for the Inspector. The Inspect button keeps keyboard focus. **Show the
-chat** returns to the retained draft. In a wide window, both panels remain
-visible. Locked elements remain inspectable, with their existing edit limits.
+Selecting an object on the canvas or in Layers opens its precise controls in
+the **Inspect** tab. The toolbar's **Inspect** action also opens properties for
+the current Koma without an object selected. **Chat** and **Inspect** share one
+resizable dock at every window size; switching tabs keeps the canvas width,
+chat draft and history. Selecting another Koma keeps the active dock tab.
+Collapse the dock for more canvas room, then use **Show the chat** or **Show
+Inspector** to return. Locked elements retain their existing edit limits.
 
 ## Selecting several elements
 

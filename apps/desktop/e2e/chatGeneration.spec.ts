@@ -57,7 +57,7 @@ test('keeps the composer and header stationary around a scrollable conversation 
     BrowserWindow.getAllWindows()[0]?.setContentSize(1024, 655);
   });
   const chat = window.getByRole('region', { name: 'Agent chat' });
-  const divider = window.getByRole('separator', { name: 'Resize the chat' });
+  const divider = window.getByRole('separator', { name: 'Resize studio dock' });
   await divider.focus();
   await window.keyboard.press('Home');
   const request = window.getByLabel('Your request');
@@ -83,12 +83,10 @@ test('keeps the composer and header stationary around a scrollable conversation 
     )
     .toBeLessThan(48);
   await expect(request).toBeInViewport({ ratio: 1 });
-  await expect(chat.getByTestId('chat-header')).toBeInViewport({ ratio: 1 });
+  await expect(window.getByTestId('chat-header')).toBeInViewport({ ratio: 1 });
   await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeInViewport({ ratio: 1 });
   await expect
-    .poll(() =>
-      chat.locator('.chat-body').evaluate((body) => body.scrollHeight - body.clientHeight),
-    )
+    .poll(() => chat.evaluate((body) => body.scrollHeight - body.clientHeight))
     .toBeLessThanOrEqual(1);
   expect(await log.evaluate((element) => element.scrollHeight > element.clientHeight)).toBe(true);
   await log.evaluate((element) => {
@@ -103,7 +101,7 @@ test('keeps the composer and header stationary around a scrollable conversation 
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800);
   });
   expect(await log.evaluate((element) => element.scrollTop)).toBeLessThan(10);
-  await expect(chat.getByTestId('chat-header')).toBeInViewport({ ratio: 1 });
+  await expect(window.getByTestId('chat-header')).toBeInViewport({ ratio: 1 });
   await window.screenshot({ path: test.info().outputPath('short-studio.png'), scale: 'css' });
   expect(problems).toEqual([]);
 });

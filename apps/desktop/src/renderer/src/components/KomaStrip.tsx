@@ -234,6 +234,9 @@ function KomaItem({
 export function KomaStrip({ project }: { readonly project: KomaProject }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
   const view = useUiStore((state) => state.view);
+  const dockOpen = useUiStore((state) => state.agentPanelOpen);
+  const dockMode = useUiStore((state) => state.studioPanel);
+  const brandKitVisible = view === 'brandKit' && dockOpen && dockMode === 'inspect';
   const setView = useUiStore((state) => state.setView);
   const preview = useUiStore((state) => state.preview);
   const selectedKoma = useSelectedKoma();
@@ -630,10 +633,10 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
             Add Koma
           </Button>
           <Button
-            aria-pressed={view === 'brandKit'}
-            active={view === 'brandKit'}
+            aria-pressed={brandKitVisible}
+            active={brandKitVisible}
             onClick={() => {
-              setView(view === 'brandKit' ? 'canvas' : 'brandKit');
+              setView(brandKitVisible ? 'canvas' : 'brandKit');
             }}
           >
             <span
