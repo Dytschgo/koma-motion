@@ -9,6 +9,12 @@ import {
   type ChatPreferences,
 } from '../lib/chatLayout';
 import { DEFAULT_SETTINGS_PAGE, type SettingsPageId } from '../lib/settingsPages';
+import {
+  clampKomaPaneWidth,
+  loadKomaPanePreferences,
+  saveKomaPanePreferences,
+  type KomaPanePreferences,
+} from '../lib/komaPane';
 import { selectProject, useProjectStore } from './projectStore';
 
 /** Key of the chat preferences in the local storage of the window. */
@@ -97,6 +103,8 @@ export interface PreviewIdentity {
 }
 
 interface UiState {
+  readonly komaPane: KomaPanePreferences;
+  readonly setKomaPane: (patch: Partial<KomaPanePreferences>) => void;
   readonly view: WorkspaceView;
   readonly brandKitTab: BrandKitTab;
   readonly inspectorTab: InspectorTab;
@@ -176,6 +184,17 @@ let nextToken = 1;
 const initialChatPreferences = loadChatPreferences();
 
 export const useUiStore = create<UiState>((set, get) => ({
+  komaPane: loadKomaPanePreferences(),
+  setKomaPane(patch) {
+    const current = get().komaPane;
+    const komaPane = {
+      ...current,
+      ...patch,
+      width: clampKomaPaneWidth(patch.width ?? current.width),
+    };
+    saveKomaPanePreferences(komaPane);
+    set({ komaPane });
+  },
   view: 'canvas',
   brandKitTab: 'project',
   inspectorTab: 'koma',
