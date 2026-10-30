@@ -138,6 +138,16 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await window
     .getByRole('button', { name: 'Preview the transition from Koma 19 to Koma 20', exact: true })
     .click();
+  // First verify the strip action completes the reduced-motion cut. The
+  // following menu checks need a stable preview, not a race against its 400ms.
+  await expectSelected(20, 'Chapter 20');
+  await window.getByRole('button', { name: 'Koma 19: Chapter 19', exact: true }).click();
+  const position = window.getByLabel('Position in the transition');
+  await position.fill('500');
+  await expect(position).toHaveAttribute('aria-valuetext', '50 percent');
+  await expect(
+    window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]'),
+  ).toHaveAttribute('aria-label', 'Preview of the transition from Chapter 19 to Chapter 20');
   const duringPreview = await openKomaActions(window);
   await expect(
     duringPreview.getByRole('menuitem', { name: 'Move Koma up', exact: true }),
@@ -151,6 +161,7 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await expect(dialog.getByRole('button', { name: 'Move Koma', exact: true })).toBeDisabled();
   await expect(dialog.getByText('Stop the preview before moving a Koma.')).toBeVisible();
   await dialog.getByLabel('Find a Koma').press('Escape');
+  await expect(position).toHaveAttribute('aria-valuetext', '50 percent');
   await window.getByRole('button', { name: 'Stop preview', exact: true }).click();
   const actions = await openKomaActions(window);
   await expect(actions.getByRole('menuitem', { name: 'Move Koma up', exact: true })).toBeEnabled();
