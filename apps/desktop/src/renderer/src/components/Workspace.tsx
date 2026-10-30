@@ -499,7 +499,7 @@ export function Workspace({
           </IconButton>
 
           {transportContext === null ? (
-            <p className="ml-3 text-ink-400">Add another Koma for motion.</p>
+            koma !== null && <p className="ml-3 text-ink-400">Add another Koma for motion.</p>
           ) : (
             <>
               <p className="sr-only flex-none text-ink-300 @min-[36rem]:not-sr-only @min-[36rem]:mx-3">

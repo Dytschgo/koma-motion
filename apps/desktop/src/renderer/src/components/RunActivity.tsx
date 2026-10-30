@@ -279,10 +279,18 @@ export function RunMonitor({
                 {run.providerName} · {run.modelLabel}
               </p>
               <p className="mt-1 max-w-[62ch] text-sm text-ink-400">
-                A live view inside Koma Motion of the run shown in the chat. It opens no second
-                process and sends no second request. Claude Code runs in print mode without a saved
-                session, so no terminal can attach to it.
+                Live status and output from the run in chat. This view starts no extra process or
+                request.
               </p>
+              {run.providerId === 'claude-code' && (
+                <details className="mt-1 text-sm text-ink-400">
+                  <summary className="cursor-pointer active:text-ink-100">Provider details</summary>
+                  <p className="mt-1">
+                    Claude Code runs in print mode without a saved session, so no terminal can
+                    attach to it.
+                  </p>
+                </details>
+              )}
             </div>
           </header>
 

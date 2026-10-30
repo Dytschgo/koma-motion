@@ -216,6 +216,7 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   ).toEqual(['Reported by the CLI']);
   await expect(model.locator('option[value="opus"]')).toHaveCount(1);
   await expect(model.locator('option[value="claude-opus-5-5"]')).toHaveCount(1);
+  await models.locator('summary[aria-label="About Claude Code model choices"]').click();
   await expect(
     models.getByText(/Models and reasoning choices reported by Claude Code/),
   ).toBeVisible();

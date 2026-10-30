@@ -236,7 +236,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         useAgentStore.getState().setScopedProposal({ ...proposal, invalidReason: issue });
         useAgentStore.getState().addEntry({
           ...streamed(),
-          kind: 'notApplied',
+          kind: 'proposalReady',
           providerName,
           text: `Proposal ready for ${target.title || 'selected Koma'}. Review it before applying.`,
         });

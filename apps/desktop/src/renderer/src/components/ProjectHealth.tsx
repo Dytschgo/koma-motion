@@ -177,9 +177,14 @@ function HealthContents(): ReactElement {
           ? 'Review recovery options below.'
           : issues.length === 0
             ? 'No project issues found.'
-            : `${String(issues.length)} project status items.`}{' '}
-        Hiding a notification does not fix the issue. Unresolved issues return when you reopen the
-        project.
+            : `${String(issues.length)} project status items.`}
+        {(failure || issues.length > 0) && (
+          <>
+            {' '}
+            Hiding a notification does not fix the issue. Unresolved issues return when you reopen
+            the project.
+          </>
+        )}
       </p>
       {failure && (
         <section aria-label="Open recovery" className="rounded-lg border border-motion p-3">

@@ -127,6 +127,8 @@ export function AgentPanel({
           canRetry={draft.canRetry}
           onExample={() => {
             draft.setRequest(EXAMPLE_REQUEST);
+            draft.setKomaCount('3');
+            draft.setAutoKomaCount(false);
             panel.requestField.current?.focus();
           }}
           onRetry={(text) => {

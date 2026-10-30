@@ -148,7 +148,7 @@ export function useInstructionSettings(
       >
         <Field
           label="Project system instructions"
-          hint={`Included in each agent request. Edits can be undone. ${LIMIT_HINT}`}
+          hint={LIMIT_HINT}
           error={parsed.success ? undefined : parsed.error.issues[0]?.message}
         >
           {(ids) => (

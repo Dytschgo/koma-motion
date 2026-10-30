@@ -83,8 +83,8 @@ export function Welcome(): ReactElement {
               Or begin with a starter
             </h2>
             <p className="mt-1 text-sm text-pretty text-ink-400">
-              Each starter brings a Brand Kit and instructions for richly animated Komas, and puts a
-              first request into the chat. Choose a provider and send it.
+              Each starter adds a Brand Kit, instructions and a first request in chat. Choose a
+              provider and send it.
             </p>
           </div>
           <StarterList

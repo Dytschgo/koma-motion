@@ -14,6 +14,8 @@ import { usePresenterStore } from '../state/presenterStore';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { DownloadIcon } from './icons';
 import { Button, Field, Modal, NumberInput, Select } from './ui';
+import { ExportIssues } from './ExportIssues';
+import type { ExportIssue } from '../lib/exportIssues';
 
 /** This control is keyed by project session, so a replacement closes its dialog. */
 export function PowerPointExport(): ReactElement {
@@ -27,7 +29,7 @@ export function PowerPointExport(): ReactElement {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
-  const [warnings, setWarnings] = useState<readonly string[]>([]);
+  const [warnings, setWarnings] = useState<readonly ExportIssue[]>([]);
 
   const open = async (): Promise<void> => {
     if (project === null) return;
@@ -66,7 +68,7 @@ export function PowerPointExport(): ReactElement {
       if (result.status === 'failed') setError(result.message);
       if (result.status === 'exported') {
         setSaved(result.fileName);
-        setWarnings(result.warnings.map((issue) => issue.message));
+        setWarnings(result.warnings);
       }
     } catch {
       if (useProjectStore.getState().sessionId === session)
@@ -174,18 +176,10 @@ export function PowerPointExport(): ReactElement {
           <p className="text-sm text-ink-400">
             References attached in chat stay in this session and are not included in this file.
           </p>
-          {validation?.issues.length ? (
-            <ul className="list-disc space-y-1 pl-5 text-sm">
-              {validation.issues.map((issue, index) => (
-                <li
-                  key={index}
-                  className={issue.severity === 'error' ? 'text-motion' : 'text-signal-warn'}
-                >
-                  {issue.message}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+          <ExportIssues
+            issues={saved === null ? (validation?.issues ?? []) : []}
+            label="Export compatibility notes"
+          />
           {error !== null && (
             <p role="alert" className="text-motion">
               {error}
@@ -196,16 +190,7 @@ export function PowerPointExport(): ReactElement {
               Exported {saved}. Your Koma project is unchanged.
             </p>
           )}
-          {warnings.length > 0 && (
-            <ul
-              aria-label="Export warnings"
-              className="list-disc space-y-1 pl-5 text-sm text-signal-warn"
-            >
-              {warnings.map((warning, index) => (
-                <li key={index}>{warning}</li>
-              ))}
-            </ul>
-          )}
+          <ExportIssues issues={warnings} label="Export warnings" />
         </div>
       </Modal>
     </>

@@ -72,7 +72,8 @@ function Entry({
                   <span className="flex-none">
                     <WarningIcon size={14} />
                   </span>
-                  Warning: {warning}
+                  <span className="sr-only">Warning: </span>
+                  {warning}
                 </li>
               ))}
             </ul>
@@ -81,14 +82,18 @@ function Entry({
       </li>
     );
   }
-  if (entry.kind === 'notApplied') {
+  if (entry.kind === 'notApplied' || entry.kind === 'proposalReady') {
     return (
       <li className="chat-message chat-message-agent">
         <div className="min-w-0 flex-1 pt-0.5">
           <p className="mb-1 text-xs text-ink-400">{entry.providerName}</p>
-          <p className="font-semibold">Generated Komas were not applied</p>
+          <p className="font-semibold">
+            {entry.kind === 'proposalReady' ? 'Proposal ready' : 'Generated Komas were not applied'}
+          </p>
           <p>{entry.text}</p>
-          <p className="mt-2 text-sm text-ink-400">Your edits remain in the presentation.</p>
+          {entry.kind === 'notApplied' && (
+            <p className="mt-2 text-sm text-ink-400">Your edits remain in the presentation.</p>
+          )}
           {entry.output !== undefined && (
             <KeptOutput text={entry.output} name={entry.providerName} />
           )}
@@ -105,7 +110,9 @@ function Entry({
     >
       <p className="text-sm text-ink-400">{entry.providerName}</p>
       <p className="font-semibold text-motion">{FAILURE_TITLES[entry.status]}</p>
-      <p className="whitespace-pre-wrap">{error.message.split('\n')[0]}</p>
+      {!(entry.status === 'cancelled' && error.message === 'The generation was stopped.') && (
+        <p className="whitespace-pre-wrap">{error.message.split('\n')[0]}</p>
+      )}
       {error.issues.length > 0 && (
         <ul className="mt-2 list-disc pl-5 text-sm text-ink-300">
           {error.issues.slice(0, 8).map((issue, index) => (

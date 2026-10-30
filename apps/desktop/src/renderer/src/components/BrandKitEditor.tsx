@@ -246,8 +246,8 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
         }}
       >
         <p className="text-sm text-ink-300">
-          The Brand Kit is sent with every request, so generated Komas use your colours and fonts.
-          Changing it does not change Komas that already exist.
+          New elements use this kit. It is sent with every generation request. Existing Komas keep
+          their styling.
         </p>
 
         <Field label="Brand name" error={errors['name']}>

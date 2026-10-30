@@ -141,7 +141,9 @@ export function AgentComposer({
           placeholder={
             scope === 'selected'
               ? 'Describe changes to the selected Koma…'
-              : 'Describe the presentation…'
+              : project.presentation.komas.length > 0
+                ? 'Ask for changes to the presentation…'
+                : 'Describe the presentation…'
           }
           onChange={(event) => setRequest(event.target.value)}
           onKeyDown={(event) => {

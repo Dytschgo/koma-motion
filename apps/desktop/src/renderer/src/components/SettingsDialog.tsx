@@ -208,7 +208,12 @@ function ProvidersPage({
                   </Badge>
                 </p>
                 <p className="mt-0.5 text-ink-300">{provider.metadata.description}</p>
-                <p className="mt-1 text-sm text-ink-400">{provider.detection.message}</p>
+                {!(
+                  available &&
+                  provider.detection.version !== null &&
+                  provider.detection.message ===
+                    `Version ${provider.detection.version} is installed.`
+                ) && <p className="mt-1 text-sm text-ink-400">{provider.detection.message}</p>}
                 {provider.metadata.usesExternalService && (
                   <p className="mt-1 text-sm text-ink-400">
                     Sends your request, instructions, Brand Kit, Koma text and asset names online.
