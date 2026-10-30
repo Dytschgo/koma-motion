@@ -139,9 +139,12 @@ test('forced termination offers committed edits, images and holds as an unsaved 
   ).not.toBeVisible();
   await answerOpenDialog(app.application, copy);
   await app.window.getByRole('button', { name: 'Open', exact: true }).click();
-  await expect(app.window.getByRole('list', { name: 'Komas' })).toContainText(
-    'Recovered committed title',
-  );
+  await expect(
+    app.window.getByRole('list', { name: 'Komas' }).getByRole('button', {
+      name: 'Koma 1: Recovered committed title',
+      exact: true,
+    }),
+  ).toHaveAttribute('aria-current', 'true');
   expect(app.problems).toEqual([]);
 });
 
