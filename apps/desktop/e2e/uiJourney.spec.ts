@@ -59,7 +59,7 @@ test('the title-bar name stays editable with thumbnails collapsed and saves inde
   await overview.press('Enter');
   const dialog = window.getByRole('dialog', { name: 'Deck overview', exact: true });
   await expect(dialog).toBeVisible();
-  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Close overview', exact: true }).click();
   await expect(overview).toBeFocused();
   expect(running.problems).toEqual([]);
 });
