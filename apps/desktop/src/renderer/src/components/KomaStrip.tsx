@@ -1,14 +1,12 @@
 import {
   findTransitionBetween,
-  getCanvasSize,
   type Koma,
   type KomaProject,
   type KomaTransition,
   type Presentation,
 } from '@koma-motion/core';
-import { komaToFrame } from '@koma-motion/motion-engine';
-import { createAssetResolver, KomaStage, type AssetResolver } from '@koma-motion/renderer';
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { createAssetResolver, type AssetResolver } from '@koma-motion/renderer';
+import { useEffect, useMemo, useRef, useState, type ReactElement, type RefObject } from 'react';
 import { formatSeconds, useSelectedKoma } from '../lib/selectors';
 import { assessTransition } from '../lib/transitionIssues';
 import { getDropOffset } from '../lib/komaDrag';
@@ -20,6 +18,7 @@ import { useUiStore } from '../state/uiStore';
 import { DownIcon, PlusIcon, TrashIcon, UpIcon, WarningIcon } from './icons';
 import { TransitionStripStatus } from './TransitionStripStatus';
 import { DeckOverview } from './DeckOverview';
+import { KomaThumbnail } from './KomaThumbnail';
 import { Button, IconButton, TextInput } from './ui';
 
 const THUMBNAIL_WIDTH = 184;
@@ -120,6 +119,7 @@ function KomaItem({
   dragHandlers,
   dragging,
   dropIndicator,
+  scrollRoot,
 }: {
   readonly koma: Koma;
   readonly index: number;
@@ -132,12 +132,11 @@ function KomaItem({
   readonly dragging: boolean;
   /** Where a drop would place the dragged Koma relative to this one. */
   readonly dropIndicator: 'before' | 'after' | null;
+  readonly scrollRoot: RefObject<HTMLElement | null>;
 }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
   const selectKoma = useUiStore((state) => state.selectKoma);
   const confirm = useUiStore((state) => state.confirm);
-  const canvasSize = getCanvasSize(project.presentation.aspectRatio);
-  const frame = useMemo(() => komaToFrame(koma), [koma]);
   const number = index + 1;
 
   const remove = async (): Promise<void> => {
@@ -185,12 +184,12 @@ function KomaItem({
                 selected ? 'outline-accent' : 'outline-line'
               }`}
             >
-              <KomaStage
-                frame={frame}
-                canvasSize={canvasSize}
-                scale={THUMBNAIL_WIDTH / canvasSize.width}
+              <KomaThumbnail
+                koma={koma}
+                aspectRatio={project.presentation.aspectRatio}
+                width={THUMBNAIL_WIDTH}
                 resolveAsset={resolveAsset}
-                label={koma.title}
+                scrollRoot={scrollRoot}
               />
             </div>
             <span className="truncate text-sm text-ink-100">{koma.title}</span>
@@ -343,6 +342,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
                   dragHandlers={handlers(koma.id, index)}
                   dragging={drag?.komaId === koma.id}
                   dropIndicator={dropIndicatorFor(index, komas.length)}
+                  scrollRoot={strip}
                 />,
               ];
             })}
