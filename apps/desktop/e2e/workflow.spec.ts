@@ -117,6 +117,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     const komas = window.getByRole('list', { name: 'Komas' });
     await expect(komas.getByRole('button', { name: /^Koma \d:/ })).toHaveCount(3);
     await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
+    await window.getByRole('button', { name: 'Show Koma details' }).click();
     await expect(komas.getByRole('button', { name: /^Preview the transition/ })).toHaveCount(2);
   });
 
@@ -230,6 +231,7 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
   await expect(komas).toHaveCount(3);
 
   await test.step('a new Koma continues the selected Koma', async () => {
+    await window.getByRole('button', { name: 'Show Koma details' }).click();
     await window.getByRole('button', { name: 'Add Koma' }).click();
     await expect(komas).toHaveCount(4);
     expect(await titles()).toEqual([

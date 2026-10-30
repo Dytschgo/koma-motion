@@ -253,12 +253,12 @@ test('renames, duplicates and deletes saved kits without touching the project', 
     window.getByRole('list', { name: 'Saved Brand Kits' }).getByRole('listitem'),
   ).toHaveCount(2);
 
-  await window.getByRole('button', { name: 'Delete' }).click();
+  await window.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(window.getByRole('dialog', { name: 'Delete "Night blue copy"?' })).toBeVisible();
   await window.getByRole('button', { name: 'Keep it' }).click();
   await expect(copy).toBeVisible();
 
-  await window.getByRole('button', { name: 'Delete' }).click();
+  await window.getByRole('button', { name: 'Delete', exact: true }).click();
   await window.getByRole('button', { name: 'Delete saved kit' }).click();
   await expect(copy).toHaveCount(0);
   await expect(window.getByRole('button', { name: 'Night blue', exact: true })).toBeVisible();
