@@ -1,4 +1,5 @@
-import { stat, writeFile } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
+import { komaProjectSchema } from '@koma-motion/core';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
@@ -27,6 +28,41 @@ async function demo() {
   await running.window.getByRole('button', { name: 'Generate Komas', exact: true }).click();
   await expect(running.window.getByText(/Created 3 Komas/)).toBeVisible();
 }
+
+test('the title-bar name stays editable with thumbnails collapsed and saves independently of the filename', async () => {
+  await demo();
+  const { window, application, directory } = running;
+  const header = window.getByRole('banner');
+  const name = header.getByLabel('Project name', { exact: true });
+  await window.getByRole('button', { name: 'Hide Koma thumbnails', exact: true }).click();
+  await name.fill('');
+  await expect(name).toHaveAttribute('aria-invalid', 'true');
+  await expect(header.getByRole('alert')).toContainText('A project needs a name');
+  await name.fill('A clear title');
+  await name.press('Tab');
+  await expect(header.getByRole('alert')).toHaveCount(0);
+  await header.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(name).toHaveValue('Untitled project');
+  await header.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(name).toHaveValue('A clear title');
+  const path = join(directory, 'different-filename.koma');
+  await answerSaveDialog(application, path);
+  await header.getByRole('button', { name: 'Save as', exact: true }).click();
+  await expect(header.getByText('All changes saved', { exact: true })).toBeVisible();
+  await expect(header.getByText('different-filename.koma', { exact: true })).toBeVisible();
+  expect(komaProjectSchema.parse(JSON.parse(await readFile(path, 'utf8'))).name).toBe(
+    'A clear title',
+  );
+  await window.getByRole('button', { name: 'Show Koma thumbnails', exact: true }).click();
+  const overview = window.getByRole('button', { name: 'Deck overview', exact: true });
+  await overview.focus();
+  await overview.press('Enter');
+  const dialog = window.getByRole('dialog', { name: 'Deck overview', exact: true });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(overview).toBeFocused();
+  expect(running.problems).toEqual([]);
+});
 
 test('the example count agrees with its request and does not manufacture a mismatch warning', async () => {
   await create();

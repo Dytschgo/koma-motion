@@ -23,7 +23,7 @@ import { assessTransition } from '../lib/transitionIssues';
 import { getDropOffset } from '../lib/komaDrag';
 import { useKomaDrag, type KomaDragHandlers } from '../lib/useKomaDrag';
 import { addKomaAfter } from '../lib/projectActions';
-import { deleteKoma, duplicateKomaInProject, renameProject, reorderKoma } from '../state/commands';
+import { deleteKoma, duplicateKomaInProject, reorderKoma } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import {
@@ -37,7 +37,7 @@ import {
 } from './icons';
 import { TransitionStripStatus } from './TransitionStripStatus';
 import { DeckOverview } from './DeckOverview';
-import { Button, IconButton, TextInput } from './ui';
+import { Button, IconButton } from './ui';
 import { clampKomaPaneWidth, getKomaPaneMaximum, KOMA_PANE_COLLAPSED_WIDTH } from '../lib/komaPane';
 import { KomaPaneResizeHandle } from './KomaPaneResizeHandle';
 import { KomaContextMenu, type KomaMenuAnchor } from './KomaContextMenu';
@@ -466,6 +466,26 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
               Komas <span className="text-ink-400 tabular-nums">{komas.length}</span>
             </span>
             <IconButton
+              label="Deck overview"
+              disabled={komas.length === 0}
+              onClick={() => setOverviewOpen(true)}
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.3"
+                aria-hidden="true"
+              >
+                <rect x="2" y="2" width="4.5" height="4.5" rx=".6" />
+                <rect x="9.5" y="2" width="4.5" height="4.5" rx=".6" />
+                <rect x="2" y="9.5" width="4.5" height="4.5" rx=".6" />
+                <rect x="9.5" y="9.5" width="4.5" height="4.5" rx=".6" />
+              </svg>
+            </IconButton>
+            <IconButton
               label={pane.details ? 'Hide Koma details' : 'Show Koma details'}
               aria-pressed={pane.details}
               onClick={() => setPane({ details: !pane.details })}
@@ -481,34 +501,6 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
               <ChevronIcon direction="left" size={14} />
             </IconButton>
           </div>
-          <label htmlFor="project-name" className="sr-only">
-            Project name
-          </label>
-          <TextInput
-            id="project-name"
-            className="koma-pane-project-name"
-            value={project.name}
-            maxLength={200}
-            aria-invalid={project.name.trim() === '' ? true : undefined}
-            onChange={(event) => {
-              apply(renameProject(event.target.value), { coalesceKey: 'project-name' });
-            }}
-          />
-          {project.name.trim() === '' && (
-            <p role="alert" className="mt-1 text-sm text-motion">
-              Error: A project needs a name before it can be saved.
-            </p>
-          )}
-          <Button
-            variant="outline"
-            className="koma-pane-overview"
-            disabled={komas.length === 0}
-            onClick={() => {
-              setOverviewOpen(true);
-            }}
-          >
-            Deck overview <span className="text-ink-400 tabular-nums">{komas.length}</span>
-          </Button>
         </div>
 
         <p aria-live="polite" className="sr-only">

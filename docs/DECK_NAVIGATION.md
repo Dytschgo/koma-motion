@@ -8,6 +8,9 @@ Koma thumbnails** restores the pane and focuses the selected Koma. Width,
 visibility and the details toggle are remembered on this device, independently
 of the project and its undo history.
 
+Edit **Project name** in the top title bar. The saved filename and save status
+remain there too, including when the thumbnail pane is collapsed.
+
 With a thumbnail focused, Up/Down selects the previous/next Koma, and Home/End
 selects the first/last. The selected thumbnail scrolls into view. Ctrl (Command
 on macOS) + Up/Down moves it one place; add Shift to move it to the beginning
@@ -27,7 +30,7 @@ preview rows between Komas. Motion warnings and their recovery actions remain
 visible in compact mode. The resize divider also supports Left/Right (Shift
 for larger steps), Home for minimum width and End for maximum width.
 
-Open **Deck overview** above the Koma strip to find a Koma by its number, title
+Open **Deck overview** (the grid button beside Komas) to find a Koma by its number, title
 or purpose. Search terms are matched together, ignoring case. Result numbers
 always refer to the full deck. Filtering the overview does not change the deck
 or imply a transition between the filtered results. An exact numeric position

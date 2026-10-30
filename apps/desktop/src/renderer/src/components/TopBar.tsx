@@ -13,6 +13,7 @@ import { isNightlyVersion } from '../../../shared/updates';
 import { downloadUpdate } from '../lib/updateActions';
 import { useQuickStartStore } from '../state/quickStartStore';
 import { useUiStore } from '../state/uiStore';
+import { renameProject } from '../state/commands';
 import { useUpdateStore } from '../state/updateStore';
 import {
   DownloadIcon,
@@ -23,7 +24,7 @@ import {
   SettingsIcon,
   UndoIcon,
 } from './icons';
-import { Button, IconButton } from './ui';
+import { Button, IconButton, TextInput } from './ui';
 import { ProjectHealthButton } from './ProjectHealth';
 import { PowerPointExport } from './PowerPointExport';
 import { PresentButton } from './PresentButton';
@@ -64,6 +65,7 @@ export function TopBar(): ReactElement {
   const sessionId = useProjectStore((state) => state.sessionId);
   const undo = useProjectStore((state) => state.undo);
   const redo = useProjectStore((state) => state.redo);
+  const apply = useProjectStore((state) => state.apply);
   const startPreview = useUiStore((state) => state.startPreview);
   const openSettings = useUiStore((state) => state.openSettings);
   const transition = useCurrentTransition();
@@ -84,8 +86,8 @@ export function TopBar(): ReactElement {
     update !== null && (update.state === 'available' || update.state === 'downloaded');
 
   return (
-    <header className="flex min-h-12 flex-none flex-wrap items-center gap-1 border-b border-line bg-surface-1 px-2.5 py-1">
-      <div className="mr-3 flex items-center gap-2 pl-1">
+    <header className="studio-topbar">
+      <div className="studio-app-name">
         <KomaMark size={20} />
         <span className="text-base font-semibold whitespace-nowrap tracking-tight">
           Koma Motion
@@ -110,9 +112,17 @@ export function TopBar(): ReactElement {
         <IconButton label="Save" disabled={!hasProject} onClick={() => void saveProject()}>
           <SaveIcon />
         </IconButton>
-        <Button compact disabled={!hasProject} onClick={() => void saveProjectAs()}>
-          Save as
-        </Button>
+        <IconButton label="Save as" disabled={!hasProject} onClick={() => void saveProjectAs()}>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M7.5 13.5h-5v-11h9l2 2V7M5 2.5v4h6v-4M5 13.5V9h2M9 12l3.5-3.5 1.5 1.5-3.5 3.5H9z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </IconButton>
         <PowerPointExport key={sessionId} />
       </nav>
 
@@ -125,14 +135,32 @@ export function TopBar(): ReactElement {
         <RedoIcon />
       </IconButton>
 
-      <div className="flex min-w-64 flex-1 items-center justify-center px-3 max-[1360px]:order-last max-[1360px]:basis-full max-[1360px]:justify-start">
+      <div className="studio-project-heading">
         {hasProject && (
-          <div className="flex h-8 min-w-0 max-w-[min(32rem,100%)] items-center gap-2.5 rounded-full border border-line bg-surface-0/60 pr-3 pl-3.5">
-            <span className="min-w-0 truncate font-medium text-ink-100" title={file?.displayPath}>
-              {file?.fileName ?? (projectName.trim() === '' ? 'Untitled' : projectName)}
-            </span>
-            {/* One status: the name already says which project this is. */}
-            <span role="status" className="flex flex-none items-center gap-1.5 text-sm">
+          <>
+            <div className="studio-project-identity">
+              <label htmlFor="project-name" className="sr-only">
+                Project name
+              </label>
+              <TextInput
+                id="project-name"
+                className="studio-project-name"
+                value={projectName}
+                maxLength={200}
+                title={file === null ? 'Rename project' : `Rename project · ${file.displayPath}`}
+                aria-invalid={projectName.trim() === '' ? true : undefined}
+                aria-describedby={projectName.trim() === '' ? 'project-name-error' : undefined}
+                onChange={(event) =>
+                  apply(renameProject(event.target.value), { coalesceKey: 'project-name' })
+                }
+              />
+              {file !== null && (
+                <span className="studio-project-file" title={file.displayPath}>
+                  {file.fileName}
+                </span>
+              )}
+            </div>
+            <span role="status" className="studio-save-status">
               {hasUnsavedChanges ? (
                 <>
                   <span className="size-1.5 rounded-full bg-motion" aria-hidden="true" />
@@ -144,7 +172,12 @@ export function TopBar(): ReactElement {
                 </span>
               )}
             </span>
-          </div>
+            {projectName.trim() === '' && (
+              <p id="project-name-error" role="alert" className="studio-project-error">
+                A project needs a name before it can be saved.
+              </p>
+            )}
+          </>
         )}
       </div>
 
@@ -171,7 +204,6 @@ export function TopBar(): ReactElement {
       <ProjectHealthButton />
       <Button
         icon={<PlayIcon size={12} />}
-        className="border border-motion/40 bg-motion-deep/70 text-motion hover:border-motion/70 hover:bg-motion-deep disabled:border-line disabled:bg-transparent disabled:text-line-strong"
         disabled={transition === null || blocked}
         title={
           blocked
@@ -187,10 +219,24 @@ export function TopBar(): ReactElement {
         Preview
       </Button>
       <PresentButton />
-      <span className="mx-1 h-5 w-px bg-line" aria-hidden="true" />
-      <Button compact onClick={() => useQuickStartStore.getState().setOpen(true)}>
-        Getting started
-      </Button>
+      <IconButton
+        label="Getting started"
+        onClick={() => useQuickStartStore.getState().setOpen(true)}
+      >
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.4"
+          aria-hidden="true"
+        >
+          <circle cx="8" cy="8" r="6" />
+          <path d="M6.3 6a1.7 1.7 0 0 1 3.4 0c0 1.4-1.7 1.3-1.7 2.7" strokeLinecap="round" />
+          <circle cx="8" cy="11.3" r=".7" fill="currentColor" stroke="none" />
+        </svg>
+      </IconButton>
       <IconButton
         label="Settings"
         onClick={() => {
