@@ -252,7 +252,7 @@ still pose of the phase, and in forced colours it is hidden; the phase remains
 as text. A finished run stays in the chat, with how it ended and its duration,
 until the next run or another project.
 
-**Open run monitor** opens a larger view of the same run: phase, elapsed time,
+**Run details** opens a larger view of the same run: phase, elapsed time,
 attempt, run id, a timeline of status messages and the streamed text, with a
 Cancel button. It reads the same state as the chat and starts no process and
 no request. It is not an attached terminal: Claude Code runs in print mode

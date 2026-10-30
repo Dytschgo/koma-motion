@@ -92,6 +92,8 @@ test('returning from Brand Kit restores Inspect focus and concise template actio
   await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
   const back = window.getByRole('button', { name: 'Back to Inspector', exact: true });
   await expect(back).toHaveAttribute('title', 'Back to Inspector');
+  await expect(back).toBeInViewport({ ratio: 1 });
+  await capture(window, '02-brand-kit-navigation');
   await back.focus();
   await back.press('Enter');
   await expect(window.getByRole('tab', { name: 'Inspect', exact: true })).toBeFocused();
@@ -115,16 +117,26 @@ test('returning from Brand Kit restores Inspect focus and concise template actio
     settings.getByRole('status').filter({ hasText: 'Template library saved' }),
   ).toBeVisible();
   await settings.getByLabel('Saved instruction template').selectOption({ label: 'Plain' });
+  const refreshTemplates = settings.getByRole('button', { name: 'Refresh templates', exact: true });
+  await refreshTemplates.scrollIntoViewIfNeeded();
+  await expect(refreshTemplates).toBeInViewport({ ratio: 1 });
+  await capture(window, '03-template-refresh');
+  await settings
+    .getByRole('button', { name: 'Rename template', exact: true })
+    .scrollIntoViewIfNeeded();
   for (const action of ['Rename', 'Duplicate', 'Delete']) {
     await expect(
       settings.getByRole('button', { name: `${action} template`, exact: true }),
     ).toHaveText(action);
+    await expect(
+      settings.getByRole('button', { name: `${action} template`, exact: true }),
+    ).toBeInViewport({ ratio: 1 });
   }
   await capture(window, '03-template-actions');
   await openSettingsPage(window, 'Providers');
-  await expect(
-    settings.getByRole('button', { name: 'Refresh providers', exact: true }),
-  ).toBeVisible();
+  const refreshProviders = settings.getByRole('button', { name: 'Refresh providers', exact: true });
+  await refreshProviders.scrollIntoViewIfNeeded();
+  await expect(refreshProviders).toBeInViewport({ ratio: 1 });
   await capture(window, '04-provider-actions');
   expect(running.problems).toEqual([]);
 });

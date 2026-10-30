@@ -64,7 +64,7 @@ choose **Move Koma**. Positions run from 1 to the deck's Koma count. Invalid
 positions and the current position do not change the document. Each move is
 one undo step, preserves the selected Koma's identity, content and hold timing,
 and reconnects motion only where adjacency changes. Existing adjacent pairs
-keep their stored transition IDs and settings. The strip's up/down controls
+keep their stored transition IDs and settings. The menu's up/down actions
 remain available for one-position moves, including during preview. A move that
 changes the previewed pair cancels that preview. Stop transition preview before
 using the overview's direct-position form.
@@ -79,7 +79,7 @@ Holding the pointer near the strip's top or bottom edge scrolls the strip in
 that direction, so a Koma can reach positions that are off screen, including
 in the 1120 x 668 window used by CI.
 
-Dropping applies the same move as the up/down controls and **Move to
+Dropping applies the same move as the menu's up/down actions and **Move to
 position**: one undo step, the same transition handling, and the same
 unsaved-changes state. The dropped Koma becomes the selected Koma. Dropping a
 Koma beside itself, pressing Escape during the drag, or losing the pointer
@@ -87,7 +87,7 @@ changes nothing and records no undo step. A polite live region announces the
 result, for example "Koma 2 moved to position 1." or "Move cancelled.".
 
 Dragging is an addition for pointer users. Keyboard users can also use the
-thumbnail shortcuts, up/down controls or **Move to position**. The deck overview
+thumbnail shortcuts, the Koma action menu or **Move to position**. The deck overview
 does not support dragging, because its results can be filtered and their
 numbers refer to the full deck.
 

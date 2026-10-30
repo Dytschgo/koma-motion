@@ -630,11 +630,13 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
             { label: 'Duplicate Koma', shortcut: '⌘/Ctrl+D', action: () => duplicate(menu.komaId) },
             {
               label: 'Move Koma up',
+              shortcut: '⌘/Ctrl+↑',
               disabled: menuIndex === 0,
               action: () => move(menu.komaId, -1),
             },
             {
               label: 'Move Koma down',
+              shortcut: '⌘/Ctrl+↓',
               disabled: menuIndex === komas.length - 1,
               action: () => move(menu.komaId, 1),
             },

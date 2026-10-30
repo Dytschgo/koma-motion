@@ -209,7 +209,7 @@ export function useInstructionSettings(
       </SettingsCard>
       <SettingsCard
         title="Saved templates"
-        description="Available across projects for this app user. Applying a template copies its text into the open project; later template changes do not change projects."
+        description="Applying a template copies its text into the open project; later template changes do not change projects."
         action={
           <IconButton label="Refresh templates" disabled={busy} onClick={() => void load()}>
             <RefreshIcon />
