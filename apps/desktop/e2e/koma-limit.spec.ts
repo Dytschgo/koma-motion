@@ -1,3 +1,4 @@
+import { chooseKomaAction } from './komaControls';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { komaProjectSchema } from '@koma-motion/core';
@@ -52,7 +53,7 @@ for (const count of [250, 1000]) {
     await add.click();
     await expect(komas).toHaveCount(count + 1);
     timings.copyMs = performance.now() - started;
-    await window.getByRole('button', { name: 'Move Koma up', exact: true }).click();
+    await chooseKomaAction(window, 'Move Koma up');
     await expect(komas.nth(count - 1)).toHaveAttribute('aria-current', 'true');
     await window.getByRole('button', { name: 'Undo', exact: true }).click();
     await window.getByRole('button', { name: 'Undo', exact: true }).click();

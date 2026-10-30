@@ -40,7 +40,7 @@ test('authors a blank Koma without generation, selects each object, and saves/re
   ).toBeVisible();
   await window.getByLabel('Primary colour').fill('#123456');
   await window.getByLabel('Body font').fill('Georgia');
-  await window.getByRole('button', { name: 'Close panel', exact: true }).click();
+  await window.getByRole('button', { name: 'Back to Inspector', exact: true }).click();
 
   for (const [index, kind] of ['text', 'rectangle', 'circle', 'line'].entries()) {
     await window.getByLabel('Element to add').selectOption(kind);

@@ -5,7 +5,7 @@ import { selectSavedKits, useBrandKitLibraryStore } from '../state/brandKitLibra
 import { useUiStore, type BrandKitTab } from '../state/uiStore';
 import { BrandKitEditor } from './BrandKitEditor';
 import { BrandKitLibraryView } from './BrandKitLibrary';
-import { CloseIcon } from './icons';
+import { ChevronIcon } from './icons';
 import { IconButton, SEGMENT_TRACK, segmentClass } from './ui';
 
 const TABS: readonly { readonly id: BrandKitTab; readonly label: string }[] = [
@@ -50,12 +50,17 @@ export function BrandKitPanel({
       <div className="flex h-11 flex-none items-center justify-between gap-2 border-b border-line pr-1.5 pl-3.5">
         <h2 className="text-base font-semibold">Brand Kit</h2>
         <IconButton
-          label="Close panel"
+          label="Back to Inspector"
           onClick={() => {
             setView('canvas');
+            requestAnimationFrame(() => {
+              document
+                .querySelector<HTMLButtonElement>('[role="tab"][aria-label="Inspect"]')
+                ?.focus();
+            });
           }}
         >
-          <CloseIcon />
+          <ChevronIcon direction="left" />
         </IconButton>
       </div>
 

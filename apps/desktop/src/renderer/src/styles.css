@@ -1005,10 +1005,13 @@
 }
 .koma-pane-actions {
   display: flex;
-  justify-content: flex-end;
+  align-items: center;
   gap: 0.25rem;
 }
-.koma-pane-actions button {
+.koma-pane-actions > [data-koma-add] {
+  flex: 1;
+}
+.koma-pane-actions > button:not([data-koma-add]) {
   inline-size: 2rem;
   block-size: 2rem;
 }

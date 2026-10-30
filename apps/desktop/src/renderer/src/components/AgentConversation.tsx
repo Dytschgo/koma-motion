@@ -30,8 +30,11 @@ function KeptOutput({
 }): ReactElement {
   return (
     <details className="mt-2 text-sm">
-      <summary className="cursor-pointer text-ink-400 hover:text-ink-100">
-        What {name} wrote
+      <summary
+        aria-label={`${name} output`}
+        className="cursor-pointer text-ink-400 hover:text-ink-100"
+      >
+        Output
       </summary>
       <p className="mt-1 border-l-2 border-line-strong pl-3 leading-relaxed whitespace-pre-wrap text-ink-300">
         {text}
@@ -293,13 +296,7 @@ export function AgentConversation({
               <h3>
                 {hasKomas ? 'What would you like to change?' : 'What would you like to present?'}
               </h3>
-              {!hasKomas && (
-                <p>
-                  {selectedId === 'mock'
-                    ? 'Try the three-Koma demo.'
-                    : 'Describe your idea. Build the story together.'}
-                </p>
-              )}
+              {!hasKomas && selectedId === 'mock' && <p>Try the three-Koma demo.</p>}
               <Button
                 variant="quiet"
                 className="chat-example"

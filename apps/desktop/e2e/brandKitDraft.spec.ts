@@ -107,7 +107,7 @@ test('keeps an invalid colour without dropping the other Brand Kit edits', async
     'Acme Corp',
   );
 
-  await window.getByRole('button', { name: 'Close panel' }).click();
+  await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(window.getByRole('region', { name: 'Canvas' })).toBeVisible();
   await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
 

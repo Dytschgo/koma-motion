@@ -1,3 +1,4 @@
+import { chooseKomaAction } from './komaControls';
 import { expect, test, type Locator, type Page } from '@playwright/test';
 import { launchApplication, type RunningApplication } from './application';
 import { selectProvider, modelTrigger } from './composerControls';
@@ -133,14 +134,14 @@ test('resets the preview when the pair is moved or deleted', async () => {
     'Preview of the transition from One connected system to The motion engine',
   );
 
-  await window.getByRole('button', { name: 'Move Koma down' }).click();
+  await chooseKomaAction(window, 'Move Koma down');
   await expect(stage()).toHaveAttribute('aria-label', 'Koma 2: One connected system');
   await expect(stage()).not.toHaveAttribute('aria-label', /Preview of the transition/);
   await expect(positionSlider(window)).toHaveAttribute('aria-valuetext', '0 percent');
 
   await setPosition(window, 50);
   await expect(stage()).toHaveAttribute('aria-label', /Preview of the transition/);
-  await window.getByRole('button', { name: 'Delete Koma', exact: true }).click();
+  await chooseKomaAction(window, 'Delete Koma');
   await window.getByRole('dialog').getByRole('button', { name: 'Delete Koma' }).click();
   await expect(stage()).not.toHaveAttribute('aria-label', /Preview of the transition/);
   await expect(positionSlider(window)).toHaveAttribute('aria-valuetext', '0 percent');

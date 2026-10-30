@@ -30,7 +30,7 @@ test('streams what the provider writes into the chat and keeps it with the resul
 
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
   await expect(output).toHaveCount(0);
-  const kept = window.getByText('What Mock provider wrote');
+  const kept = window.getByLabel('Mock provider output', { exact: true });
   await kept.click();
   await expect(
     window.getByRole('log', { name: 'Conversation' }).getByText(/It outlines three Komas/),

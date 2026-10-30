@@ -328,7 +328,7 @@ test('keeps the canvas controls usable beside the Brand Kit at the minimum width
   // Choosing another Koma keeps the Brand Kit open; closing it brings the inspector back.
   await window.getByRole('button', { name: /^Koma 2:/ }).click();
   await expect(panel).toBeVisible();
-  await window.getByRole('button', { name: 'Close panel' }).click();
+  await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(panel).toHaveCount(0);
   // Closing Brand Kit returns to properties in the shared dock.
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();

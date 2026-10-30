@@ -153,7 +153,7 @@ export function ModelPicker({
               }}
             />
             <Button variant="outline" compact disabled={parsed?.ok !== true} onClick={applyCustom}>
-              Use
+              Use model
             </Button>
           </div>
           {custom !== '' && parsed?.ok === false && (

@@ -23,7 +23,8 @@ On macOS, Command + M keeps its native Minimize action; use Control + M to add.
 Right-click a thumbnail, press Shift+F10, or use **Koma actions** in the footer
 for the same insert, duplicate, move and delete actions. Arrow keys navigate
 that menu; Escape closes it and returns focus. Each document action is undoable.
-The footer also keeps the move, delete, Add Koma and Brand Kit controls visible.
+The footer keeps **Add Koma**, **Koma actions** and **Brand Kit** visible. Move
+and delete use the menu or thumbnail shortcuts rather than a duplicate button row.
 
 **Show Koma details** restores thumbnail titles and the transition timing and
 preview rows between Komas. Motion warnings and their recovery actions remain
@@ -93,7 +94,7 @@ numbers refer to the full deck.
 The native regression (`e2e/komaDrag.spec.ts`) runs in the small window. It
 drags a Koma upwards, checks the indicator, order, selection, announcement and
 unsaved state, undoes and redoes, cancels with Escape, drops in place, holds a
-drag at the strip's edge until it scrolls, mixes a drag with the move buttons,
+drag at the strip's edge until it scrolls, mixes a drag with menu move actions,
 and saves. Pure tests cover the gap and offset geometry, edge scrolling and
 announcements, and check that a drop matches the equivalent position move.
 

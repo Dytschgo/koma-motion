@@ -63,7 +63,7 @@ test('saves project instructions and reuses app templates with undo and redo', a
   await expect(
     window.getByText('No saved templates yet. Save your first template below.'),
   ).toBeVisible();
-  await window.getByRole('button', { name: 'Copy project text into template draft' }).click();
+  await window.getByRole('button', { name: 'Use project instructions' }).click();
   await window.getByLabel('New template name').fill('Technical');
   await window.getByRole('button', { name: 'Save new template' }).click();
   await expect(
@@ -185,7 +185,7 @@ test('retains invalid drafts and failed template and project saves', async () =>
     'Keep this template draft',
   );
   await rm(templatePath, { recursive: true });
-  await window.getByRole('button', { name: 'Reload templates' }).click();
+  await window.getByRole('button', { name: 'Refresh templates' }).click();
   await window.getByRole('button', { name: 'Save new template' }).click();
   await expect(
     window.getByRole('status').filter({ hasText: 'Template library saved' }),

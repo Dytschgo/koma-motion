@@ -26,15 +26,7 @@ import { addKomaAfter } from '../lib/projectActions';
 import { deleteKoma, duplicateKomaInProject, reorderKoma } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
-import {
-  ChevronIcon,
-  DownIcon,
-  PlusIcon,
-  SettingsIcon,
-  TrashIcon,
-  UpIcon,
-  WarningIcon,
-} from './icons';
+import { ChevronIcon, PlusIcon, SettingsIcon, WarningIcon } from './icons';
 import { TransitionStripStatus } from './TransitionStripStatus';
 import { DeckOverview } from './DeckOverview';
 import { Button, IconButton } from './ui';
@@ -564,33 +556,16 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
 
         <div ref={footer} className="koma-pane-footer">
           <div className="koma-pane-actions">
-            <IconButton
-              label="Move Koma up"
-              disabled={selectedIndex <= 0}
+            <Button
+              data-koma-add=""
+              variant="outline"
+              icon={<PlusIcon size={14} />}
               onClick={() => {
-                if (selectedId !== undefined) move(selectedId, -1);
+                add(selectedKoma?.id ?? null);
               }}
             >
-              <UpIcon size={14} />
-            </IconButton>
-            <IconButton
-              label="Move Koma down"
-              disabled={selectedIndex < 0 || selectedIndex === komas.length - 1}
-              onClick={() => {
-                if (selectedId !== undefined) move(selectedId, 1);
-              }}
-            >
-              <DownIcon size={14} />
-            </IconButton>
-            <IconButton
-              label="Delete Koma"
-              disabled={selectedId === undefined}
-              onClick={() => {
-                if (selectedId !== undefined) void remove(selectedId);
-              }}
-            >
-              <TrashIcon size={14} />
-            </IconButton>
+              Add Koma
+            </Button>
             <IconButton
               label="Koma actions"
               disabled={selectedId === undefined}
@@ -603,7 +578,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
                   komaId: selectedId,
                   x: rect.x,
                   y: rect.y,
-                  source: buttons.current.get(selectedId) ?? event.currentTarget,
+                  source: event.currentTarget,
                 });
               }}
             >
@@ -614,16 +589,6 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
               </svg>
             </IconButton>
           </div>
-          <Button
-            data-koma-add=""
-            variant="outline"
-            icon={<PlusIcon size={14} />}
-            onClick={() => {
-              add(selectedKoma?.id ?? null);
-            }}
-          >
-            Add Koma
-          </Button>
           <Button
             aria-pressed={brandKitVisible}
             active={brandKitVisible}

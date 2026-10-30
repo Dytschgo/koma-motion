@@ -176,7 +176,7 @@ function ProvidersPage({
           disabled={detection === 'running' || running}
           onClick={() => void detectProviders()}
         >
-          Check again
+          Refresh providers
         </Button>
       }
     >

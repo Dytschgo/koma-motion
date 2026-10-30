@@ -166,7 +166,7 @@ export function StudioDock({
                 )}
               </IconButton>
               <IconButton
-                label="Check again"
+                label="Refresh providers"
                 disabled={detection === 'running' || running}
                 onClick={() => void detectProviders()}
               >

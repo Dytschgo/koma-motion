@@ -54,7 +54,7 @@ for (const size of SIZES) {
     await window.getByRole('button', { name: 'Generate Komas' }).click();
     await expect(window.getByRole('button', { name: 'Cancel' })).toBeVisible();
     await shot('03-generating');
-    await window.getByRole('button', { name: 'Open run monitor' }).click();
+    await window.getByRole('button', { name: 'Run details' }).click();
     await shot('03b-run-monitor');
     await window.keyboard.press('Escape');
     await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
@@ -69,7 +69,7 @@ for (const size of SIZES) {
 
     await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
     await shot('08-brand-kit');
-    await window.getByRole('button', { name: 'Close panel' }).click();
+    await window.getByRole('button', { name: 'Back to Inspector' }).click();
 
     await openSettingsPage(window, 'Generation');
     await shot('09-settings-generation');

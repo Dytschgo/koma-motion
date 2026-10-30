@@ -228,7 +228,7 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   const custom = models.getByLabel('Model id', { exact: true });
   await custom.fill('two words');
   await expect(models.getByRole('alert')).toContainText('without spaces');
-  await expect(models.getByRole('button', { name: 'Use' })).toBeDisabled();
+  await expect(models.getByRole('button', { name: 'Use model', exact: true })).toBeDisabled();
   await custom.press('Enter');
   await expect(modelTrigger(window)).toHaveAttribute('aria-description', 'Next run uses opus');
   await custom.fill('claude-opus-5-5[1m]');

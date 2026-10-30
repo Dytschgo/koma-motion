@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type Locator } from '@playwright/test';
 import { buildNavigationProject } from '../src/renderer/src/lib/deckNavigation.fixture';
+import { chooseKomaAction } from './komaControls';
 import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
 
 let running: RunningApplication;
@@ -148,15 +149,14 @@ test('reorders Komas by dragging in a small window, with undo, Escape, auto-scro
   expect(await stripTitles(4)).toEqual(original);
   await expect(redo).toBeEnabled();
 
-  // Drag again, then the move buttons keep working alongside dragging.
+  // Drag again, then the menu move action keeps working alongside dragging.
   await dragKoma2Up();
   await mouse.up();
   expect(await stripTitles(4)).toEqual(koma2First);
   await expect(redo).toBeDisabled();
-  const moveDown = window.getByRole('button', { name: 'Move Koma down', exact: true });
-  await moveDown.click();
+  await chooseKomaAction(window, 'Move Koma down');
   expect(await stripTitles(4)).toEqual(original);
-  await moveDown.click();
+  await chooseKomaAction(window, 'Move Koma down');
   expect(await stripTitles(4)).toEqual(['Chapter 1', 'Chapter 3', 'Chapter 2', 'Chapter 4']);
   await undo.click();
   await undo.click();

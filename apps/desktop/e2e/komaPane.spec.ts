@@ -182,7 +182,7 @@ test('returns focus after cancelling deletion, leaving the menu, and deleting th
   await window.keyboard.press('Tab');
   await expect(window.getByRole('menu', { name: 'Koma actions' })).toBeHidden();
   // Tab continues from the thumbnail into the next enabled footer action.
-  await expect(window.getByRole('button', { name: 'Delete Koma', exact: true })).toBeFocused();
+  await expect(window.getByRole('button', { name: 'Add Koma', exact: true })).toBeFocused();
   await thumbnail(1, 'One').focus();
   await window.keyboard.press('Delete');
   await window

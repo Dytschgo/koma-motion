@@ -200,7 +200,7 @@ test('shares the dock with Brand Kit in narrow and wide windows, preserving its 
     await brandKit.click();
     await expect(brandKitName).toBeVisible();
     await expect(brandKit).toHaveAttribute('aria-pressed', 'true');
-    await window.getByRole('button', { name: 'Close panel' }).click();
+    await window.getByRole('button', { name: 'Back to Inspector' }).click();
     await expect(
       window.getByRole('complementary', { name: 'Inspector', exact: true }),
     ).toBeVisible();

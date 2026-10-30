@@ -15,7 +15,8 @@ import { useProjectStore } from '../state/projectStore';
 import { useUiStore } from '../state/uiStore';
 import { formatSeconds } from '../lib/selectors';
 import { KomaThumbnail } from './KomaThumbnail';
-import { Button, Field, ModalFrame, TextInput } from './ui';
+import { Button, Field, IconButton, ModalFrame, TextInput } from './ui';
+import { CloseIcon } from './icons';
 
 function OverviewContent({
   project,
@@ -88,7 +89,9 @@ function OverviewContent({
         <p id={resultId} role="status" className="text-sm text-ink-400">
           {results.length} of {komas.length} Komas
         </p>
-        <Button onClick={onClose}>Close overview</Button>
+        <IconButton label="Close overview" onClick={onClose}>
+          <CloseIcon />
+        </IconButton>
       </header>
       <div className="deck-overview-search">
         <Field label="Find a Koma" hint="Number, title or purpose · ↑ ↓ to browse · Enter to open">

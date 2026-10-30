@@ -16,7 +16,8 @@ import { changeSystemInstructions } from '../state/commands';
 import { useUiStore } from '../state/uiStore';
 import { StarterList } from './Starters';
 import { useProjectStore } from '../state/projectStore';
-import { Button, Field, Select, SettingsCard, TextArea, TextInput } from './ui';
+import { Button, Field, IconButton, Select, SettingsCard, TextArea, TextInput } from './ui';
+import { RefreshIcon } from './icons';
 
 const LIMIT_HINT = `Up to ${String(MAX_SYSTEM_INSTRUCTIONS_LENGTH)} characters. Text is never shortened automatically.`;
 
@@ -210,9 +211,9 @@ export function useInstructionSettings(
         title="Saved templates"
         description="Available across projects for this app user. Applying a template copies its text into the open project; later template changes do not change projects."
         action={
-          <Button variant="outline" compact disabled={busy} onClick={() => void load()}>
-            Reload templates
-          </Button>
+          <IconButton label="Refresh templates" disabled={busy} onClick={() => void load()}>
+            <RefreshIcon />
+          </IconButton>
         }
       >
         {templates === null ? (
@@ -285,13 +286,15 @@ export function useInstructionSettings(
                   </Button>
                   <Button
                     variant="outline"
+                    aria-label="Rename template"
                     disabled={busy || !templateNameSchema.safeParse(rename).success}
                     onClick={() => void change({ action: 'rename', id: selected.id, name: rename })}
                   >
-                    Rename template
+                    Rename
                   </Button>
                   <Button
                     variant="outline"
+                    aria-label="Duplicate template"
                     disabled={
                       busy ||
                       templates.length >= MAX_INSTRUCTION_TEMPLATES ||
@@ -301,14 +304,15 @@ export function useInstructionSettings(
                       void change({ action: 'duplicate', id: selected.id, name: rename })
                     }
                   >
-                    Duplicate template
+                    Duplicate
                   </Button>
                   <Button
                     variant="outline"
+                    aria-label="Delete template"
                     disabled={busy}
                     onClick={() => void change({ action: 'delete', id: selected.id })}
                   >
-                    Delete template
+                    Delete
                   </Button>
                 </div>
                 <p className="text-sm text-ink-400">
@@ -356,10 +360,11 @@ export function useInstructionSettings(
           <div className="flex flex-wrap gap-2">
             <Button
               variant="outline"
+              title="Fill this draft with the project's instructions"
               disabled={project === null || busy}
               onClick={() => setInstructions(text)}
             >
-              Copy project text into template draft
+              Use project instructions
             </Button>
             <Button
               variant="primary"

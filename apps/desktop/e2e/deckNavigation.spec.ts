@@ -5,6 +5,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { recordInputEvidence } from './inputEvidence';
+import { openKomaActions } from './komaControls';
 import { buildNavigationProject } from '../src/renderer/src/lib/deckNavigation.fixture';
 import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
 
@@ -137,17 +138,27 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await window
     .getByRole('button', { name: 'Preview the transition from Koma 19 to Koma 20', exact: true })
     .click();
-  await expect(window.getByRole('button', { name: 'Move Koma up', exact: true })).toBeEnabled();
-  await expect(window.getByRole('button', { name: 'Move Koma down', exact: true })).toBeEnabled();
+  const duringPreview = await openKomaActions(window);
+  await expect(
+    duringPreview.getByRole('menuitem', { name: 'Move Koma up', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    duringPreview.getByRole('menuitem', { name: 'Move Koma down', exact: true }),
+  ).toBeEnabled();
+  await window.keyboard.press('Escape');
   dialog = await overview();
   await expect(dialog.getByLabel('Move to position')).toBeDisabled();
   await expect(dialog.getByRole('button', { name: 'Move Koma', exact: true })).toBeDisabled();
   await expect(dialog.getByText('Stop the preview before moving a Koma.')).toBeVisible();
   await dialog.getByLabel('Find a Koma').press('Escape');
   await window.getByRole('button', { name: 'Stop preview', exact: true }).click();
-  await expect(window.getByRole('button', { name: 'Move Koma up', exact: true })).toBeEnabled();
-  await expect(window.getByRole('button', { name: 'Move Koma down', exact: true })).toBeEnabled();
-  await expect(window.getByRole('button', { name: 'Delete Koma', exact: true })).toBeEnabled();
+  const actions = await openKomaActions(window);
+  await expect(actions.getByRole('menuitem', { name: 'Move Koma up', exact: true })).toBeEnabled();
+  await expect(
+    actions.getByRole('menuitem', { name: 'Move Koma down', exact: true }),
+  ).toBeEnabled();
+  await expect(actions.getByRole('menuitem', { name: 'Delete Koma', exact: true })).toBeEnabled();
+  await window.keyboard.press('Escape');
   await expect(window.getByRole('button', { name: 'Add Koma', exact: true })).toBeEnabled();
   await window.screenshot({
     path: test.info().outputPath('narrow-deck-selection.png'),

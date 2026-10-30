@@ -209,7 +209,7 @@ export function RunActivity({
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Button variant="outline" compact onClick={onOpenMonitor}>
-              Open run monitor
+              Run details
             </Button>
             {latest?.phase !== 'succeeded' && (
               <Button

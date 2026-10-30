@@ -344,12 +344,10 @@ export function Workspace({
                   <span aria-hidden="true" className="working-dot size-2 rounded-full bg-motion" />
                   Drawing your Komas
                 </p>
-                <p className="mt-2 text-ink-300">They appear here when the agent is done.</p>
               </>
             ) : (
               <>
                 <p className="text-xl font-semibold tracking-tight">Start your presentation</p>
-                <p className="mt-2 text-ink-300">Describe it in the chat, or add a Koma.</p>
                 <Button
                   variant="outline"
                   className="mt-4"

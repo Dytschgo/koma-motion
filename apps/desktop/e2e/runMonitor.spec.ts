@@ -29,7 +29,7 @@ test('follows the observed phases and opens a monitor of the same run', async ()
   await expect(sprite).toHaveAttribute('data-animated', '');
   await expect(activity(window).getByRole('status')).toContainText('Generating');
 
-  const opener = window.getByRole('button', { name: 'Open run monitor' });
+  const opener = window.getByRole('button', { name: 'Run details' });
   await opener.click();
   const monitor = window.getByRole('dialog', { name: 'Run monitor' });
   await expect(monitor).toBeVisible();
@@ -128,7 +128,7 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
 
 test('cancels from the monitor and shows the stopped run', async () => {
   const window = await start({ KOMA_MOCK_DELAY_MS: '8000' });
-  await window.getByRole('button', { name: 'Open run monitor' }).click();
+  await window.getByRole('button', { name: 'Run details' }).click();
   const monitor = window.getByRole('dialog', { name: 'Run monitor' });
   await monitor.getByRole('button', { name: 'Cancel run' }).click();
   await expect(monitor).toContainText('Stopped');

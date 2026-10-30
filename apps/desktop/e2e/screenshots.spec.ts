@@ -77,7 +77,7 @@ test('documentation screenshots', async () => {
       await dismiss.first().click();
     }
     await capture('brand-kit-library');
-    await window.getByRole('button', { name: 'Close panel' }).click();
+    await window.getByRole('button', { name: 'Back to Inspector' }).click();
 
     await openSettingsPage(window, 'Updates');
     await expect(window.getByRole('region', { name: 'App updates' })).toBeVisible();

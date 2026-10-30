@@ -1,3 +1,4 @@
+import { chooseKomaAction } from './komaControls';
 import { CURRENT_SCHEMA_VERSION, MAX_PROJECT_ASSETS, type ImageElement } from '@koma-motion/core';
 import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
 import { serialiseProject } from '@koma-motion/project-format';
@@ -97,7 +98,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     await window.getByLabel('Accent colour').fill('#FFC914');
     await expect(window.getByText(/not a valid hex colour/)).toHaveCount(0);
 
-    await window.getByRole('button', { name: 'Close panel' }).click();
+    await window.getByRole('button', { name: 'Back to Inspector' }).click();
   });
 
   await test.step('select the mock provider', async () => {
@@ -277,14 +278,14 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
   });
 
   await test.step('move and delete', async () => {
-    await window.getByRole('button', { name: 'Move Koma down' }).click();
+    await chooseKomaAction(window, 'Move Koma down');
     expect((await titles())[2]).toBe('Koma 3: Koma 4');
 
-    await window.getByRole('button', { name: 'Delete Koma' }).click();
+    await chooseKomaAction(window, 'Delete Koma');
     await window.getByRole('button', { name: 'Keep Koma' }).click();
     await expect(komas).toHaveCount(4);
 
-    await window.getByRole('button', { name: 'Delete Koma', exact: true }).click();
+    await chooseKomaAction(window, 'Delete Koma');
     await window.getByRole('dialog').getByRole('button', { name: 'Delete Koma' }).click();
     await expect(komas).toHaveCount(3);
   });
@@ -443,12 +444,12 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
   await answerOpenDialog(application, replacementPath);
   await window.getByRole('button', { name: 'Replace the logo' }).click();
   await expect(window.getByText('replacement.png')).toBeVisible();
-  await window.getByRole('button', { name: 'Close panel' }).click();
+  await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
   await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
   await window.getByRole('button', { name: 'Remove the logo' }).click();
-  await window.getByRole('button', { name: 'Close panel' }).click();
+  await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
   await window.getByRole('button', { name: 'Save', exact: true }).click();
@@ -499,7 +500,7 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
   while ((await dismissNotices.count()) > 0) {
     await dismissNotices.first().click();
   }
-  await window.getByRole('button', { name: 'Close panel' }).click();
+  await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
   await expect(window.getByText('All changes saved')).toBeVisible();
   expect(await readFile(fullPath, 'utf8')).toBe(fullText.value);
