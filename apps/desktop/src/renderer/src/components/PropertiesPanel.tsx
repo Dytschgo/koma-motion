@@ -5,6 +5,7 @@ import { CloseIcon } from './icons';
 import { BrandKitPanel } from './BrandKitPanel';
 import { Inspector } from './Inspector';
 import { IconButton } from './ui';
+import { isNestedEscape } from './Menu';
 
 function PinIcon({ pinned }: { readonly pinned: boolean }): ReactElement {
   return (
@@ -92,7 +93,12 @@ export function PropertiesPanel({ project }: { readonly project: KomaProject }):
       className="properties-panel"
       onKeyDown={(event) => {
         // A floating panel closes with Escape; a pinned one stays beside the canvas.
-        if (event.key === 'Escape' && !pinned && !event.defaultPrevented) {
+        if (
+          event.key === 'Escape' &&
+          !pinned &&
+          !event.defaultPrevented &&
+          !isNestedEscape(event.target)
+        ) {
           event.preventDefault();
           close();
           opener.current?.focus();

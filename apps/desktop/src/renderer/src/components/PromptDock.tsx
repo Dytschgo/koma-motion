@@ -10,6 +10,7 @@ import { AgentConversation } from './AgentConversation';
 import { AgentComposer } from './AgentComposer';
 import { CloseIcon, WarningIcon } from './icons';
 import { Button, IconButton } from './ui';
+import { isNestedEscape } from './Menu';
 
 /**
  * The one way to ask for changes: a floating prompt above the filmstrip.
@@ -77,7 +78,7 @@ export function PromptDock({ project }: { readonly project: KomaProject }): Reac
         hidden={!chatOpen}
         className="prompt-sheet"
         onKeyDown={(event) => {
-          if (event.key === 'Escape' && !event.defaultPrevented) {
+          if (event.key === 'Escape' && !event.defaultPrevented && !isNestedEscape(event.target)) {
             event.preventDefault();
             collapse();
           }

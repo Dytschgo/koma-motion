@@ -35,6 +35,7 @@ import { useTransitionRegenerationStore } from '../state/transitionRegenerationS
 import { useUiStore } from '../state/uiStore';
 import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
 import { ElementToolbar } from './ElementToolbar';
+import { isNestedEscape } from './Menu';
 import { TransitionStripStatus } from './TransitionStripStatus';
 import { Button, IconButton, NumberInput } from './ui';
 
@@ -339,7 +340,11 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           tabIndex={-1}
           className="studio-transport"
           onKeyDown={(event) => {
-            if (event.key === 'Escape' && !event.defaultPrevented) {
+            if (
+              event.key === 'Escape' &&
+              !event.defaultPrevented &&
+              !isNestedEscape(event.target)
+            ) {
               event.preventDefault();
               setMotionEditing(false);
             }

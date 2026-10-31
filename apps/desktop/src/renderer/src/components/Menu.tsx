@@ -26,6 +26,17 @@ export interface MenuItem {
   readonly action: () => void;
 }
 
+/**
+ * Whether an Escape key press belongs to something nested inside a panel,
+ * such as a dialog, menu or popup, which handles Escape itself.
+ */
+export function isNestedEscape(target: EventTarget | null): boolean {
+  return (
+    target instanceof Element &&
+    target.closest('dialog, [role="dialog"], [role="menu"], [role="listbox"], select') !== null
+  );
+}
+
 /** Keeps a floating surface inside the window, below or above its anchor. */
 export function placeBeside(
   anchor: DOMRect,
