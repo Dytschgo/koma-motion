@@ -6,7 +6,7 @@ import { isRecheckCommand, prepareRecheck, repairProjectMotion } from './recheck
 import { collectHealthIssues } from './projectHealth';
 import { DEFAULT_KOMA_COUNT, parseKomaCount } from './composerChoices';
 import { useAgentStore } from '../state/agentStore';
-import { useProjectStore } from '../state/projectStore';
+import { selectProject, useProjectStore } from '../state/projectStore';
 import { useReferenceStore } from '../state/referenceStore';
 import { useUiStore } from '../state/uiStore';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
@@ -115,8 +115,8 @@ export function useComposerDraft(project: KomaProject) {
     if (isRecheckCommand(text)) {
       if (lastFailure === undefined) {
         if (running || proposal !== null || brandBusy) return;
-        const repaired = repairProjectMotion(project);
         useProjectStore.getState().apply(repairProjectMotion);
+        const repaired = selectProject(useProjectStore.getState()) ?? project;
         const remaining = collectHealthIssues(repaired, [], null).filter(
           (issue) => issue.severity !== 'info',
         );

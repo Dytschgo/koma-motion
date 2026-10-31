@@ -1,19 +1,32 @@
 import type { GenerationInput } from '@koma-motion/agent-runtime';
 import type { KomaProject } from '@koma-motion/core';
 import { validateTransition } from '@koma-motion/motion-engine';
-import { canRecalculateTransition, recalculateTransition } from '../state/commands';
+import {
+  canRecalculateTransition,
+  recalculateTransition,
+  type ProjectCommand,
+} from '../state/commands';
+
+export function hasRepairableMotion(project: KomaProject): boolean {
+  return project.presentation.transitions.some(
+    (transition) =>
+      validateTransition(transition, project.presentation).some(
+        (issue) => issue.code !== 'unsupportedOperation',
+      ) && canRecalculateTransition(project.presentation, transition.id),
+  );
+}
 
 /** Repair only invalid motion that can be rebuilt from the current Komas. One undo step. */
-export function repairProjectMotion(project: KomaProject): KomaProject {
+export const repairProjectMotion: ProjectCommand = (project, idGenerator) => {
   return project.presentation.transitions.reduce((current, transition) => {
     const blocking = validateTransition(transition, current.presentation).some(
       (issue) => issue.code !== 'unsupportedOperation',
     );
     return blocking && canRecalculateTransition(current.presentation, transition.id)
-      ? recalculateTransition(transition.id)(current)
+      ? recalculateTransition(transition.id)(current, idGenerator)
       : current;
   }, project);
-}
+};
 
 export function isRecheckCommand(text: string): boolean {
   return /^\/?recheck[.!]?$/i.test(text.trim());
@@ -23,7 +36,7 @@ export function isRecheckCommand(text: string): boolean {
 export function prepareRecheck(
   input: GenerationInput,
   project: KomaProject,
-  references: GenerationInput['references'],
+  references: Readonly<GenerationInput['references']>,
 ): GenerationInput | null {
   if (
     input.targetKomaId !== undefined &&

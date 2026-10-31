@@ -69,18 +69,19 @@ describe('Recheck', () => {
     const transition = presentation.transitions[0];
     if (transition === undefined) throw new Error('Missing fixture motion');
     const original = buildProject({ presentation });
-    expect(repairProjectMotion(original)).toBe(original);
+    const ids = createSeededIdGenerator('motion-repair');
+    expect(repairProjectMotion(original, ids)).toBe(original);
     const broken = {
       ...original,
       presentation: { ...presentation, transitions: [{ ...transition, elementTransitions: [] }] },
     };
-    const repaired = repairProjectMotion(broken);
+    const repaired = repairProjectMotion(broken, ids);
     expect(repaired.presentation.komas).toBe(broken.presentation.komas);
     expect(repaired.presentation.transitions[0]?.duration).toBe(transition.duration);
     expect(
       validateTransition(repaired.presentation.transitions[0]!, repaired.presentation),
     ).toEqual([]);
     expect(broken.presentation.transitions[0]?.elementTransitions).toEqual([]);
-    expect(repairProjectMotion(repaired)).toBe(repaired);
+    expect(repairProjectMotion(repaired, ids)).toBe(repaired);
   });
 });

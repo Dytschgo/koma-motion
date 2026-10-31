@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { repairAsset, repairIsLocked, type RepairResult } from '../lib/assetRepairs';
 import { collectHealthIssues, type HealthIssue } from '../lib/projectHealth';
-import { repairProjectMotion } from '../lib/recheck';
+import { hasRepairableMotion, repairProjectMotion } from '../lib/recheck';
 import { openProject, saveProject, saveProjectCopy } from '../lib/projectActions';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { useHealthStore } from '../state/healthStore';
@@ -69,7 +69,7 @@ function HealthContents(): ReactElement {
   const resolved = Object.entries(feedback).filter(
     ([id, result]) => result.status === 'fixed' && !issues.some((issue) => issue.id === id),
   );
-  const canFixMotion = project !== null && repairProjectMotion(project) !== project;
+  const canFixMotion = project !== null && hasRepairableMotion(project);
 
   function row(issue: HealthIssue): ReactElement {
     const locked =
