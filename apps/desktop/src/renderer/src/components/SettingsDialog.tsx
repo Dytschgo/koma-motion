@@ -14,7 +14,6 @@ import {
   SETTINGS_PAGES,
   SETTINGS_SCOPES,
   type SettingsPageId,
-  type SettingsScope,
 } from '../lib/settingsPages';
 import { useAgentStore, type DetectedProvider } from '../state/agentStore';
 import { changeAgentConfiguration } from '../state/commands';
@@ -46,7 +45,6 @@ import {
   Switch,
   choiceRowClass,
 } from './ui';
-import { ModelPicker } from './ModelPicker';
 import { ProviderLogo } from './ProviderLogo';
 import { UpdateControl } from './UpdateControl';
 
@@ -63,25 +61,12 @@ const PAGE_ICONS: Readonly<Record<SettingsPageId, (props: { size?: number }) => 
   about: InfoIcon,
 };
 
-function ScopeBadge({ scope }: { readonly scope: SettingsScope }): ReactElement {
-  return (
-    <Badge tone={scope === 'project' ? 'accent' : 'neutral'}>{SETTINGS_SCOPES[scope].badge}</Badge>
-  );
-}
-
-function GenerationPage({
-  project,
-  providers,
-}: {
-  readonly project: KomaProject | null;
-  readonly providers: readonly DetectedProvider[];
-}): ReactElement {
+function GenerationPage({ project }: { readonly project: KomaProject | null }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
   if (project === null) {
     return <NoProject />;
   }
   const { timeoutSeconds } = project.agentConfiguration;
-  const selectable = providers.filter((provider) => provider.metadata.supportsModelSelection);
   return (
     <div className="flex flex-col gap-4">
       <SettingsCard title="Time limit">
@@ -108,7 +93,7 @@ function GenerationPage({
           <div className="border-t border-line pt-3">
             <Field
               label="Time limit in seconds"
-              hint={`Between ${String(MIN_AGENT_TIMEOUT_SECONDS)} seconds and about 24 days. Turn the limit off for runs of any duration.`}
+              hint={`Turn the limit off to let generation finish in its own time.`}
             >
               {(ids) => (
                 <NumberInput
@@ -134,24 +119,10 @@ function GenerationPage({
         )}
       </SettingsCard>
 
-      <SettingsCard
-        title="Models"
-        description="The model each provider uses for this project. The chat composer shows the same choice."
-      >
-        {selectable.length === 0 ? (
-          <p className="text-ink-400">Checking which providers can choose a model…</p>
-        ) : (
-          <div className="flex flex-col gap-5 divide-y divide-line [&>*:not(:first-child)]:pt-5">
-            {selectable.map((provider) => (
-              <ModelPicker
-                key={provider.metadata.id}
-                project={project}
-                provider={provider}
-                label={`Model for ${provider.metadata.displayName}`}
-              />
-            ))}
-          </div>
-        )}
+      <SettingsCard title="Model">
+        <Button variant="outline" onClick={() => useUiStore.getState().showModelPicker()}>
+          Choose model in chat
+        </Button>
       </SettingsCard>
     </div>
   );
@@ -316,7 +287,7 @@ export function SettingsDialog({
 
   const pages: Readonly<Record<SettingsPageId, ReactNode>> = {
     instructions: instructions.projectPage,
-    generation: <GenerationPage project={project} providers={providers} />,
+    generation: <GenerationPage project={project} />,
     templates: instructions.libraryPage,
     providers: <ProvidersPage providers={providers} />,
     updates: <UpdateControl />,
@@ -389,7 +360,6 @@ export function SettingsDialog({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2.5">
                 <h3 className="text-xl font-semibold tracking-tight">{page.label}</h3>
-                <ScopeBadge scope={page.scope} />
               </div>
               <p className="mt-1 text-ink-300">{page.description}</p>
               <p className="mt-0.5 text-sm text-ink-400">{scope.note}</p>

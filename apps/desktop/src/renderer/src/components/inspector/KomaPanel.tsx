@@ -1,42 +1,28 @@
 import { MIN_KOMA_HOLD_DURATION_MS, MAX_KOMA_HOLD_DURATION_MS, type Koma } from '@koma-motion/core';
 import type { ReactElement } from 'react';
-import { addKomaAfter } from '../../lib/projectActions';
 import { changeKomaDetails } from '../../state/commands';
 import { usePresenterStore } from '../../state/presenterStore';
 import { useProjectStore } from '../../state/projectStore';
-import { useUiStore } from '../../state/uiStore';
-import { PlusIcon } from '../icons';
-import { Badge, Button, Field, NumberInput, Switch, TextArea, TextInput } from '../ui';
-import type { TransitionHealth } from './MotionPanel';
-import { ColourField, Disclosure, Section } from './parts';
-
-function firstLine(text: string): string {
-  const line = text.trim().split('\n')[0] ?? '';
-  return line === '' ? 'None yet' : line;
-}
+import { Field, NumberInput, Switch, TextArea, TextInput } from '../ui';
+import { ColourField, Section } from './parts';
 
 export function KomaPanel({
   koma,
   index,
   count,
-  health,
   editable,
 }: {
   readonly koma: Koma;
   readonly index: number;
   readonly count: number;
-  /** The motion of this Koma, or `null` when there is no transition. */
-  readonly health: TransitionHealth | null;
   /** False while a preview plays. */
   readonly editable: boolean;
 }): ReactElement {
   const fallbackHoldMs = usePresenterStore((state) => state.autoplayDelayMs);
   const apply = useProjectStore((state) => state.apply);
-  const setInspectorTab = useUiStore((state) => state.setInspectorTab);
   const change = (patch: Parameters<typeof changeKomaDetails>[1], field: string): void => {
     apply(changeKomaDetails(koma.id, patch), { coalesceKey: `koma:${koma.id}:${field}` });
   };
-  const hidden = koma.elements.filter((element) => !element.visible).length;
 
   return (
     <div className="flex flex-col">
@@ -72,49 +58,6 @@ export function KomaPanel({
         </Field>
       </div>
 
-      <Section title="Overview">
-        <dl className="grid grid-cols-[auto_1fr] items-center gap-x-3 gap-y-1.5 text-sm">
-          <dt className="text-ink-400">Elements</dt>
-          <dd className="tabular-nums">
-            {koma.elements.length}
-            {hidden > 0 && `, ${String(hidden)} hidden`}
-          </dd>
-          <dt className="text-ink-400">Motion</dt>
-          <dd className="flex min-w-0 items-center justify-between gap-2">
-            {health === null ? (
-              <span className="text-ink-400">None: this is the only Koma</span>
-            ) : (
-              <>
-                <Badge tone={health.status.health === 'ready' ? 'ok' : 'warn'}>
-                  {health.status.title}
-                </Badge>
-                <Button
-                  compact
-                  onClick={() => {
-                    setInspectorTab('motion');
-                  }}
-                >
-                  Open motion
-                </Button>
-              </>
-            )}
-          </dd>
-        </dl>
-        <div className="flex flex-wrap gap-1">
-          <Button
-            variant="outline"
-            compact
-            icon={<PlusIcon size={14} />}
-            disabled={!editable}
-            onClick={() => {
-              addKomaAfter(koma.id);
-            }}
-          >
-            New Koma after this one
-          </Button>
-        </div>
-      </Section>
-
       <Section title="Presentation timing">
         <label className="flex items-center justify-between gap-2 text-sm">
           Use global hold duration
@@ -146,7 +89,7 @@ export function KomaPanel({
         </Field>
       </Section>
 
-      <Disclosure title="Background" summary={koma.background.colour}>
+      <Section title="Background">
         <ColourField
           label="Background"
           value={koma.background.colour}
@@ -154,13 +97,9 @@ export function KomaPanel({
             change({ background: { type: 'solid', colour } }, 'background');
           }}
         />
-      </Disclosure>
+      </Section>
 
-      <Disclosure
-        title="Speaker notes"
-        summary={firstLine(koma.speakerNotes)}
-        defaultOpen={koma.speakerNotes.trim() !== ''}
-      >
+      <Section title="Speaker notes">
         <Field label="Speaker notes">
           {(ids) => (
             <TextArea
@@ -174,7 +113,7 @@ export function KomaPanel({
             />
           )}
         </Field>
-      </Disclosure>
+      </Section>
     </div>
   );
 }

@@ -1,8 +1,16 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useUiStore } from '../state/uiStore';
 
 /** Sidebar focus, mutually exclusive choices and measured popup space. */
 export function useComposerPanel(projectId: string, open: boolean) {
+  const modelPickerRequest = useUiStore((state) => state.modelPickerRequest);
+  const previousModelRequest = useRef(modelPickerRequest);
   const [choice, setChoice] = useState<'model' | 'count' | 'brand' | null>(null);
+  useEffect(() => {
+    if (previousModelRequest.current === modelPickerRequest) return;
+    previousModelRequest.current = modelPickerRequest;
+    setChoice('model');
+  }, [modelPickerRequest]);
   const section = useRef<HTMLElement>(null);
   const header = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLFormElement>(null);

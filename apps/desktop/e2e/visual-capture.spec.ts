@@ -52,7 +52,7 @@ for (const size of SIZES) {
 
     await window.getByRole('button', { name: 'Use the example request' }).click();
     await window.getByRole('button', { name: 'Generate Komas' }).click();
-    await expect(window.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    await expect(window.getByRole('button', { name: 'Stop generating' })).toBeVisible();
     await shot('03-generating');
     await window.getByRole('button', { name: 'Run details' }).click();
     await shot('03b-run-monitor');

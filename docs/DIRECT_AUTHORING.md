@@ -66,7 +66,7 @@ Generation does not offer groups to agents yet.
 ## Motion
 
 Direct creation, like other visual edits, leaves stored motion unchanged.
-Review the resulting motion warning and choose **Recalculate motion** when
+Review the resulting motion warning and choose **Fix motion** when
 you want to update it. Creation never regenerates motion silently. Grouping
 and ungrouping are the exception: like deleting an element, they change which
 objects the Koma has, so the transitions on both sides are recomputed and stay

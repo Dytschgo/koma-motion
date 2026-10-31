@@ -324,10 +324,8 @@ test('keeps asset recovery in Project health and motion recovery beside the canv
   await health.getByRole('button', { name: 'Close', exact: true }).click();
   await showInspector(window);
   await window.getByRole('tab', { name: /^Motion/ }).click();
-  await expect(
-    window.getByRole('button', { name: 'Recalculate motion', exact: true }),
-  ).toBeVisible();
-  await window.getByRole('button', { name: 'Recalculate motion', exact: true }).click();
+  await expect(window.getByRole('button', { name: 'Fix motion', exact: true })).toBeVisible();
+  await window.getByRole('button', { name: 'Fix motion', exact: true }).click();
   await expect(warning(window)).toHaveCount(0);
   await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   await window.getByRole('button', { name: 'Undo', exact: true }).click();

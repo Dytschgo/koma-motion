@@ -115,7 +115,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   await test.step('submit a generation request and receive three Komas', async () => {
     await window.getByLabel('Your request').fill(REQUEST);
     await window.getByRole('button', { name: 'Generate Komas' }).click();
-    await expect(window.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    await expect(window.getByRole('button', { name: 'Stop generating' })).toBeVisible();
 
     const komas = window.getByRole('list', { name: 'Komas' });
     await expect(komas.getByRole('button', { name: /^Koma \d:/ })).toHaveCount(3);
@@ -316,12 +316,12 @@ test('keeps the presentation when a generation is cancelled', async () => {
   await window.getByRole('button', { name: 'Create a project' }).click();
   await window.getByLabel('Your request').fill(REQUEST);
   await window.getByRole('button', { name: 'Generate Komas' }).click();
-  await window.getByRole('button', { name: 'Cancel' }).click();
+  await window.getByRole('button', { name: 'Stop generating' }).click();
 
   await expect(window.getByText('Generation stopped')).toBeVisible();
   await expect(window.getByText('Your presentation was not changed.')).toBeVisible();
   await expect(window.getByRole('list', { name: 'Komas' })).toHaveCount(0);
-  await expect(window.getByRole('button', { name: 'Try again' })).toBeEnabled();
+  await expect(window.getByRole('button', { name: 'Recheck' })).toBeEnabled();
 });
 
 test('saves unsaved changes when the window is closed', async () => {

@@ -167,3 +167,29 @@ test('does not apply a Brand Kit draft to another project', async () => {
   expect(saved).not.toContain('nope');
   expect(saved).not.toContain('Acme Corp');
 });
+
+test('chooses colours visually, fills the hex value, preserves undo, and fits a narrow dock', async () => {
+  const { window, application } = running;
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
+  });
+  await openBrandKit(window);
+  const primary = window.getByLabel('Primary colour', { exact: true });
+  const picker = primary.locator('..').getByLabel('Colour picker', { exact: true });
+  const original = await primary.inputValue();
+  await picker.fill('#123456');
+  await expect(primary).toHaveValue('#123456');
+  await expect(picker).toHaveValue('#123456');
+  await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(primary).toHaveValue(original);
+  await expect(picker).toHaveValue(original.toLowerCase());
+  await window.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(primary).toHaveValue('#123456');
+  await expect(primary).toBeInViewport({ ratio: 1 });
+  await expect(picker).toBeInViewport({ ratio: 1 });
+  await window.screenshot({
+    path: test.info().outputPath('colour-picker-narrow.png'),
+    scale: 'css',
+  });
+  expect(running.problems).toEqual([]);
+});

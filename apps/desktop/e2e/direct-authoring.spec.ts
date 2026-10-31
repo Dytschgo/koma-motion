@@ -161,7 +161,7 @@ test('narrow pointer and keyboard selection expose Inspect while preserving draf
   expect(authored.presentation.transitions).toEqual(project.presentation.transitions);
   await window.screenshot({ path: test.info().outputPath('narrow-inspector.png'), scale: 'css' });
   await window.getByRole('tab', { name: /^Motion/ }).click();
-  await inspector.getByRole('button', { name: 'Recalculate motion', exact: true }).click();
+  await inspector.getByRole('button', { name: 'Fix motion', exact: true }).click();
   await window.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(window.getByText('All changes saved')).toBeVisible();
   const repaired = komaProjectSchema.parse(JSON.parse(await readFile(source, 'utf8')));

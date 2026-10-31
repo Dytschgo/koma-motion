@@ -37,8 +37,10 @@ for (const width of [1480, 1120] as const) {
         .selectOption('claude-code');
       await window.getByRole('button', { name: 'Model', exact: true }).click();
       await openSettingsPage(window, 'Generation');
-      await chooseModel(window, 'Model for Claude Code', 'opus');
-      await window.getByRole('button', { name: 'Done', exact: true }).click();
+      await window.getByRole('button', { name: 'Choose model in chat' }).click();
+      const options = await openProviderChoices(window);
+      await chooseModel(options, 'Model', 'opus');
+      await window.getByRole('button', { name: 'Model', exact: true }).click();
       await chat.screenshot({ path: join(output, `claude-closed-${String(width)}.png`) });
       await chat.locator('form').screenshot({ path: join(output, `footer-${String(width)}.png`) });
       await window.getByRole('button', { name: 'Model', exact: true }).click();

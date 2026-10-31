@@ -211,16 +211,6 @@ export function RunActivity({
             <Button variant="outline" compact onClick={onOpenMonitor}>
               Run details
             </Button>
-            {latest?.phase !== 'succeeded' && (
-              <Button
-                variant="outline"
-                compact
-                disabled={run.cancelRequested}
-                onClick={() => void cancelGeneration()}
-              >
-                Cancel
-              </Button>
-            )}
           </div>
         </div>
       </div>
@@ -277,10 +267,6 @@ export function RunMonitor({
               </h2>
               <p className="mt-0.5 text-ink-300">
                 {run.providerName} · {run.modelLabel}
-              </p>
-              <p className="mt-1 max-w-[62ch] text-sm text-ink-400">
-                Live status and output from the run in chat. This view starts no extra process or
-                request.
               </p>
               {run.providerId === 'claude-code' && (
                 <details className="mt-1 text-sm text-ink-400">

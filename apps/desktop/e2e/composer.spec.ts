@@ -244,12 +244,14 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   await expect(model.locator('option[value="claude-opus-5-5[1m]"]')).toHaveCount(1);
   await modelTrigger(window).click();
 
-  // Settings shows the same choice for the project.
+  // Settings points to the one model chooser instead of duplicating its settings.
   await openSettingsPage(window, 'Generation');
-  const settingsModel = window.getByLabel('Model for Claude Code', { exact: true });
-  await expect(settingsModel).toHaveValue('');
-  await chooseModel(window, 'Model for Claude Code', 'opus');
-  await window.getByRole('button', { name: 'Done', exact: true }).click();
+  await expect(window.getByLabel('Model for Claude Code', { exact: true })).toHaveCount(0);
+  await window.getByRole('button', { name: 'Choose model in chat' }).click();
+  models = await openProviderChoices(window);
+  await expect(models.getByLabel('Model', { exact: true })).toHaveValue('');
+  await chooseModel(models, 'Model', 'opus');
+  await modelTrigger(window).click();
   await expect(modelTrigger(window)).toHaveText('Opus (latest)');
 
   // Each provider keeps its own model.

@@ -13,7 +13,7 @@ import {
   type TextElement,
 } from '@koma-motion/core';
 import type { ReactElement } from 'react';
-import { describeElementKind, getLayerName, orderLayers, type StackMove } from '../../lib/layers';
+import { getLayerName, orderLayers, type StackMove } from '../../lib/layers';
 import { chooseKomaImage } from '../../lib/projectActions';
 import { ungroupSelection } from '../../lib/groupActions';
 import { changeElement, deleteElement, restackElement } from '../../state/commands';
@@ -31,7 +31,7 @@ import {
 } from '../icons';
 import { Badge, Button, Field, IconButton, NumberInput, Select, TextArea, TextInput } from '../ui';
 import { describeLayerState, ElementTypeIcon } from './LayersPanel';
-import { ColourField, Disclosure, Row, Section } from './parts';
+import { ColourField, Row, Section } from './parts';
 
 type Change = (next: KomaElement, field: string) => void;
 
@@ -677,35 +677,6 @@ export function ElementPanel({
       )}
 
       <GeometryControls element={element} locked={locked} change={change} />
-
-      <Disclosure title="Details" summary={describeElementKind(element)}>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-          <dt className="text-ink-400">Type</dt>
-          <dd>{describeElementKind(element)}</dd>
-          <dt className="text-ink-400">Persistent identity</dt>
-          <dd className="truncate select-text" title={element.persistentId}>
-            {element.persistentId}
-          </dd>
-        </dl>
-        <p className="text-sm text-ink-400">
-          Objects with the same persistent identity on neighbouring Komas move into one another.
-        </p>
-        <Field label="Layer number" hint="Higher layers are drawn in front.">
-          {(ids) => (
-            <NumberInput
-              {...ids}
-              value={element.zIndex}
-              disabled={locked}
-              minimum={-10000}
-              maximum={10000}
-              precision={0}
-              onValue={(zIndex) => {
-                change({ ...element, zIndex: Math.round(zIndex) }, 'layer');
-              }}
-            />
-          )}
-        </Field>
-      </Disclosure>
     </div>
   );
 }

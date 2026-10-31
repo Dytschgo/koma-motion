@@ -78,7 +78,7 @@ and `projectHealth.spec.ts` for the editing/health paths described below.
 - Motion: an edit can make stored motion stale. The Koma strip shows a compact
   status on that transition, between its source and destination Komas, with
   Regenerate transition. The explanation and links to both Komas are in the
-  disclosure. Verify blocked playback, then use Recalculate motion in the
+  disclosure. Verify blocked playback, then use Fix motion in the
   Inspector to preserve timing locally or Regenerate transition to request new
   timing from the selected provider. Verify running, succeeded, failed and
   cancelled states, and that a failed or cancelled regeneration keeps both

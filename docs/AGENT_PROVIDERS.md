@@ -157,9 +157,17 @@ sends, and composing text with an IME does not submit. Sending with the button
 returns focus to the request so a follow-up can be drafted during generation.
 The send button becomes Stop while a run is active. Stopping preserves the draft.
 
-Try again resends a failed or stopped request without clearing a separate draft.
-It is disabled while another run or proposal is pending, or while the current
-generation choices or reference consent are incomplete.
+Recheck resends a failed or stopped request without clearing a separate draft.
+It preserves the original Koma target and count, restores those choices in the
+composer, and uses the current provider and currently attached references.
+Reference consent is still required. A removed target is reported rather than
+redirecting the request to another Koma. Another run or pending proposal blocks
+rechecking.
+
+Typing `recheck` (or `/recheck`) reruns the latest failed request. After a successful
+run, or before generation, it checks the project locally and repairs motion that
+can be rebuilt from the current Komas. Other problems remain in Project health.
+Rechecking does not claim to repair provider sign-in, missing files or code.
 
 The conversation follows a newly sent request and output while the reader is at
 the bottom, including when a growing draft or window resize changes the visible

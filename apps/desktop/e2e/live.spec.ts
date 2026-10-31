@@ -43,29 +43,30 @@ test('generates a presentation with Claude Code', async () => {
     await openSettingsPage(window, 'Generation');
     await window.getByLabel('Stop generation after a time limit').check();
     await window.getByLabel('Time limit in seconds').fill('600');
-    if (model !== '') {
-      await chooseModel(window, 'Model for Claude Code', model);
-    }
     await window.getByRole('button', { name: 'Done' }).click();
 
     const providerChoices = await openProviderChoices(window);
     await providerChoices.getByLabel('Provider', { exact: true }).selectOption('claude-code');
+    if (model !== '') await chooseModel(providerChoices, 'Model', model);
     await expect(providerChoices.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
     await window.getByRole('button', { name: 'Model', exact: true }).click();
 
     await setKomaCount(window, '3');
     await window.getByLabel('Your request').fill(REQUEST);
     await window.getByRole('button', { name: 'Generate Komas' }).click();
-    await expect(window.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    await expect(window.getByRole('button', { name: 'Stop generating' })).toBeVisible();
 
     const komas = window
       .getByRole('list', { name: 'Komas' })
       .getByRole('button', { name: /^Koma \d:/ });
     const failure = window.getByText(/^Generation (failed|stopped|took too long)$/);
     // Wait for a terminal result, rather than any card that might already exist.
-    await expect(window.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0, {
-      timeout: 10 * 60_000 + 15_000,
-    });
+    await expect(window.getByRole('button', { name: 'Stop generating', exact: true })).toHaveCount(
+      0,
+      {
+        timeout: 10 * 60_000 + 15_000,
+      },
+    );
     await window.screenshot({ path: join(OUTPUT_DIRECTORY, 'result.png') });
     await expect(failure).toHaveCount(0);
     await expect(window.getByText(/^Created 3 Komas/)).toBeVisible();

@@ -1,3 +1,4 @@
+import type { GenerationInput } from '@koma-motion/agent-runtime';
 import type { KomaProject } from '@koma-motion/core';
 import {
   useCallback,
@@ -49,7 +50,7 @@ function Entry({
   canRetry,
 }: {
   readonly entry: ConversationEntry;
-  readonly onRetry: (request: string) => void;
+  readonly onRetry: (input: GenerationInput) => void;
   readonly canRetry: boolean;
 }): ReactElement {
   if (entry.kind === 'request') {
@@ -78,7 +79,7 @@ function Entry({
           )}
           {entry.warnings.length > 0 && (
             <ul className="mt-2 flex flex-col gap-1 text-sm text-signal-warn">
-              {entry.warnings.map((warning, index) => (
+              {[...new Set(entry.warnings)].map((warning, index) => (
                 <li key={index} className="flex gap-2">
                   <span className="flex-none">
                     <WarningIcon size={14} />
@@ -116,12 +117,16 @@ function Entry({
   const lastAttempt = diagnostics.attempts.at(-1);
   return (
     <li
-      role="alert"
-      className="max-w-full rounded-lg border-l-2 border-motion/70 py-1 pl-3 wrap-break-word select-text"
+      role={entry.status === 'cancelled' ? 'status' : 'alert'}
+      className={`max-w-full rounded-lg border-l-2 py-1 ps-3 wrap-break-word select-text ${entry.status === 'cancelled' ? 'border-line-strong' : 'border-motion/70'}`}
     >
       <p className="text-sm text-ink-400">{entry.providerName}</p>
-      <p className="font-semibold text-motion">{FAILURE_TITLES[entry.status]}</p>
-      {!(entry.status === 'cancelled' && error.message === 'The generation was stopped.') && (
+      <p
+        className={`font-semibold ${entry.status === 'cancelled' ? 'text-ink-300' : 'text-motion'}`}
+      >
+        {FAILURE_TITLES[entry.status]}
+      </p>
+      {entry.status !== 'cancelled' && (
         <p className="whitespace-pre-wrap">{error.message.split('\n')[0]?.replace(/:$/, '.')}</p>
       )}
       <p className="mt-2 text-sm text-ink-400">Your presentation was not changed.</p>
@@ -167,10 +172,10 @@ function Entry({
         disabled={!canRetry}
         className="mt-2"
         onClick={() => {
-          onRetry(entry.request);
+          onRetry(entry.input);
         }}
       >
-        Try again
+        Recheck
       </Button>
     </li>
   );
@@ -194,7 +199,7 @@ export function AgentConversation({
   readonly scope: 'entire' | 'selected';
   readonly canRetry: boolean;
   readonly onExample: (scope?: 'selected') => void;
-  readonly onRetry: (text: string) => void;
+  readonly onRetry: (input: GenerationInput) => void;
   readonly onReviewed: () => void;
 }): ReactElement {
   const conversation = useAgentStore((state) => state.conversation);

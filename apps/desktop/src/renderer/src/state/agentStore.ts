@@ -1,6 +1,7 @@
 /** State of provider detection and agent executions. Nothing here is saved with the project. */
 import type {
   AgentError,
+  GenerationInput,
   ExecutionDiagnostics,
   ExecutionOutputEvent,
   ExecutionStatusEvent,
@@ -79,8 +80,8 @@ export type ConversationEntry =
       readonly status: 'failed' | 'cancelled' | 'timedOut';
       readonly error: AgentError;
       readonly diagnostics: ExecutionDiagnostics;
-      /** The request that failed, so it can be sent again. */
-      readonly request: string;
+      /** Original scope and count for a safe one-action recheck. */
+      readonly input: GenerationInput;
       readonly output?: string;
     };
 

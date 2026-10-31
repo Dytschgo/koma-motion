@@ -10,7 +10,6 @@ import {
 } from '@koma-motion/brand-kit';
 import {
   BRAND_COLOUR_ROLES,
-  parseColour,
   type BrandColourRole,
   type BrandKit,
   type KomaProject,
@@ -22,6 +21,7 @@ import { changeBrandKit, changeLogo } from '../state/commands';
 import { useProjectStore } from '../state/projectStore';
 import { selectBrandKitRawDraft, useUiStore } from '../state/uiStore';
 import { BrandKitSource } from './BrandKitLibrary';
+import { ColourControl } from './ColourControl';
 import { CheckIcon, WarningIcon } from './icons';
 import { Button, Field, TextArea, TextInput } from './ui';
 
@@ -266,33 +266,17 @@ export function BrandKitEditor({ project }: { readonly project: KomaProject }): 
 
         <fieldset className="flex flex-col gap-3">
           <legend className="mb-2 text-base font-semibold">Colours</legend>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            {BRAND_COLOUR_ROLES.map((role) => {
-              const parsed = parseColour(draft.colours[role]);
-              return (
-                <Field key={role} label={COLOUR_LABELS[role]} error={errors[`colours.${role}`]}>
-                  {(ids) => (
-                    <div className="flex items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="size-8 flex-none rounded-md border border-line-strong"
-                        style={{ background: parsed.ok ? parsed.value : 'transparent' }}
-                      />
-                      <TextInput
-                        {...ids}
-                        value={draft.colours[role]}
-                        spellCheck={false}
-                        placeholder="#RRGGBB"
-                        {...focusField(`colours.${role}`)}
-                        onChange={(event) => {
-                          edit(`colours.${role}`, event.target.value);
-                        }}
-                      />
-                    </div>
-                  )}
-                </Field>
-              );
-            })}
+          <div className="colour-grid">
+            {BRAND_COLOUR_ROLES.map((role) => (
+              <ColourControl
+                key={role}
+                label={COLOUR_LABELS[role]}
+                error={errors[`colours.${role}`]}
+                value={draft.colours[role]}
+                {...focusField(`colours.${role}`)}
+                onValue={(value) => edit(`colours.${role}`, value)}
+              />
+            ))}
           </div>
         </fieldset>
 

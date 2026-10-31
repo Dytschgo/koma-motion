@@ -229,9 +229,9 @@ export function QuickStartGuide(): ReactElement {
                 </p>
                 <p>
                   Review the Brand Kit and instructions, write your request, set{' '}
-                  <strong>Koma count</strong>, then choose <strong>Generate Komas</strong>{' '}
-                  (Ctrl/Command+Enter). Follow progress or Cancel. Successful generation replaces
-                  the current Komas; review the result and use Undo if needed.
+                  <strong>Koma count</strong>, then choose <strong>Generate Komas</strong> (Enter).
+                  Follow progress or Stop. Successful generation replaces the current Komas; review
+                  the result and use Undo if needed.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -275,10 +275,10 @@ export function QuickStartGuide(): ReactElement {
                 </p>
                 <p>
                   When motion is out of date, playback is blocked. Select its source Koma and open{' '}
-                  <strong>Motion → Recalculate motion</strong> to repair it locally while preserving
-                  timing. If offered, <strong>Regenerate transition</strong> in the Koma strip,
-                  between the source and destination Komas, asks the selected provider for new
-                  timing. Open Details on that transition to inspect the reason and both Komas.
+                  <strong>Motion → Fix motion</strong> to repair it locally while preserving timing.
+                  If offered, <strong>Regenerate transition</strong> in the Koma strip, between the
+                  source and destination Komas, asks the selected provider for new timing. Open
+                  Details on that transition to inspect the reason and both Komas.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button

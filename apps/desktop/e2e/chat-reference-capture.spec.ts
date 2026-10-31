@@ -70,7 +70,7 @@ for (const width of [1480, 1120] as const) {
         path: join(output, `stopped-chat-${String(width)}.png`),
         scale: 'css',
       });
-      await log.getByRole('button', { name: 'Try again', exact: true }).click();
+      await log.getByRole('button', { name: 'Recheck', exact: true }).click();
       await expect(log.getByText(/Created 3 Komas/)).toHaveCount(2);
       await expect(request).toHaveValue('Keep this separate follow-up draft.');
       await chat.screenshot({

@@ -96,7 +96,7 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
   await expect(
     failure.getByText('Your presentation was not changed.', { exact: true }),
   ).toBeVisible();
-  await expect(failure.getByRole('button', { name: 'Try again', exact: true })).toBeEnabled();
+  await expect(failure.getByRole('button', { name: 'Recheck', exact: true })).toBeEnabled();
   await window.screenshot({ path: test.info().outputPath('failure-summary.png'), scale: 'css' });
   const details = failure.locator('summary').filter({ hasText: 'Diagnostics' });
   await details.focus();

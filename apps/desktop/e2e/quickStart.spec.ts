@@ -149,7 +149,7 @@ test('links to real workflows without changing the project and preserves complet
   await window.keyboard.press('Escape');
   await reopen(window);
   await guide(window).getByRole('button', { name: 'Model settings' }).click();
-  await expect(window.getByRole('heading', { name: 'Models', exact: true })).toBeVisible();
+  await expect(window.getByRole('heading', { name: 'Model', exact: true })).toBeVisible();
   await window.keyboard.press('Escape');
   await reopen(window);
   await guide(window).getByRole('button', { name: 'Open chat' }).click();

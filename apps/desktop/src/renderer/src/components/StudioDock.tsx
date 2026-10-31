@@ -215,8 +215,8 @@ export function StudioDock({
                 }
                 panel.requestField.current?.focus();
               }}
-              onRetry={(text) => {
-                draft.submit(text, { preserveDraft: true });
+              onRetry={(input) => {
+                draft.recheck(input);
                 panel.requestField.current?.focus();
               }}
               onReviewed={() => panel.requestField.current?.focus()}

@@ -128,7 +128,7 @@ test('rejects target edits, clears proposals on same-file reopen, and cancellati
   await showChat(window);
   await window.getByLabel('Generation scope').selectOption('selected');
   await generate();
-  await window.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await window.getByRole('button', { name: 'Stop generating', exact: true }).click();
   await expect(window.getByRole('button', { name: 'Generate Komas', exact: true })).toBeVisible();
   await expect(proposal).toHaveCount(0);
   await expect(window.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
@@ -156,3 +156,35 @@ test('keeps proposal actions and draft focus usable in a narrow window', async (
   await window.screenshot({ path: test.info().outputPath('selected-narrow-focus.png') });
   expect(running.problems).toEqual([]);
 });
+
+for (const route of ['button', 'command'] as const) {
+  test(`Recheck by ${route} reruns the original Koma even after selection and scope change`, async () => {
+    const { window } = running;
+    await generate();
+    await window.getByRole('button', { name: 'Stop generating', exact: true }).click();
+    await expect(window.getByText('Generation stopped', { exact: true })).toBeVisible();
+    await expect(window.getByRole('log', { name: 'Conversation' }).getByRole('alert')).toHaveCount(
+      0,
+    );
+    await window.getByRole('button', { name: 'Koma 3: Last', exact: true }).click();
+    await showChat(window);
+    await window.getByLabel('Generation scope').selectOption('entire');
+    const request = window.getByLabel('Your request');
+    await request.fill(route === 'button' ? 'Keep my separate idea.' : 'recheck');
+    if (route === 'button')
+      await window.getByRole('button', { name: 'Recheck', exact: true }).click();
+    else await request.press('Enter');
+    const proposal = window.getByRole('region', { name: 'Selected Koma proposal' });
+    await expect(proposal.getByRole('heading')).toHaveText('Proposal for Koma 2: Middle');
+    await expect(window.getByRole('button', { name: 'Koma 2: Middle', exact: true })).toBeVisible();
+    await expect(window.getByRole('button', { name: 'Koma 3: Last', exact: true })).toBeVisible();
+    await expect(request).toHaveValue(route === 'button' ? 'Keep my separate idea.' : '');
+    await window.screenshot({ path: test.info().outputPath(`recheck-${route}.png`), scale: 'css' });
+    await proposal.getByRole('button', { name: 'Apply proposal' }).click();
+    await expect(
+      window.getByRole('button', { name: 'Koma 2: Revised: Middle', exact: true }),
+    ).toBeVisible();
+    await expect(window.getByRole('button', { name: 'Koma 3: Last', exact: true })).toBeVisible();
+    expect(running.problems).toEqual([]);
+  });
+}

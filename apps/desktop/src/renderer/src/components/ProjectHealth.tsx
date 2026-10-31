@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { repairAsset, repairIsLocked, type RepairResult } from '../lib/assetRepairs';
 import { collectHealthIssues, type HealthIssue } from '../lib/projectHealth';
+import { repairProjectMotion } from '../lib/recheck';
 import { openProject, saveProject, saveProjectCopy } from '../lib/projectActions';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { useHealthStore } from '../state/healthStore';
@@ -68,6 +69,7 @@ function HealthContents(): ReactElement {
   const resolved = Object.entries(feedback).filter(
     ([id, result]) => result.status === 'fixed' && !issues.some((issue) => issue.id === id),
   );
+  const canFixMotion = project !== null && repairProjectMotion(project) !== project;
 
   function row(issue: HealthIssue): ReactElement {
     const locked =
@@ -177,14 +179,19 @@ function HealthContents(): ReactElement {
           : issues.length === 0
             ? 'No project issues found.'
             : `${String(issues.length)} project status ${issues.length === 1 ? 'item' : 'items'}.`}
-        {(failure || issues.length > 0) && (
-          <>
-            {' '}
-            Hiding a notification does not fix the issue. Unresolved issues return when you reopen
-            the project.
-          </>
-        )}
       </p>
+      {canFixMotion && (
+        <Button
+          variant="primary"
+          disabled={busy}
+          onClick={() => {
+            useProjectStore.getState().apply(repairProjectMotion);
+            heading.current?.focus();
+          }}
+        >
+          Fix motion
+        </Button>
+      )}
       {failure && (
         <section aria-label="Open recovery" className="rounded-lg border border-motion p-3">
           <h3 className="font-semibold text-motion">Opening blocked</h3>

@@ -40,7 +40,7 @@ test('retrying a stopped request preserves a different follow-up draft and block
   await expect(log.getByText('Generation stopped')).toBeVisible();
   await expect(request).toBeFocused();
   await request.fill('A separate follow-up I have not sent.');
-  const retry = log.getByRole('button', { name: 'Try again', exact: true });
+  const retry = log.getByRole('button', { name: 'Recheck', exact: true });
   await retry.click();
   await expect(log.getByText(/You asked:/)).toHaveCount(2);
   await expect(request).toHaveValue('A separate follow-up I have not sent.');

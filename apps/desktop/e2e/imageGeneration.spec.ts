@@ -56,7 +56,7 @@ for (const provider of ['codex', 'grok'] as const) {
             .first(),
         ).toBeVisible();
         if (outcome === 'cancel')
-          await window.getByRole('button', { name: 'Cancel', exact: true }).click();
+          await window.getByRole('button', { name: 'Stop generating', exact: true }).click();
         if (outcome === 'success') await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
         else if (outcome === 'cancel')
           await expect(window.getByText('Your presentation was not changed.')).toBeVisible();

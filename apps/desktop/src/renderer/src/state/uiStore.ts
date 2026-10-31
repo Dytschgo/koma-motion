@@ -121,6 +121,8 @@ interface UiState {
   /** `null` fits the canvas into the workspace. */
   readonly zoom: number | null;
   readonly settingsOpen: boolean;
+  readonly modelPickerRequest: number;
+  readonly showModelPicker: () => void;
   /** The page Settings shows. Kept while the window is open, so Settings reopens where it was. */
   readonly settingsPage: SettingsPageId;
   /** Chat sidebar. Kept across projects and restarts, never in the project. */
@@ -209,6 +211,15 @@ export const useUiStore = create<UiState>((set, get) => ({
   selectedElementIds: [],
   zoom: null,
   settingsOpen: false,
+  modelPickerRequest: 0,
+  showModelPicker() {
+    set((state) => ({
+      settingsOpen: false,
+      studioPanel: 'chat',
+      agentPanelOpen: true,
+      modelPickerRequest: state.modelPickerRequest + 1,
+    }));
+  },
   settingsPage: DEFAULT_SETTINGS_PAGE,
   agentPanelOpen: initialChatPreferences.open,
   agentPanelWidth: initialChatPreferences.width,

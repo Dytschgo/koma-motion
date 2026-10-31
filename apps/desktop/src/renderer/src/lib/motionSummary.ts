@@ -101,7 +101,7 @@ export function getMotionStatus(issues: readonly MotionIssue[]): MotionStatus {
     return {
       health: 'stale',
       title: 'Motion is out of date',
-      detail: 'The Komas changed. Recalculate motion to preview again.',
+      detail: 'The Komas changed. Fix motion to preview again.',
     };
   }
   const unsupported = issues.filter((issue) => issue.code === 'unsupportedOperation').length;

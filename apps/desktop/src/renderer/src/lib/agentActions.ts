@@ -314,7 +314,7 @@ export async function generate(input: GenerationInput): Promise<void> {
           status: 'failed',
           error,
           diagnostics: outcome.diagnostics,
-          request: input.userRequest,
+          input,
         });
         return;
       }
@@ -339,7 +339,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         status: outcome.status,
         error: outcome.error,
         diagnostics: outcome.diagnostics,
-        request: input.userRequest,
+        input,
       });
     }
   } catch {
@@ -368,7 +368,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         promptTemplate: '',
         attempts: [],
       },
-      request: input.userRequest,
+      input,
     });
   } finally {
     unsubscribeSnapshot();
