@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
 import { join } from 'node:path';
-import { answerSaveDialog, launchApplication } from './application';
+import {
+  answerSaveDialog,
+  launchApplication,
+  chooseProjectCommand,
+  showTransitionControls,
+} from './application';
 
 test('keeps the saved filename and toolbar actions visible on smaller screens', async () => {
   const running = await launchApplication();
@@ -8,7 +13,7 @@ test('keeps the saved filename and toolbar actions visible on smaller screens', 
   try {
     await window.getByRole('button', { name: 'Create a project' }).click();
     await answerSaveDialog(application, join(directory, 'introduction.koma'));
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     const header = window.getByRole('banner');
     for (const width of [1280, 1120, 1024]) {
       await application.evaluate(({ BrowserWindow }, contentWidth) => {
@@ -16,11 +21,11 @@ test('keeps the saved filename and toolbar actions visible on smaller screens', 
         native?.setMinimumSize(800, 600);
         native?.setContentSize(contentWidth, 700);
       }, width);
-      const filename = header.getByText('introduction.koma', { exact: true });
-      await expect(filename).toBeVisible();
-      await expect.poll(async () => (await filename.boundingBox())?.width ?? 0).toBeGreaterThan(80);
-      await expect(header.getByText('All changes saved')).toBeVisible();
-      for (const name of ['Save', 'Present', 'Getting started', 'Settings']) {
+      // The saved file is named by the saved state's tooltip rather than more bar text.
+      const saved = header.getByText('All changes saved');
+      await expect(saved).toBeVisible();
+      await expect(saved).toHaveAttribute('title', /introduction.koma$/);
+      for (const name of ['Project menu', 'Undo', 'Add element', 'Share']) {
         await expect(header.getByRole('button', { name, exact: true })).toBeInViewport({
           ratio: 1,
         });
@@ -51,6 +56,7 @@ test('keeps the position control usable in a narrow window with reduced motion',
     await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
 
     // Both must be visible: neither may push the other out of the window.
+    await showTransitionControls(window);
     await expect(window.getByText(/Reduced motion is on/)).toBeVisible();
     const slider = window.getByLabel('Position in the transition');
     await expect(slider).toBeVisible();

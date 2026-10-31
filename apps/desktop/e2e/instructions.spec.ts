@@ -8,6 +8,8 @@ import {
   launchApplication,
   openSettingsPage,
   type RunningApplication,
+  chooseProjectCommand,
+  expectInstructionsState,
 } from './application';
 
 let running: RunningApplication;
@@ -23,7 +25,7 @@ test('creates an app template before opening a project and keeps controls usable
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800);
   });
-  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  await chooseProjectCommand(window, 'Settings');
   await expect(window.getByText('No project is open').filter({ visible: true })).toBeVisible();
   await openSettingsPage(window, 'Templates');
   await window.getByLabel('New template name').fill('First template');
@@ -36,11 +38,9 @@ test('creates an app template before opening a project and keeps controls usable
   ).toBeVisible();
   await window.getByRole('button', { name: 'Done', exact: true }).click();
   await window.getByRole('button', { name: 'Create a project' }).click();
-  const shortcut = window.getByRole('button', { name: 'Instructions & templates' });
-  await expect(shortcut).toBeInViewport({ ratio: 1 });
   await expect(window.getByLabel('Your request')).toBeInViewport({ ratio: 1 });
-  await shortcut.click();
-  // The shortcut opens the project instructions.
+  await chooseProjectCommand(window, 'Instructions & templates');
+  // The menu command opens the project instructions.
   await expect(window.getByLabel('Project system instructions')).toBeVisible();
   await openSettingsPage(window, 'Templates');
   await window.getByLabel('Saved instruction template').selectOption({ label: 'First template' });
@@ -54,7 +54,7 @@ test('saves project instructions and reuses app templates with undo and redo', a
   const testInfo = test.info();
   const { window, application, directory } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
-  await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await chooseProjectCommand(window, 'Instructions & templates');
   const field = window.getByLabel('Project system instructions');
   await expect(field).toHaveValue('');
   const instructions = '  Use concise language.\nExplain technical terms. 日本語  ';
@@ -63,7 +63,7 @@ test('saves project instructions and reuses app templates with undo and redo', a
   await expect(
     window.getByText('No saved templates yet. Save your first template below.'),
   ).toBeVisible();
-  await window.getByRole('button', { name: 'Copy project text into template draft' }).click();
+  await window.getByRole('button', { name: 'Use project instructions' }).click();
   await window.getByLabel('New template name').fill('Technical');
   await window.getByRole('button', { name: 'Save new template' }).click();
   await expect(
@@ -72,7 +72,7 @@ test('saves project instructions and reuses app templates with undo and redo', a
   await window.getByRole('button', { name: 'Done', exact: true }).click();
   const path = join(directory, 'source.koma');
   await answerSaveDialog(application, path);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('Saved source.koma', { exact: true })).toBeVisible();
   const source: unknown = JSON.parse(await readFile(path, 'utf8'));
   expect(source).toHaveProperty('systemInstructions', instructions);
@@ -96,8 +96,8 @@ test('saves project instructions and reuses app templates with undo and redo', a
   // App CRUD has not dirtied the saved project.
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
 
-  await window.getByRole('button', { name: 'New', exact: true }).click();
-  await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await chooseProjectCommand(window, 'New');
+  await chooseProjectCommand(window, 'Instructions & templates');
   await expect(field).toHaveValue('');
   await openSettingsPage(window, 'Templates');
   await select.selectOption({ label: 'Plain language' });
@@ -111,24 +111,18 @@ test('saves project instructions and reuses app templates with undo and redo', a
   await window.getByRole('button', { name: 'Done', exact: true }).click();
   await expect(window.getByText('Unsaved changes', { exact: true })).toBeVisible();
   await window.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(window.getByRole('button', { name: 'Instructions & templates' })).toHaveAttribute(
-    'aria-description',
-    'No project instructions',
-  );
+  await expectInstructionsState(window, 'No project instructions');
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   await window.getByRole('button', { name: 'Redo', exact: true }).click();
-  await expect(window.getByRole('button', { name: 'Instructions & templates' })).toHaveAttribute(
-    'aria-description',
-    'Instructions active',
-  );
+  await expectInstructionsState(window, 'Instructions active');
   const second = join(directory, 'applied.koma');
   await answerSaveDialog(application, second);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('Saved applied.koma', { exact: true })).toBeVisible();
-  await window.getByRole('button', { name: 'New', exact: true }).click();
+  await chooseProjectCommand(window, 'New');
   await answerOpenDialog(application, second);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
-  await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await chooseProjectCommand(window, 'Open');
+  await chooseProjectCommand(window, 'Instructions & templates');
   await expect(field).toHaveValue(instructions);
   await expect(
     window.getByText(
@@ -153,7 +147,7 @@ test('retains invalid drafts and failed template and project saves', async () =>
     native?.setContentSize(1024, 700);
   });
   await window.getByRole('button', { name: 'Create a project' }).click();
-  await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await chooseProjectCommand(window, 'Instructions & templates');
   const field = window.getByLabel('Project system instructions');
   await field.fill('Last valid instructions');
   const overlong = 'x'.repeat(MAX_SYSTEM_INSTRUCTIONS_LENGTH + 1);
@@ -162,7 +156,7 @@ test('retains invalid drafts and failed template and project saves', async () =>
   await expect(field).toHaveAttribute('aria-invalid', 'true');
   await field.blur();
   await window.getByRole('button', { name: 'Done', exact: true }).click();
-  await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await chooseProjectCommand(window, 'Instructions & templates');
   await expect(field).toHaveValue(overlong);
   await field.fill('Last valid instructions');
   await openSettingsPage(window, 'Templates');
@@ -178,14 +172,14 @@ test('retains invalid drafts and failed template and project saves', async () =>
   await expect(window.getByText(/The template could not be saved/)).toBeVisible();
   await window.screenshot({ path: testInfo.outputPath('template-save-failure.png') });
   await window.getByRole('button', { name: 'Done', exact: true }).click();
-  await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await chooseProjectCommand(window, 'Instructions & templates');
   await openSettingsPage(window, 'Templates');
   await expect(window.getByLabel('New template name')).toHaveValue('My template');
   await expect(window.getByLabel('New template instructions')).toHaveValue(
     'Keep this template draft',
   );
   await rm(templatePath, { recursive: true });
-  await window.getByRole('button', { name: 'Reload templates' }).click();
+  await window.getByRole('button', { name: 'Refresh templates' }).click();
   await window.getByRole('button', { name: 'Save new template' }).click();
   await expect(
     window.getByRole('status').filter({ hasText: 'Template library saved' }),
@@ -193,11 +187,11 @@ test('retains invalid drafts and failed template and project saves', async () =>
   await window.getByRole('button', { name: 'Done', exact: true }).click();
 
   await answerSaveDialog(application, join(directory, 'missing-folder', 'failed.koma'));
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText(/could not be saved|could not be written/i)).toBeVisible();
   await expect(window.getByText('Unsaved changes', { exact: true })).toBeVisible();
   await window.screenshot({ path: testInfo.outputPath('project-save-failure-compact.png') });
-  await window.getByRole('button', { name: 'Instructions & templates' }).click();
+  await chooseProjectCommand(window, 'Instructions & templates');
   await expect(field).toHaveValue('Last valid instructions');
   expect(running.problems).toEqual([]);
 });

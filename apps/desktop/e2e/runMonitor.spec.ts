@@ -29,12 +29,15 @@ test('follows the observed phases and opens a monitor of the same run', async ()
   await expect(sprite).toHaveAttribute('data-animated', '');
   await expect(activity(window).getByRole('status')).toContainText('Generating');
 
-  const opener = window.getByRole('button', { name: 'Open run monitor' });
+  const opener = window.getByRole('button', { name: 'Run details' });
   await opener.click();
   const monitor = window.getByRole('dialog', { name: 'Run monitor' });
   await expect(monitor).toBeVisible();
   await expect(monitor).toContainText('Mock provider · built-in');
-  await expect(monitor).toContainText('no terminal can attach');
+  await expect(
+    window.getByRole('log', { name: 'Conversation' }).getByText(/You asked:/),
+  ).toHaveCount(1);
+  await expect(monitor).not.toContainText('Claude Code runs in print mode');
   await expect(monitor.getByRole('region', { name: 'Output', exact: true })).toContainText(
     'Demo narration',
   );
@@ -51,7 +54,9 @@ test('follows the observed phases and opens a monitor of the same run', async ()
 
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
   await expect(activity(window)).toHaveAttribute('data-run-phase', 'completed');
-  await expect(activity(window)).toContainText('Completed after 0:0');
+  await expect(activity(window).getByRole('button', { name: 'Run details' })).toContainText(/0:0/);
+  await expect(activity(window)).not.toContainText('Completed');
+  await window.screenshot({ path: test.info().outputPath('completed-summary.png'), scale: 'css' });
   await window.getByRole('button', { name: 'Run details' }).click();
   await expect(monitor.getByRole('region', { name: 'Timeline', exact: true })).toContainText(
     'The response is valid',
@@ -80,12 +85,46 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
     )
     .toBe('failed');
   expect([...seen]).toEqual(expect.arrayContaining(['generating', 'repairing', 'failed']));
-  await expect(window.getByText('Generation failed')).toBeVisible();
-  await expect(activity(window)).toContainText('Failed after');
-  await expect(activity(window).locator('svg.pixel-sprite')).not.toHaveAttribute(
-    'data-animated',
-    '',
+  // One concise line where the request was made; the details stay optional.
+  await expect(window.getByText('Couldn’t use the result. Nothing changed.')).toBeVisible();
+  const failure = window
+    .getByRole('alert')
+    .filter({ hasText: 'Couldn’t use the result. Nothing changed.' });
+  await expect(
+    failure.getByText('The generated Komas could not be used. Recheck to try again.', {
+      exact: true,
+    }),
+  ).toHaveCount(0);
+  const issue = failure.getByText(
+    'presentation: Invalid input: expected object, received undefined',
+    { exact: true },
   );
+  await expect(issue).toBeHidden();
+  await expect(failure.getByRole('button', { name: 'Recheck', exact: true })).toBeEnabled();
+  await window.screenshot({ path: test.info().outputPath('failure-summary.png'), scale: 'css' });
+  const details = failure.locator('summary').filter({ hasText: 'Details' });
+  await details.focus();
+  await details.press('Enter');
+  await expect(
+    failure.getByText(/The response of the agent does not follow the required structure/),
+  ).toBeVisible();
+  await expect(failure.getByRole('region', { name: 'Provider output' })).toContainText(
+    'Demo narration',
+  );
+  await expect(issue).toBeVisible();
+  await expect(
+    failure.getByText('komas: Invalid input: expected array, received string', { exact: true }),
+  ).toBeVisible();
+  await expect(failure.getByText('invalidResponse', { exact: true })).toBeVisible();
+  await window.screenshot({
+    path: test.info().outputPath('failure-diagnostics.png'),
+    scale: 'css',
+  });
+  await details.press('Enter');
+  await expect(issue).toBeHidden();
+  await expect(activity(window)).toHaveAttribute('data-run-phase', 'failed');
+  await expect(activity(window)).not.toContainText('Failed');
+  await expect(activity(window).locator('svg.pixel-sprite')).toHaveCount(0);
   await window.getByRole('button', { name: 'Run details' }).click();
   const monitor = window.getByRole('dialog', { name: 'Run monitor' });
   await expect(monitor).toContainText('2 of 2 (correction)');
@@ -97,7 +136,7 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
 
 test('cancels from the monitor and shows the stopped run', async () => {
   const window = await start({ KOMA_MOCK_DELAY_MS: '8000' });
-  await window.getByRole('button', { name: 'Open run monitor' }).click();
+  await window.getByRole('button', { name: 'Run details' }).click();
   const monitor = window.getByRole('dialog', { name: 'Run monitor' });
   await monitor.getByRole('button', { name: 'Cancel run' }).click();
   await expect(monitor).toContainText('Stopped');
@@ -105,6 +144,23 @@ test('cancels from the monitor and shows the stopped run', async () => {
   await monitor.getByRole('button', { name: 'Close' }).click();
   await expect(window.getByText('Generation stopped')).toBeVisible();
   await expect(activity(window)).toHaveAttribute('data-run-phase', 'cancelled');
+  expect(running?.problems).toEqual([]);
+});
+
+test('stops from the composer and preserves an unsent draft', async () => {
+  const window = await start({ KOMA_MOCK_DELAY_MS: '8000' });
+  const request = window.getByLabel('Your request');
+  await request.fill('Keep this idea for the next run');
+  await request.press('Enter');
+  await expect(
+    window.getByRole('log', { name: 'Conversation' }).getByText(/You asked:/),
+  ).toHaveCount(1);
+  await window.getByRole('button', { name: 'Stop generating', exact: true }).click();
+  await expect(window.getByText('Generation stopped')).toBeVisible();
+  await expect(request).toHaveValue('Keep this idea for the next run');
+  await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeEnabled();
+  await expect(window.getByRole('button', { name: 'Stop generating' })).toHaveCount(0);
+  await expect(window.getByRole('button', { name: /^Koma 1:/ })).toHaveCount(0);
   expect(running?.problems).toEqual([]);
 });
 
@@ -123,9 +179,10 @@ test('keeps a still pose with reduced motion and survives hiding the chat during
   await expect(activity(window).getByRole('status')).toContainText('Generating');
 
   await window.getByRole('button', { name: 'Hide the chat' }).click();
-  await expect(
-    window.getByRole('button', { name: /Show the chat\. Komas are being generated/ }),
-  ).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Show the chat', exact: true })).toHaveAttribute(
+    'aria-description',
+    'Generating',
+  );
   await window.waitForTimeout(2200);
   await window.getByRole('button', { name: /Show the chat/ }).click();
   await expect(activity(window)).toHaveAttribute('data-run-phase', 'generating');

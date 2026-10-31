@@ -4,7 +4,13 @@ import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+  openBrandKit,
+} from './application';
 
 let running: RunningApplication;
 
@@ -39,10 +45,10 @@ function harbourProjectText(): string {
   return serialised.value;
 }
 
-async function openBrandKit(page: Page): Promise<void> {
+async function createProjectWithBrandKit(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create a project' }).click();
   await expect(page.getByLabel('Project name')).toHaveValue('Untitled project');
-  await page.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(page);
   await expect(page.getByLabel('Brand name')).toBeVisible();
 }
 
@@ -55,7 +61,7 @@ async function typeOver(field: Locator, text: string): Promise<void> {
 
 test('keeps spaces in the brand name and heading font while typing', async () => {
   const { window } = running;
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
 
   const name = window.getByLabel('Brand name');
   await name.click();
@@ -80,7 +86,7 @@ test('keeps spaces in the brand name and heading font while typing', async () =>
 
 test('keeps an invalid colour without dropping the other Brand Kit edits', async () => {
   const { window } = running;
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
 
   const primary = window.getByLabel('Primary colour');
   await typeOver(primary, 'nope');
@@ -107,9 +113,9 @@ test('keeps an invalid colour without dropping the other Brand Kit edits', async
     'Acme Corp',
   );
 
-  await window.getByRole('button', { name: 'Close panel' }).click();
+  await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(window.getByRole('region', { name: 'Canvas' })).toBeVisible();
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
 
   await expect(window.getByLabel('Primary colour')).toHaveValue('nope');
   await expect(window.getByLabel('Brand name')).toHaveValue('Acme Corp');
@@ -124,7 +130,7 @@ test('keeps an invalid colour without dropping the other Brand Kit edits', async
 
 test('undoes and redoes a blurred brand name', async () => {
   const { window } = running;
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
 
   const name = window.getByLabel('Brand name');
   await expect(name).toHaveValue('Untitled brand');
@@ -144,7 +150,7 @@ test('does not apply a Brand Kit draft to another project', async () => {
   const document = harbourProjectText();
   await writeFile(filePath, document, 'utf8');
 
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
   await typeOver(window.getByLabel('Brand name'), 'Acme Corp');
   await window.getByLabel('Brand name').blur();
   await typeOver(window.getByLabel('Primary colour'), 'nope');
@@ -152,11 +158,11 @@ test('does not apply a Brand Kit draft to another project', async () => {
   await expect(window.getByText('Unsaved changes')).toBeVisible();
 
   await answerOpenDialog(application, filePath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await window.getByRole('button', { name: 'Discard changes' }).click();
 
   await expect(window.getByLabel('Project name')).toHaveValue('Harbour project');
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   await expect(window.getByLabel('Brand name')).toHaveValue('Harbour Studio');
   await expect(window.getByLabel('Primary colour')).toHaveValue('#112233');
   await expect(window.getByLabel('Secondary colour')).toHaveValue('#445566');
@@ -166,4 +172,30 @@ test('does not apply a Brand Kit draft to another project', async () => {
   expect(saved).toBe(document);
   expect(saved).not.toContain('nope');
   expect(saved).not.toContain('Acme Corp');
+});
+
+test('chooses colours visually, fills the hex value, preserves undo, and fits a narrow dock', async () => {
+  const { window, application } = running;
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
+  });
+  await createProjectWithBrandKit(window);
+  const primary = window.getByLabel('Primary colour', { exact: true });
+  const picker = primary.locator('..').getByLabel('Colour picker', { exact: true });
+  const original = await primary.inputValue();
+  await picker.fill('#123456');
+  await expect(primary).toHaveValue('#123456');
+  await expect(picker).toHaveValue('#123456');
+  await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(primary).toHaveValue(original);
+  await expect(picker).toHaveValue(original.toLowerCase());
+  await window.getByRole('button', { name: 'Redo', exact: true }).click();
+  await expect(primary).toHaveValue('#123456');
+  await expect(primary).toBeInViewport({ ratio: 1 });
+  await expect(picker).toBeInViewport({ ratio: 1 });
+  await window.screenshot({
+    path: test.info().outputPath('colour-picker-narrow.png'),
+    scale: 'css',
+  });
+  expect(running.problems).toEqual([]);
 });

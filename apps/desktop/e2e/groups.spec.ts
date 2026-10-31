@@ -17,6 +17,8 @@ import {
   launchApplication,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  showTransitionControls,
 } from './application';
 
 let running: RunningApplication;
@@ -160,6 +162,7 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
   ).toHaveText(['Badge', 'Caption']);
   await expect(layers.getByRole('button', { name: /^Group, Group of 2/ })).toBeVisible();
   // Motion to the next Koma is recomputed and still plays.
+  await showTransitionControls(window);
   await expect(window.getByRole('region', { name: /^Transition 1 to 2\./ })).toHaveCount(0);
   await expect(
     window.getByRole('group', { name: 'Transition preview' }).getByRole('button', { name: 'Play' }),
@@ -176,7 +179,7 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
   await expect(stage().locator('[data-element-id]')).toHaveCount(2);
 
   await answerSaveDialog(application, source);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(source, 'utf8')));
   const group = saved.presentation.komas[0]?.elements.find((element) => element.type === 'group');
@@ -207,7 +210,7 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
   );
 
   await answerOpenDialog(application, source);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(stage().locator('[data-element-id]')).toHaveCount(2);
   await expect(stage().locator(`[data-element-id="${group.id}"]`)).toBeVisible();
   await showInspector(window);
@@ -238,7 +241,7 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
   await window.keyboard.press('ControlOrMeta+Shift+z');
   await expect(stage().locator('[data-element-id]')).toHaveCount(3);
 
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const ungrouped = komaProjectSchema.parse(JSON.parse(await readFile(source, 'utf8')));
   expect(ungrouped.presentation.komas[0]?.elements).toEqual(first.elements);

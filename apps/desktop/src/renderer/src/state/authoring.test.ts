@@ -13,7 +13,7 @@ import { AUTHORING_KINDS } from '../lib/authoring';
 import { getCanvasPlacement, orderLayers } from '../lib/layers';
 import { createElement } from './commands';
 import { selectHasUnsavedChanges, selectProject, useProjectStore } from './projectStore';
-import { useUiStore } from './uiStore';
+import { parsePropertiesPinned, useUiStore } from './uiStore';
 
 const koma = buildKoma({ elements: [] });
 const base = buildProject({ presentation: buildPresentation({ komas: [koma], transitions: [] }) });
@@ -130,27 +130,56 @@ describe('direct authoring', () => {
     expect(opened.value.project.presentation).toEqual(created.presentation);
   });
 
-  it('reveals properties only on request and preserves wide chat and chosen width', () => {
+  it('tucks chat away for properties and preserves selection, pinning and reopened chat on navigation', () => {
     const ui = useUiStore;
     ui.getState().reset();
-    ui.getState().setAgentPanelOpen(true);
-    ui.getState().setAgentPanelWidth(410);
+    ui.getState().setChatOpen(true);
+    ui.getState().selectKoma('koma');
     ui.getState().selectElement('element');
-    expect(ui.getState().agentPanelOpen).toBe(true);
-    ui.getState().inspectSelectedElement(false);
-    expect(ui.getState().agentPanelOpen).toBe(true);
-    ui.getState().inspectSelectedElement(true);
+    // Selecting shows the canvas toolbar; it does not open a panel by itself.
+    expect(ui.getState().propertiesOpen).toBe(false);
+    ui.getState().inspectSelection();
     expect(ui.getState()).toMatchObject({
       view: 'canvas',
       inspectorTab: 'element',
-      agentPanelOpen: false,
-      agentPanelWidth: 410,
+      propertiesOpen: true,
+      chatOpen: false,
       selectedElementId: 'element',
     });
-    ui.getState().setAgentPanelOpen(true);
+    // Reopening chat is explicit; navigation in the store keeps that choice.
+    ui.getState().setChatOpen(true);
+    ui.getState().selectKoma('other-koma');
+    expect(ui.getState()).toMatchObject({ propertiesOpen: true, chatOpen: true });
     ui.getState().selectElement(null);
-    ui.getState().inspectSelectedElement(true);
-    expect(ui.getState().agentPanelOpen).toBe(true);
+    ui.getState().inspectSelection();
+    expect(ui.getState()).toMatchObject({ inspectorTab: 'koma', chatOpen: false });
+    ui.getState().inspectSelection('motion');
+    expect(ui.getState().inspectorTab).toBe('motion');
+    ui.getState().setChatOpen(true);
+    ui.getState().setView('brandKit');
+    expect(ui.getState()).toMatchObject({
+      view: 'brandKit',
+      propertiesOpen: true,
+      chatOpen: false,
+      selectedKomaId: 'other-koma',
+    });
+    ui.getState().setView('canvas');
+    ui.getState().setPropertiesOpen(false);
+    ui.getState().setPropertiesPinned(true);
+    expect(ui.getState()).toMatchObject({ propertiesOpen: true, propertiesPinned: true });
+    ui.getState().setPropertiesPinned(false);
+    ui.getState().setMotionEditing(true);
+    expect(ui.getState().motionEditing).toBe(true);
+    ui.getState().setMotionEditing(false);
+    expect(ui.getState()).toMatchObject({ motionEditing: false, preview: null });
     ui.getState().reset();
+    expect(ui.getState()).toMatchObject({ propertiesOpen: false, chatOpen: false });
+  });
+
+  it('reads only a valid pinned properties preference', () => {
+    expect(parsePropertiesPinned(null)).toBe(false);
+    expect(parsePropertiesPinned('not json')).toBe(false);
+    expect(parsePropertiesPinned('{"pinned":"yes"}')).toBe(false);
+    expect(parsePropertiesPinned('{"pinned":true}')).toBe(true);
   });
 });

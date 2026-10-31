@@ -153,7 +153,7 @@ export function ModelPicker({
               }}
             />
             <Button variant="outline" compact disabled={parsed?.ok !== true} onClick={applyCustom}>
-              Use
+              Use model
             </Button>
           </div>
           {custom !== '' && parsed?.ok === false && (
@@ -177,10 +177,22 @@ export function ModelPicker({
         </p>
       )}
 
-      <p id={noteId} className="text-sm text-ink-400">
-        Next run uses <span className="font-medium text-ink-100">{choices.effectiveLabel}</span>.
-        {choices.note === '' ? '' : ` ${choices.note}`}
-      </p>
+      <div id={noteId} className="text-sm text-ink-400">
+        <p>
+          Next run uses <span className="font-medium text-ink-100">{choices.effectiveLabel}</span>.
+        </p>
+        {choices.note !== '' && (
+          <details className="mt-1">
+            <summary
+              aria-label={`About ${name} model choices`}
+              className="cursor-pointer active:text-ink-100"
+            >
+              Model details
+            </summary>
+            <p className="mt-1">{choices.note}</p>
+          </details>
+        )}
+      </div>
     </div>
   );
 }

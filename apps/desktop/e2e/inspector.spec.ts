@@ -21,6 +21,9 @@ import {
   launchApplication,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
+  showTransitionControls,
 } from './application';
 
 let running: RunningApplication;
@@ -156,7 +159,8 @@ test('moves between Koma, element and motion contexts with the pointer and the k
   await expectTab(window, 'Koma');
   await expect(window.getByRole('heading', { name: 'Koma 1' })).toBeVisible();
   await expect(window.getByLabel('Title', { exact: true })).toHaveValue('Scene');
-  await expect(window.getByRole('button', { name: 'New Koma after this one' })).toBeVisible();
+  await expect(window.getByRole('button', { name: 'New Koma after this one' })).toHaveCount(0);
+  await expect(window.getByLabel('Background', { exact: true })).toBeVisible();
   await capture(window, testInfo, 'inspector-koma.png');
 
   // A canvas selection opens the element with its type's controls first.
@@ -178,11 +182,14 @@ test('moves between Koma, element and motion contexts with the pointer and the k
 
   // A shape shows its fill first.
   await stage(window).getByRole('button', { name: 'Cover panel (shape)', exact: true }).click();
-  await expect(window.getByLabel('Fill colour')).toHaveValue('#F2C14E');
-  await window.getByLabel('Fill colour').fill('#12');
-  await expect(window.getByText('Error: Use a hex colour such as #7CC4E8.')).toBeVisible();
-  await window.getByLabel('Fill colour').fill('#123456');
-  await expect(window.getByText(/Use a hex colour/)).toHaveCount(0);
+  const fill = inspector(window).getByRole('textbox', { name: 'Fill colour', exact: true });
+  await expect(fill).toHaveValue('#F2C14E');
+  await fill.fill('#12');
+  await expect(window.getByText('Error: Choose a colour or enter a hex value.')).toBeVisible();
+  await expect(fill).toHaveAttribute('aria-invalid', 'true');
+  await fill.fill('#123456');
+  await expect(window.getByText('Error: Choose a colour or enter a hex value.')).toHaveCount(0);
+  await expect(fill).not.toHaveAttribute('aria-invalid', 'true');
 
   // The tabs work with the arrow keys; the Koma keeps its fields.
   const elementTab = inspector(window).getByRole('tab', { name: /^Element/ });
@@ -202,6 +209,7 @@ test('moves between Koma, element and motion contexts with the pointer and the k
   await expect(window.getByLabel('Why this motion')).toBeVisible();
   // The duration of the Inspector and of the transport are one setting.
   await window.getByLabel('Duration in seconds', { exact: true }).fill('2');
+  await showTransitionControls(window);
   await expect(window.getByLabel('Transition duration in seconds')).toHaveValue('2');
   await capture(window, testInfo, 'inspector-motion.png');
 
@@ -295,10 +303,13 @@ test('selects hidden, covered and off-canvas elements from Layers and changes th
   // Saved and reopened, the order and states remain.
   const path = join(running.directory, 'layers.koma');
   await answerSaveDialog(application, path);
-  await window.getByRole('button', { name: 'Save as', exact: true }).click();
+  await chooseShareCommand(window, 'Save as');
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   await answerOpenDialog(application, path);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
+  // Loading the same file resets properties even though the project name is unchanged.
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
+  await showInspector(window);
   await expectTab(window, 'Koma');
   await expect(layer(window, 'Corner badge')).toHaveAccessibleName(/locked/);
   await expect(layer(window, 'Covered circle')).toHaveAttribute('aria-pressed', 'false');
@@ -337,15 +348,15 @@ test('reports out-of-date motion and recalculates it as one undoable step', asyn
   await motionTab.click();
   const status = window.getByRole('status', { name: 'Motion status' });
   await expect(status).toContainText('Motion is out of date');
-  await expect(status).toContainText('Recalculate motion to preview again');
-  await expect(window.getByRole('button', { name: 'Preview this transition' })).toHaveCount(0);
+  await expect(status).toContainText('Fix motion to preview again');
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
   await expect(window.getByRole('heading', { name: 'Stored effects (out of date)' })).toBeVisible();
   await capture(window, testInfo, 'inspector-motion-stale.png');
 
-  await status.getByRole('button', { name: 'Recalculate motion' }).click();
+  await status.getByRole('button', { name: 'Fix motion' }).click();
   await expect(status).toContainText('Ready to play');
   await expect(motionTab).toHaveAccessibleName('Motion');
-  await expect(window.getByRole('button', { name: 'Preview this transition' })).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   await expect(
     window.getByRole('list', { name: 'What happens to each object' }).getByText('Headline'),
   ).toBeVisible();
@@ -356,7 +367,7 @@ test('reports out-of-date motion and recalculates it as one undoable step', asyn
   await expect(status).toContainText('Ready to play');
 
   // Previewing keeps the motion in view.
-  await window.getByRole('button', { name: 'Preview this transition' }).click();
+  await window.getByRole('button', { name: 'Play', exact: true }).click();
   await expectTab(window, 'Motion');
   await expect(stage(window)).toHaveAttribute('aria-label', /^Preview of the transition/);
   expect(running.problems).toEqual([]);
@@ -438,5 +449,25 @@ test('stays usable in a narrow window', async () => {
     description: `Viewport ${String(viewport.width)} x ${String(viewport.height)} CSS pixels`,
   });
   await capture(window, testInfo, 'inspector-narrow.png');
+  expect(running.problems).toEqual([]);
+});
+
+test('fixes motion from Project health with one action and one undo', async () => {
+  const { window } = running;
+  await openProject(sceneElements(), true);
+  await stage(window).getByRole('button', { name: 'Headline (text)', exact: true }).click();
+  await window.getByLabel('X', { exact: true }).fill('400');
+  await window.getByRole('button', { name: /Project health/ }).click();
+  const health = window.getByRole('dialog', { name: 'Project health', exact: true });
+  await expect(health.getByRole('button', { name: 'Fix motion', exact: true })).toBeVisible();
+  await health.getByRole('button', { name: 'Fix motion', exact: true }).click();
+  await expect(health.getByRole('button', { name: 'Fix motion', exact: true })).toHaveCount(0);
+  await expect(health.getByText('No project issues found.')).toBeVisible();
+  await window.screenshot({ path: test.info().outputPath('motion-fixed.png'), scale: 'css' });
+  await health.getByRole('button', { name: 'Close', exact: true }).click();
+  await expect(window.getByLabel('X', { exact: true })).toHaveValue('400');
+  await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await window.getByRole('button', { name: /Project health/ }).click();
+  await expect(health.getByRole('button', { name: 'Fix motion', exact: true })).toBeVisible();
   expect(running.problems).toEqual([]);
 });

@@ -10,6 +10,8 @@ import {
   launchApplication,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
 } from './application';
 
 let running: RunningApplication;
@@ -55,7 +57,7 @@ for (const reducedMotion of [false, true]) {
     const original = JSON.stringify(project);
     await writeFile(source, original);
     await answerOpenDialog(application, source);
-    await window.getByRole('button', { name: 'Open', exact: true }).click();
+    await chooseProjectCommand(window, 'Open');
     await showInspector(window);
     await window.getByRole('tab', { name: 'Koma', exact: true }).click();
     const global = window.getByRole('switch', { name: 'Use global hold duration' });
@@ -77,14 +79,14 @@ for (const reducedMotion of [false, true]) {
     await expect(seconds).toHaveValue('2.5');
     const savedPath = join(directory, 'timed.koma');
     await answerSaveDialog(application, savedPath);
-    await window.getByRole('button', { name: 'Save as', exact: true }).click();
+    await chooseShareCommand(window, 'Save as');
     await expect(window.getByText('All changes saved', { exact: true })).toBeVisible();
     const saved = komaProjectSchema.parse(JSON.parse(await readFile(savedPath, 'utf8')));
     expect(saved.presentation.komas.map((koma) => koma.holdDurationMs)).toEqual([1000, 2500, null]);
     expect(saved.presentation.transitions).toEqual(transitions);
     expect(await readFile(source, 'utf8')).toBe(original);
     await answerOpenDialog(application, savedPath);
-    await window.getByRole('button', { name: 'Open', exact: true }).click();
+    await chooseProjectCommand(window, 'Open');
     await window
       .getByRole('list', { name: 'Komas' })
       .getByRole('button', { name: /^Koma 2:/ })

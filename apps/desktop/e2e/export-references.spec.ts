@@ -9,6 +9,9 @@ import {
   answerSaveDialog,
   launchApplication,
   type RunningApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
+  showGenerationOptions,
 } from './application';
 import { selectProvider } from './composerControls';
 
@@ -80,12 +83,12 @@ test('exports static slides and a motion fallback through the native destination
   await createMockPresentation();
   const projectPath = join(directory, 'source.koma');
   await answerSaveDialog(application, projectPath);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const projectBefore = await readFile(projectPath);
 
   const staticPath = join(directory, 'static.pptx');
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
+  await chooseShareCommand(window, 'Export PowerPoint');
   const exportDialog = window.getByRole('dialog', { name: 'Export PowerPoint' });
   await expect(exportDialog).toContainText('Export 3 Komas as editable PowerPoint slides');
   await expect(exportDialog.getByLabel('Motion')).toHaveValue('static');
@@ -119,7 +122,7 @@ test('exports static slides and a motion fallback through the native destination
   await exportDialog.getByRole('button', { name: 'Close' }).click();
 
   const morphPath = join(directory, 'morph.pptx');
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
+  await chooseShareCommand(window, 'Export PowerPoint');
   await exportDialog.getByLabel('Motion').selectOption('morph');
   await exportDialog
     .getByRole('checkbox', { name: 'Advance automatically using Koma hold durations' })
@@ -139,7 +142,7 @@ test('exports static slides and a motion fallback through the native destination
   await exportDialog.getByRole('button', { name: 'Close' }).click();
 
   const filesBeforeCancel = (await readdir(directory)).sort();
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
+  await chooseShareCommand(window, 'Export PowerPoint');
   await application.evaluate(({ dialog }) => {
     dialog.showSaveDialog = () => Promise.resolve({ canceled: true, filePath: '' });
   });
@@ -194,7 +197,7 @@ test('exports a continuous Koma move as named editable Morph objects', async () 
   await expect(
     window.getByRole('list', { name: 'Komas' }).getByRole('button', { name: /^Koma \d:/ }),
   ).toHaveCount(3);
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
+  await chooseShareCommand(window, 'Export PowerPoint');
   const exportDialog = window.getByRole('dialog', { name: 'Export PowerPoint' });
   await exportDialog.getByLabel('Motion').selectOption('morph');
   await answerSaveDialog(application, exported);
@@ -224,12 +227,14 @@ test('previews, removes and rejects text references; save and reopen do not reta
   const references = window.getByRole('list', { name: 'Attached references' });
 
   await answerOpenDialog(application, txt);
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Attach references' }).click();
   await expect(references.getByRole('listitem')).toHaveCount(1);
   await references.getByText(/brief.txt/).click();
   await expect(references).toContainText('River delta evidence');
 
   await answerOpenDialog(application, md);
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Attach references' }).click();
   await expect(references.getByRole('listitem')).toHaveCount(2);
   await references.getByText(/notes.md/).click();
@@ -239,6 +244,7 @@ test('previews, removes and rejects text references; save and reopen do not reta
   });
   await expect(window.getByLabel('Your request')).toBeInViewport({ ratio: 1 });
   await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeInViewport({ ratio: 1 });
+  await showGenerationOptions(window);
   await expect(window.getByRole('button', { name: 'Attach references' })).toBeInViewport({
     ratio: 1,
   });
@@ -250,6 +256,7 @@ test('previews, removes and rejects text references; save and reopen do not reta
   await references.getByRole('button', { name: 'Remove notes.md' }).click();
   await expect(references.getByRole('listitem')).toHaveCount(1);
   await answerOpenDialog(application, invalid);
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Attach references' }).click();
   await expect(window.getByRole('alert')).toContainText('contains binary data');
   await expect(references.getByRole('listitem')).toHaveCount(1);
@@ -257,21 +264,22 @@ test('previews, removes and rejects text references; save and reopen do not reta
   await application.evaluate(({ dialog }) => {
     dialog.showOpenDialog = () => Promise.resolve({ canceled: true, filePaths: [] });
   });
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Attach references' }).click();
   await expect(references.getByRole('listitem')).toHaveCount(1);
   await expect(window.getByRole('alert')).toHaveCount(0);
 
   await answerSaveDialog(application, projectPath);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = await readFile(projectPath, 'utf8');
   expect(saved).not.toContain('River delta evidence');
   expect(saved).not.toContain('notes.md');
   expect(saved).not.toContain(txt);
-  await window.getByRole('button', { name: 'New', exact: true }).click();
+  await chooseProjectCommand(window, 'New');
   await expect(references).toHaveCount(0);
   await answerOpenDialog(application, projectPath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(references).toHaveCount(0);
   expect(problems).toEqual([]);
 });
@@ -281,6 +289,7 @@ test('extracts a local PDF for preview without exposing its path', async () => {
   const path = resolve('e2e/fixtures/decks/northstar.pdf');
   await window.getByRole('button', { name: 'Create a project' }).click();
   await answerOpenDialog(application, resolve('e2e/fixtures/decks/encrypted.pdf'));
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Attach references' }).click();
   await expect(window.getByRole('alert')).toContainText('password protected');
   expect(
@@ -288,6 +297,7 @@ test('extracts a local PDF for preview without exposing its path', async () => {
   ).toBe(1);
   await expect(window.getByRole('list', { name: 'Attached references' })).toHaveCount(0);
   await answerOpenDialog(application, path);
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Attach references' }).click();
   const references = window.getByRole('list', { name: 'Attached references' });
   await expect(references.getByRole('listitem')).toHaveCount(1);
@@ -309,6 +319,7 @@ test('external-provider consent follows the selected references without contacti
   await writeFile(second, 'Second source text', 'utf8');
   await window.getByRole('button', { name: 'Create a project' }).click();
   await answerOpenDialog(application, first);
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Attach references' }).click();
   await expect(
     window.getByRole('list', { name: 'Attached references' }).getByRole('listitem'),
@@ -322,6 +333,7 @@ test('external-provider consent follows the selected references without contacti
   await consent.check();
   await expect(consent).toBeChecked();
   await answerOpenDialog(application, second);
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Attach references' }).click();
   await expect(consent).not.toBeChecked();
   await selectProvider(window, 'mock');

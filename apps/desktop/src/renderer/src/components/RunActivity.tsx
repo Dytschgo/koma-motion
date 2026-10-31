@@ -177,30 +177,19 @@ export function RunActivity({
 
   if (finished) {
     return (
-      <div
-        data-run-phase={phase}
-        className="mt-5 flex items-center gap-3 rounded-card border border-line bg-surface-2/50 px-3 py-2"
-      >
-        <PixelSprite phase={phase} size={32} />
-        <p className="min-w-0 flex-1 text-sm text-ink-300">
-          <span className={`font-medium ${PHASE_TONES[phase]}`}>{ACTIVITY_LABELS[phase]}</span>{' '}
-          after {formatElapsed(elapsed)} · {run.providerName}
-        </p>
-        <Button variant="quiet" compact onClick={onOpenMonitor}>
-          Run details
+      <div data-run-phase={phase} className="chat-run-finished">
+        <Button variant="quiet" compact aria-label="Run details" onClick={onOpenMonitor}>
+          Run details <span aria-hidden="true">· {formatElapsed(elapsed)}</span>
         </Button>
       </div>
     );
   }
 
   return (
-    <div
-      data-run-phase={phase}
-      className="mt-5 rounded-card border border-line bg-surface-2/70 px-3 py-3 wrap-break-word"
-    >
+    <div data-run-phase={phase} className="chat-run-active">
       <div className="flex items-start gap-3">
         <div className="flex flex-col items-center gap-1">
-          <PixelSprite phase={phase} />
+          <PixelSprite phase={phase} size={28} />
           <span className="font-mono text-xs text-ink-400 tabular-nums" aria-hidden="true">
             {formatElapsed(elapsed)}
           </span>
@@ -215,22 +204,12 @@ export function RunActivity({
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <Button variant="outline" compact onClick={onOpenMonitor}>
-              Open run monitor
+              Run details
             </Button>
-            {latest?.phase !== 'succeeded' && (
-              <Button
-                variant="outline"
-                compact
-                disabled={run.cancelRequested}
-                onClick={() => void cancelGeneration()}
-              >
-                Cancel
-              </Button>
-            )}
           </div>
         </div>
       </div>
-      <StreamedText run={run} className="mt-3 ml-[3.75rem]" />
+      <StreamedText run={run} className="chat-run-output" />
     </div>
   );
 }
@@ -284,11 +263,15 @@ export function RunMonitor({
               <p className="mt-0.5 text-ink-300">
                 {run.providerName} · {run.modelLabel}
               </p>
-              <p className="mt-1 max-w-[62ch] text-sm text-ink-400">
-                A live view inside Koma Motion of the run shown in the chat. It opens no second
-                process and sends no second request. Claude Code runs in print mode without a saved
-                session, so no terminal can attach to it.
-              </p>
+              {run.providerId === 'claude-code' && (
+                <details className="mt-1 text-sm text-ink-400">
+                  <summary className="cursor-pointer active:text-ink-100">Provider details</summary>
+                  <p className="mt-1">
+                    Claude Code runs in print mode without a saved session, so no terminal can
+                    attach to it.
+                  </p>
+                </details>
+              )}
             </div>
           </header>
 

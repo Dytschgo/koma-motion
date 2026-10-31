@@ -15,19 +15,30 @@ import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { recordInputEvidence } from './inputEvidence';
 import {
   answerOpenDialog,
   answerSaveDialog,
   launchApplication,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
+  addElement,
+  showTransitionControls,
 } from './application';
 
 let running: RunningApplication;
+let inputEvidence: () => readonly unknown[];
 test.beforeEach(async () => {
   running = await launchApplication();
+  inputEvidence = await recordInputEvidence(running.window);
 });
 test.afterEach(async () => {
+  await writeFile(
+    test.info().outputPath('input-events.json'),
+    JSON.stringify(inputEvidence(), null, 2),
+  );
   await running.close();
 });
 
@@ -198,13 +209,14 @@ test('moves, resizes, cancels and edits text with one undo per committed gesture
 
   // The edits moved objects of the first Koma, so its transition must be
   // regenerated before it can be previewed. The edits stay.
+  await showTransitionControls(window);
   await expect(window.getByLabel('Position in the transition')).toBeDisabled();
   const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
   await warning.getByRole('button', { name: 'Regenerate transition' }).click();
   await expect(warning).toHaveCount(0);
   await window.getByLabel('Position in the transition').fill('500');
   await expect(stage.getByRole('button')).toHaveCount(0);
-  await expect(window.getByRole('button', { name: 'Add image', exact: true })).toBeDisabled();
+  await expect(window.getByRole('button', { name: 'Add element', exact: true })).toBeDisabled();
   // A preview shows the motion; the Koma fields stay read-only until it stops.
   await expect(window.getByRole('tab', { name: /^Motion/ })).toHaveAttribute(
     'aria-selected',
@@ -216,10 +228,10 @@ test('moves, resizes, cancels and edits text with one undo per committed gesture
   await expect(shape).toBeVisible();
   await shape.click();
   await window.screenshot({ path: test.info().outputPath('canvas-selection.png') });
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   await answerOpenDialog(running.application, join(running.directory, 'canvas.koma'));
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await shape.click();
   await expect(window.getByLabel('X', { exact: true })).toHaveValue('190');
   await expect(window.getByLabel('Width', { exact: true })).toHaveValue('300');
@@ -234,7 +246,7 @@ test('validates, imports, saves, reopens and replaces embedded images', async ()
   const invalid = join(directory, 'bad.png');
   await writeFile(invalid, '<svg onload="alert(1)"/>');
   await answerOpenDialog(application, invalid);
-  await window.getByRole('button', { name: 'Add image', exact: true }).click();
+  await addElement(window, 'Image');
   await expect(
     window.getByText('The selected file is not a PNG, JPEG, WebP or GIF image.'),
   ).toBeVisible();
@@ -243,7 +255,7 @@ test('validates, imports, saves, reopens and replaces embedded images', async ()
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=';
   await writeFile(imagePath, Buffer.from(png, 'base64'));
   await answerOpenDialog(application, imagePath);
-  await window.getByRole('button', { name: 'Add image', exact: true }).click();
+  await addElement(window, 'Image');
   const image = stage.getByRole('button', { name: 'picture.png (image)', exact: true });
   await expect(image).toBeVisible();
   await expect(image.locator('img')).toHaveAttribute('src', `data:image/png;base64,${png}`);
@@ -261,14 +273,16 @@ test('validates, imports, saves, reopens and replaces embedded images', async ()
   await expect(window.getByLabel('X', { exact: true })).toHaveValue('520');
   const savedPath = join(directory, 'saved.koma');
   await answerSaveDialog(application, savedPath);
-  await window.getByRole('button', { name: 'Save as', exact: true }).click();
+  await chooseShareCommand(window, 'Save as');
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(savedPath, 'utf8')));
   expect(saved.assets[0]?.embeddedData?.data).toBe(png);
   const original = saved.presentation.komas[0]?.elements.find((item) => item.type === 'image');
   await answerOpenDialog(application, savedPath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
   await image.click();
+  await showInspector(window);
   await expect(window.getByLabel('X', { exact: true })).toHaveValue('520');
   await answerOpenDialog(application, imagePath);
   await window.getByRole('button', { name: 'Replace image', exact: true }).click();
@@ -276,7 +290,7 @@ test('validates, imports, saves, reopens and replaces embedded images', async ()
   await window.getByRole('button', { name: 'Undo', exact: true }).click();
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   await window.getByRole('button', { name: 'Redo', exact: true }).click();
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   const replaced = komaProjectSchema.parse(JSON.parse(await readFile(savedPath, 'utf8')));
   const next = replaced.presentation.komas[0]?.elements.find((item) => item.id === original?.id);
@@ -377,7 +391,7 @@ test('edits multiline text with the keyboard, saves, reopens and preserves undo 
   await editor.fill('Discard this session');
   await editor.press('Escape');
   await expect(window.getByLabel('Text', { exact: true })).toHaveValue(draft);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   const saved = komaProjectSchema.parse(
     JSON.parse(await readFile(join(running.directory, 'canvas.koma'), 'utf8')),
@@ -386,7 +400,7 @@ test('edits multiline text with the keyboard, saves, reopens and preserves undo 
     saved.presentation.komas[0]?.elements.find((item) => item.type === 'text')?.content,
   ).toEqual({ text: draft });
   await answerOpenDialog(running.application, join(running.directory, 'canvas.koma'));
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await text.click();
   await expect(window.getByLabel('Text', { exact: true })).toHaveValue(draft);
   expect(running.problems).toEqual([]);
@@ -425,8 +439,9 @@ test('commits on Tab, another selection, stage background and preview focus exit
   // commit it, then local recalculation makes playback available again.
   await window.getByRole('tab', { name: /^Motion/ }).click();
   await expect(editor).toHaveCount(0);
+  await showTransitionControls(window);
   await expect(window.getByLabel('Position in the transition')).toBeDisabled();
-  await window.getByRole('button', { name: 'Recalculate motion', exact: true }).click();
+  await window.getByRole('button', { name: 'Fix motion', exact: true }).click();
   await expect(window.getByLabel('Position in the transition')).toBeEnabled();
   await window.getByLabel('Position in the transition').fill('500');
   await expect(editor).toHaveCount(0);
@@ -436,9 +451,11 @@ test('commits on Tab, another selection, stage background and preview focus exit
   await text.click();
   await text.press('Enter');
   await editor.fill('Next Koma copy');
-  await window.getByRole('button', { name: 'Next Koma', exact: true }).click();
+  // Choosing another Koma in the filmstrip commits the draft first.
+  const komas = window.getByRole('list', { name: 'Komas' });
+  await komas.getByRole('button', { name: /^Koma 2:/ }).click();
   await expect(editor).toHaveCount(0);
-  await window.getByRole('button', { name: 'Previous Koma', exact: true }).click();
+  await komas.getByRole('button', { name: /^Koma 1:/ }).click();
   await expect(text).toHaveText('Next Koma copy');
   expect(running.problems).toEqual([]);
 });
@@ -454,6 +471,7 @@ test('retains invalid drafts on focus exit, blocks preview/selection and recover
   await text.press('Enter');
   const invalid = 'x'.repeat(MAX_ELEMENT_TEXT_LENGTH + 1);
   await editor.fill(invalid);
+  await expect(editor).toHaveValue(invalid);
   await editor.press('Tab');
   await expect(error).toBeFocused();
   await expect(editor).toHaveValue(invalid);
@@ -474,6 +492,7 @@ test('retains invalid drafts on focus exit, blocks preview/selection and recover
   await expect(text).toHaveText('Recovered copy');
   await text.press('Enter');
   await editor.fill(invalid);
+  await expect(editor).toHaveValue(invalid);
   await editor.press('ControlOrMeta+Enter');
   await expect(error).toBeFocused();
   await error.press('Escape');
@@ -495,9 +514,14 @@ test('keeps editor bounds at zoom/resize and discards drafts when reopening the 
   const before = await stage.boundingBox();
   const beforeEditor = await editor.boundingBox();
   if (!before || !beforeEditor) throw new Error('Missing bounds before resize');
-  await application.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0]?.setSize(1200, 700),
+  const contentBefore = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  // macOS may already have clamped the initial window near 1200 pixels.
+  // Request a distinct supported width, then verify a resize really happened.
+  await application.evaluate(
+    ({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0]?.setContentSize(width, 700),
+    contentBefore.width > 1120 ? 1120 : 1280,
   );
+  await expect.poll(() => window.evaluate(() => innerWidth)).not.toBe(contentBefore.width);
   await expect.poll(async () => (await stage.boundingBox())?.width).not.toBe(before.width);
   await expect.poll(async () => (await editor.boundingBox())?.width).not.toBe(beforeEditor.width);
   await expect(editor).toHaveValue('Resize draft');

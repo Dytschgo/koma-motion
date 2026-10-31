@@ -1,10 +1,12 @@
-import { userRequestSchema } from '@koma-motion/agent-runtime';
+import { userRequestSchema, type GenerationInput } from '@koma-motion/agent-runtime';
 import type { KomaProject } from '@koma-motion/core';
 import { useEffect, useRef, useState } from 'react';
 import { generate } from './agentActions';
+import { isRecheckCommand, prepareRecheck, repairProjectMotion } from './recheck';
+import { collectHealthIssues } from './projectHealth';
 import { DEFAULT_KOMA_COUNT, parseKomaCount } from './composerChoices';
 import { useAgentStore } from '../state/agentStore';
-import { useProjectStore } from '../state/projectStore';
+import { selectProject, useProjectStore } from '../state/projectStore';
 import { useReferenceStore } from '../state/referenceStore';
 import { useUiStore } from '../state/uiStore';
 import { useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
@@ -17,6 +19,9 @@ export function useComposerDraft(project: KomaProject) {
   const providers = useAgentStore((state) => state.providers);
   const detection = useAgentStore((state) => state.detection);
   const execution = useAgentStore((state) => state.execution);
+  const conversation = useAgentStore((state) => state.conversation);
+  const latestOutcome = conversation.findLast((entry) => entry.kind !== 'request');
+  const lastFailure = latestOutcome?.kind === 'failure' ? latestOutcome : undefined;
   const proposal = useAgentStore((state) => state.scopedProposal);
   const selectedKomaId = useUiStore((state) => state.selectedKomaId);
   const selectedKoma = project.presentation.komas.find((koma) => koma.id === selectedKomaId);
@@ -47,16 +52,18 @@ export function useComposerDraft(project: KomaProject) {
     references.length > 0 && selected?.metadata.usesExternalService === true;
   const referencesReady =
     !referenceState.selecting && (!needsReferenceConsent || referenceConsent === consentKey);
+  const readyToRecheck =
+    !running && proposal === null && !brandBusy && available && referencesReady;
+  const readyToGenerate =
+    readyToRecheck && validCount && (scope !== 'selected' || selectedKoma !== undefined);
   const canSubmit =
     trimmed !== '' &&
     requestValidation.success &&
-    validCount &&
-    !running &&
-    proposal === null &&
-    (scope !== 'selected' || selectedKoma !== undefined) &&
-    !brandBusy &&
-    available &&
-    referencesReady;
+    (isRecheckCommand(request)
+      ? lastFailure === undefined
+        ? !running && proposal === null && !brandBusy
+        : readyToRecheck
+      : readyToGenerate);
 
   const draftSession = useRef(sessionId);
   useEffect(() => {
@@ -80,20 +87,57 @@ export function useComposerDraft(project: KomaProject) {
     seedComposer(null);
   }, [composerSeed, seedComposer]);
 
-  const submit = (text: string): void => {
-    if (
-      !userRequestSchema.safeParse(text).success ||
-      count === undefined ||
-      running ||
-      proposal !== null ||
-      (scope === 'selected' && selectedKoma === undefined) ||
-      brandBusy ||
-      !available ||
-      !referencesReady
-    ) {
+  const recheck = (input: GenerationInput): boolean => {
+    if (!readyToRecheck) return false;
+    const next = prepareRecheck(input, project, references);
+    if (next === null) {
+      useUiStore
+        .getState()
+        .notify(
+          'error',
+          'The original Koma was removed. Select a Koma and describe the change again.',
+        );
+      return false;
+    }
+    setScope(next.targetKomaId === undefined ? 'entire' : 'selected');
+    if (next.targetKomaId !== undefined) useUiStore.getState().selectKoma(next.targetKomaId);
+    setAutoKomaCount(next.requestedKomaCount === null);
+    if (next.requestedKomaCount !== null) setKomaCount(String(next.requestedKomaCount));
+    setReferenceConsent(null);
+    void generate(next);
+    return true;
+  };
+
+  const submit = (
+    text: string,
+    { preserveDraft = false }: { readonly preserveDraft?: boolean } = {},
+  ): void => {
+    if (isRecheckCommand(text)) {
+      if (lastFailure === undefined) {
+        if (running || proposal !== null || brandBusy) return;
+        useProjectStore.getState().apply(repairProjectMotion);
+        const repaired = selectProject(useProjectStore.getState()) ?? project;
+        const remaining = collectHealthIssues(repaired, [], null).filter(
+          (issue) => issue.severity !== 'info',
+        );
+        useUiStore
+          .getState()
+          .notify(
+            'info',
+            remaining.length > 0
+              ? 'Rechecked. Some items need your input in Project health.'
+              : repaired === project
+                ? 'Rechecked. No project problems found.'
+                : 'Motion fixed. Undo is available.',
+          );
+        if (!preserveDraft) setRequest('');
+      } else if (recheck(lastFailure.input) && !preserveDraft) setRequest('');
       return;
     }
-    setRequest('');
+    if (!userRequestSchema.safeParse(text).success || count === undefined || !readyToGenerate) {
+      return;
+    }
+    if (!preserveDraft) setRequest('');
     setReferenceConsent(null);
     void generate({
       userRequest: text.trim(),
@@ -128,6 +172,8 @@ export function useComposerDraft(project: KomaProject) {
     autoKomaCount,
     setAutoKomaCount,
     canSubmit,
+    canRetry: readyToRecheck,
+    recheck,
     references,
     needsReferenceConsent,
     referenceConsent,

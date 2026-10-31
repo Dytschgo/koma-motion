@@ -2,12 +2,7 @@ import { type KomaProject, type KomaTransition } from '@koma-motion/core';
 import { validateTransition } from '@koma-motion/motion-engine';
 import { useEffect, useId, useMemo, useRef, type KeyboardEvent, type ReactElement } from 'react';
 import { getMotionStatus } from '../lib/motionSummary';
-import {
-  getTransitionOfKoma,
-  useCurrentTransition,
-  useSelectedElement,
-  useSelectedKoma,
-} from '../lib/selectors';
+import { useCurrentTransition, useSelectedElement, useSelectedKoma } from '../lib/selectors';
 import { canRecalculateTransition } from '../state/commands';
 import { useUiStore, type InspectorTab } from '../state/uiStore';
 import { ElementPanel } from './inspector/ElementPanel';
@@ -56,9 +51,7 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
   const koma = useSelectedKoma();
   const element = useSelectedElement();
   const transition = useCurrentTransition();
-  const komaTransition = getTransitionOfKoma(project.presentation, koma?.id ?? null);
   const health = useTransitionHealth(project, transition);
-  const komaHealth = useTransitionHealth(project, komaTransition);
   const { komas } = project.presentation;
   const index = komas.findIndex((candidate) => candidate.id === koma?.id);
   const id = useId();
@@ -97,10 +90,7 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
   const motionNeedsAttention = health !== null && health.status.health !== 'ready';
 
   return (
-    <aside
-      aria-label="Inspector"
-      className="flex w-[304px] flex-none flex-col border-l border-line bg-surface-1"
-    >
+    <aside aria-label="Inspector" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-1">
       {koma === null ? (
         <div className="m-auto flex max-w-64 flex-col items-center gap-1.5 px-4 text-center">
           <p className="font-medium text-ink-300">Select a Koma to see its details.</p>
@@ -194,7 +184,6 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
                     koma={koma}
                     index={index}
                     count={komas.length}
-                    health={komaHealth}
                     editable={preview === null}
                   />
                 )}

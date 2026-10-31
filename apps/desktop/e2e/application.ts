@@ -6,6 +6,7 @@ import {
   _electron as electron,
   expect,
   type ElectronApplication,
+  type Locator,
   type Page,
 } from '@playwright/test';
 
@@ -60,8 +61,7 @@ export async function launchApplication(
   // CI machines have small screens, and a window never grows beyond its
   // screen. At half the device scale factor a Windows screen holds the full
   // 1480 x 920 window. macOS keeps its own scale, so its window can be
-  // narrow: see showInspector and showChat. Documentation screenshots keep
-  // the real scale.
+  // narrow. Documentation screenshots keep the real scale.
   const scale = process.env['KOMA_SCREENSHOTS'] === '1' ? [] : ['--force-device-scale-factor=0.5'];
   const application = await electron.launch(
     options.executablePath === undefined
@@ -144,32 +144,126 @@ export async function answerOpenDialog(
   }, filePath);
 }
 
-/** The window is wide enough for the canvas, the Inspector and the chat side by side. */
+/** Whether a requested wide sizing scenario fits on this screen. */
 export async function isWideWindow(window: Page): Promise<boolean> {
   return (await window.evaluate(() => innerWidth)) >= 1400;
 }
 
 /**
- * Makes the Inspector visible. In a narrow window the open chat takes its
- * place, so the chat is hidden, as a user would do.
+ * Opens the Inspector through Properties in the top bar, or returns to it from
+ * the Brand Kit, and pins it beside the canvas so that canvas gestures in the
+ * test are never covered by the floating panel.
  */
 export async function showInspector(window: Page): Promise<void> {
-  if (!(await isWideWindow(window))) {
-    const hide = window.getByRole('button', { name: 'Hide the chat' });
-    if (await hide.isVisible()) {
-      await hide.click();
+  const inspector = window.getByRole('complementary', { name: 'Inspector' });
+  if (!(await inspector.isVisible())) {
+    const back = window.getByRole('button', { name: 'Back to Inspector' });
+    if (await back.isVisible()) {
+      await back.click();
+    } else {
+      await window.getByRole('button', { name: 'Properties', exact: true }).click();
     }
   }
-  await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
+  await expect(inspector).toBeVisible();
+  const pin = window.getByRole('button', { name: 'Pin properties', exact: true });
+  if (await pin.isVisible()) await pin.click();
+  await expect(window.getByRole('button', { name: 'Unpin properties', exact: true })).toBeVisible();
+  await expect(inspector).toBeVisible();
 }
 
-/** Makes the chat visible again after showInspector. */
+/** Expands the conversation sheet above the prompt. */
 export async function showChat(window: Page): Promise<void> {
   const show = window.getByRole('button', { name: /^Show the chat/ });
-  if (await show.isVisible()) {
-    await show.click();
-  }
+  if (await show.isVisible()) await show.click();
   await expect(window.getByRole('button', { name: 'Hide the chat' })).toBeVisible();
+  await expect(window.getByRole('log', { name: 'Conversation' })).toBeVisible();
+}
+
+/** Runs a command from the project menu at the start of the top bar, for example 'Save'. */
+export async function chooseProjectCommand(window: Page, name: string): Promise<void> {
+  await window.getByRole('button', { name: 'Project menu', exact: true }).click();
+  const menu = window.getByRole('menu', { name: 'Project menu', exact: true });
+  await expect(menu).toBeVisible();
+  await menu.getByRole('menuitem', { name, exact: true }).click();
+}
+
+/** Runs 'Export PowerPoint' or 'Save as' from Share in the top bar. */
+export async function chooseShareCommand(window: Page, name: string): Promise<void> {
+  await window.getByRole('button', { name: 'Share', exact: true }).click();
+  const menu = window.getByRole('menu', { name: 'Share', exact: true });
+  await expect(menu).toBeVisible();
+  await menu.getByRole('menuitem', { name, exact: true }).click();
+}
+
+/** Adds an element through Add element in the top bar: 'Text', 'Rectangle', 'Circle', 'Line' or 'Image'. */
+export async function addElement(window: Page, name: string): Promise<void> {
+  await window.getByRole('button', { name: 'Add element', exact: true }).click();
+  await window
+    .getByRole('menu', { name: 'Add element', exact: true })
+    .getByRole('menuitem', { name, exact: true })
+    .click();
+}
+
+/** Shows the project Brand Kit in the properties panel, from the project menu. */
+export async function openBrandKit(window: Page): Promise<Locator> {
+  const panel = window.getByRole('complementary', { name: 'Brand Kit', exact: true });
+  if (!(await panel.isVisible())) await chooseProjectCommand(window, 'Brand Kit');
+  await expect(panel).toBeVisible();
+  return panel;
+}
+
+/** Leaves the Brand Kit and closes the properties panel, back to the canvas. */
+export async function closeBrandKit(window: Page): Promise<void> {
+  const panel = window.getByRole('complementary', { name: 'Brand Kit', exact: true });
+  await window.getByRole('button', { name: 'Back to Inspector' }).click();
+  await window.getByRole('button', { name: 'Close properties', exact: true }).click();
+  await expect(panel).toBeHidden();
+}
+
+/** Checks the project instructions state on its project menu command, then closes the menu. */
+export async function expectInstructionsState(window: Page, state: string): Promise<void> {
+  await window.getByRole('button', { name: 'Project menu', exact: true }).click();
+  await expect(
+    window.getByRole('menuitem', { name: 'Instructions & templates', exact: true }),
+  ).toHaveAttribute('aria-description', state);
+  await window.keyboard.press('Escape');
+  await expect(window.getByRole('menu', { name: 'Project menu' })).toHaveCount(0);
+}
+
+/** Shows Model, Brand Kit, Koma count and references above the prompt. */
+export async function showGenerationOptions(window: Page): Promise<void> {
+  const toggle = window.getByRole('button', { name: 'Generation options', exact: true });
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(
+    window.getByRole('group', { name: 'Generation choices', exact: true }),
+  ).toBeVisible();
+}
+
+/**
+ * Shows the transition controls below the canvas without starting playback,
+ * through Present or edit motion > Edit motion.
+ */
+export async function showTransitionControls(window: Page): Promise<Locator> {
+  const transport = window.getByRole('group', { name: 'Transition preview' });
+  if (!(await transport.isVisible())) {
+    await window.getByRole('button', { name: 'Present or edit motion', exact: true }).click();
+    await window.getByRole('menuitem', { name: 'Edit motion', exact: true }).click();
+  }
+  await expect(transport).toBeVisible();
+  return transport;
+}
+
+/** Opens a motion marker between two filmstrip thumbnails, numbered from 1. */
+export async function openMotion(window: Page, from: number): Promise<Locator> {
+  const marker = window.getByRole('list', { name: 'Komas' }).getByRole('button', {
+    name: new RegExp(
+      `^(Edit motion from Koma ${String(from)} to Koma ${String(from + 1)}|Motion from Koma ${String(from)} to Koma ${String(from + 1)} cannot play)$`,
+    ),
+  });
+  await marker.click();
+  const transport = window.getByRole('group', { name: 'Transition preview' });
+  await expect(transport).toBeVisible();
+  return transport;
 }
 
 /**
@@ -178,9 +272,7 @@ export async function showChat(window: Page): Promise<void> {
  */
 export async function openSettingsPage(window: Page, page: string): Promise<void> {
   const dialog = window.getByRole('dialog', { name: 'Settings', exact: true });
-  if (!(await dialog.isVisible())) {
-    await window.getByRole('button', { name: 'Settings', exact: true }).click();
-  }
+  if (!(await dialog.isVisible())) await chooseProjectCommand(window, 'Settings');
   await dialog
     .getByRole('navigation', { name: 'Settings categories' })
     .getByRole('button', { name: page, exact: true })

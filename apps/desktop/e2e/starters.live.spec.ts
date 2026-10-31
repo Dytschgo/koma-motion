@@ -13,12 +13,14 @@ import { join, resolve } from 'node:path';
 import { STARTER_PRESETS } from '@koma-motion/brand-kit';
 import { komaProjectSchema } from '@koma-motion/core';
 import { expect, test } from '@playwright/test';
-import { chooseModel, selectProvider } from './composerControls';
+import { chooseModel, selectProvider, openProviderChoices } from './composerControls';
 import {
   answerSaveDialog,
   launchApplication,
   openSettingsPage,
   showInspector,
+  chooseProjectCommand,
+  showGenerationOptions,
 } from './application';
 
 const provider = process.env['KOMA_LIVE_E2E'] ?? '';
@@ -27,7 +29,7 @@ const only = process.env['KOMA_LIVE_STARTER'] ?? '';
 const OUTPUT_DIRECTORY = process.env['KOMA_LIVE_OUTPUT_DIR']
   ? resolve(process.env['KOMA_LIVE_OUTPUT_DIR'])
   : resolve(import.meta.dirname, '../test-results/live-starters');
-const TIME_LIMIT_SECONDS = 1500;
+const TIME_LIMIT_SECONDS = 1800;
 
 test.skip(provider === '', 'Live tests run on request');
 test.setTimeout((TIME_LIMIT_SECONDS + 300) * 1000);
@@ -56,21 +58,25 @@ for (const starter of STARTER_PRESETS.filter((preset) => only === '' || preset.i
       await expect(window.getByLabel('Your request')).toHaveValue(starter.request);
 
       await openSettingsPage(window, 'Generation');
-      await window.getByLabel('Stop generation after a time limit').check();
-      await window.getByLabel('Time limit in seconds').fill(String(TIME_LIMIT_SECONDS));
-      if (model !== '') {
-        await chooseModel(
-          window,
-          `Model for ${provider === 'claude-code' ? 'Claude Code' : provider}`,
-          model,
-        );
-      }
+      await window
+        .getByLabel('Generation time limit', { exact: true })
+        .selectOption(String(TIME_LIMIT_SECONDS));
       await window.getByRole('button', { name: 'Done' }).click();
       await selectProvider(window, provider);
+      if (model !== '') {
+        const options = await openProviderChoices(window);
+        await chooseModel(options, 'Model', model);
+        await showGenerationOptions(window);
+        await window.getByRole('button', { name: 'Model', exact: true }).click();
+      }
 
       await window.getByRole('button', { name: 'Generate Komas' }).click();
-      await expect(window.getByRole('button', { name: 'Cancel', exact: true })).toBeVisible();
-      await expect(window.getByRole('button', { name: 'Cancel', exact: true })).toHaveCount(0, {
+      await expect(
+        window.getByRole('button', { name: 'Stop generating', exact: true }),
+      ).toBeVisible();
+      await expect(
+        window.getByRole('button', { name: 'Stop generating', exact: true }),
+      ).toHaveCount(0, {
         timeout: (TIME_LIMIT_SECONDS + 60) * 1000,
       });
       await window.screenshot({ path: join(output, 'result.png') });
@@ -78,7 +84,7 @@ for (const starter of STARTER_PRESETS.filter((preset) => only === '' || preset.i
       await expect(komas.first()).toBeVisible();
 
       await answerSaveDialog(application, filePath);
-      await window.getByRole('button', { name: 'Save', exact: true }).click();
+      await chooseProjectCommand(window, 'Save');
       await expect(window.getByText('All changes saved')).toBeVisible();
       const saved = komaProjectSchema.parse(JSON.parse(await readFile(filePath, 'utf8')));
 
@@ -97,7 +103,7 @@ for (const starter of STARTER_PRESETS.filter((preset) => only === '' || preset.i
           (koma) => koma.id === transition.fromKomaId,
         );
         await komas.nth(fromIndex).click();
-        await window.getByRole('button', { name: 'Preview', exact: true }).click();
+        await window.getByRole('button', { name: 'Play', exact: true }).click();
         await expect(stage).toHaveAttribute('aria-label', /^Preview of the transition/);
         for (const fraction of [0.3, 0.6]) {
           await window.waitForTimeout(Math.round(transition.duration * 0.3));

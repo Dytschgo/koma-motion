@@ -20,7 +20,7 @@ import { getTransitionContext } from '../../lib/selectors';
 import { changeTransition, recalculateTransition } from '../../state/commands';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
-import { CheckIcon, PlayIcon, RefreshIcon, WarningIcon } from '../icons';
+import { CheckIcon, RefreshIcon, WarningIcon } from '../icons';
 import { Badge, Button, Field, NumberInput, Select, TextArea, TextInput } from '../ui';
 import { Disclosure, Row, Section } from './parts';
 
@@ -74,7 +74,7 @@ export function MotionStatusBanner({
           className="self-start"
           onClick={onRecalculate}
         >
-          Recalculate motion
+          Fix motion
         </Button>
       )}
       {!ready && !health.canRecalculate && status.health !== 'partial' && (
@@ -194,7 +194,6 @@ export function MotionPanel({
 }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
   const preview = useUiStore((state) => state.preview);
-  const startPreview = useUiStore((state) => state.startPreview);
   const context =
     transition === null ? null : getTransitionContext(project.presentation, transition.id);
 
@@ -250,18 +249,6 @@ export function MotionPanel({
             apply(recalculateTransition(transition.id));
           }}
         />
-        {ready && (
-          <Button
-            variant="outline"
-            icon={<PlayIcon size={14} />}
-            className="self-start"
-            onClick={() => {
-              startPreview(transition.id);
-            }}
-          >
-            Preview this transition
-          </Button>
-        )}
       </div>
 
       <Section title="Timing">

@@ -1,7 +1,7 @@
 import { writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { answerOpenDialog, launchApplication } from './application';
+import { answerOpenDialog, launchApplication, openBrandKit } from './application';
 
 test('live Claude Code Opus analyzes only the prepared synthetic deck', async ({
   browserName: _browserName,
@@ -15,7 +15,7 @@ test('live Claude Code Opus analyzes only the prepared synthetic deck', async ({
   try {
     const { window, application } = running;
     await window.getByRole('button', { name: 'Create a project' }).click();
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await window.getByRole('tab', { name: /Library/ }).click();
     await window.getByRole('button', { name: 'Create Brand Kit from deck' }).click();
     await answerOpenDialog(application, resolve('e2e/fixtures/decks/northstar.pdf'));

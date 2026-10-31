@@ -2,7 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchApplication, openSettingsPage } from './application';
+import { launchApplication, openSettingsPage, showGenerationOptions } from './application';
 import { chooseModel, openProviderChoices } from './composerControls';
 
 const root = process.env['KOMA_FOOTER_EVIDENCE_DIR'];
@@ -22,12 +22,9 @@ for (const width of [1480, 1120] as const) {
       await expect.poll(() => window.evaluate(() => innerWidth)).toBe(width);
       await window.getByRole('button', { name: 'Create a project' }).click();
       const chat = window.getByRole('region', { name: 'Agent chat' });
-      const divider = window.getByRole('separator', { name: 'Resize the chat' });
-      await divider.focus();
-      if (width === 1120) await window.keyboard.press('Home');
-      else for (let index = 0; index < 3; index += 1) await window.keyboard.press('ArrowLeft');
       await chat.screenshot({ path: join(output, `closed-${String(width)}.png`) });
 
+      await showGenerationOptions(window);
       await window.getByRole('button', { name: 'Model', exact: true }).click();
       await chat.screenshot({ path: join(output, `provider-open-${String(width)}.png`) });
       await openProviderChoices(window);
@@ -35,16 +32,24 @@ for (const width of [1480, 1120] as const) {
         .getByRole('dialog', { name: 'Model', exact: true })
         .getByLabel('Provider', { exact: true })
         .selectOption('claude-code');
+      await showGenerationOptions(window);
       await window.getByRole('button', { name: 'Model', exact: true }).click();
       await openSettingsPage(window, 'Generation');
-      await chooseModel(window, 'Model for Claude Code', 'opus');
-      await window.getByRole('button', { name: 'Done', exact: true }).click();
+      await window.getByRole('button', { name: 'Choose model in chat' }).click();
+      await expect(window.getByRole('dialog', { name: 'Model', exact: true })).toBeVisible();
+      const options = await openProviderChoices(window);
+      await chooseModel(options, 'Model', 'opus');
+      await showGenerationOptions(window);
+      await window.getByRole('button', { name: 'Model', exact: true }).click();
       await chat.screenshot({ path: join(output, `claude-closed-${String(width)}.png`) });
       await chat.locator('form').screenshot({ path: join(output, `footer-${String(width)}.png`) });
+      await showGenerationOptions(window);
       await window.getByRole('button', { name: 'Model', exact: true }).click();
       await chat.screenshot({ path: join(output, `claude-open-${String(width)}.png`) });
+      await showGenerationOptions(window);
       await window.getByRole('button', { name: 'Model', exact: true }).click();
 
+      await showGenerationOptions(window);
       await window.getByRole('button', { name: 'Koma count', exact: true }).click();
       await chat.screenshot({ path: join(output, `count-open-${String(width)}.png`) });
       await window.keyboard.press('Escape');
@@ -53,6 +58,7 @@ for (const width of [1480, 1120] as const) {
         .getByRole('dialog', { name: 'Model', exact: true })
         .getByLabel('Provider', { exact: true })
         .selectOption('mock');
+      await showGenerationOptions(window);
       await window.getByRole('button', { name: 'Model', exact: true }).click();
       await window.getByRole('button', { name: 'Use the example request' }).click();
       await window.getByRole('button', { name: 'Generate Komas' }).click();

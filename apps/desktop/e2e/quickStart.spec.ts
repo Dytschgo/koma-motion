@@ -7,6 +7,7 @@ import {
   getApplicationEnvironment,
   launchApplication,
   type RunningApplication,
+  chooseProjectCommand,
 } from './application';
 
 let running: RunningApplication;
@@ -20,7 +21,7 @@ test.afterEach(async () => {
 const guide = (window: Page) =>
   window.getByRole('dialog', { name: 'Getting started', exact: true });
 const reopen = async (window: Page) => {
-  await window.getByRole('button', { name: 'Getting started', exact: true }).click();
+  await chooseProjectCommand(window, 'Getting started');
   await expect(guide(window)).toBeVisible();
 };
 const step = async (window: Page, name: string) => {
@@ -115,7 +116,8 @@ test('opens on demand, supports keyboard navigation, dismisses and reopens at na
     contentType: 'application/json',
   });
   await guide(window).getByRole('button', { name: 'Close getting started' }).click();
-  await expect(window.getByRole('button', { name: 'Getting started', exact: true })).toBeFocused();
+  // Getting started opens from the project menu, so focus returns to that menu.
+  await expect(window.getByRole('button', { name: 'Project menu', exact: true })).toBeFocused();
   expect(running.problems).toEqual([]);
 });
 
@@ -149,7 +151,7 @@ test('links to real workflows without changing the project and preserves complet
   await window.keyboard.press('Escape');
   await reopen(window);
   await guide(window).getByRole('button', { name: 'Model settings' }).click();
-  await expect(window.getByRole('heading', { name: 'Models', exact: true })).toBeVisible();
+  await expect(window.getByRole('heading', { name: 'Model', exact: true })).toBeVisible();
   await window.keyboard.press('Escape');
   await reopen(window);
   await guide(window).getByRole('button', { name: 'Open chat' }).click();
@@ -160,7 +162,7 @@ test('links to real workflows without changing the project and preserves complet
 
   await reopen(window);
   await step(window, '5. Edit & repair');
-  await guide(window).getByRole('button', { name: 'Open canvas & Inspector' }).click();
+  await guide(window).getByRole('button', { name: 'Open canvas & properties' }).click();
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
   await expect(window.getByRole('region', { name: 'Canvas' })).toBeFocused();
   await reopen(window);
@@ -177,8 +179,12 @@ test('links to real workflows without changing the project and preserves complet
   ).toHaveAttribute('aria-label', 'Koma 2: The motion engine');
   await reopen(window);
   await step(window, '7. Export');
-  await guide(window).getByRole('button', { name: 'Go to Export' }).click();
-  await expect(window.getByRole('button', { name: 'Export', exact: true })).toBeFocused();
+  await guide(window).getByRole('button', { name: 'Go to Share' }).click();
+  await expect(window.getByRole('button', { name: 'Share', exact: true })).toBeFocused();
+  await window.keyboard.press('Enter');
+  await expect(
+    window.getByRole('menuitem', { name: 'Export PowerPoint', exact: true }),
+  ).toBeFocused();
   await window.keyboard.press('Enter');
   await expect(window.getByRole('dialog', { name: 'Export PowerPoint' })).toBeVisible();
   await expect(window.getByRole('button', { name: 'Choose destination' })).toBeEnabled();
@@ -186,7 +192,7 @@ test('links to real workflows without changing the project and preserves complet
 
   const filePath = join(directory, 'guide-test.koma');
   await answerSaveDialog(application, filePath);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = await readFile(filePath, 'utf8');
   await reopen(window);
@@ -197,7 +203,7 @@ test('links to real workflows without changing the project and preserves complet
   await expect(guide(window).getByText('Completed', { exact: true })).toBeVisible();
   await expect(window.getByText('All changes saved')).toBeVisible();
   await guide(window).getByRole('button', { name: 'Close getting started' }).click();
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   expect(await readFile(filePath, 'utf8')).toBe(saved);
   expect(running.problems).toEqual([]);
 

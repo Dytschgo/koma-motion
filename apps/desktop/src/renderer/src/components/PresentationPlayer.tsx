@@ -472,7 +472,7 @@ function PresentationPlayer({
       <div
         role="group"
         aria-label="Presentation controls"
-        className="flex h-14 flex-none items-center gap-1 border-t border-white/10 bg-surface-0/95 px-3"
+        className="flex h-14 flex-none items-center gap-1 border-t border-line bg-surface-1 px-3"
       >
         <Button
           compact

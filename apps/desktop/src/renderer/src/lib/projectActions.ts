@@ -89,11 +89,9 @@ export async function createNewProject(): Promise<void> {
   }
 }
 
-/** Puts the first request of a starter into the chat and shows the chat. */
+/** Puts the first request of a starter into the prompt below the canvas. */
 function seedStarterRequest(preset: StarterPreset): void {
-  const ui = useUiStore.getState();
-  ui.seedComposer({ request: preset.request, komaCount: preset.komaCount });
-  ui.setAgentPanelOpen(true);
+  useUiStore.getState().seedComposer({ request: preset.request, komaCount: preset.komaCount });
 }
 
 /**

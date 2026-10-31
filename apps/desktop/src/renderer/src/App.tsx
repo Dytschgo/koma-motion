@@ -1,11 +1,9 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useElementSize } from '@koma-motion/renderer';
-import { useEffect, useRef, type ReactElement } from 'react';
+import { useEffect, type ReactElement, type SyntheticEvent } from 'react';
 import { Recovery } from './components/Recovery';
 import { followRecovery } from './lib/recovery';
-import { AgentPanel } from './components/AgentPanel';
-import { BrandKitPanel } from './components/BrandKitPanel';
-import { Inspector } from './components/Inspector';
+import { PromptDock } from './components/PromptDock';
+import { PropertiesPanel } from './components/PropertiesPanel';
 import { KomaStrip } from './components/KomaStrip';
 import { ConfirmDialog, Notices } from './components/Overlays';
 import { SettingsDialog } from './components/SettingsDialog';
@@ -17,7 +15,6 @@ import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
 import { detectProviders } from './lib/agentActions';
 import { invoke, subscribe } from './lib/api';
-import { getBrandKitPanelWidth, getChatLayout, INSPECTOR_WIDTH } from './lib/chatLayout';
 import { followUpdates } from './lib/updateActions';
 import { groupSelection, ungroupSelection } from './lib/groupActions';
 import { followFullScreen } from './lib/presentationActions';
@@ -140,75 +137,44 @@ function useApplicationEvents(): void {
   }, []);
 }
 
+/** Tuck completed chat away before the person resumes editing or playback. */
+function resumeEditing(event: SyntheticEvent<HTMLElement>): void {
+  if (
+    !useUiStore.getState().chatOpen ||
+    !(event.target instanceof Element) ||
+    event.target.closest('[data-guide-target="canvas"], .studio-topbar, .filmstrip') === null
+  ) {
+    return;
+  }
+  const agent = useAgentStore.getState();
+  const outcome = agent.conversation.findLast((entry) => entry.kind !== 'request');
+  // Editing and playback controls signal the return to the canvas before an
+  // object can be covered by chat. Keep unresolved outcomes available.
+  if (agent.execution === null && agent.scopedProposal === null && outcome?.kind === 'result') {
+    useUiStore.getState().setChatOpen(false);
+  }
+}
+
 /**
- * Komas on the left, the canvas in the middle, the Inspector or the Brand Kit
- * beside it and the chat on the right. When the window has no room for the
- * canvas, the side panel and the chat side by side, the open chat takes the
- * place of the Inspector, and the Brand Kit and the chat take turns: opening
- * one collapses the other, and closing the Brand Kit brings the chat back.
+ * Canvas first: the stage fills the window, with one floating prompt and the
+ * filmstrip below it. Properties open on request and can be pinned beside it.
  */
 function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
-  const view = useUiStore((state) => state.view);
-  const chatOpen = useUiStore((state) => state.agentPanelOpen);
-  const chatWidth = useUiStore((state) => state.agentPanelWidth);
-  const [attachArea, area] = useElementSize<HTMLDivElement>();
-  const chatLayout = getChatLayout({
-    available: area.width,
-    preferred: chatWidth,
-    inspector: view === 'canvas' ? INSPECTOR_WIDTH : getBrandKitPanelWidth(window.innerWidth),
-  });
-  const brandKitOpen = view === 'brandKit';
-  const crowded = chatOpen && brandKitOpen && chatLayout.replacesInspector;
-
-  const previous = useRef({ chatOpen, brandKitOpen });
-  // The chat was collapsed to make room for the Brand Kit and comes back after it.
-  const collapsedForBrandKit = useRef(false);
-  useEffect(() => {
-    const chatJustOpened = !previous.current.chatOpen;
-    previous.current = { chatOpen, brandKitOpen };
-    const ui = useUiStore.getState();
-    if (crowded) {
-      collapsedForBrandKit.current = !chatJustOpened;
-      if (chatJustOpened) {
-        ui.setView('canvas');
-      } else {
-        ui.setAgentPanelOpen(false);
-      }
-      return;
-    }
-    if (!brandKitOpen && collapsedForBrandKit.current) {
-      collapsedForBrandKit.current = false;
-      if (!chatOpen) {
-        ui.setAgentPanelOpen(true);
-      }
-    }
-  }, [crowded, chatOpen, brandKitOpen]);
-
+  const pinned = useUiStore((state) => state.propertiesPinned);
   return (
-    <div className="flex min-h-0 flex-1">
-      <KomaStrip project={project} />
-      <div ref={attachArea} className="flex min-h-0 min-w-0 flex-1">
-        <main className="flex min-h-0 min-w-0 flex-1">
-          <Workspace
-            project={project}
-            onInspectSelected={() => {
-              collapsedForBrandKit.current = false;
-              useUiStore.getState().inspectSelectedElement(chatLayout.replacesInspector);
-            }}
-          />
-          {brandKitOpen ? (
-            <div className="contents" hidden={crowded}>
-              <BrandKitPanel project={project} />
-            </div>
-          ) : (
-            // Hidden, not removed, so that the Inspector keeps its state.
-            <div className="contents" hidden={chatOpen && chatLayout.replacesInspector}>
-              <Inspector project={project} />
-            </div>
-          )}
-        </main>
-        <AgentPanel project={project} layout={chatLayout} />
-      </div>
+    <div className="studio-body">
+      <main className="studio-main">
+        {/* A floating properties panel stays over the canvas, never over the prompt. */}
+        <div className="studio-stage">
+          <Workspace project={project} />
+          {!pinned && <PropertiesPanel project={project} />}
+        </div>
+        <div className="studio-bottom">
+          <PromptDock project={project} />
+          <KomaStrip project={project} />
+        </div>
+      </main>
+      {pinned && <PropertiesPanel project={project} />}
     </div>
   );
 }
@@ -218,7 +184,11 @@ export function App(): ReactElement {
   useApplicationEvents();
 
   return (
-    <div className="flex h-full flex-col">
+    <div
+      className="studio-shell"
+      onPointerDownCapture={resumeEditing}
+      onFocusCapture={resumeEditing}
+    >
       <TopBar />
       {project === null ? <Welcome /> : <ProjectLayout project={project} />}
       <Recovery />

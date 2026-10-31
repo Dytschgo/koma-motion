@@ -8,6 +8,27 @@ changes to the project format.
 
 ## [Unreleased]
 
+### Changed
+
+- The editor is canvas first, in a warm light theme. One thin top bar holds
+  the project menu (New, Open, Save, Brand Kit, instructions, model, settings,
+  Project health, Getting started), the project name and saved state, Undo and
+  Redo, Add element, Properties, Play with presenting and motion timing, and
+  Share (Export PowerPoint, Save as). The Koma column, the Chat/Inspect dock
+  and the permanent transport band are gone.
+- Komas form a horizontal filmstrip below the canvas. Dots between thumbnails
+  are the motion between Komas: selecting one previews it and opens its
+  timing, and a marked dot explains a motion that cannot play and offers its
+  fix.
+- One floating prompt sits above the filmstrip with the request, a scope chip
+  naming its target (for example Koma 2), Generation options and Send or Stop.
+  The conversation opens upward on demand and keeps the draft, choices,
+  consent, reading position and run. A failed request shows "Couldn’t use the
+  result. Nothing changed." with Recheck where it was made.
+- Selecting an object shows a toolbar beside it for colour, size, stacking,
+  motion and more. All properties and Layers open in a popover that can be
+  pinned beside the canvas.
+
 ## [0.2.0] - 2026-10-10
 
 Projects now use format 5. Projects of formats 1 to 4 are upgraded in memory

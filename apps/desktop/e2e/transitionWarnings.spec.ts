@@ -11,6 +11,8 @@ import {
   launchApplication,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  openMotion,
 } from './application';
 
 let running: RunningApplication;
@@ -64,13 +66,20 @@ async function openStaleProject(project = staleProject()): Promise<string> {
   const filePath = join(directory, 'stale.koma');
   await writeFile(filePath, result.value);
   await answerOpenDialog(application, filePath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(window.getByLabel('Project name')).toHaveValue(project.name);
   return result.value;
 }
 
 function warning(window: Page): Locator {
   return window.getByRole('region', { name: /Transition 1 to 2\./ });
+}
+
+/** Opens the marked motion between Komas 1 and 2, which shows its warning below the canvas. */
+async function openWarning(window: Page): Promise<Locator> {
+  await openMotion(window, 1);
+  await expect(warning(window)).toBeVisible();
+  return warning(window);
 }
 
 function stage(window: Page): Locator {
@@ -82,8 +91,8 @@ async function expectBlocked(window: Page): Promise<void> {
   await expect(transport.getByRole('button', { name: 'Play' })).toBeDisabled();
   await expect(transport.getByRole('button', { name: 'Restart' })).toBeDisabled();
   await expect(transport.getByLabel('Position in the transition')).toBeDisabled();
-  await expect(transport.getByText('Cannot play')).toBeVisible();
-  await expect(window.getByRole('button', { name: 'Preview', exact: true })).toBeDisabled();
+  await expect(transport.getByText('Cannot play', { exact: true })).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
 }
 
 /** Replaces the regeneration handler of the main process with a fixed answer. */
@@ -109,24 +118,27 @@ test('explains a stale transition, links its Komas and regenerates it from the k
   const { window, directory, problems } = running;
   const text = await openStaleProject();
 
-  const strip = window.getByRole('complementary', { name: 'Project' });
-  const panel = warning(window);
-  await expect(panel).toBeVisible();
-  await expect(strip.getByRole('region', { name: /Transition 1 to 2\./ })).toBeVisible();
+  const strip = window.getByRole('list', { name: 'Komas' });
+  // The filmstrip marks the motion; its explanation opens below the canvas on request.
+  const marker = strip.getByRole('button', {
+    name: 'Motion from Koma 1 to Koma 2 cannot play',
+    exact: true,
+  });
+  await expect(marker).toHaveAttribute('aria-description', 'Out of date');
+  await expect(warning(window)).toHaveCount(0);
+  const panel = await openWarning(window);
   await expect(panel.getByText('Out of date', { exact: true })).toBeVisible();
   await expect(panel.getByRole('button', { name: 'Regenerate transition' })).toBeVisible();
   await expectBlocked(window);
-  // The action sits on the transition, between the two Koma cards.
+  // The marker sits on the transition, between the two Koma thumbnails.
   const sourceCard = await strip.getByRole('button', { name: 'Koma 1: Start' }).boundingBox();
   const destinationCard = await strip.getByRole('button', { name: 'Koma 2: End' }).boundingBox();
-  const regenerate = await panel
-    .getByRole('button', { name: 'Regenerate transition' })
-    .boundingBox();
-  if (sourceCard === null || destinationCard === null || regenerate === null) {
-    throw new Error('The transition action is not on screen');
+  const markerBox = await marker.boundingBox();
+  if (sourceCard === null || destinationCard === null || markerBox === null) {
+    throw new Error('The transition marker is not on screen');
   }
-  expect(regenerate.y).toBeGreaterThanOrEqual(sourceCard.y + sourceCard.height - 1);
-  expect(regenerate.y + regenerate.height).toBeLessThanOrEqual(destinationCard.y + 1);
+  expect(markerBox.x).toBeGreaterThanOrEqual(sourceCard.x + sourceCard.width - 1);
+  expect(markerBox.x + markerBox.width).toBeLessThanOrEqual(destinationCard.x + 1);
   await expect(
     strip.getByRole('button', { name: 'Koma 1: Start' }).getByRole('button'),
   ).toHaveCount(0);
@@ -163,9 +175,9 @@ test('explains a stale transition, links its Komas and regenerates it from the k
   const transport = window.getByRole('group', { name: 'Transition preview' });
   await expect(transport.getByRole('button', { name: 'Play' })).toBeEnabled();
   await expect(transport.getByRole('button', { name: 'Play' })).toBeFocused();
-  await expect(window.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   await expect(
-    window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
+    window.getByRole('button', { name: 'Edit motion from Koma 1 to Koma 2' }),
   ).toBeVisible();
   const atRest = await stage(window).locator('[data-persistent-id="mover"]').boundingBox();
   await transport.getByLabel('Position in the transition').fill('500');
@@ -181,7 +193,7 @@ test('explains a stale transition, links its Komas and regenerates it from the k
   expect(await readFile(join(directory, 'stale.koma'), 'utf8')).toBe(text);
   await window.getByRole('button', { name: 'Stop preview' }).click();
   await window.getByRole('button', { name: 'Undo' }).click();
-  await expect(warning(window)).toBeVisible();
+  await openWarning(window);
   expect(problems).toEqual([]);
 });
 
@@ -189,7 +201,7 @@ test('keeps the warning after cancellation and rejects a result when an endpoint
   const { window, problems } = running;
   await openStaleProject();
   await showInspector(window);
-  const panel = warning(window);
+  const panel = await openWarning(window);
 
   await panel.getByRole('button', { name: 'Regenerate transition' }).click();
   await panel.getByRole('button', { name: 'Cancel regeneration' }).click();
@@ -223,7 +235,7 @@ test('keeps the warning after cancellation and rejects a result when an endpoint
 test('keeps the warning and offers a retry when the provider fails or answers invalidly', async () => {
   const { window, problems } = running;
   await openStaleProject();
-  const panel = warning(window);
+  const panel = await openWarning(window);
 
   await answerRegeneration({
     status: 'failed',
@@ -271,11 +283,11 @@ test('fits the warning and its actions into a narrow window', async () => {
     BrowserWindow.getAllWindows()[0]?.setSize(1024, 700);
   });
   await openStaleProject();
-  const panel = warning(window);
+  const panel = await openWarning(window);
   await panel.getByRole('button', { name: 'Details' }).click();
   const viewport = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }));
-  const strip = await window.getByRole('complementary', { name: 'Project' }).boundingBox();
-  if (strip === null) throw new Error('The Koma strip is not on screen');
+  const strip = await window.getByRole('group', { name: 'Transition preview' }).boundingBox();
+  if (strip === null) throw new Error('The transition controls are not on screen');
   for (const name of [
     'Regenerate transition',
     'Open source Koma “Start”',
@@ -291,12 +303,12 @@ test('fits the warning and its actions into a narrow window', async () => {
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(viewport.width);
     expect((box?.y ?? 0) + (box?.height ?? 0)).toBeLessThanOrEqual(viewport.height);
   }
-  // The warning lives in the strip, so it does not cover the canvas.
-  const canvas = await window.getByRole('region', { name: 'Canvas' }).boundingBox();
+  // The warning sits below the Koma, so it does not cover the canvas.
+  const sheet = await stage(window).boundingBox();
   const panelBox = await panel.boundingBox();
-  expect(canvas).not.toBeNull();
+  expect(sheet).not.toBeNull();
   expect(panelBox).not.toBeNull();
-  expect((panelBox?.x ?? 0) + (panelBox?.width ?? 0)).toBeLessThanOrEqual((canvas?.x ?? 0) + 1);
+  expect(panelBox?.y ?? 0).toBeGreaterThanOrEqual((sheet?.y ?? 0) + (sheet?.height ?? 0) - 1);
   const evidence = process.env['KOMA_EVIDENCE_DIR'];
   if (evidence !== undefined) {
     await window.screenshot({ path: join(evidence, 'transition-warning-narrow.png') });
@@ -313,7 +325,7 @@ test('keeps asset recovery in Project health and motion recovery beside the canv
     ...base,
     brandKit: { ...base.brandKit, logoAssetId: 'asset-gone' },
   });
-  await expect(warning(window)).toBeVisible();
+  await openWarning(window);
   await window.getByRole('button', { name: /^Project health/ }).click();
   const health = window.getByRole('dialog', { name: 'Project health', exact: true });
   await expect(health).toContainText(
@@ -323,10 +335,8 @@ test('keeps asset recovery in Project health and motion recovery beside the canv
   await health.getByRole('button', { name: 'Close', exact: true }).click();
   await showInspector(window);
   await window.getByRole('tab', { name: /^Motion/ }).click();
-  await expect(
-    window.getByRole('button', { name: 'Recalculate motion', exact: true }),
-  ).toBeVisible();
-  await window.getByRole('button', { name: 'Recalculate motion', exact: true }).click();
+  await expect(window.getByRole('button', { name: 'Fix motion', exact: true })).toBeVisible();
+  await window.getByRole('button', { name: 'Fix motion', exact: true }).click();
   await expect(warning(window)).toHaveCount(0);
   await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   await window.getByRole('button', { name: 'Undo', exact: true }).click();

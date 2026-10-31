@@ -2,17 +2,11 @@
 import type { BrandKitRawDraft } from '@koma-motion/brand-kit';
 import { clampZoom } from '@koma-motion/renderer';
 import { create } from 'zustand';
-import {
-  clampChatWidth,
-  parseChatPreferences,
-  serializeChatPreferences,
-  type ChatPreferences,
-} from '../lib/chatLayout';
 import { DEFAULT_SETTINGS_PAGE, type SettingsPageId } from '../lib/settingsPages';
 import { selectProject, useProjectStore } from './projectStore';
 
-/** Key of the chat preferences in the local storage of the window. */
-export const CHAT_PREFERENCES_KEY = 'koma-motion:chat';
+/** Key of the properties panel preference in the local storage of the window. */
+export const PROPERTIES_PREFERENCES_KEY = 'koma-motion:properties';
 
 /** The storage of the window, or nothing outside a window (unit tests). */
 function getPreferenceStorage(): Storage | null {
@@ -23,19 +17,34 @@ function getPreferenceStorage(): Storage | null {
   }
 }
 
-function loadChatPreferences(): ChatPreferences {
+/** Whether a stored preference pins the properties panel beside the canvas. */
+export function parsePropertiesPinned(raw: string | null): boolean {
+  if (raw === null) return false;
   try {
-    return parseChatPreferences(getPreferenceStorage()?.getItem(CHAT_PREFERENCES_KEY) ?? null);
+    const value: unknown = JSON.parse(raw);
+    return typeof value === 'object' && value !== null && 'pinned' in value
+      ? value.pinned === true
+      : false;
   } catch {
-    return parseChatPreferences(null);
+    return false;
   }
 }
 
-function saveChatPreferences(preferences: ChatPreferences): void {
+function loadPropertiesPinned(): boolean {
   try {
-    getPreferenceStorage()?.setItem(CHAT_PREFERENCES_KEY, serializeChatPreferences(preferences));
+    return parsePropertiesPinned(
+      getPreferenceStorage()?.getItem(PROPERTIES_PREFERENCES_KEY) ?? null,
+    );
   } catch {
-    // The preferences are a convenience. Losing them must not break the interface.
+    return false;
+  }
+}
+
+function savePropertiesPinned(pinned: boolean): void {
+  try {
+    getPreferenceStorage()?.setItem(PROPERTIES_PREFERENCES_KEY, JSON.stringify({ pinned }));
+  } catch {
+    // The preference is a convenience. Losing it must not break the interface.
   }
 }
 
@@ -53,8 +62,8 @@ export interface BrandKitDraftState {
 const EMPTY_BRAND_KIT_RAW_DRAFT: BrandKitRawDraft = {};
 
 /**
- * What the panel beside the canvas shows: the inspector or the Brand Kit.
- * The canvas and its controls stay visible either way.
+ * What the properties panel shows: the Inspector or the Brand Kit. The
+ * canvas and its controls stay visible either way.
  */
 export type WorkspaceView = 'canvas' | 'brandKit';
 
@@ -100,6 +109,17 @@ interface UiState {
   readonly view: WorkspaceView;
   readonly brandKitTab: BrandKitTab;
   readonly inspectorTab: InspectorTab;
+  /** The properties panel (Inspector or Brand Kit) is shown. */
+  readonly propertiesOpen: boolean;
+  /** The properties panel is a column beside the canvas instead of a popover. Kept across restarts. */
+  readonly propertiesPinned: boolean;
+  /** The conversation sheet above the prompt is expanded. */
+  readonly chatOpen: boolean;
+  /**
+   * The transition controls below the canvas are shown without a running
+   * preview, because the person opened a motion marker or chose Motion.
+   */
+  readonly motionEditing: boolean;
   readonly selectedKomaId: string | null;
   readonly selectedElementId: string | null;
   /**
@@ -111,12 +131,13 @@ interface UiState {
   /** `null` fits the canvas into the workspace. */
   readonly zoom: number | null;
   readonly settingsOpen: boolean;
+  readonly modelPickerRequest: number;
+  readonly showModelPicker: () => void;
+  /** Increases when a menu asks the PowerPoint export dialog to open. */
+  readonly exportRequest: number;
+  readonly requestExport: () => void;
   /** The page Settings shows. Kept while the window is open, so Settings reopens where it was. */
   readonly settingsPage: SettingsPageId;
-  /** Chat sidebar. Kept across projects and restarts, never in the project. */
-  readonly agentPanelOpen: boolean;
-  /** The width the user chose for the chat sidebar. */
-  readonly agentPanelWidth: number;
   readonly confirmation: ConfirmationRequest | null;
   readonly notices: readonly Notice[];
   readonly preview: PreviewIdentity | null;
@@ -128,21 +149,24 @@ interface UiState {
   readonly setView: (view: WorkspaceView) => void;
   readonly setBrandKitTab: (tab: BrandKitTab) => void;
   readonly setInspectorTab: (tab: InspectorTab) => void;
+  readonly setPropertiesOpen: (open: boolean) => void;
+  readonly setPropertiesPinned: (pinned: boolean) => void;
+  readonly setChatOpen: (open: boolean) => void;
+  /** Shows the transition controls of the selected Koma's motion, or hides them and stops a preview. */
+  readonly setMotionEditing: (editing: boolean) => void;
   readonly selectKoma: (komaId: string | null) => void;
   readonly selectElement: (elementId: string | null) => void;
   /** Adds an element to the selection, or removes it when it is already selected. */
   readonly toggleElementSelection: (elementId: string) => void;
   /** Selects several elements; the last one is shown in the Inspector. */
   readonly selectElements: (elementIds: readonly string[]) => void;
-  /** Explicitly opens element properties, collapsing chat only when it occupies the Inspector column. */
-  readonly inspectSelectedElement: (collapseChat: boolean) => void;
+  /** Opens properties for the current Koma or element. */
+  readonly inspectSelection: (tab?: InspectorTab) => void;
   readonly setZoom: (zoom: number | null) => void;
   readonly setSettingsOpen: (open: boolean) => void;
   /** Opens Settings, on `page` when given. */
   readonly openSettings: (page?: SettingsPageId) => void;
   readonly setSettingsPage: (page: SettingsPageId) => void;
-  readonly setAgentPanelOpen: (open: boolean) => void;
-  readonly setAgentPanelWidth: (width: number) => void;
   readonly confirm: (request: Omit<ConfirmationRequest, 'resolve'>) => Promise<boolean>;
   readonly answerConfirmation: (confirmed: boolean) => void;
   readonly notify: (kind: Notice['kind'], message: string) => void;
@@ -173,20 +197,31 @@ export function selectBrandKitRawDraft(
 
 let nextToken = 1;
 
-const initialChatPreferences = loadChatPreferences();
-
 export const useUiStore = create<UiState>((set, get) => ({
   view: 'canvas',
   brandKitTab: 'project',
   inspectorTab: 'koma',
+  propertiesOpen: false,
+  propertiesPinned: loadPropertiesPinned(),
+  chatOpen: false,
+  motionEditing: false,
   selectedKomaId: null,
   selectedElementId: null,
   selectedElementIds: [],
   zoom: null,
   settingsOpen: false,
+  modelPickerRequest: 0,
+  showModelPicker() {
+    set((state) => ({
+      settingsOpen: false,
+      modelPickerRequest: state.modelPickerRequest + 1,
+    }));
+  },
+  exportRequest: 0,
+  requestExport() {
+    set((state) => ({ exportRequest: state.exportRequest + 1 }));
+  },
   settingsPage: DEFAULT_SETTINGS_PAGE,
-  agentPanelOpen: initialChatPreferences.open,
-  agentPanelWidth: initialChatPreferences.width,
   confirmation: null,
   notices: [],
   preview: null,
@@ -194,13 +229,26 @@ export const useUiStore = create<UiState>((set, get) => ({
   composerSeed: null,
 
   setView(view) {
-    set({ view });
+    set(view === 'brandKit' ? { view, propertiesOpen: true, chatOpen: false } : { view });
   },
   setBrandKitTab(brandKitTab) {
     set({ brandKitTab });
   },
   setInspectorTab(inspectorTab) {
     set({ inspectorTab });
+  },
+  setPropertiesOpen(propertiesOpen) {
+    set(propertiesOpen ? { propertiesOpen } : { propertiesOpen, view: 'canvas' });
+  },
+  setPropertiesPinned(propertiesPinned) {
+    savePropertiesPinned(propertiesPinned);
+    set({ propertiesPinned, propertiesOpen: true });
+  },
+  setChatOpen(chatOpen) {
+    set({ chatOpen });
+  },
+  setMotionEditing(motionEditing) {
+    set(motionEditing ? { motionEditing } : { motionEditing, preview: null });
   },
   selectKoma(selectedKomaId) {
     set((state) => ({
@@ -212,7 +260,8 @@ export const useUiStore = create<UiState>((set, get) => ({
     }));
   },
   selectElement(selectedElementId) {
-    // Selecting an element asks for its properties, so the inspector replaces the Brand Kit.
+    // Selecting an element shows its toolbar on the canvas. An open properties
+    // panel follows the selection; a closed one stays closed.
     set((state) =>
       selectedElementId === null
         ? {
@@ -255,12 +304,14 @@ export const useUiStore = create<UiState>((set, get) => ({
   setZoom(zoom) {
     set({ zoom: zoom === null ? null : clampZoom(zoom) });
   },
-  inspectSelectedElement(collapseChat) {
-    if (get().selectedElementId === null) return;
+  inspectSelection(tab) {
+    // The canvas shows the first Koma until another is selected, so properties
+    // open for it as well.
     set((state) => ({
       view: 'canvas',
-      inspectorTab: 'element',
-      agentPanelOpen: collapseChat ? false : state.agentPanelOpen,
+      inspectorTab: tab ?? (state.selectedElementId === null ? 'koma' : 'element'),
+      propertiesOpen: true,
+      chatOpen: false,
     }));
   },
   setSettingsOpen(settingsOpen) {
@@ -271,12 +322,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   },
   setSettingsPage(settingsPage) {
     set({ settingsPage });
-  },
-  setAgentPanelOpen(agentPanelOpen) {
-    set({ agentPanelOpen });
-  },
-  setAgentPanelWidth(width) {
-    set({ agentPanelWidth: clampChatWidth(width) });
   },
   confirm(request) {
     get().confirmation?.resolve(false);
@@ -335,6 +380,9 @@ export const useUiStore = create<UiState>((set, get) => ({
       view: 'canvas',
       brandKitTab: 'project',
       inspectorTab: 'koma',
+      propertiesOpen: false,
+      chatOpen: false,
+      motionEditing: false,
       selectedKomaId: null,
       selectedElementId: null,
       selectedElementIds: [],
@@ -345,12 +393,3 @@ export const useUiStore = create<UiState>((set, get) => ({
     });
   },
 }));
-
-useUiStore.subscribe((state, previous) => {
-  if (
-    state.agentPanelOpen !== previous.agentPanelOpen ||
-    state.agentPanelWidth !== previous.agentPanelWidth
-  ) {
-    saveChatPreferences({ open: state.agentPanelOpen, width: state.agentPanelWidth });
-  }
-});

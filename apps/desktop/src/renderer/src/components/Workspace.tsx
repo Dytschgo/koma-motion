@@ -11,7 +11,14 @@ import {
   usePrefersReducedMotion,
   useTransitionPlayback,
 } from '@koma-motion/renderer';
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactElement } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  type CSSProperties,
+  type ReactElement,
+} from 'react';
 import {
   formatSeconds,
   getTransitionContext,
@@ -19,30 +26,25 @@ import {
   resolvePreviewTransition,
   useSelectedKoma,
 } from '../lib/selectors';
-import { addKomaAfter, chooseKomaImage } from '../lib/projectActions';
-import { getGroupingAvailability, groupSelection, ungroupSelection } from '../lib/groupActions';
-import { AUTHORING_KINDS, AUTHORING_LABELS, type AuthoringKind } from '../lib/authoring';
+import { addKomaAfter } from '../lib/projectActions';
 import { assessTransition } from '../lib/transitionIssues';
-import { changeElement, changeTransition, createElement } from '../state/commands';
+import { changeElement, changeTransition } from '../state/commands';
 import { useAgentStore } from '../state/agentStore';
-import { selectProject, useProjectStore } from '../state/projectStore';
+import { useProjectStore } from '../state/projectStore';
 import { useTransitionRegenerationStore } from '../state/transitionRegenerationStore';
 import { useUiStore } from '../state/uiStore';
-import { ImageIcon, NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
-import { Button, Help, IconButton, NumberInput, POPOVER_SURFACE, Select } from './ui';
+import { NextIcon, PauseIcon, PlayIcon, PreviousIcon, RestartIcon } from './icons';
+import { ElementToolbar } from './ElementToolbar';
+import { isNestedEscape } from './Menu';
+import { TransitionStripStatus } from './TransitionStripStatus';
+import { Button, IconButton, NumberInput } from './ui';
 
-const CANVAS_PADDING = 32;
+const CANVAS_PADDING = 24;
 const ZOOM_STEP = 1.25;
 /** With reduced motion a preview is a short cut, whatever the duration of the transition. */
 const REDUCED_MOTION_DURATION_MS = 400;
 
-export function Workspace({
-  project,
-  onInspectSelected,
-}: {
-  readonly project: KomaProject;
-  readonly onInspectSelected: () => void;
-}): ReactElement {
+export function Workspace({ project }: { readonly project: KomaProject }): ReactElement {
   const { presentation } = project;
   const sessionId = useProjectStore((state) => state.sessionId);
   const apply = useProjectStore((state) => state.apply);
@@ -52,37 +54,16 @@ export function Workspace({
   const toggleElementSelection = useUiStore((state) => state.toggleElementSelection);
   const selectKoma = useUiStore((state) => state.selectKoma);
   const preview = useUiStore((state) => state.preview);
+  const motionEditing = useUiStore((state) => state.motionEditing);
   const startPreview = useUiStore((state) => state.startPreview);
   const stopPreview = useUiStore((state) => state.stopPreview);
+  const setMotionEditing = useUiStore((state) => state.setMotionEditing);
   const zoom = useUiStore((state) => state.zoom);
   const setZoom = useUiStore((state) => state.setZoom);
-  const chatOpen = useUiStore((state) => state.agentPanelOpen);
-  const setChatOpen = useUiStore((state) => state.setAgentPanelOpen);
   const generating = useAgentStore((state) => state.execution !== null);
-  const [authoringKind, setAuthoringKind] = useState<AuthoringKind>('text');
-  const toolbar = useRef<HTMLDivElement>(null);
+  const desk = useRef<HTMLDivElement | null>(null);
 
   const koma = useSelectedKoma();
-  const selectedElement = koma?.elements.find((element) => element.id === selectedElementId);
-  const grouping = getGroupingAvailability(koma, selectedElementIds);
-  const addElement = (): void => {
-    if (koma === null || preview !== null) return;
-    const known = new Set(koma.elements.map((element) => element.id));
-    try {
-      apply(createElement(koma.id, authoringKind));
-      const added = selectProject(useProjectStore.getState())
-        ?.presentation.komas.find((item) => item.id === koma.id)
-        ?.elements.find((element) => !known.has(element.id));
-      if (added) selectElement(added.id);
-    } catch (error) {
-      useUiStore
-        .getState()
-        .notify(
-          'error',
-          error instanceof Error ? error.message : 'The element could not be added.',
-        );
-    }
-  };
   // The stage follows only a preview whose recorded ends are still valid.
   // The transport keeps the selected Koma's transition so Play still has one
   // when that preview has been stopped.
@@ -91,6 +72,7 @@ export function Workspace({
   const selectedContext =
     selectedTransition === null ? null : getTransitionContext(presentation, selectedTransition.id);
   const transportContext = stageContext ?? selectedContext;
+  const transportOpen = preview !== null || motionEditing;
   const reducedMotion = usePrefersReducedMotion();
   /** Lets Restart replay a preview after it ends and selects the destination. */
   const lastPreviewed = useRef<string | null>(null);
@@ -134,7 +116,14 @@ export function Workspace({
     }
   }, [preview, previewValid, reset, stopPreview]);
 
-  const [attachArea, area] = useElementSize<HTMLDivElement>();
+  const [measureArea, area] = useElementSize<HTMLDivElement>();
+  const attachDesk = useCallback(
+    (node: HTMLDivElement | null): void => {
+      desk.current = node;
+      measureArea(node);
+    },
+    [measureArea],
+  );
   const canvasSize = getCanvasSize(presentation.aspectRatio);
   const fitScale = getFitScale(canvasSize, area, CANVAS_PADDING);
   const scale = fitScale * (zoom ?? 1);
@@ -246,117 +235,28 @@ export function Workspace({
   const progressPercent = Math.round((previewing ? playback.progress : 0) * 100);
 
   return (
-    <section
-      data-guide-target="canvas"
-      tabIndex={-1}
-      aria-label="Canvas"
-      className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-0"
-    >
-      <div
-        ref={toolbar}
-        className="flex min-h-11 flex-none flex-wrap items-center gap-1 border-b border-line bg-surface-1 px-2.5 py-1"
-      >
-        <Select
-          aria-label="Element to add"
-          className="w-28"
-          disabled={koma === null || preview !== null}
-          value={authoringKind}
-          onChange={(event) => {
-            const kind = AUTHORING_KINDS.find((item) => item === event.target.value);
-            if (kind) setAuthoringKind(kind);
-          }}
-        >
-          {AUTHORING_KINDS.map((kind) => (
-            <option key={kind} value={kind}>
-              {AUTHORING_LABELS[kind]}
-            </option>
-          ))}
-        </Select>
-        <Button
-          compact
-          aria-label={`Add ${authoringKind}`}
-          disabled={koma === null || preview !== null}
-          onClick={addElement}
-        >
-          Add
-        </Button>
-        <IconButton
-          label="Add image"
-          disabled={koma === null || preview !== null}
-          onClick={() => {
-            if (koma) void chooseKomaImage(koma.id);
-          }}
-        >
-          <ImageIcon />
-        </IconButton>
-        <Button
-          compact
-          aria-label="Inspect selected element"
-          disabled={!selectedElement || preview !== null}
-          onClick={onInspectSelected}
-        >
-          Inspect
-        </Button>
-        {grouping.group === null ? (
-          <Button
-            compact
-            aria-label="Group selected elements"
-            title="Group (Ctrl/Command+G)"
-            disabled={!grouping.canGroup || preview !== null}
-            onClick={() => {
-              groupSelection();
-            }}
-          >
-            Group
-          </Button>
-        ) : (
-          <Button
-            compact
-            aria-label="Ungroup selected group"
-            title="Ungroup (Ctrl/Command+Shift+G)"
-            disabled={preview !== null}
-            onClick={() => {
-              ungroupSelection();
-            }}
-          >
-            Ungroup
-          </Button>
-        )}
-        <Help label="Canvas shortcuts">
-          Drag to move. Drag corners to resize. Enter edits text; Esc cancels. Shift-click or
-          Ctrl/Command-click adds to the selection. Ctrl/Command+G groups; add Shift to ungroup.
-        </Help>
-        {preview !== null && (
-          <Button compact onClick={stopPreview}>
-            Stop preview
-          </Button>
-        )}
-      </div>
-      <div
-        ref={attachArea}
-        className="studio-desk relative flex min-h-0 flex-1 items-center justify-center overflow-auto"
-      >
+    <section data-guide-target="canvas" tabIndex={-1} aria-label="Canvas" className="studio-canvas">
+      <div ref={attachDesk} className="studio-desk">
         {frame === null ? (
-          <div className="max-w-md rounded-dialog border border-dashed border-line-strong bg-surface-1/80 px-8 py-7 text-center">
+          <div className="studio-empty">
             {generating ? (
-              <>
-                <p className="flex items-center justify-center gap-2 text-xl font-semibold tracking-tight">
-                  <span aria-hidden="true" className="working-dot size-2 rounded-full bg-motion" />
-                  Drawing your Komas
-                </p>
-                <p className="mt-2 text-ink-300">They appear here when the agent is done.</p>
-              </>
+              <p className="flex items-center justify-center gap-2 text-lg font-semibold tracking-tight">
+                <span aria-hidden="true" className="working-dot size-2 rounded-full bg-motion" />
+                Drawing your Komas
+              </p>
             ) : (
               <>
-                <p className="text-xl font-semibold tracking-tight">Start your presentation</p>
-                <p className="mt-2 text-ink-300">Describe it in the chat, or add a Koma.</p>
+                <p className="text-lg font-semibold tracking-tight">Start your presentation</p>
                 <Button
                   variant="outline"
-                  className="mt-4"
+                  className="mt-3"
                   onClick={() => {
                     addKomaAfter(null);
+                    // The next step is adding something to the new Koma.
                     requestAnimationFrame(() => {
-                      toolbar.current?.querySelector('select')?.focus();
+                      document
+                        .querySelector<HTMLElement>('[data-guide-target="add-element"]')
+                        ?.focus();
                     });
                   }}
                 >
@@ -364,21 +264,10 @@ export function Workspace({
                 </Button>
               </>
             )}
-            {!chatOpen && (
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={() => {
-                  setChatOpen(true);
-                }}
-              >
-                Open the chat
-              </Button>
-            )}
           </div>
         ) : (
           scale > 0 && (
-            <div className="rounded-[2px] shadow-[0_18px_60px_rgb(0_0_0/0.55),0_0_0_1px_rgb(255_255_255/0.06)]">
+            <div className="studio-sheet">
               <KomaStage
                 key={`${String(sessionId)}:${koma?.id ?? ''}:${String(preview !== null)}`}
                 onCommitElement={
@@ -403,158 +292,169 @@ export function Workspace({
             </div>
           )
         )}
-
-        {reducedMotion && transportContext !== null && (
-          // On the canvas, not in the transport bar: there it competed with
-          // the position control for space and one of them disappeared.
-          <p
-            role="note"
-            className="absolute bottom-3 left-3 max-w-[60%] rounded-card border border-line bg-surface-2 px-3 py-1.5 text-sm text-ink-300 shadow-raised"
-          >
-            Reduced motion is on: previews cut instead of moving (
-            {formatSeconds(REDUCED_MOTION_DURATION_MS)}).
-          </p>
+        {koma !== null && frame !== null && (
+          <ElementToolbar project={project} koma={koma} desk={desk} />
         )}
 
-        <div
-          className={`absolute right-3 bottom-3 flex items-center gap-0.5 p-0.5 ${POPOVER_SURFACE}`}
-        >
-          <Button
+        <div role="group" aria-label="Zoom" className="studio-zoom">
+          <button
+            type="button"
             aria-label="Zoom out"
-            compact
             disabled={frame === null || (zoom ?? 1) <= MIN_ZOOM}
             onClick={() => {
               setZoom((zoom ?? 1) / ZOOM_STEP);
             }}
           >
             −
-          </Button>
-          <Button
+          </button>
+          <button
+            type="button"
             aria-label={`Zoom ${String(Math.round((zoom ?? 1) * 100))} percent. Fit the canvas to the window`}
-            compact
-            className="min-w-14 tabular-nums"
+            className="min-w-11 tabular-nums"
             disabled={frame === null}
             onClick={() => {
               setZoom(null);
             }}
           >
             {zoom === null ? 'Fit' : `${String(Math.round(zoom * 100))}%`}
-          </Button>
-          <Button
+          </button>
+          <button
+            type="button"
             aria-label="Zoom in"
-            compact
             disabled={frame === null || (zoom ?? 1) >= MAX_ZOOM}
             onClick={() => {
               setZoom((zoom ?? 1) * ZOOM_STEP);
             }}
           >
             +
-          </Button>
+          </button>
         </div>
       </div>
 
-      <div
-        ref={transportRef}
-        role="group"
-        aria-label="Transition preview"
-        data-guide-target="preview"
-        tabIndex={-1}
-        // A container, so that the labels give way before the position control
-        // when the canvas is narrow.
-        className="@container flex-none border-t border-line bg-surface-1"
-      >
-        <div className="flex h-14 items-center gap-1 px-3">
-          <IconButton
-            label="Previous Koma"
-            disabled={previousKoma === undefined}
-            onClick={() => {
-              selectKoma(previousKoma?.id ?? null);
-            }}
-          >
-            <PreviousIcon />
-          </IconButton>
-          <IconButton
-            label={playback.status === 'playing' ? 'Pause' : 'Play'}
-            disabled={transportContext === null || transitionBlocked}
-            tone="motion"
-            onClick={togglePlayback}
-          >
-            {playback.status === 'playing' ? <PauseIcon /> : <PlayIcon />}
-          </IconButton>
-          <IconButton
-            label="Restart"
-            disabled={transportContext === null || transitionBlocked}
-            onClick={restartPreview}
-          >
-            <RestartIcon />
-          </IconButton>
-          <IconButton
-            label="Next Koma"
-            disabled={nextKoma === undefined}
-            onClick={() => {
-              selectKoma(nextKoma?.id ?? null);
-            }}
-          >
-            <NextIcon />
-          </IconButton>
-
-          {transportContext === null ? (
-            <p className="ml-3 text-ink-400">Add another Koma for motion.</p>
-          ) : (
-            <>
-              <p className="sr-only flex-none text-ink-300 @min-[36rem]:not-sr-only @min-[36rem]:mx-3">
-                Koma {transportContext.fromIndex + 1} to Koma {transportContext.fromIndex + 2}
-              </p>
-              {transitionBlocked && (
-                // The disabled controls cannot take the focus, so their reason
-                // is shown next to them.
-                <p className="mx-2 flex-none text-sm text-signal-warn">Cannot play</p>
-              )}
-              <input
-                type="range"
-                disabled={transitionBlocked}
-                className="scrubber min-w-24 flex-1 disabled:cursor-not-allowed disabled:opacity-50"
-                min={0}
-                max={1000}
-                value={Math.round((previewing ? playback.progress : 0) * 1000)}
-                aria-label="Position in the transition"
-                aria-valuetext={`${String(progressPercent)} percent`}
-                style={{ '--progress': `${String(progressPercent)}%` } as CSSProperties}
-                onChange={(event) => {
-                  const position = Number(event.target.value) / 1000;
-                  if (stageContext?.transition.id === transportContext.transition.id) {
-                    seek(position);
-                  } else {
-                    pendingPosition.current = position;
-                    startPreview(transportContext.transition.id);
-                  }
+      {transportOpen && transportContext !== null && (
+        <div
+          ref={transportRef}
+          role="group"
+          aria-label="Transition preview"
+          data-guide-target="preview"
+          tabIndex={-1}
+          className="studio-transport"
+          onKeyDown={(event) => {
+            if (
+              event.key === 'Escape' &&
+              !event.defaultPrevented &&
+              !isNestedEscape(event.target)
+            ) {
+              event.preventDefault();
+              setMotionEditing(false);
+            }
+          }}
+        >
+          <div className="studio-transport-row">
+            <IconButton
+              label="Previous Koma"
+              disabled={previousKoma === undefined}
+              onClick={() => {
+                selectKoma(previousKoma?.id ?? null);
+              }}
+            >
+              <PreviousIcon />
+            </IconButton>
+            <IconButton
+              label={playback.status === 'playing' ? 'Pause' : 'Play'}
+              disabled={transitionBlocked}
+              tone="motion"
+              onClick={togglePlayback}
+            >
+              {playback.status === 'playing' ? <PauseIcon /> : <PlayIcon />}
+            </IconButton>
+            <IconButton label="Restart" disabled={transitionBlocked} onClick={restartPreview}>
+              <RestartIcon />
+            </IconButton>
+            <IconButton
+              label="Next Koma"
+              disabled={nextKoma === undefined}
+              onClick={() => {
+                selectKoma(nextKoma?.id ?? null);
+              }}
+            >
+              <NextIcon />
+            </IconButton>
+            <p className="studio-transport-label">
+              Koma {transportContext.fromIndex + 1} to Koma {transportContext.fromIndex + 2}
+            </p>
+            {transitionBlocked && (
+              // The disabled controls cannot take the focus, so their reason
+              // is shown next to them.
+              <p className="flex-none text-sm text-signal-warn">Cannot play</p>
+            )}
+            <input
+              type="range"
+              disabled={transitionBlocked}
+              className="scrubber min-w-20 flex-1 disabled:cursor-not-allowed disabled:opacity-50"
+              min={0}
+              max={1000}
+              value={Math.round((previewing ? playback.progress : 0) * 1000)}
+              aria-label="Position in the transition"
+              aria-valuetext={`${String(progressPercent)} percent`}
+              style={{ '--progress': `${String(progressPercent)}%` } as CSSProperties}
+              onChange={(event) => {
+                const position = Number(event.target.value) / 1000;
+                if (stageContext?.transition.id === transportContext.transition.id) {
+                  seek(position);
+                } else {
+                  pendingPosition.current = position;
+                  startPreview(transportContext.transition.id);
+                }
+              }}
+            />
+            <label className="flex flex-none items-center gap-1.5 text-ink-300">
+              <span className="sr-only">Duration</span>
+              <NumberInput
+                className="w-16"
+                value={transportContext.transition.duration / 1000}
+                minimum={0.1}
+                maximum={10}
+                aria-label="Transition duration in seconds"
+                onValue={(seconds) => {
+                  apply(
+                    changeTransition(transportContext.transition.id, {
+                      duration: seconds * 1000,
+                    }),
+                    {
+                      coalesceKey: `transition-duration:${transportContext.transition.id}`,
+                    },
+                  );
                 }}
               />
-              <label className="ml-3 flex flex-none items-center gap-2 text-ink-300">
-                <span className="sr-only @min-[30rem]:not-sr-only">Duration</span>
-                <NumberInput
-                  className="w-16"
-                  value={transportContext.transition.duration / 1000}
-                  minimum={0.1}
-                  maximum={10}
-                  aria-label="Transition duration in seconds"
-                  onValue={(seconds) => {
-                    apply(
-                      changeTransition(transportContext.transition.id, {
-                        duration: seconds * 1000,
-                      }),
-                      {
-                        coalesceKey: `transition-duration:${transportContext.transition.id}`,
-                      },
-                    );
-                  }}
-                />
-                <span aria-hidden="true">s</span>
-              </label>
-            </>
+              <span aria-hidden="true">s</span>
+            </label>
+            <Button
+              compact
+              variant="quiet"
+              onClick={() => useUiStore.getState().inspectSelection('motion')}
+            >
+              Motion details
+            </Button>
+          </div>
+          {reducedMotion && (
+            <p role="note" className="studio-transport-note">
+              Reduced motion is on: previews cut instead of moving (
+              {formatSeconds(REDUCED_MOTION_DURATION_MS)}).
+            </p>
+          )}
+          {assessment !== null && (
+            <TransitionStripStatus
+              key={transportContext.transition.id}
+              transitionId={transportContext.transition.id}
+              from={transportContext.from}
+              to={transportContext.to}
+              fromNumber={transportContext.fromIndex + 1}
+              assessment={assessment}
+            />
           )}
         </div>
-      </div>
+      )}
     </section>
   );
 }
