@@ -178,13 +178,8 @@ export function RunActivity({
   if (finished) {
     return (
       <div data-run-phase={phase} className="chat-run-finished">
-        <PixelSprite phase={phase} size={20} />
-        <p className="min-w-0">
-          <span className={`font-medium ${PHASE_TONES[phase]}`}>{ACTIVITY_LABELS[phase]}</span>{' '}
-          after {formatElapsed(elapsed)}
-        </p>
-        <Button variant="quiet" compact onClick={onOpenMonitor}>
-          Run details
+        <Button variant="quiet" compact aria-label="Run details" onClick={onOpenMonitor}>
+          Run details <span aria-hidden="true">· {formatElapsed(elapsed)}</span>
         </Button>
       </div>
     );

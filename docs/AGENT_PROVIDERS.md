@@ -345,6 +345,9 @@ on the result. The promise does not reject for those outcomes.
 
 Executions run until completion or manual cancellation by default. Settings can
 opt into a deadline covering all attempts; `timeoutSeconds: null` disables it.
+The interface offers familiar minute/hour choices. Exact limits already stored
+in projects remain selected without rounding until deliberately changed. The
+composer's limit summary opens this setting directly.
 The optional timer accepts 10 through 2,147,483 whole seconds (the signed
 32-bit JavaScript timer boundary, about 24.9 days). Disable it for longer runs.
 The separate 15-second CLI **version probe** remains bounded; it is not a

@@ -41,8 +41,7 @@ test('generates a presentation with Claude Code', async () => {
 
     // Match the application's deadline to the wait below, including repair.
     await openSettingsPage(window, 'Generation');
-    await window.getByLabel('Stop generation after a time limit').check();
-    await window.getByLabel('Time limit in seconds').fill('600');
+    await window.getByLabel('Generation time limit', { exact: true }).selectOption('600');
     await window.getByRole('button', { name: 'Done' }).click();
 
     const providerChoices = await openProviderChoices(window);

@@ -32,6 +32,16 @@ claim that Koma implements their complete workflows.
 
 ## Recovery boundaries
 
+The follow-up pass removes the repeated terminal status beside Run details.
+Unusable generated output gets a short recovery instruction; the full original
+error, validation issues and provider output stay together under Diagnostics.
+Provider connection and sign-in messages remain in the summary when relevant.
+
+Generation time limits use named minute/hour choices, with No limit as the
+default. Existing exact values remain selected until the user changes them.
+Changing a limit takes one undo step. The composer shows a short limit link that
+opens this same setting.
+
 Recheck retries generation; the provider runtime still validates output and may
 perform its existing correction pass. Selected-Koma results still require Apply.
 A run in progress or a pending proposal blocks another generation. Rechecks never

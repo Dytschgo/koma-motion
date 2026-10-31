@@ -4,6 +4,8 @@ import type { DetectedProvider } from '../state/agentStore';
 import { useProjectStore } from '../state/projectStore';
 import { useAgentStore } from '../state/agentStore';
 import { cancelGeneration } from '../lib/agentActions';
+import { formatTimeLimit } from '../lib/generationTimeLimit';
+import { useUiStore } from '../state/uiStore';
 import { changeAgentConfiguration } from '../state/commands';
 import type { ComposerDraft } from '../lib/useComposerDraft';
 import type { ComposerPanel } from '../lib/useComposerPanel';
@@ -280,10 +282,15 @@ export function AgentComposer({
         Enter to send <span aria-hidden="true">·</span> Shift+Enter for a new line
       </p>
       {project.agentConfiguration.timeoutSeconds !== null && (
-        <p className="px-2 text-xs text-ink-400">
-          Stops after {String(project.agentConfiguration.timeoutSeconds)} seconds. Change the limit
-          under Settings, Generation.
-        </p>
+        <Button
+          variant="quiet"
+          compact
+          className="self-start"
+          aria-label="Change generation time limit"
+          onClick={() => useUiStore.getState().openSettings('generation')}
+        >
+          Limit: {formatTimeLimit(project.agentConfiguration.timeoutSeconds)}
+        </Button>
       )}
 
       <ReferenceFiles disabled={running} showButton={false} />

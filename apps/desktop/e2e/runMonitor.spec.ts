@@ -54,7 +54,9 @@ test('follows the observed phases and opens a monitor of the same run', async ()
 
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
   await expect(activity(window)).toHaveAttribute('data-run-phase', 'completed');
-  await expect(activity(window)).toContainText('Completed after 0:0');
+  await expect(activity(window).getByRole('button', { name: 'Run details' })).toContainText(/0:0/);
+  await expect(activity(window)).not.toContainText('Completed');
+  await window.screenshot({ path: test.info().outputPath('completed-summary.png'), scale: 'css' });
   await window.getByRole('button', { name: 'Run details' }).click();
   await expect(monitor.getByRole('region', { name: 'Timeline', exact: true })).toContainText(
     'The response is valid',
@@ -86,7 +88,7 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
   await expect(window.getByText('Generation failed')).toBeVisible();
   const failure = window.getByRole('alert').filter({ hasText: 'Generation failed' });
   await expect(
-    failure.getByText('The response of the agent does not follow the required structure.', {
+    failure.getByText('The generated Komas could not be used. Recheck to try again.', {
       exact: true,
     }),
   ).toBeVisible();
@@ -103,6 +105,12 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
   const details = failure.locator('summary').filter({ hasText: 'Diagnostics' });
   await details.focus();
   await details.press('Enter');
+  await expect(
+    failure.getByText(/The response of the agent does not follow the required structure/),
+  ).toBeVisible();
+  await expect(failure.getByRole('region', { name: 'Provider output' })).toContainText(
+    'Demo narration',
+  );
   await expect(issue).toBeVisible();
   await expect(
     failure.getByText('komas: Invalid input: expected array, received string', { exact: true }),
@@ -114,11 +122,9 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
   });
   await details.press('Enter');
   await expect(issue).toBeHidden();
-  await expect(activity(window)).toContainText('Failed after');
-  await expect(activity(window).locator('svg.pixel-sprite')).not.toHaveAttribute(
-    'data-animated',
-    '',
-  );
+  await expect(activity(window)).toHaveAttribute('data-run-phase', 'failed');
+  await expect(activity(window)).not.toContainText('Failed');
+  await expect(activity(window).locator('svg.pixel-sprite')).toHaveCount(0);
   await window.getByRole('button', { name: 'Run details' }).click();
   const monitor = window.getByRole('dialog', { name: 'Run monitor' });
   await expect(monitor).toContainText('2 of 2 (correction)');

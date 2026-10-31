@@ -10,9 +10,11 @@ pnpm --filter @koma-motion/desktop exec playwright test settings.spec.ts instruc
 
 Proof: Arrow keys, Home, and End move between categories. Escape closes Settings
 and returns focus to its opener; reopening shows the last category. At 1120 by
-700, the dialog and Done button fit the window. A Generation time limit saves
-in the `.koma` file and can be undone. The composer and Settings show the same
-per-provider model choice. Default delegates model choice to the provider;
+700, the dialog and Done button fit the window. Generation time limits use named
+choices and save in the `.koma` file. An existing exact limit survives navigation;
+changing it takes one undo step. Its composer summary opens the same setting.
+Settings opens the model chooser in chat rather than duplicating its fields.
+Default delegates model choice to the provider;
 an explicit selection stores the identifier in the project. The mock provider
 has no model choice.
 

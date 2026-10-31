@@ -11,8 +11,10 @@ Proof: an active run shows its phase, elapsed time, and **Run details**.
 The monitor shows that run's timeline and output; opening it starts no second
 request. Mock narration appears in **Output from Mock provider**, separate
 from status text. After completion, **Output** retains the
-text and **Run details** reopens the monitor. An invalid mock answer shows a
-correction attempt and then failure. **Cancel run** stops a delayed mock run.
+text and **Run details** reopens the monitor without repeating the terminal status.
+An invalid mock answer shows a correction attempt and then one failure summary
+with **Recheck**. **Diagnostics** retains the full error, validation issues and
+provider output together. **Cancel run** stops a delayed mock run.
 With reduced motion, the sprite stays still. Hiding and reopening chat preserves
 the run and elapsed time. When reading earlier entries, new streamed text does
 not force the conversation to the bottom.

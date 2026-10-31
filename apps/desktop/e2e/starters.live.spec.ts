@@ -27,7 +27,7 @@ const only = process.env['KOMA_LIVE_STARTER'] ?? '';
 const OUTPUT_DIRECTORY = process.env['KOMA_LIVE_OUTPUT_DIR']
   ? resolve(process.env['KOMA_LIVE_OUTPUT_DIR'])
   : resolve(import.meta.dirname, '../test-results/live-starters');
-const TIME_LIMIT_SECONDS = 1500;
+const TIME_LIMIT_SECONDS = 1800;
 
 test.skip(provider === '', 'Live tests run on request');
 test.setTimeout((TIME_LIMIT_SECONDS + 300) * 1000);
@@ -56,8 +56,9 @@ for (const starter of STARTER_PRESETS.filter((preset) => only === '' || preset.i
       await expect(window.getByLabel('Your request')).toHaveValue(starter.request);
 
       await openSettingsPage(window, 'Generation');
-      await window.getByLabel('Stop generation after a time limit').check();
-      await window.getByLabel('Time limit in seconds').fill(String(TIME_LIMIT_SECONDS));
+      await window
+        .getByLabel('Generation time limit', { exact: true })
+        .selectOption(String(TIME_LIMIT_SECONDS));
       await window.getByRole('button', { name: 'Done' }).click();
       await selectProvider(window, provider);
       if (model !== '') {

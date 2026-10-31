@@ -10,6 +10,7 @@ import {
   type ReactElement,
 } from 'react';
 import { useAgentStore, type ConversationEntry } from '../state/agentStore';
+import { generationFailureSummary } from '../lib/generationFeedback';
 import { ChevronIcon, KomaMark, WarningIcon } from './icons';
 import { Button } from './ui';
 import { RunActivity, RunMonitor } from './RunActivity';
@@ -127,12 +128,18 @@ function Entry({
         {FAILURE_TITLES[entry.status]}
       </p>
       {entry.status !== 'cancelled' && (
-        <p className="whitespace-pre-wrap">{error.message.split('\n')[0]?.replace(/:$/, '.')}</p>
+        <p className="whitespace-pre-wrap">{generationFailureSummary(error)}</p>
       )}
       <p className="mt-2 text-sm text-ink-400">Your presentation was not changed.</p>
-      {entry.output !== undefined && <KeptOutput text={entry.output} name={entry.providerName} />}
       <details className="mt-1 text-sm text-ink-400">
         <summary className="cursor-pointer hover:text-ink-100">Diagnostics</summary>
+        <p className="my-2 whitespace-pre-wrap">{error.message}</p>
+        {entry.output !== undefined && (
+          <section aria-label="Provider output" className="my-2">
+            <h4 className="font-medium">Output</h4>
+            <p className="whitespace-pre-wrap">{entry.output}</p>
+          </section>
+        )}
         {error.issues.length > 0 && (
           <ul
             aria-label="Response validation details"

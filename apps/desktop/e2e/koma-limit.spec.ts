@@ -78,12 +78,11 @@ for (const count of [250, 1000]) {
     await window.getByLabel('Your request').fill(brief);
     await expect(window.getByLabel('Your request')).toHaveValue(brief);
     await openSettingsPage(window, 'Generation');
-    const deadline = window.getByRole('switch', { name: 'Stop generation after a time limit' });
-    await expect(deadline).not.toBeChecked();
-    await deadline.check();
-    await window.getByLabel('Time limit in seconds').fill('7200');
-    await expect(window.getByLabel('Time limit in seconds')).toHaveValue('7200');
-    await deadline.uncheck();
+    const deadline = window.getByLabel('Generation time limit', { exact: true });
+    await expect(deadline).toHaveValue('none');
+    await deadline.selectOption('7200');
+    await expect(deadline).toHaveValue('7200');
+    await deadline.selectOption('none');
     await window.getByRole('button', { name: 'Done', exact: true }).click();
     await window.screenshot({ path: test.info().outputPath('large-project.png') });
     await test.info().attach('timings', {

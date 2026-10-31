@@ -1,12 +1,9 @@
-import {
-  MAX_AGENT_TIMEOUT_SECONDS,
-  MIN_AGENT_TIMEOUT_SECONDS,
-  type KomaProject,
-} from '@koma-motion/core';
+import type { KomaProject } from '@koma-motion/core';
 import { useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import type { IpcResponse } from '../../../shared/ipc';
 import { detectProviders } from '../lib/agentActions';
 import { invoke } from '../lib/api';
+import { generationTimeLimits } from '../lib/generationTimeLimit';
 import {
   getSettingsPage,
   groupSettingsPages,
@@ -39,10 +36,8 @@ import {
   IconButton,
   IconTile,
   ModalFrame,
-  NumberInput,
-  SettingRow,
+  Select,
   SettingsCard,
-  Switch,
   choiceRowClass,
 } from './ui';
 import { ProviderLogo } from './ProviderLogo';
@@ -67,56 +62,37 @@ function GenerationPage({ project }: { readonly project: KomaProject | null }): 
     return <NoProject />;
   }
   const { timeoutSeconds } = project.agentConfiguration;
+  const limits = generationTimeLimits(timeoutSeconds);
   return (
     <div className="flex flex-col gap-4">
       <SettingsCard title="Time limit">
-        <SettingRow
-          label="Stop generation after a time limit"
-          description="Off by default. Agents run until they finish or you cancel. A provider may have its own limits."
+        <Field
+          label="Generation time limit"
+          hint="No limit lets the provider finish or wait for you to stop it."
         >
           {(ids) => (
-            <Switch
+            <Select
               {...ids}
-              checked={timeoutSeconds !== null}
-              onCheckedChange={(checked) =>
+              value={timeoutSeconds === null ? 'none' : String(timeoutSeconds)}
+              onChange={(event) => {
+                const limit = limits.find((option) => option.value === event.target.value);
+                if (limit === undefined) return;
                 apply(
                   changeAgentConfiguration({
                     ...project.agentConfiguration,
-                    timeoutSeconds: checked ? 3600 : null,
+                    timeoutSeconds: limit.seconds,
                   }),
-                )
-              }
-            />
-          )}
-        </SettingRow>
-        {timeoutSeconds !== null && (
-          <div className="border-t border-line pt-3">
-            <Field
-              label="Time limit in seconds"
-              hint={`Turn the limit off to let generation finish in its own time.`}
+                );
+              }}
             >
-              {(ids) => (
-                <NumberInput
-                  {...ids}
-                  className="w-32"
-                  value={timeoutSeconds}
-                  minimum={MIN_AGENT_TIMEOUT_SECONDS}
-                  maximum={MAX_AGENT_TIMEOUT_SECONDS}
-                  precision={0}
-                  onValue={(seconds) => {
-                    apply(
-                      changeAgentConfiguration({
-                        ...project.agentConfiguration,
-                        timeoutSeconds: Math.round(seconds),
-                      }),
-                      { coalesceKey: 'agent-timeout' },
-                    );
-                  }}
-                />
-              )}
-            </Field>
-          </div>
-        )}
+              {limits.map((limit) => (
+                <option key={limit.value} value={limit.value}>
+                  {limit.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
       </SettingsCard>
 
       <SettingsCard title="Model">

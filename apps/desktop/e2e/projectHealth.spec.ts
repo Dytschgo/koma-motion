@@ -168,13 +168,14 @@ test('Save current format writes the current version; optional generation timing
   await health().getByRole('button', { name: 'Close', exact: true }).click();
   await showChat(running.window);
   // No time limit: the composer shows no stop time.
-  await expect(running.window.getByText('Stops after', { exact: false })).toHaveCount(0);
+  await expect(
+    running.window.getByRole('button', { name: 'Change generation time limit', exact: true }),
+  ).toHaveCount(0);
   await openSettingsPage(running.window, 'Generation');
   const settings = running.window.getByRole('dialog', { name: 'Settings', exact: true });
-  await settings.getByLabel('Stop generation after a time limit', { exact: true }).check();
-  await settings.getByLabel('Time limit in seconds', { exact: true }).fill('45');
+  await settings.getByLabel('Generation time limit', { exact: true }).selectOption('300');
   await settings.getByRole('button', { name: 'Done' }).click();
-  await expect(running.window.getByText('Stops after 45 seconds.', { exact: false })).toBeVisible();
+  await expect(running.window.getByText('Limit: 5 minutes', { exact: false })).toBeVisible();
   await showHealth();
   await expect(health()).toContainText('No project issues found');
   expect(running.problems).toEqual([]);
