@@ -34,7 +34,9 @@ test('follows the observed phases and opens a monitor of the same run', async ()
   const monitor = window.getByRole('dialog', { name: 'Run monitor' });
   await expect(monitor).toBeVisible();
   await expect(monitor).toContainText('Mock provider · built-in');
-  await expect(monitor).toContainText('This view starts no extra process or request.');
+  await expect(
+    window.getByRole('log', { name: 'Conversation' }).getByText(/You asked:/),
+  ).toHaveCount(1);
   await expect(monitor).not.toContainText('Claude Code runs in print mode');
   await expect(monitor.getByRole('region', { name: 'Output', exact: true })).toContainText(
     'Demo narration',

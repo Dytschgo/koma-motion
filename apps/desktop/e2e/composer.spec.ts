@@ -248,6 +248,10 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   await openSettingsPage(window, 'Generation');
   await expect(window.getByLabel('Model for Claude Code', { exact: true })).toHaveCount(0);
   await window.getByRole('button', { name: 'Choose model in chat' }).click();
+  // Observe the handoff before a helper decides whether to toggle the chooser.
+  const handedOffModel = window.getByRole('dialog', { name: 'Model', exact: true });
+  await expect(handedOffModel).toBeVisible();
+  await expect(handedOffModel.getByRole('searchbox', { name: 'Search models' })).toBeFocused();
   models = await openProviderChoices(window);
   await expect(models.getByLabel('Model', { exact: true })).toHaveValue('');
   await chooseModel(models, 'Model', 'opus');

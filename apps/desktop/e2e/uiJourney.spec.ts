@@ -9,7 +9,7 @@ import {
   showChat,
   type RunningApplication,
 } from './application';
-import { countTrigger } from './composerControls';
+import { countTrigger, openProviderChoices } from './composerControls';
 
 let running: RunningApplication;
 test.beforeEach(async () => {
@@ -190,12 +190,16 @@ test('a blank deck is not told to add another Koma', async () => {
   await expect(window.getByText('Add another Koma for motion.', { exact: true })).toBeVisible();
 });
 
-test('mock run details explain only the active provider', async () => {
+test('mock run details show only the active provider without starting another request', async () => {
   await demo();
   const { window } = running;
   await window.getByRole('button', { name: 'Run details', exact: true }).click();
   const monitor = window.getByRole('dialog', { name: 'Run monitor', exact: true });
-  await expect(monitor).toContainText('This view starts no extra process or request.');
+  await expect(
+    window.getByRole('log', { name: 'Conversation' }).getByText(/You asked:/),
+  ).toHaveCount(1);
+  await expect(monitor).toContainText('Mock provider');
+  await expect(monitor.getByRole('button', { name: 'Cancel run' })).toHaveCount(0);
   await expect(monitor.getByText(/Claude Code runs in print mode/)).toHaveCount(0);
   await expect(monitor.getByRole('region', { name: 'Timeline', exact: true })).toContainText(
     'Preparing the request',
@@ -234,7 +238,14 @@ test('model caveats remain reachable without repeating every paragraph in Settin
   await create();
   const { window } = running;
   await openSettingsPage(window, 'Generation');
-  const details = window.locator('summary[aria-label="About Claude Code model choices"]');
+  await expect(window.getByLabel('Model for Claude Code', { exact: true })).toHaveCount(0);
+  await window.getByRole('button', { name: 'Choose model in chat' }).click();
+  const chooser = window.getByRole('dialog', { name: 'Model', exact: true });
+  await expect(chooser).toBeVisible();
+  await expect(chooser.getByRole('searchbox', { name: 'Search models' })).toBeFocused();
+  const options = await openProviderChoices(window);
+  await options.getByLabel('Provider', { exact: true }).selectOption('claude-code');
+  const details = options.locator('summary[aria-label="About Claude Code model choices"]');
   await expect(details).toBeVisible();
   await details.focus();
   await window.keyboard.press('Enter');

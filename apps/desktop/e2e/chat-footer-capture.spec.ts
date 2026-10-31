@@ -38,6 +38,7 @@ for (const width of [1480, 1120] as const) {
       await window.getByRole('button', { name: 'Model', exact: true }).click();
       await openSettingsPage(window, 'Generation');
       await window.getByRole('button', { name: 'Choose model in chat' }).click();
+      await expect(window.getByRole('dialog', { name: 'Model', exact: true })).toBeVisible();
       const options = await openProviderChoices(window);
       await chooseModel(options, 'Model', 'opus');
       await window.getByRole('button', { name: 'Model', exact: true }).click();

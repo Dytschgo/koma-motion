@@ -181,9 +181,11 @@ test('moves between Koma, element and motion contexts with the pointer and the k
   await stage(window).getByRole('button', { name: 'Cover panel (shape)', exact: true }).click();
   await expect(window.getByLabel('Fill colour')).toHaveValue('#F2C14E');
   await window.getByLabel('Fill colour').fill('#12');
-  await expect(window.getByText('Error: Use a hex colour such as #7CC4E8.')).toBeVisible();
+  await expect(window.getByText('Error: Choose a colour or enter a hex value.')).toBeVisible();
+  await expect(window.getByLabel('Fill colour')).toHaveAttribute('aria-invalid', 'true');
   await window.getByLabel('Fill colour').fill('#123456');
-  await expect(window.getByText(/Use a hex colour/)).toHaveCount(0);
+  await expect(window.getByText('Error: Choose a colour or enter a hex value.')).toHaveCount(0);
+  await expect(window.getByLabel('Fill colour')).not.toHaveAttribute('aria-invalid', 'true');
 
   // The tabs work with the arrow keys; the Koma keeps its fields.
   const elementTab = inspector(window).getByRole('tab', { name: /^Element/ });

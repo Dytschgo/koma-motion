@@ -138,8 +138,11 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
 
     await getStage().getByRole('button', { name: 'Motion engine (shape)' }).click();
     await expect(window.getByRole('heading', { name: 'Selected element' })).toBeVisible();
-    await window.getByRole('button', { name: /^Details/ }).click();
-    await expect(window.getByText('motion-engine', { exact: true })).toBeVisible();
+    await expect(getStage().getByRole('button', { name: 'Motion engine (shape)' })).toHaveAttribute(
+      'data-persistent-id',
+      'motion-engine',
+    );
+    await expect(window.getByLabel('Name', { exact: true })).toHaveValue('Motion engine');
     await expect(window.getByLabel('Width')).toHaveValue('400');
   });
 
