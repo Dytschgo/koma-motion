@@ -4,20 +4,27 @@ Build first and use the mock-provider workflow in `SKILL.md`. These specs use
 isolated native Electron windows and synthetic files:
 
 ```powershell
-pnpm --filter @koma-motion/desktop exec playwright test focusDock.spec.ts uiJourney.spec.ts composer.spec.ts chatSidebar.spec.ts chatBrandKit.spec.ts providerDisclosure.spec.ts selectedGeneration.spec.ts narrowWindow.spec.ts streaming.spec.ts starters.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
+pnpm --filter @koma-motion/desktop exec playwright test quietStage.spec.ts focusDock.spec.ts uiJourney.spec.ts composer.spec.ts chatSidebar.spec.ts chatBrandKit.spec.ts providerDisclosure.spec.ts selectedGeneration.spec.ts narrowWindow.spec.ts streaming.spec.ts starters.spec.ts komaPane.spec.ts --output "$komaVerifyOutput/native-results" --reporter 'list,json'
 ```
 
 Create a fresh `$komaVerifyOutput` and report path using `SKILL.md` before each
 invocation. This group covers composer responsibilities after extraction:
-request/count/scope, session replacement, starter seeds, shared Chat/Inspect dock,
-provider choices and disclosure, selected proposal review/focus,
+request/count/scope, session replacement, starter seeds, the canvas-first layout
+(`quietStage.spec.ts`), the prompt and its conversation sheet, the object toolbar,
+properties popover and pinning, filmstrip motion markers, provider choices and disclosure, selected proposal review/focus,
 streaming and cancellation. Run `export-references.spec.ts` separately using
 the same fresh-output preparation for reference consent and saved-file privacy.
 Use `canvas-editing.spec.ts`, `inspector.spec.ts`, `transitionWarnings.spec.ts`
 and `projectHealth.spec.ts` for the editing/health paths described below.
 
-- Composer: create a project, choose a model from the compact searchable list beside
-  Brand Kit below the request. The header must have no provider/model selector.
+- Layout: the default editor is canvas first: one thin top bar (project menu,
+  name and saved state, Undo/Redo, Add element, Properties, Play with Present or
+  edit motion, Share), the canvas, one floating prompt and the horizontal
+  filmstrip. There is no permanent Koma column, chat dock, Inspector or transport
+  band. Check 1480x920 and the minimum 1120x700, long names and long drafts.
+- Composer: create a project, open **Generation options** in the prompt and choose
+  a model from the compact searchable list beside Brand Kit above the request. The
+  top bar must have no provider/model selector.
   Verify provider logos, cross-provider search, CLI-reported Models before default rows, and Favorites chosen by the user. Stars remain visible without hover:
   outlined when unselected, filled when favorited. Check
   one-step Undo/Redo of the combined provider/model choice. Pinning favorites must
@@ -26,13 +33,14 @@ and `projectHealth.spec.ts` for the editing/health paths described below.
   dropdown. Toggle Auto and verify keyboard navigation at a narrow chat width. The mock
   disclosure, reference attachment, instructions and Generate action must remain
   reachable in short windows.
-  Type an unsent request with spaces, switch to Inspect with the tab's arrow keys,
-  return to Chat, then collapse/reopen at a narrow native size. Confirm the draft,
-  count, selected scope, transcript and selected Koma survive. Tab switching keeps
-  focus on the tab; the collapsed Show the chat action focuses the request.
-  Object selection opens Inspect; Koma navigation keeps the active dock tab.
-  Check Generating/Review/Complete/Stopped/Failed feedback on the Chat tab while
-  Inspect is active, and confirm tab switching never changes the canvas width.
+  Type an unsent request with spaces, open and close properties, then collapse
+  and expand the conversation at a narrow native size. Confirm the draft, count,
+  selected scope, transcript, reading position and selected Koma survive.
+  Collapsing returns focus to the request. Object selection shows the object
+  toolbar and never opens a panel by itself. While the conversation is collapsed,
+  its button reports Generating; a proposal reopens it, and a failure shows one
+  line above the prompt ("Couldn’t use the result. Nothing changed.") with
+  Recheck, which retries the original target and count and keeps the next draft.
   Editing the same project must retain the draft; reopening the same file must
   clear it and restore the default count and entire-presentation scope. Starter
   request/count seeds must survive session initialization and replace a prior
@@ -69,16 +77,18 @@ and `projectHealth.spec.ts` for the editing/health paths described below.
   draft; invalid text retains its draft and prevents losing it on selection.
   Drag the selected element's rotation handle and verify its Inspector value,
   then verify Undo and Redo restore the previous and rotated angles.
-- Inspector: switch Element, Koma and Motion tabs with keyboard and pointer;
-  select hidden and covered elements from Layers; change visibility and lock;
-  verify restacking and Undo. Chat and Inspect share one dock at all sizes;
-  switch contexts with their tabs. The toolbar's Inspect action must also open
-  Koma properties when no element is selected. Brand Kit uses the Inspect context;
-  switching to Chat and back must preserve its input and library context.
-- Motion: an edit can make stored motion stale. The Koma strip shows a compact
-  status on that transition, between its source and destination Komas, with
-  Regenerate transition. The explanation and links to both Komas are in the
-  disclosure. Verify blocked playback, then use Fix motion in the
+- Object toolbar and properties: select objects at the corner and edges; the
+  toolbar must stay inside the canvas, flip below an object at the top and leave
+  the object uncovered. Colour, Size and position, Arrange, Motion and More must
+  act on the document with Undo. Properties in the top bar opens the Inspector
+  (Element, Koma and Motion tabs, Layers) for the current Koma even without a
+  selection; Pin properties moves it beside the canvas and survives restart.
+  Brand Kit opens in the same panel from the project menu or its header and
+  keeps its input and library context.
+- Motion: an edit can make stored motion stale. The filmstrip marks the dot
+  between its source and destination Komas. Selecting that dot opens the
+  transition controls below the canvas with Regenerate transition; the
+  explanation and links to both Komas are in its Details disclosure. Verify blocked playback, then use Fix motion in the
   Inspector to preserve timing locally or Regenerate transition to request new
   timing from the selected provider. Verify running, succeeded, failed and
   cancelled states, and that a failed or cancelled regeneration keeps both
@@ -86,8 +96,8 @@ and `projectHealth.spec.ts` for the editing/health paths described below.
   transition blocked.
 - Project health: open damaged or older fixtures, inspect format and asset issues,
   repair only the selected asset, and verify save-copy recovery. General project
-  warnings live in Project health; transition status stays on the transition in
-  the Koma strip.
+  warnings live in Project health; transition status stays on the transition's
+  marker in the filmstrip.
 
 Preserve screenshots and failure traces in the fresh external output directory.
 Record actual native content dimensions and source commit. macOS uses different

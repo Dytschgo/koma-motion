@@ -6,7 +6,6 @@ import {
   answerOpenDialog,
   answerSaveDialog,
   launchApplication,
-  showChat,
   type RunningApplication,
   chooseProjectCommand,
   showGenerationOptions,

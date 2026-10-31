@@ -1,7 +1,8 @@
 # Project health and recovery
 
-Open **Project health** in the top bar, including when the Inspector is hidden
-by the chat or Brand Kit. The count includes unresolved items even when their
+Open **Project health** from the project menu at the start of the top bar.
+While there are issues, a **Project health** button with their count also
+appears in the top bar. The count includes unresolved items even when their
 notifications are hidden. Closing the panel or hiding a notification changes
 only the interface. Reopening the project recalculates its asset and motion
 issues from the document.

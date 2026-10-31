@@ -16,13 +16,16 @@ Saving and reopening retains the objects and their styling. Creation observes
 the element count and project safety budgets; a failed addition leaves the
 document unchanged and shows an error.
 
-Selecting an object on the canvas or in Layers opens its precise controls in
-the **Inspect** tab. The toolbar's **Inspect** action also opens properties for
-the current Koma without an object selected. **Chat** and **Inspect** share one
-resizable dock at every window size; switching tabs keeps the canvas width,
-chat draft and history. Selecting another Koma keeps the active dock tab.
-Collapse the dock for more canvas room, then use **Show the chat** or **Show
-Inspect panel** to return. Locked elements retain their existing edit limits.
+Add objects with **Add element** (+) in the top bar. Selecting an object on
+the canvas shows a small toolbar beside it: colour, size and position,
+**Arrange** for stacking, **Motion**, and **More** for properties, lock,
+visibility and delete. The toolbar stays inside the visible canvas: it moves
+below an object at the top edge, keeps edge objects reachable and hides while
+the object is dragged. **Properties** in the top bar (or **More → Properties**)
+opens every value and Layers in a popover over the canvas; **Pin properties**
+keeps it beside the canvas, and Escape closes the unpinned popover and returns
+focus. Opening properties never replaces the prompt or its draft. Locked
+elements retain their existing edit limits.
 
 ## Selecting several elements
 

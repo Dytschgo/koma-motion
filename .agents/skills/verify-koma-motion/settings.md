@@ -1,6 +1,6 @@
 # Settings and instructions
 
-Entry: click **Settings** in the top bar. The **Settings categories** navigation
+Entry: choose **Settings** in the project menu at the start of the top bar. The **Settings categories** navigation
 contains Instructions, Generation, Templates, Providers, Updates, and About.
 The project pages explain when no project is open.
 

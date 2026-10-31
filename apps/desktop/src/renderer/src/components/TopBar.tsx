@@ -110,7 +110,8 @@ export function TopBar(): ReactElement {
     context !== null &&
     assessTransition(project.presentation, context.transition, context.from, context.to)
       ?.blocked === true;
-  const playing = preview !== null || motionEditing;
+  // The transition controls show while a preview plays or motion is being edited.
+  const playing = preview !== null || (motionEditing && transition !== null);
   const selectedNumber =
     (project?.presentation.komas.findIndex((koma) => koma.id === selectedKoma?.id) ?? -1) + 1;
   const healthCount = useMemo(

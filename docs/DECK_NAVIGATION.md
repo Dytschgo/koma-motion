@@ -20,18 +20,23 @@ using the existing new-Koma defaults. Delete asks for confirmation. These
 shortcuts apply to thumbnails, so editing text elsewhere keeps its usual keys.
 On macOS, Command + M keeps its native Minimize action; use Control + M to add.
 
-Right-click a thumbnail, press Shift+F10, or use **Koma actions** in the footer
-for the same insert, duplicate, move and delete actions. Arrow keys navigate
-that menu; Escape closes it and returns focus. Each document action is undoable.
-The footer keeps **Add Koma**, **Koma actions** and **Brand Kit** visible. Move
-and delete use the menu or thumbnail shortcuts rather than a duplicate button row.
+The Komas form a horizontal filmstrip below the canvas. Left and Right (as
+well as Up and Down) move between thumbnails; with Ctrl/Command they move the
+Koma. Right-click a thumbnail, press Shift+F10, or use **Koma actions** (the
+⋯ button at the end of the strip) for the same insert, duplicate, move and
+delete actions. Arrow keys navigate that menu; Escape closes it and returns
+focus. Each document action is undoable. **Add Koma**, **Koma actions** and
+**Deck overview** stay at the end of the strip. Only thumbnails near the
+visible part of the strip are drawn, so long decks stay responsive.
 
-**Show Koma details** restores thumbnail titles and the transition timing and
-preview rows between Komas. Motion warnings and their recovery actions remain
-visible in compact mode. The resize divider also supports Left/Right (Shift
-for larger steps), Home for minimum width and End for maximum width.
+The dots between two thumbnails are the motion between those Komas. A marked
+dot needs attention. Selecting a dot, with the pointer or with Tab and Enter
+from a neighbouring thumbnail, selects the first Koma, previews a playable
+motion and opens the transition controls below the canvas: scrubbing, duration,
+**Motion details**, and for a motion that cannot play its reason, **Fix motion**
+through Motion details and **Regenerate transition**.
 
-Open **Deck overview** (the grid button beside Komas) to find a Koma by its number, title
+Open **Deck overview** (the grid button at the end of the strip) to find a Koma by its number, title
 or purpose. Search terms are matched together, ignoring case. Result numbers
 always refer to the full deck. Filtering the overview does not change the deck
 or imply a transition between the filtered results. An exact numeric position
@@ -69,17 +74,17 @@ remain available for one-position moves, including during preview. A move that
 changes the previewed pair cancels that preview. Stop transition preview before
 using the overview's direct-position form.
 
-## Dragging in the Koma strip
+## Dragging in the filmstrip
 
 Any Koma in the strip can also be dragged to a new place with the mouse. A
 press becomes a drag after a few pixels of movement, so a click still selects
 the Koma. While dragging, the Koma is dimmed and a bar marks the gap it will
 drop into; no bar is shown where dropping would leave the order unchanged.
-Holding the pointer near the strip's top or bottom edge scrolls the strip in
+Holding the pointer near the strip's left or right end scrolls the strip in
 that direction, so a Koma can reach positions that are off screen, including
 in the 1120 x 668 window used by CI.
 
-Dropping applies the same move as the menu's up/down actions and **Move to
+Dropping applies the same move as the menu's left/right actions and **Move to
 position**: one undo step, the same transition handling, and the same
 unsaved-changes state. The dropped Koma becomes the selected Koma. Dropping a
 Koma beside itself, pressing Escape during the drag, or losing the pointer

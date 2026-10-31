@@ -96,19 +96,21 @@ Everything in this list is implemented and covered by automated tests.
 
 - Create a project, open a project, save and save as (`.koma` files).
 - Edit a Brand Kit with colours, fonts, a logo and descriptions, with a live
-  preview and readability checks, in a panel beside the canvas.
+  preview and readability checks, in a panel over or pinned beside the canvas.
 - Save Brand Kits, logo included, to a library on this computer and apply
   them to any project. Applying a kit can be undone.
-- Describe a presentation in the chat and choose a provider. The chat is a
-  sidebar beside the canvas that can be resized and collapsed. Beside the
-  request, choose the model of the provider and the number of Komas (5 at
-  first, or Auto to let the agent decide).
+- Describe a presentation in the prompt below the canvas and choose a
+  provider. The conversation opens above the prompt on demand. Generation
+  options hold the model of the provider and the number of Komas (5 at first,
+  or Auto to let the agent decide).
 - Generate three Komas with the built-in mock provider, without network and
   without an API key.
 - Generate Komas with Claude Code or Grok. Tested on Windows.
-- See the Komas and the in-betweens that connect them.
+- See the Komas in a filmstrip, with the motion that connects them between
+  the thumbnails.
 - Select elements on the canvas, drag and resize them, edit text in place,
-  and import or replace images. The Inspector remains available.
+  and import or replace images. A toolbar beside the selection changes colour,
+  size, stacking and motion; the Inspector opens on request and can be pinned.
 - Add, copy, reorder and delete Komas.
 - Preview the transition between two Komas: play, pause, restart, move to
   any position, change the duration.

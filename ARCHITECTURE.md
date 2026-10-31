@@ -155,7 +155,7 @@ the same `persistentId` in different Komas are one object in two states.
 
 Persistent identity is what turns a sequence of pages into motion. It is part
 of the model from the first version and is used by the motion engine, the
-agent contract, the Koma strip and the inspector. See `docs/MOTION_MODEL.md`.
+agent contract, the filmstrip and the Inspector. See `docs/MOTION_MODEL.md`.
 
 ## Motion engine
 
@@ -343,22 +343,24 @@ sure that the channel list of the preload script equals the contract.
 
 ## Application state
 
-| State                          | Where                                   | Saved with the project |
-| ------------------------------ | --------------------------------------- | ---------------------- |
-| project and undo history       | `projectStore`                          | the project, yes       |
-| unsaved changes                | derived in `projectStore`               | no                     |
-| selection, view, zoom          | `uiStore`                               | no                     |
-| open Settings page             | `uiStore`                               | no                     |
-| presentation, autoplay         | `presenterStore`                        | no                     |
-| preview                        | `uiStore` and the playback hook         | no                     |
-| agent executions, chat         | `agentStore`                            | no                     |
-| attached brand material        | `brandProfileStore`                     | no                     |
-| extracted references           | `referenceStore`                        | no                     |
-| quick-start completion         | `quickStartStore`, window local storage | no                     |
-| chat sidebar width, open       | `uiStore`, window local storage         | no                     |
-| Koma pane width, details, open | `uiStore`, window local storage         | no                     |
-| saved Brand Kit library        | `brandKitLibraryStore`, on disk         | no, app data folder    |
-| unfinished editor input        | component state                         | no                     |
+| State                       | Where                                   | Saved with the project |
+| --------------------------- | --------------------------------------- | ---------------------- |
+| project and undo history    | `projectStore`                          | the project, yes       |
+| unsaved changes             | derived in `projectStore`               | no                     |
+| selection, view, zoom       | `uiStore`                               | no                     |
+| open Settings page          | `uiStore`                               | no                     |
+| presentation, autoplay      | `presenterStore`                        | no                     |
+| preview                     | `uiStore` and the playback hook         | no                     |
+| agent executions, chat      | `agentStore`                            | no                     |
+| attached brand material     | `brandProfileStore`                     | no                     |
+| extracted references        | `referenceStore`                        | no                     |
+| quick-start completion      | `quickStartStore`, window local storage | no                     |
+| conversation sheet open     | `uiStore`                               | no                     |
+| properties panel open, view | `uiStore`                               | no                     |
+| properties panel pinned     | `uiStore`, window local storage         | no                     |
+| motion controls open        | `uiStore`                               | no                     |
+| saved Brand Kit library     | `brandKitLibraryStore`, on disk         | no, app data folder    |
+| unfinished editor input     | component state                         | no                     |
 
 Changes to the document are commands: pure functions from a project to a
 project (`state/commands.ts`). The store applies a command and records the
