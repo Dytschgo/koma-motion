@@ -1,5 +1,5 @@
 import { writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { createSeededIdGenerator } from '@koma-motion/core';
 import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
 import { syncTransitions } from '@koma-motion/motion-engine';
@@ -9,8 +9,10 @@ import {
   answerOpenDialog,
   launchApplication,
   showChat,
+  showGenerationOptions,
   type RunningApplication,
 } from './application';
+import { modelTrigger, openProviderChoices } from './composerControls';
 
 /*
  * Acceptance for the approved "Quiet Stage" editor: canvas first, one thin
@@ -169,6 +171,40 @@ test('keeps the canvas fitted while chatting and tucks completed work away when 
   await canvas.focus();
   await expect(log).toBeHidden();
   await expect(canvas).toBeFocused();
+  expect(problems).toEqual([]);
+});
+
+test('uses Model and Brand Kit pickers above the open conversation at minimum size', async () => {
+  running = await launchApplication();
+  const { window, application, problems } = running;
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
+  });
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  const log = window.getByRole('log', { name: 'Conversation' });
+  await expect(log).toBeVisible();
+  const model = await openProviderChoices(window);
+  await model.getByLabel('Provider', { exact: true }).selectOption('mock');
+  await expect(model.getByLabel('Provider', { exact: true })).toHaveValue('mock');
+  await capture(window, 'model-above-conversation');
+  await modelTrigger(window).click();
+  await showGenerationOptions(window);
+  await answerOpenDialog(application, resolve('e2e/fixtures/decks/northstar.pdf'));
+  await window.getByRole('button', { name: 'Choose Brand Kit', exact: true }).click();
+  await window
+    .getByRole('dialog', { name: 'Choose Brand Kit', exact: true })
+    .getByRole('button', { name: 'Attach brand material…', exact: true })
+    .click();
+  await expect(window.getByRole('list', { name: 'Attached brand material' })).toContainText(
+    'northstar.pdf',
+  );
+  await expect(log).toBeVisible();
+  await window
+    .getByRole('button', { name: 'Create Brand Kit and instructions', exact: true })
+    .click();
+  await expect(
+    window.getByRole('dialog', { name: 'Create Brand Kit and instructions', exact: true }),
+  ).toBeVisible();
   expect(problems).toEqual([]);
 });
 

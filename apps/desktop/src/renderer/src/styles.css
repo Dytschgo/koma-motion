@@ -865,6 +865,7 @@
 .prompt-dock {
   container: chat / inline-size;
   position: relative;
+  z-index: 40;
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
@@ -875,7 +876,7 @@
   position: absolute;
   inset-block-end: calc(100% + 0.375rem);
   inset-inline: 0;
-  z-index: 40;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   block-size: min(20rem, 36vh);
@@ -904,6 +905,8 @@
 }
 .prompt-composer {
   position: relative;
+  /* Picker panels belong above the conversation sheet, within the prompt. */
+  z-index: 2;
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
