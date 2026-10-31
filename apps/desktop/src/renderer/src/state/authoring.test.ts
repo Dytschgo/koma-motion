@@ -130,7 +130,7 @@ describe('direct authoring', () => {
     expect(opened.value.project.presentation).toEqual(created.presentation);
   });
 
-  it('opens properties on request without losing selection, pinning or chat on Koma navigation', () => {
+  it('tucks chat away for properties and preserves selection, pinning and reopened chat on navigation', () => {
     const ui = useUiStore;
     ui.getState().reset();
     ui.getState().setChatOpen(true);
@@ -143,16 +143,27 @@ describe('direct authoring', () => {
       view: 'canvas',
       inspectorTab: 'element',
       propertiesOpen: true,
-      chatOpen: true,
+      chatOpen: false,
       selectedElementId: 'element',
     });
+    // Reopening chat is explicit; navigation in the store keeps that choice.
+    ui.getState().setChatOpen(true);
     ui.getState().selectKoma('other-koma');
     expect(ui.getState()).toMatchObject({ propertiesOpen: true, chatOpen: true });
     ui.getState().selectElement(null);
     ui.getState().inspectSelection();
-    expect(ui.getState().inspectorTab).toBe('koma');
+    expect(ui.getState()).toMatchObject({ inspectorTab: 'koma', chatOpen: false });
     ui.getState().inspectSelection('motion');
     expect(ui.getState().inspectorTab).toBe('motion');
+    ui.getState().setChatOpen(true);
+    ui.getState().setView('brandKit');
+    expect(ui.getState()).toMatchObject({
+      view: 'brandKit',
+      propertiesOpen: true,
+      chatOpen: false,
+      selectedKomaId: 'other-koma',
+    });
+    ui.getState().setView('canvas');
     ui.getState().setPropertiesOpen(false);
     ui.getState().setPropertiesPinned(true);
     expect(ui.getState()).toMatchObject({ propertiesOpen: true, propertiesPinned: true });
