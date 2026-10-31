@@ -37,7 +37,7 @@ open them.
 [docs/RELEASES.md](docs/RELEASES.md#installing) explains how to install and
 how to switch to nightly previews.
 
-![Koma Motion showing the middle of a transition between two Komas](docs/screenshots/transition-preview.png)
+![Quiet Stage editor with a large canvas, one prompt and a compact filmstrip](docs/screenshots/quiet-stage.png)
 
 ## What is Koma Motion?
 
@@ -137,20 +137,17 @@ stored transitions; explicit motion regeneration is separate work.
 
 ## Screenshots
 
-| Generated Komas                                    | Inspecting an element                        |
-| -------------------------------------------------- | -------------------------------------------- |
-| ![Generated Komas](docs/screenshots/generated.png) | ![Inspector](docs/screenshots/inspector.png) |
+| Contextual object tools                                                             | Pinned properties                                                                   |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| ![Object toolbar beside a selected shape](docs/screenshots/quiet-stage-toolbar.png) | ![Properties pinned beside the canvas](docs/screenshots/quiet-stage-properties.png) |
 
-| Brand Kit                                           | Saved Brand Kits                                             |
-| --------------------------------------------------- | ------------------------------------------------------------ |
-| ![Brand Kit editor](docs/screenshots/brand-kit.png) | ![Brand Kit library](docs/screenshots/brand-kit-library.png) |
+| Rechecking a failed result                                                                                |
+| --------------------------------------------------------------------------------------------------------- |
+| ![A failed generation offers Recheck directly above the prompt](docs/screenshots/quiet-stage-recheck.png) |
 
-| Start                                         |
-| --------------------------------------------- |
-| ![Start screen](docs/screenshots/welcome.png) |
-
-The screenshots are created from the running application with
-`KOMA_SCREENSHOTS=1 pnpm test:e2e screenshots`.
+These are native application captures from hosted Electron tests with the mock
+provider. [Capture provenance](docs/screenshots/quiet-stage-captures.json) records
+the source revision, scenarios and image hashes.
 
 ## Key features
 

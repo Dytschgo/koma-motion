@@ -225,7 +225,8 @@ test('keeps result warnings discoverable after returning to canvas editing', asy
   // Keep the default requested count of five; the mock returns three and explains it.
   await window.getByLabel('Your request').fill('Explain how an idea becomes a presentation.');
   await window.getByRole('button', { name: 'Generate Komas', exact: true }).click();
-  const warning = 'The mock provider always creates its demonstration story with three Komas.';
+  const warning =
+    'Warning: The mock provider always creates its demonstration story with three Komas.';
   const log = window.getByRole('log', { name: 'Conversation' });
   await expect(log.getByText(warning, { exact: true })).toBeVisible();
   await window.getByLabel('Your request').fill('Keep this follow-up draft.');

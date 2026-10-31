@@ -1,5 +1,10 @@
 import { chooseKomaAction } from './komaControls';
-import { CURRENT_SCHEMA_VERSION, MAX_PROJECT_ASSETS, type ImageElement } from '@koma-motion/core';
+import {
+  CURRENT_SCHEMA_VERSION,
+  getCanvasSize,
+  MAX_PROJECT_ASSETS,
+  type ImageElement,
+} from '@koma-motion/core';
 import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-motion/core/testing';
 import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
@@ -69,13 +74,19 @@ test('explains the mock demo and how to generate from a request', async () => {
   expect(problems).toEqual([]);
 });
 
-/** Position of the motion engine on the canvas, in CSS pixels. */
+/** Slide coordinates stay comparable when opening playback changes the fitted canvas size. */
 async function getEnginePosition(): Promise<{ x: number; width: number }> {
-  const box = await getStage().locator('[data-persistent-id="motion-engine"]').boundingBox();
-  if (box === null) {
-    throw new Error('The motion engine is not on the canvas');
-  }
-  return { x: box.x, width: box.width };
+  return getStage().evaluate((stage, canvasWidth) => {
+    const engine = stage.querySelector('[data-persistent-id="motion-engine"]');
+    if (engine === null) throw new Error('The motion engine is not on the canvas');
+    const canvas = stage.getBoundingClientRect();
+    const box = engine.getBoundingClientRect();
+    if (canvas.width <= 0) throw new Error('The canvas has no width');
+    return {
+      x: ((box.x - canvas.x) / canvas.width) * canvasWidth,
+      width: (box.width / canvas.width) * canvasWidth,
+    };
+  }, getCanvasSize('16:9').width);
 }
 
 test('creates, generates, previews, saves and reopens a presentation', async () => {
@@ -168,7 +179,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
 
     await expect
       .poll(async () => (await getEnginePosition()).x, { timeout: 4000 })
-      .toBeLessThan(atRest.x - 5);
+      .toBeLessThan(atRest.x - 12);
     await window.getByRole('button', { name: 'Pause' }).click();
     const between = await getEnginePosition();
     expect(between.width).toBeGreaterThan(atRest.width);

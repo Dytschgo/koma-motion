@@ -144,7 +144,7 @@ test('narrow window preserves Brand Kit input, count and popups and offers Koma 
   await counts.getByRole('spinbutton', { name: 'Komas' }).fill('7');
   await window.keyboard.press('Escape');
   await window.getByLabel('Generation scope').selectOption('selected');
-  await window.getByRole('button', { name: 'Try a selected-Koma proposal', exact: true }).click();
+  await window.getByRole('button', { name: 'Use the example request', exact: true }).click();
   await expect(window.getByLabel('Your request')).toHaveValue(
     'Make this Koma clearer while keeping its main idea and styling.',
   );

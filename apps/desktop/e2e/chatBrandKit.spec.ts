@@ -13,6 +13,7 @@ import {
   type RunningApplication,
   chooseProjectCommand,
   showGenerationOptions,
+  showChat,
 } from './application';
 import { modelTrigger, openModelChoices, openProviderChoices } from './composerControls';
 
@@ -150,7 +151,9 @@ test('switches saved kits beside the model, follows undo and persists the select
   // A press outside the chooser closes it.
   await window.getByLabel('Your request').click();
   await expect(chooser).toBeHidden();
+  await showChat(window);
   await trigger.click();
+  await expect(chooser).toBeVisible();
   await window.getByRole('button', { name: 'Hide the chat' }).click();
   await window.getByRole('button', { name: 'Show the chat' }).click();
   await expect(chooser).toBeHidden();
