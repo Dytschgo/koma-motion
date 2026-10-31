@@ -101,6 +101,7 @@ test('creates, generates, previews, edits, saves and reopens a presentation', as
     .toBe(true);
 
   await window.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(window.getByRole('log', { name: 'Conversation' })).toBeHidden();
   const stage = window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]');
   await expect(stage).toHaveAttribute('aria-label', 'Koma 2: The motion engine', {
     timeout: 15_000,

@@ -137,41 +137,40 @@ function useApplicationEvents(): void {
   }, []);
 }
 
+/** Tuck completed chat away before the person resumes editing or playback. */
+function resumeEditing(event: SyntheticEvent<HTMLElement>): void {
+  if (
+    !useUiStore.getState().chatOpen ||
+    !(event.target instanceof Element) ||
+    event.target.closest('[data-guide-target="canvas"], .studio-topbar, .filmstrip') === null
+  ) {
+    return;
+  }
+  const agent = useAgentStore.getState();
+  const outcome = agent.conversation.findLast((entry) => entry.kind !== 'request');
+  // Editing and playback controls signal the return to the canvas before an
+  // object can be covered by chat. Keep unresolved outcomes available.
+  if (
+    agent.execution === null &&
+    agent.scopedProposal === null &&
+    outcome?.kind === 'result' &&
+    outcome.warnings.length === 0
+  ) {
+    useUiStore.getState().setChatOpen(false);
+  }
+}
+
 /**
  * Canvas first: the stage fills the window, with one floating prompt and the
  * filmstrip below it. Properties open on request and can be pinned beside it.
  */
 function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
   const pinned = useUiStore((state) => state.propertiesPinned);
-  const resumeCanvasEditing = (event: SyntheticEvent<HTMLElement>): void => {
-    if (
-      !(event.target instanceof Element) ||
-      event.target.closest('[data-guide-target="canvas"]') === null
-    ) {
-      return;
-    }
-    const agent = useAgentStore.getState();
-    const outcome = agent.conversation.findLast((entry) => entry.kind !== 'request');
-    // Returning to the canvas finishes the conversation's current use.
-    // Leave anything that needs a decision visible, including warnings.
-    if (
-      agent.execution === null &&
-      agent.scopedProposal === null &&
-      outcome?.kind === 'result' &&
-      outcome.warnings.length === 0
-    ) {
-      useUiStore.getState().setChatOpen(false);
-    }
-  };
   return (
     <div className="studio-body">
       <main className="studio-main">
         {/* A floating properties panel stays over the canvas, never over the prompt. */}
-        <div
-          className="studio-stage"
-          onPointerDownCapture={resumeCanvasEditing}
-          onFocusCapture={resumeCanvasEditing}
-        >
+        <div className="studio-stage">
           <Workspace project={project} />
           {!pinned && <PropertiesPanel project={project} />}
         </div>
@@ -190,7 +189,11 @@ export function App(): ReactElement {
   useApplicationEvents();
 
   return (
-    <div className="studio-shell">
+    <div
+      className="studio-shell"
+      onPointerDownCapture={resumeEditing}
+      onFocusCapture={resumeEditing}
+    >
       <TopBar />
       {project === null ? <Welcome /> : <ProjectLayout project={project} />}
       <Recovery />

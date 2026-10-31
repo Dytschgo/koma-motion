@@ -151,7 +151,10 @@ test('opens canvas first with one thin bar, one prompt and the filmstrip at wide
 
 test('keeps the canvas fitted while chatting and tucks completed work away when editing resumes', async () => {
   running = await launchApplication();
-  const { window, problems } = running;
+  const { window, application, problems } = running;
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
+  });
   await generateDemo(window);
   const canvas = window.getByRole('region', { name: 'Canvas' });
   const log = window.getByRole('log', { name: 'Conversation' });
@@ -171,6 +174,13 @@ test('keeps the canvas fitted while chatting and tucks completed work away when 
   await canvas.focus();
   await expect(log).toBeHidden();
   await expect(canvas).toBeFocused();
+  await showChat(window);
+  await window.getByRole('button', { name: 'Properties', exact: true }).click();
+  await expect(log).toBeHidden();
+  await showChat(window);
+  await window.getByRole('button', { name: 'Play', exact: true }).click();
+  await expect(log).toBeHidden();
+  await expect(window.getByLabel('Your request')).toHaveValue('Keep this follow-up draft.');
   expect(problems).toEqual([]);
 });
 

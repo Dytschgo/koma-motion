@@ -66,14 +66,14 @@ test('asks below the canvas and keeps the draft when the conversation collapses'
   ).toBeVisible();
   await window.keyboard.press('Escape');
 
-  // Collapsing gives the canvas its space back and keeps focus in the prompt.
+  // The floating conversation keeps the canvas fitted; collapse preserves the draft and focus.
   const openCanvas = await getBox(canvas);
   await request.fill('An unsent request');
   await window.getByRole('button', { name: 'Hide the chat' }).click();
   await expect(conversation).toBeHidden();
   await expect(request).toBeFocused();
   await expect(request).toHaveValue('An unsent request');
-  expect((await getBox(canvas)).height).toBeGreaterThan(openCanvas.height + 100);
+  expect(await getBox(canvas)).toEqual(openCanvas);
 
   // Undo works from the canvas; the text field keeps its own undo.
   await window.getByRole('region', { name: 'Canvas' }).focus();
