@@ -1,5 +1,5 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useEffect, type ReactElement } from 'react';
+import { useEffect, type ReactElement, type SyntheticEvent } from 'react';
 import { Recovery } from './components/Recovery';
 import { followRecovery } from './lib/recovery';
 import { PromptDock } from './components/PromptDock';
@@ -143,11 +143,35 @@ function useApplicationEvents(): void {
  */
 function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
   const pinned = useUiStore((state) => state.propertiesPinned);
+  const resumeCanvasEditing = (event: SyntheticEvent<HTMLElement>): void => {
+    if (
+      !(event.target instanceof Element) ||
+      event.target.closest('[data-guide-target="canvas"]') === null
+    ) {
+      return;
+    }
+    const agent = useAgentStore.getState();
+    const outcome = agent.conversation.findLast((entry) => entry.kind !== 'request');
+    // Returning to the canvas finishes the conversation's current use.
+    // Leave anything that needs a decision visible, including warnings.
+    if (
+      agent.execution === null &&
+      agent.scopedProposal === null &&
+      outcome?.kind === 'result' &&
+      outcome.warnings.length === 0
+    ) {
+      useUiStore.getState().setChatOpen(false);
+    }
+  };
   return (
     <div className="studio-body">
       <main className="studio-main">
         {/* A floating properties panel stays over the canvas, never over the prompt. */}
-        <div className="studio-stage">
+        <div
+          className="studio-stage"
+          onPointerDownCapture={resumeCanvasEditing}
+          onFocusCapture={resumeCanvasEditing}
+        >
           <Workspace project={project} />
           {!pinned && <PropertiesPanel project={project} />}
         </div>

@@ -37,8 +37,8 @@ const THUMBNAIL_WIDTH = 96;
 
 /**
  * The motion between two neighbouring Komas. Selecting it opens that motion
- * below the canvas: a playable motion starts its preview, a motion that
- * cannot play shows what is wrong and how to fix it.
+ * below the canvas without starting playback. A motion that cannot play
+ * shows what is wrong and how to fix it.
  */
 function MotionMarker({
   presentation,
@@ -66,7 +66,7 @@ function MotionMarker({
   const to = from + 1;
   const label = blocked
     ? `Motion from Koma ${String(from)} to Koma ${String(to)} cannot play`
-    : `Preview the transition from Koma ${String(from)} to Koma ${String(to)}`;
+    : `Edit motion from Koma ${String(from)} to Koma ${String(to)}`;
   const state = blocked ? 'blocked' : assessment !== null ? 'warning' : 'ready';
   return (
     <li className="filmstrip-gap">
@@ -90,9 +90,9 @@ function MotionMarker({
         className="filmstrip-marker"
         onClick={() => {
           const ui = useUiStore.getState();
+          ui.stopPreview();
           ui.selectKoma(fromKoma.id);
           ui.setMotionEditing(true);
-          if (!blocked) ui.startPreview(transition.id);
         }}
       >
         <span aria-hidden="true" className="filmstrip-marker-dots">

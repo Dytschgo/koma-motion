@@ -17,6 +17,7 @@ import {
   openBrandKit,
   showGenerationOptions,
   showTransitionControls,
+  openMotion,
 } from './application';
 import { openProviderChoices } from './composerControls';
 
@@ -126,7 +127,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     const komas = window.getByRole('list', { name: 'Komas' });
     await expect(komas.getByRole('button', { name: /^Koma \d:/ })).toHaveCount(3);
     await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
-    await expect(komas.getByRole('button', { name: /^Preview the transition/ })).toHaveCount(2);
+    await expect(komas.getByRole('button', { name: /^Edit motion from Koma/ })).toHaveCount(2);
   });
 
   await test.step('generated Komas use the Brand Kit', async () => {
@@ -252,9 +253,10 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
       'Koma 4: Motion you can edit',
     ]);
     // Every object is still the same object, so nothing changes in between.
-    await expect(
-      window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
-    ).toContainText('0 changes');
+    const transport = await openMotion(window, 1);
+    await transport.getByRole('button', { name: 'Motion details', exact: true }).click();
+    await expect(window.getByText('Every object holds its place.', { exact: true })).toBeVisible();
+    await window.getByRole('button', { name: 'Koma 2: Koma 4', exact: true }).click();
   });
 
   await test.step('a changed element marks its transitions until they are regenerated', async () => {
@@ -264,18 +266,21 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
       .getByRole('button', { name: 'Motion engine (shape)' })
       .click();
     await window.getByLabel('X', { exact: true }).fill('300');
+    await expect(window.getByLabel('X', { exact: true })).toHaveValue('300');
     // The stored motion no longer matches, so the in-between offers regeneration.
+    await openMotion(window, 1);
     const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
     await expect(warning.getByRole('button', { name: 'Regenerate transition' })).toBeVisible();
-    await expect(window.getByLabel('X', { exact: true })).toHaveValue('300');
 
     await warning.getByRole('button', { name: 'Details' }).click();
     await expect(warning).toContainText('no longer matches "Motion engine"');
     await warning.getByRole('button', { name: 'Regenerate transition' }).click();
     await expect(warning).toHaveCount(0);
-    await expect(
-      window.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2' }),
-    ).toContainText('1 change');
+    await window
+      .getByRole('group', { name: 'Transition preview' })
+      .getByRole('button', { name: 'Motion details', exact: true })
+      .click();
+    await expect(window.getByLabel('Effect summary')).toContainText('1 changing');
     // Regeneration keeps the edited Koma.
     await window.getByRole('button', { name: 'Koma 2: Koma 4' }).click();
     await window

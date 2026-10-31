@@ -131,7 +131,7 @@ test('opens motion between thumbnails from its marker without changing the docum
   if (canvas === null || stripBox === null) throw new Error('Expected canvas and filmstrip');
   expect(stripBox.y).toBeGreaterThanOrEqual(canvas.y + canvas.height - 1);
   const marker = thumbnails().getByRole('button', {
-    name: 'Preview the transition from Koma 1 to Koma 2',
+    name: 'Edit motion from Koma 1 to Koma 2',
     exact: true,
   });
   await expect(marker).toBeVisible();

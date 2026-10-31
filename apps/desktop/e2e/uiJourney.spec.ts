@@ -194,7 +194,7 @@ test('a single Koma offers no motion to play and no explanatory text', async () 
   await window.getByRole('button', { name: 'Add first Koma', exact: true }).click();
   await expect(window.getByRole('button', { name: /^Koma 1:/ })).toHaveCount(1);
   await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
-  await expect(window.getByRole('button', { name: /^Preview the transition/ })).toHaveCount(0);
+  await expect(window.getByRole('button', { name: /^Edit motion from Koma/ })).toHaveCount(0);
   await expect(window.getByRole('group', { name: 'Transition preview' })).toHaveCount(0);
   await expect(window.getByText('Add another Koma for motion.', { exact: true })).toHaveCount(0);
 });

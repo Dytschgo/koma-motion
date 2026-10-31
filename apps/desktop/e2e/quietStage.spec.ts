@@ -135,7 +135,7 @@ test('opens canvas first with one thin bar, one prompt and the filmstrip at wide
     // The filmstrip shows real thumbnails with the motion between them.
     const strip = window.getByRole('list', { name: 'Komas' });
     await expect(strip.getByRole('button', { name: /^Koma \d:/ })).toHaveCount(3);
-    await expect(strip.getByRole('button', { name: /^Preview the transition/ })).toHaveCount(2);
+    await expect(strip.getByRole('button', { name: /^Edit motion from Koma/ })).toHaveCount(2);
     await expect(strip.locator('[data-koma-thumbnail] [data-koma-stage]')).toHaveCount(3);
     const stripBox = await box(window.getByRole('region', { name: 'Filmstrip' }));
     expect(stripBox.y).toBeGreaterThanOrEqual(canvas.y + canvas.height - 1);
@@ -144,6 +144,31 @@ test('opens canvas first with one thin bar, one prompt and the filmstrip at wide
     await expect(window.getByRole('group', { name: 'Transition preview' })).toHaveCount(0);
     await capture(window, `default-${String(width)}`);
   }
+  expect(problems).toEqual([]);
+});
+
+test('keeps the canvas fitted while chatting and tucks completed work away when editing resumes', async () => {
+  running = await launchApplication();
+  const { window, problems } = running;
+  await generateDemo(window);
+  const canvas = window.getByRole('region', { name: 'Canvas' });
+  const log = window.getByRole('log', { name: 'Conversation' });
+  const fitted = await box(canvas);
+  await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();
+  expect(await box(canvas)).toEqual(fitted);
+  await showChat(window);
+  expect(await box(canvas)).toEqual(fitted);
+  await window.getByLabel('Your request').fill('Keep this follow-up draft.');
+  await canvas.locator('[data-koma-stage]').click({ position: { x: 20, y: 20 } });
+  await expect(log).toBeHidden();
+  await expect(window.getByLabel('Your request')).toHaveValue('Keep this follow-up draft.');
+  await showChat(window);
+  await expect(log.getByText(/Created 3 Komas/)).toBeVisible();
+  expect(await box(canvas)).toEqual(fitted);
+  await capture(window, 'conversation-over-canvas');
+  await canvas.focus();
+  await expect(log).toBeHidden();
+  await expect(canvas).toBeFocused();
   expect(problems).toEqual([]);
 });
 
@@ -293,7 +318,7 @@ test('opens motion from a marker between thumbnails with keyboard and pointer', 
   await openEdgeProject(window);
   const marker = window
     .getByRole('list', { name: 'Komas' })
-    .getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2', exact: true });
+    .getByRole('button', { name: 'Edit motion from Koma 1 to Koma 2', exact: true });
   await window.getByRole('button', { name: 'Koma 2: Edges later', exact: true }).focus();
   await window.keyboard.press('Shift+Tab');
   await expect(marker).toBeFocused();
@@ -301,6 +326,13 @@ test('opens motion from a marker between thumbnails with keyboard and pointer', 
   const transport = window.getByRole('group', { name: 'Transition preview' });
   await expect(transport).toContainText('Koma 1 to Koma 2');
   await expect(marker).toHaveAttribute('aria-current', 'true');
+  // Opening a motion is an editing action; Play starts it separately.
+  await expect(transport.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
+  await expect(
+    window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]'),
+  ).toHaveAttribute('aria-label', 'Koma 1: Edges');
+  await transport.getByLabel('Transition duration in seconds').fill('2');
+  await expect(transport.getByLabel('Transition duration in seconds')).toHaveValue('2');
   await capture(window, 'motion-marker-open');
   await transport.getByRole('button', { name: 'Motion details', exact: true }).click();
   await expect(window.getByRole('tab', { name: /^Motion/ })).toHaveAttribute(
@@ -324,6 +356,8 @@ test('expands the prompt into the conversation and keeps a failed request where 
     timeout: 20_000,
   });
   await expect(window.getByRole('list', { name: 'Komas' })).toHaveCount(0);
+  await window.getByRole('region', { name: 'Canvas' }).click({ position: { x: 20, y: 20 } });
+  await expect(log).toBeVisible();
 
   // Collapsed, the prompt itself carries the failure, with Recheck.
   await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();

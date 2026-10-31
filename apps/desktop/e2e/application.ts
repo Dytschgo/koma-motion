@@ -255,7 +255,7 @@ export async function showTransitionControls(window: Page): Promise<Locator> {
 export async function openMotion(window: Page, from: number): Promise<Locator> {
   const marker = window.getByRole('list', { name: 'Komas' }).getByRole('button', {
     name: new RegExp(
-      `^(Preview the transition from Koma ${String(from)} to Koma ${String(from + 1)}|Motion from Koma ${String(from)} to Koma ${String(from + 1)} cannot play)$`,
+      `^(Edit motion from Koma ${String(from)} to Koma ${String(from + 1)}|Motion from Koma ${String(from)} to Koma ${String(from + 1)} cannot play)$`,
     ),
   });
   await marker.click();

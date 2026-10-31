@@ -140,9 +140,14 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await dialog.getByLabel('Find a Koma').press('Escape');
   await expectSelected(19, 'Chapter 19');
   await window
-    .getByRole('button', { name: 'Preview the transition from Koma 19 to Koma 20', exact: true })
+    .getByRole('button', { name: 'Edit motion from Koma 19 to Koma 20', exact: true })
     .click();
-  // First verify the strip action completes the reduced-motion cut. The
+  await expectSelected(19, 'Chapter 19');
+  await window
+    .getByRole('group', { name: 'Transition preview' })
+    .getByRole('button', { name: 'Play', exact: true })
+    .click();
+  // First verify explicit playback completes the reduced-motion cut. The
   // following menu checks need a stable preview, not a race against its 400ms.
   await expectSelected(20, 'Chapter 20');
   await window.getByRole('button', { name: 'Koma 19: Chapter 19', exact: true }).click();
