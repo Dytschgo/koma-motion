@@ -45,7 +45,7 @@ function harbourProjectText(): string {
   return serialised.value;
 }
 
-async function openBrandKit(page: Page): Promise<void> {
+async function createProjectWithBrandKit(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create a project' }).click();
   await expect(page.getByLabel('Project name')).toHaveValue('Untitled project');
   await openBrandKit(page);
@@ -61,7 +61,7 @@ async function typeOver(field: Locator, text: string): Promise<void> {
 
 test('keeps spaces in the brand name and heading font while typing', async () => {
   const { window } = running;
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
 
   const name = window.getByLabel('Brand name');
   await name.click();
@@ -86,7 +86,7 @@ test('keeps spaces in the brand name and heading font while typing', async () =>
 
 test('keeps an invalid colour without dropping the other Brand Kit edits', async () => {
   const { window } = running;
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
 
   const primary = window.getByLabel('Primary colour');
   await typeOver(primary, 'nope');
@@ -130,7 +130,7 @@ test('keeps an invalid colour without dropping the other Brand Kit edits', async
 
 test('undoes and redoes a blurred brand name', async () => {
   const { window } = running;
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
 
   const name = window.getByLabel('Brand name');
   await expect(name).toHaveValue('Untitled brand');
@@ -150,7 +150,7 @@ test('does not apply a Brand Kit draft to another project', async () => {
   const document = harbourProjectText();
   await writeFile(filePath, document, 'utf8');
 
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
   await typeOver(window.getByLabel('Brand name'), 'Acme Corp');
   await window.getByLabel('Brand name').blur();
   await typeOver(window.getByLabel('Primary colour'), 'nope');
@@ -179,7 +179,7 @@ test('chooses colours visually, fills the hex value, preserves undo, and fits a 
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
   });
-  await openBrandKit(window);
+  await createProjectWithBrandKit(window);
   const primary = window.getByLabel('Primary colour', { exact: true });
   const picker = primary.locator('..').getByLabel('Colour picker', { exact: true });
   const original = await primary.inputValue();
