@@ -128,6 +128,8 @@ export async function detectProviders(): Promise<void> {
  * to replace those edits. A failed result leaves the presentation untouched.
  */
 export async function generate(input: GenerationInput): Promise<void> {
+  // Failed requests retain scope/count, never a second copy of attached reference text.
+  const { references: _references, ...recheckInput } = input;
   const project = selectProject(useProjectStore.getState());
   const sessionId = useProjectStore.getState().sessionId;
   const agent = useAgentStore.getState();
@@ -314,7 +316,7 @@ export async function generate(input: GenerationInput): Promise<void> {
           status: 'failed',
           error,
           diagnostics: outcome.diagnostics,
-          input,
+          input: recheckInput,
         });
         return;
       }
@@ -339,7 +341,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         status: outcome.status,
         error: outcome.error,
         diagnostics: outcome.diagnostics,
-        input,
+        input: recheckInput,
       });
     }
   } catch {
@@ -368,7 +370,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         promptTemplate: '',
         attempts: [],
       },
-      input,
+      input: recheckInput,
     });
   } finally {
     unsubscribeSnapshot();
