@@ -305,7 +305,8 @@ export const useUiStore = create<UiState>((set, get) => ({
     set({ zoom: zoom === null ? null : clampZoom(zoom) });
   },
   inspectSelection(tab) {
-    if (get().selectedKomaId === null) return;
+    // The canvas shows the first Koma until another is selected, so properties
+    // open for it as well.
     set((state) => ({
       view: 'canvas',
       inspectorTab: tab ?? (state.selectedElementId === null ? 'koma' : 'element'),
