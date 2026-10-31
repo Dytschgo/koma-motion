@@ -14,7 +14,7 @@ function Swatches({ kit }: { readonly kit: BrandKit }): ReactElement {
       {(['primary', 'accent', 'background'] as const).map((role) => (
         <span
           key={role}
-          className="h-3.5 w-1.5 rounded-xs border border-white/10"
+          className="h-3.5 w-1.5 rounded-xs border border-ink-100/15"
           style={{ background: kit.colours[role] }}
         />
       ))}

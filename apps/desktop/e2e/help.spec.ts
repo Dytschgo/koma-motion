@@ -5,15 +5,15 @@ test('opens secondary guidance by hover, keyboard and click without clipping', a
   const running = await launchApplication();
   const { window, application } = running;
   try {
-    await window.getByRole('button', { name: 'Create a project' }).click();
     await application.evaluate(({ BrowserWindow }) => {
       BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
     });
-    const help = window.getByRole('button', { name: 'Canvas shortcuts', exact: true });
+    // The editor keeps its guidance in Getting started; Welcome still offers short help.
+    const help = window.getByRole('button', { name: 'About Koma Motion project files' });
     const tooltip = window.getByRole('tooltip');
     await expect(tooltip).toHaveCount(0);
     await help.hover();
-    await expect(tooltip).toContainText('Enter edits text');
+    await expect(tooltip).toContainText('.koma files');
     await tooltip.hover();
     await expect(tooltip).toBeVisible();
     const box = await tooltip.boundingBox();
@@ -34,10 +34,10 @@ test('opens secondary guidance by hover, keyboard and click without clipping', a
     await expect(help).toBeFocused();
     await help.press('Enter');
     await expect(tooltip).toBeVisible();
-    await window.getByLabel('Your request').click();
+    await window.getByRole('heading', { level: 1 }).click();
     await expect(tooltip).toHaveCount(0);
     await help.click();
-    await expect(tooltip).toContainText('Enter edits text');
+    await expect(tooltip).toContainText('.koma files');
     expect(running.problems).toEqual([]);
   } finally {
     await running.close();

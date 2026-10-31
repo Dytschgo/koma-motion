@@ -87,7 +87,14 @@ async function update(executable, userData, channel, expectedVersion) {
   const window = await application.firstWindow();
   await window.waitForLoadState('domcontentloaded');
 
-  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  // Older versions have a Settings button in the top bar; newer ones keep it in the project menu.
+  const settingsButton = window.getByRole('button', { name: 'Settings', exact: true });
+  if ((await settingsButton.count()) > 0) {
+    await settingsButton.click();
+  } else {
+    await window.getByRole('button', { name: 'Project menu', exact: true }).click();
+    await window.getByRole('menuitem', { name: 'Settings', exact: true }).click();
+  }
   // Versions with categorised Settings show updates on their own page. Older
   // installed versions show them directly, so the category is optional.
   const updatesPage = window

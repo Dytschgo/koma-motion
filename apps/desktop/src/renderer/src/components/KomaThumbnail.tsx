@@ -47,7 +47,7 @@ export const KomaThumbnail = memo(function KomaThumbnail({
       ([entry]) => {
         if (entry !== undefined) setNearby(entry.isIntersecting);
       },
-      { root: scrollRoot.current, rootMargin: '240px 0px' },
+      { root: scrollRoot.current, rootMargin: '240px' },
     );
     observer.observe(node);
     return () => observer.disconnect();

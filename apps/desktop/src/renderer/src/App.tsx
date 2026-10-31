@@ -1,9 +1,9 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useElementSize } from '@koma-motion/renderer';
 import { useEffect, type ReactElement } from 'react';
 import { Recovery } from './components/Recovery';
 import { followRecovery } from './lib/recovery';
-import { StudioDock } from './components/StudioDock';
+import { PromptDock } from './components/PromptDock';
+import { PropertiesPanel } from './components/PropertiesPanel';
 import { KomaStrip } from './components/KomaStrip';
 import { ConfirmDialog, Notices } from './components/Overlays';
 import { SettingsDialog } from './components/SettingsDialog';
@@ -15,7 +15,6 @@ import { Welcome } from './components/Welcome';
 import { Workspace } from './components/Workspace';
 import { detectProviders } from './lib/agentActions';
 import { invoke, subscribe } from './lib/api';
-import { getChatLayout } from './lib/chatLayout';
 import { followUpdates } from './lib/updateActions';
 import { groupSelection, ungroupSelection } from './lib/groupActions';
 import { followFullScreen } from './lib/presentationActions';
@@ -138,29 +137,26 @@ function useApplicationEvents(): void {
   }, []);
 }
 
-/** Komas, canvas and one shared Chat/Inspect dock at every window size. */
+/**
+ * Canvas first: the stage fills the window, with one floating prompt and the
+ * filmstrip below it. Properties open on request and can be pinned beside it.
+ */
 function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
-  const chatWidth = useUiStore((state) => state.agentPanelWidth);
-  const [attachArea, area] = useElementSize<HTMLDivElement>();
-  const chatLayout = getChatLayout({
-    available: area.width,
-    preferred: chatWidth,
-  });
-
+  const pinned = useUiStore((state) => state.propertiesPinned);
   return (
-    <div className="flex min-h-0 flex-1">
-      <KomaStrip project={project} />
-      <div ref={attachArea} className="flex min-h-0 min-w-0 flex-1">
-        <main className="flex min-h-0 min-w-0 flex-1">
-          <Workspace
-            project={project}
-            onInspectSelected={() => {
-              useUiStore.getState().inspectSelection();
-            }}
-          />
-        </main>
-        <StudioDock project={project} layout={chatLayout} />
-      </div>
+    <div className="studio-body">
+      <main className="studio-main">
+        {/* A floating properties panel stays over the canvas, never over the prompt. */}
+        <div className="studio-stage">
+          <Workspace project={project} />
+          {!pinned && <PropertiesPanel project={project} />}
+        </div>
+        <div className="studio-bottom">
+          <PromptDock project={project} />
+          <KomaStrip project={project} />
+        </div>
+      </main>
+      {pinned && <PropertiesPanel project={project} />}
     </div>
   );
 }
@@ -170,7 +166,7 @@ export function App(): ReactElement {
   useApplicationEvents();
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="studio-shell">
       <TopBar />
       {project === null ? <Welcome /> : <ProjectLayout project={project} />}
       <Recovery />

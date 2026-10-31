@@ -11,6 +11,9 @@ import {
   showChat,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
+  showGenerationOptions,
 } from './application';
 
 let running: RunningApplication;
@@ -48,7 +51,7 @@ test.beforeEach(async () => {
   source = join(running.directory, 'source.koma');
   await writeFile(source, JSON.stringify(project));
   await answerOpenDialog(running.application, source);
-  await running.window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(running.window, 'Open');
   await running.window.getByRole('button', { name: 'Koma 2: Middle', exact: true }).click();
   await showChat(running.window);
   await running.window.getByLabel('Generation scope').selectOption('selected');
@@ -63,6 +66,7 @@ async function generate() {
 
 test('reviews a middle Koma, discards unchanged, applies in one undo and saves/reopens with holds and neighboring motion intact', async () => {
   const { window, application, directory } = running;
+  await showGenerationOptions(window);
   await expect(window.getByRole('button', { name: 'Koma count', exact: true })).toBeDisabled();
   await generate();
   const proposal = window.getByRole('region', { name: 'Selected Koma proposal' });
@@ -85,7 +89,7 @@ test('reviews a middle Koma, discards unchanged, applies in one undo and saves/r
   await window.getByRole('button', { name: 'Redo', exact: true }).click();
   const savedPath = join(directory, 'selected.koma');
   await answerSaveDialog(application, savedPath);
-  await window.getByRole('button', { name: 'Save as', exact: true }).click();
+  await chooseShareCommand(window, 'Save as');
   await expect(window.getByText('All changes saved', { exact: true })).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(savedPath, 'utf8')));
   expect(saved.presentation.komas[0]).toEqual(komas[0]);
@@ -101,7 +105,7 @@ test('reviews a middle Koma, discards unchanged, applies in one undo and saves/r
   expect(saved.generationHistory).toHaveLength(1);
   expect(await readFile(source, 'utf8')).toBe(JSON.stringify(project));
   await answerOpenDialog(application, savedPath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(
     window.getByRole('button', { name: 'Koma 2: Revised: Middle', exact: true }),
   ).toBeVisible();
@@ -122,7 +126,7 @@ test('rejects target edits, clears proposals on same-file reopen, and cancellati
   await generate();
   await expect(proposal).toBeVisible();
   await answerOpenDialog(application, source);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(proposal).toHaveCount(0);
   await window.getByRole('button', { name: 'Koma 2: Middle', exact: true }).click();
   await showChat(window);

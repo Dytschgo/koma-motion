@@ -8,6 +8,8 @@ import {
   answerOpenDialog,
   answerSaveDialog,
   type RunningApplication,
+  chooseProjectCommand,
+  showGenerationOptions,
 } from './application';
 import { modelTrigger, openModelChoices } from './composerControls';
 import { mockModelDiscovery } from './modelFixtures';
@@ -77,13 +79,14 @@ test('expands only supported models, keeps native radio keys, and saves model-sp
   await picker.getByRole('button', { name: 'Pin Claude Opus 5.5 · Claude Code' }).click();
   await expect(picker.getByRole('searchbox')).toBeFocused();
   await window.keyboard.press('Escape');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toBeFocused();
   // One undo affects just the last reasoning edit (favorites never edit the project).
   await window.getByRole('button', { name: 'Undo', exact: true }).click();
   await window.getByRole('button', { name: 'Redo', exact: true }).click();
   const path = join(directory, 'reasoning.koma');
   await answerSaveDialog(application, path);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   await expect
     .poll(
@@ -161,15 +164,13 @@ test('replaces old capability snapshots on loading and failure, and explains rem
   await expect(picker.getByLabel('Model', { exact: true })).toBeVisible();
 });
 
-test('keeps reasoning, tabs and image controls usable in a 300px chat', async () => {
+test('keeps reasoning, tabs and image controls usable at the minimum window size', async () => {
   const info = test.info();
   const { window, application, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
   });
-  await window.getByRole('separator', { name: 'Resize studio dock' }).focus();
-  await window.keyboard.press('Home');
   const picker = await openModelChoices(window);
   await picker.locator('[data-model-value="fixture-opus"]').click();
   await picker.getByRole('radio', { name: 'medium', exact: true }).check();
@@ -187,6 +188,7 @@ test('keeps reasoning, tabs and image controls usable in a 300px chat', async ()
   await window.keyboard.press('ArrowLeft');
   await expect(picker.getByRole('radio', { name: 'medium', exact: true })).toBeChecked();
   await window.keyboard.press('Escape');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toBeFocused();
   expect(problems).toEqual([]);
 });

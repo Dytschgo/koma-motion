@@ -2,7 +2,14 @@ import { expect, test } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createDefaultBrandKit, serialiseBrandKitLibrary } from '@koma-motion/brand-kit';
-import { launchApplication, showChat, type RunningApplication } from './application';
+import {
+  launchApplication,
+  openBrandKit,
+  showChat,
+  showInspector,
+  type RunningApplication,
+  showGenerationOptions,
+} from './application';
 import { countTrigger, openCountChoices, openModelChoices } from './composerControls';
 
 let running: RunningApplication;
@@ -19,12 +26,12 @@ async function demo() {
   await expect(running.window.getByText(/Created 3 Komas/)).toBeVisible();
 }
 
-test('reloads the saved library when returning to Inspect while retaining its tab', async () => {
+test('reloads the saved library when the Brand Kit opens again while retaining its tab', async () => {
   const { window, directory } = running;
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   await window.getByRole('tab', { name: /^Library/ }).click();
   await expect(window.getByText('No saved Brand Kits yet', { exact: true })).toBeVisible();
-  await showChat(window);
+  await window.getByRole('button', { name: 'Close properties', exact: true }).click();
   const folder = join(directory, 'user-data', 'brand-kits');
   await mkdir(folder, { recursive: true });
   const name = 'Arrived from another window';
@@ -41,7 +48,7 @@ test('reloads the saved library when returning to Inspect while retaining its ta
       },
     ]),
   );
-  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
+  await openBrandKit(window);
   await expect(window.getByRole('tab', { name: /^Library/ })).toHaveAttribute(
     'aria-selected',
     'true',
@@ -50,7 +57,7 @@ test('reloads the saved library when returning to Inspect while retaining its ta
   expect(running.problems).toEqual([]);
 });
 
-test('shares a single dock and keeps drafts, transcript, selection and keyboard focus across contexts', async () => {
+test('keeps drafts, transcript, selection and focus while properties open and close', async () => {
   const { window, application } = running;
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1480, 920);
@@ -58,70 +65,54 @@ test('shares a single dock and keeps drafts, transcript, selection and keyboard 
   await demo();
   const request = window.getByLabel('Your request');
   await request.fill('Keep this unfinished follow-up.');
-  const chat = window.getByRole('tab', { name: 'Chat', exact: true });
-  const inspect = window.getByRole('tab', { name: 'Inspect', exact: true });
   const canvas = window.getByRole('region', { name: 'Canvas' });
-  const dock = window.getByRole('complementary', { name: 'Studio dock' });
   const bounds = await canvas.boundingBox();
   const viewportWidth = await window.evaluate(() => innerWidth);
-  const komaPane = await window
-    .getByRole('complementary', { name: 'Project', exact: true })
-    .boundingBox();
-  expect(bounds?.width).toBeGreaterThanOrEqual(420);
-  // Native screens can clamp the requested width. Verify no extra Inspector
-  // column consumes canvas space at the actual width, without skipping it.
-  expect(
-    Math.abs(
-      (bounds?.width ?? 0) +
-        (komaPane?.width ?? 0) +
-        ((await dock.boundingBox())?.width ?? 0) -
-        viewportWidth,
-    ),
-  ).toBeLessThanOrEqual(2);
-  const originalDockWidth = (await dock.boundingBox())?.width;
-  await chat.focus();
-  await chat.press('ArrowRight');
-  await expect(inspect).toBeFocused();
-  await expect(inspect).toHaveAttribute('aria-selected', 'true');
+  // Canvas first: no Koma column and no dock take width from the canvas.
+  expect(Math.abs((bounds?.width ?? 0) - viewportWidth)).toBeLessThanOrEqual(2);
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
+
+  // Properties float over the canvas and close with Escape, returning focus.
+  const properties = window.getByRole('button', { name: 'Properties', exact: true });
+  await properties.click();
   await expect(window.getByRole('complementary', { name: 'Inspector', exact: true })).toBeVisible();
-  expect((await dock.boundingBox())?.width).toBe(originalDockWidth);
   expect((await canvas.boundingBox())?.width).toBe(bounds?.width);
-  await inspect.press('Home');
-  await expect(chat).toBeFocused();
+  await window.keyboard.press('Escape');
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
+  await expect(properties).toBeFocused();
   await expect(request).toHaveValue('Keep this unfinished follow-up.');
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
+
+  // Selecting an element shows its toolbar; it does not open a panel by itself.
   await window.getByRole('button', { name: 'Koma 2: The motion engine', exact: true }).click();
-  await expect(chat).toHaveAttribute('aria-selected', 'true');
   await canvas.locator('[data-element-id]').first().click({ force: true });
-  await expect(inspect).toHaveAttribute('aria-selected', 'true');
+  const toolbar = window.getByRole('toolbar', { name: 'Element actions' });
+  await expect(toolbar).toBeVisible();
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
+  await toolbar.getByRole('button', { name: 'More', exact: true }).click();
+  await window.getByRole('menuitem', { name: 'Properties', exact: true }).click();
   await expect(window.getByRole('tab', { name: /^Element:/ })).toHaveAttribute(
     'aria-selected',
     'true',
   );
-  await window.getByRole('button', { name: 'Hide Inspect panel', exact: true }).click();
-  await expect(window.getByRole('button', { name: 'Show the chat', exact: true })).toBeFocused();
-  await window.getByRole('button', { name: 'Show the chat', exact: true }).press('Enter');
-  await expect(request).toBeFocused();
   await expect(request).toHaveValue('Keep this unfinished follow-up.');
   await expect(
     window.getByRole('button', { name: 'Koma 2: The motion engine', exact: true }),
   ).toHaveAttribute('aria-current', 'true');
-  await window.screenshot({ path: test.info().outputPath('wide-focus-dock.png'), scale: 'css' });
+  await window.screenshot({ path: test.info().outputPath('wide-properties.png'), scale: 'css' });
   expect(running.problems).toEqual([]);
 });
 
-test('keeps generation and review discoverable in Inspect without interrupting an edit', async () => {
+test('keeps generation and review discoverable while the conversation is collapsed', async () => {
   await demo();
   const { window } = running;
   await window.getByLabel('Generation scope').selectOption('selected');
   await window.getByLabel('Your request').fill('Refine this Koma.');
   await window.getByRole('button', { name: 'Generate Komas', exact: true }).click();
-  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
-  const chat = window.getByRole('tab', { name: 'Chat', exact: true });
-  await expect(chat).toContainText('Generating');
-  await expect(chat).toContainText('Review');
-  await expect(window.getByRole('tab', { name: 'Inspect', exact: true })).toBeFocused();
-  await showChat(window);
+  await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();
+  const show = window.getByRole('button', { name: 'Show the chat', exact: true });
+  await expect(show).toHaveAttribute('aria-description', 'Generating');
+  // A proposal to review opens the conversation where the request was made.
   const proposal = window.getByRole('region', { name: 'Selected Koma proposal' });
   await expect(proposal).toBeVisible();
   await proposal.getByRole('button', { name: 'Apply proposal' }).click();
@@ -133,18 +124,19 @@ test('keeps generation and review discoverable in Inspect without interrupting a
   expect(running.problems).toEqual([]);
 });
 
-test('narrow shared dock preserves Brand Kit input, count and popups and offers Koma properties without an element', async () => {
+test('narrow window preserves Brand Kit input, count and popups and offers Koma properties without an element', async () => {
   const { window, application } = running;
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1024, 655);
   });
   await window.emulateMedia({ reducedMotion: 'reduce' });
   await window.getByRole('button', { name: 'Add first Koma', exact: true }).click();
-  await window.getByRole('button', { name: 'Inspect Koma', exact: true }).click();
+  await showInspector(window);
   await expect(window.getByRole('tab', { name: 'Koma', exact: true })).toHaveAttribute(
     'aria-selected',
     'true',
   );
+  await window.getByRole('button', { name: 'Close properties', exact: true }).click();
   await showChat(window);
   const counts = await openCountChoices(window);
   await counts.getByRole('spinbutton', { name: 'Komas' }).fill('7');
@@ -155,24 +147,25 @@ test('narrow shared dock preserves Brand Kit input, count and popups and offers 
     'Make this Koma clearer while keeping its main idea and styling.',
   );
   await window.getByLabel('Generation scope').selectOption('entire');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '7 Komas');
   await openModelChoices(window);
-  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
-  await showChat(window);
+  // Opening properties dismisses the composer popup.
+  await window.getByRole('button', { name: 'Properties', exact: true }).click();
   await expect(window.getByRole('dialog', { name: 'Model', exact: true })).toHaveCount(0);
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   const brandName = window.getByLabel('Brand name');
   await brandName.fill('Shared dock kit');
   await brandName.blur();
-  await showChat(window);
+  await window.getByRole('button', { name: 'Close properties', exact: true }).click();
   await expect(window.getByLabel('Your request')).toHaveValue(
     'Make this Koma clearer while keeping its main idea and styling.',
   );
-  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
+  await openBrandKit(window);
   await expect(brandName).toHaveValue('Shared dock kit');
   await expect(window.getByRole('region', { name: 'Canvas' })).toBeInViewport();
   await window.screenshot({
-    path: test.info().outputPath('narrow-brand-kit-dock.png'),
+    path: test.info().outputPath('narrow-brand-kit.png'),
     scale: 'css',
   });
   expect(running.problems).toEqual([]);

@@ -9,6 +9,8 @@ import {
   launchApplication,
   type RunningApplication,
   openSettingsPage,
+  chooseProjectCommand,
+  showGenerationOptions,
 } from './application';
 import { countTrigger, setKomaCount } from './composerControls';
 
@@ -53,7 +55,7 @@ for (const count of [250, 1000]) {
     await add.click();
     await expect(komas).toHaveCount(count + 1);
     timings.copyMs = performance.now() - started;
-    await chooseKomaAction(window, 'Move Koma up');
+    await chooseKomaAction(window, 'Move Koma left');
     await expect(komas.nth(count - 1)).toHaveAttribute('aria-current', 'true');
     await window.getByRole('button', { name: 'Undo', exact: true }).click();
     await window.getByRole('button', { name: 'Undo', exact: true }).click();
@@ -61,18 +63,19 @@ for (const count of [250, 1000]) {
     await window.getByRole('button', { name: 'Redo', exact: true }).click();
     await expect(komas).toHaveCount(count + 1);
     started = performance.now();
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect(window.getByText('All changes saved')).toBeVisible();
     timings.saveMs = performance.now() - started;
     const saved = komaProjectSchema.parse(JSON.parse(await readFile(filePath, 'utf8')));
     expect(saved.presentation.komas).toHaveLength(count + 1);
     expect(saved.presentation.komas.at(-1)?.elements).toHaveLength(2);
-    await window.getByRole('button', { name: 'New', exact: true }).click();
+    await chooseProjectCommand(window, 'New');
     await answerOpenDialog(application, filePath);
-    await window.getByRole('button', { name: 'Open', exact: true }).click();
+    await chooseProjectCommand(window, 'Open');
     await expect(komas).toHaveCount(count + 1);
     await expect(add).toBeEnabled();
     await setKomaCount(window, '30');
+    await showGenerationOptions(window);
     await expect(countTrigger(window)).toHaveAttribute('aria-description', '30 Komas');
     const brief = 'Detailed request. '.repeat(300);
     await window.getByLabel('Your request').fill(brief);

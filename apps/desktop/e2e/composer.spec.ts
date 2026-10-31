@@ -11,6 +11,9 @@ import {
   launchApplication,
   type RunningApplication,
   openSettingsPage,
+  chooseProjectCommand,
+  showInspector,
+  showGenerationOptions,
 } from './application';
 import {
   chooseModel,
@@ -72,7 +75,7 @@ test('retains selected draft/count through narrow Inspect collapse and edits, th
   const original = JSON.stringify(fixture);
   await writeFile(path, original);
   await answerOpenDialog(application, path);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await showChat(window);
   const counts = await openCountChoices(window);
   await counts.getByRole('spinbutton', { name: 'Komas' }).fill('6');
@@ -84,27 +87,30 @@ test('retains selected draft/count through narrow Inspect collapse and edits, th
     .getByRole('region', { name: 'Canvas' })
     .getByRole('button', { name: 'Object (shape)' })
     .click();
-  await window.getByRole('button', { name: 'Inspect selected element' }).click();
+  await showInspector(window);
   await expect(request).toBeHidden();
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
   await window.getByRole('tab', { name: 'Chat', exact: true }).click();
   await expect(window.getByRole('tab', { name: 'Chat', exact: true })).toBeFocused();
   await expect(request).toHaveValue('A selected draft with spaces');
   await expect(window.getByLabel('Generation scope')).toHaveValue('selected');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toBeDisabled();
   await window.getByLabel('Generation scope').selectOption('entire');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '6 Komas');
   await window.getByLabel('Project name').fill('An edit in the same session');
   await window.getByLabel('Project name').blur();
   await expect(request).toHaveValue('A selected draft with spaces');
   await window.getByLabel('Generation scope').selectOption('selected');
   await answerOpenDialog(application, path);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await window.getByRole('button', { name: 'Discard changes', exact: true }).click();
   await expect(window.getByLabel('Project name')).toHaveValue('Composer session');
   await showChat(window);
   await expect(request).toHaveValue('');
   await expect(window.getByLabel('Generation scope')).toHaveValue('entire');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '5 Komas');
   expect(await readFile(path, 'utf8')).toBe(original);
   await window.screenshot({ path: test.info().outputPath('composer-session-reset.png') });
@@ -120,6 +126,7 @@ test('starter seeds replace an unsent request/count without being cleared by ses
     .click();
   await showChat(window);
   await expect(window.getByLabel('Your request')).toHaveValue(starter.request);
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute(
     'aria-description',
     `${String(starter.komaCount)} Komas`,
@@ -136,6 +143,7 @@ test('starter seeds replace an unsent request/count without being cleared by ses
   await showChat(window);
   const next = getStarterPreset('rapunzel');
   await expect(window.getByLabel('Your request')).toHaveValue(next.request);
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute(
     'aria-description',
     `${String(next.komaCount)} Komas`,
@@ -154,8 +162,11 @@ async function box(
 async function expectChoicesFit(page: Page): Promise<void> {
   const chat = page.getByRole('region', { name: 'Agent chat' });
   const chatBox = await box(chat);
+  await showGenerationOptions(page);
   const model = modelTrigger(page);
+  await showGenerationOptions(page);
   const count = countTrigger(page);
+  await showGenerationOptions(page);
   const brand = page.getByRole('button', { name: 'Choose Brand Kit', exact: true });
   const send = page.getByRole('button', { name: 'Generate Komas' });
   for (const control of [model, brand, count, send]) {
@@ -181,7 +192,9 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   const { window, application, directory, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
   await expect(window.getByText(/Audience/)).toHaveCount(0);
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '5 Komas');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
     'Mock provider has no model choice',
@@ -197,13 +210,16 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   choices = await openProviderChoices(window);
   await choices.getByLabel('Provider', { exact: true }).selectOption('claude-code');
   await expect(choices.getByText(/^Claude Code sends your request.*online\.$/)).toBeVisible();
+  await showGenerationOptions(window);
   await modelTrigger(window).click();
 
   // Before a run, the footer names the model that will run.
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
     'Next run uses the default model of Claude Code',
   );
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Claude Code · Default');
   models = await openProviderChoices(window);
   const model = models.getByLabel('Model', { exact: true });
@@ -221,6 +237,7 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
     models.getByText(/Models and reasoning choices reported by Claude Code/),
   ).toBeVisible();
   await model.selectOption('opus');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveAttribute('aria-description', 'Next run uses opus');
 
   // An invalid model id is explained and not stored.
@@ -230,9 +247,11 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   await expect(models.getByRole('alert')).toContainText('without spaces');
   await expect(models.getByRole('button', { name: 'Use model', exact: true })).toBeDisabled();
   await custom.press('Enter');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveAttribute('aria-description', 'Next run uses opus');
   await custom.fill('claude-opus-5-5[1m]');
   await custom.press('Enter');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
     'Next run uses claude-opus-5-5[1m], not in the latest CLI list',
@@ -240,8 +259,10 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   await expect(model).toHaveValue('claude-opus-5-5[1m]');
   // An entered model stays in the list after choosing Default.
   await model.selectOption('');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Claude Code · Default');
   await expect(model.locator('option[value="claude-opus-5-5[1m]"]')).toHaveCount(1);
+  await showGenerationOptions(window);
   await modelTrigger(window).click();
 
   // Settings points to the one model chooser instead of duplicating its settings.
@@ -255,19 +276,25 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   models = await openProviderChoices(window);
   await expect(models.getByLabel('Model', { exact: true })).toHaveValue('');
   await chooseModel(models, 'Model', 'opus');
+  await showGenerationOptions(window);
   await modelTrigger(window).click();
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Opus (latest)');
 
   // Each provider keeps its own model.
   await selectProvider(window, 'codex');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Codex CLI · Default');
   await selectProvider(window, 'claude-code');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Opus (latest)');
   models = await openProviderChoices(window);
   await models.getByLabel('Model', { exact: true }).selectOption('');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Claude Code · Default');
   await window.keyboard.press('Escape');
   await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Opus (latest)');
 
   await selectProvider(window, 'mock');
@@ -282,6 +309,7 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   await countChoices.getByRole('button', { name: 'Auto' }).click();
   await expect(countChoices.getByRole('spinbutton', { name: 'Komas' })).toBeDisabled();
   await window.keyboard.press('Escape');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', 'Automatic Koma count');
   await window.getByLabel('Your request').fill('Again, as the agent sees fit.');
   await window.getByRole('button', { name: 'Generate Komas' }).click();
@@ -290,27 +318,28 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   const autoChoices = await openCountChoices(window);
   await autoChoices.getByRole('button', { name: 'Auto' }).click();
   await window.keyboard.press('Escape');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '5 Komas');
 
   const filePath = join(directory, 'composer.koma');
   await answerSaveDialog(application, filePath);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(filePath, 'utf8')));
   expect(saved.agentConfiguration.selectedProviderId).toBe('mock');
   expect(saved.agentConfiguration.providers['claude-code']?.model).toBe('opus');
   expect(saved.presentation.audience).toBe('People who create presentations');
   await window.getByRole('button', { name: 'Hide the chat' }).click();
+  // Collapsing the conversation is session state; nothing about it is stored.
   const storage = await window.evaluate(() => JSON.stringify({ ...localStorage }));
-  expect(JSON.parse(storage)).toEqual({ 'koma-motion:chat': expect.any(String) });
+  expect(JSON.parse(storage)).toEqual({});
   expect(storage).not.toMatch(/opus|count|model|provider/i);
   expect(problems).toEqual([]);
 });
 
-test('keeps both pickers usable at 300 pixels, including invalid count and keyboard dismissal', async () => {
+test('keeps both pickers usable at the minimum size, including invalid count and keyboard dismissal', async () => {
   const { window, application, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
-  const divider = window.getByRole('separator', { name: 'Resize studio dock' });
   for (const [width, height] of [
     [1120, 700],
     [1024, 655],
@@ -321,9 +350,6 @@ test('keeps both pickers usable at 300 pixels, including invalid count and keybo
       },
       { width, height },
     );
-    await divider.focus();
-    await window.keyboard.press('Home');
-    await expect(divider).toHaveAttribute('aria-valuenow', '300');
     await expectChoicesFit(window);
   }
 
@@ -331,21 +357,35 @@ test('keeps both pickers usable at 300 pixels, including invalid count and keybo
   expect((await box(chat.locator('form'))).height).toBeLessThan(
     (await box(chat.getByRole('log', { name: 'Conversation' }))).height,
   );
+  // The prompt reads request, scope, then the generation options.
   await window.getByLabel('Your request').focus();
   await window.keyboard.press('Tab');
-  await expect(window.getByRole('button', { name: 'Attach references' })).toBeFocused();
+  await expect(window.getByLabel('Generation scope')).toBeFocused();
+  await window.keyboard.press('Tab');
+  await expect(
+    window.getByRole('button', { name: 'Generation options', exact: true }),
+  ).toBeFocused();
+  await window.getByRole('button', { name: 'Attach references' }).focus();
+  await window.keyboard.press('Tab');
+  await expect(modelTrigger(window)).toBeFocused();
+  await showGenerationOptions(window);
   await modelTrigger(window).focus();
   await window.keyboard.press('Enter');
   await expect(
     (await openProviderChoices(window)).getByLabel('Provider', { exact: true }),
   ).toBeFocused();
   await window.keyboard.press('Escape');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toBeFocused();
+  await showGenerationOptions(window);
   await modelTrigger(window).focus();
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toBeFocused();
   await window.keyboard.press('Tab');
+  await showGenerationOptions(window);
   await expect(window.getByRole('button', { name: 'Choose Brand Kit', exact: true })).toBeFocused();
   await window.keyboard.press('Tab');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toBeFocused();
   await window.keyboard.press('Enter');
   const choices = await openCountChoices(window);
@@ -353,13 +393,16 @@ test('keeps both pickers usable at 300 pixels, including invalid count and keybo
   await expect(input).toBeFocused();
   await input.fill('');
   await input.press('Escape');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-invalid', 'true');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toContainText('Set Komas');
   await window.getByLabel('Your request').fill('Show three stages.');
   await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeDisabled();
   const repair = await openCountChoices(window);
   await repair.getByRole('spinbutton', { name: 'Komas' }).fill('6');
   await repair.getByRole('spinbutton', { name: 'Komas' }).press('Enter');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '6 Komas');
   await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeEnabled();
   await expect(window.getByRole('log', { name: 'Conversation' }).locator('li')).toHaveCount(0);
@@ -367,12 +410,15 @@ test('keeps both pickers usable at 300 pixels, including invalid count and keybo
   const autoButton = keyboardChoices.getByRole('button', { name: 'Auto' });
   await autoButton.focus();
   await autoButton.press('Enter');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', 'Automatic Koma count');
   await expect(keyboardChoices).toBeVisible();
   await autoButton.press('Enter');
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '6 Komas');
   await expect(window.getByRole('log', { name: 'Conversation' }).locator('li')).toHaveCount(0);
   await window.keyboard.press('Escape');
+  await showGenerationOptions(window);
   await countTrigger(window).click();
   await window.getByLabel('Your request').click();
   await expect(window.getByRole('dialog', { name: 'Koma count' })).toHaveCount(0);
@@ -380,19 +426,23 @@ test('keeps both pickers usable at 300 pixels, including invalid count and keybo
 
   await window.getByLabel('Your request').fill('A detailed presentation brief. '.repeat(80));
   expect((await box(chat.getByRole('log', { name: 'Conversation' }))).height).toBeGreaterThan(100);
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toBeInViewport({ ratio: 1 });
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toBeInViewport({ ratio: 1 });
   await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeInViewport({ ratio: 1 });
 
+  await showGenerationOptions(window);
   await modelTrigger(window).click();
   const longRequestPicker = window.getByRole('dialog', { name: 'Model', exact: true });
-  const headerBox = await box(window.getByTestId('chat-header'));
+  const headerBox = await box(window.getByRole('banner'));
   expect((await box(longRequestPicker)).y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
   await window.getByRole('button', { name: 'Hide the chat' }).click();
   await window.getByRole('button', { name: 'Show the chat' }).click();
   await expect(window.getByRole('dialog', { name: 'Model', exact: true })).toHaveCount(0);
+  await showGenerationOptions(window);
   await modelTrigger(window).click();
-  await window.getByRole('button', { name: 'New', exact: true }).click();
+  await chooseProjectCommand(window, 'New');
   await expect(window.getByRole('dialog', { name: 'Model', exact: true })).toHaveCount(0);
   expect(problems).toEqual([]);
 });

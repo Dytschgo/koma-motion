@@ -4,7 +4,13 @@ import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+  openBrandKit,
+} from './application';
 
 let running: RunningApplication;
 
@@ -42,7 +48,7 @@ function harbourProjectText(): string {
 async function openBrandKit(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create a project' }).click();
   await expect(page.getByLabel('Project name')).toHaveValue('Untitled project');
-  await page.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(page);
   await expect(page.getByLabel('Brand name')).toBeVisible();
 }
 
@@ -109,7 +115,7 @@ test('keeps an invalid colour without dropping the other Brand Kit edits', async
 
   await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(window.getByRole('region', { name: 'Canvas' })).toBeVisible();
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
 
   await expect(window.getByLabel('Primary colour')).toHaveValue('nope');
   await expect(window.getByLabel('Brand name')).toHaveValue('Acme Corp');
@@ -152,11 +158,11 @@ test('does not apply a Brand Kit draft to another project', async () => {
   await expect(window.getByText('Unsaved changes')).toBeVisible();
 
   await answerOpenDialog(application, filePath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await window.getByRole('button', { name: 'Discard changes' }).click();
 
   await expect(window.getByLabel('Project name')).toHaveValue('Harbour project');
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   await expect(window.getByLabel('Brand name')).toHaveValue('Harbour Studio');
   await expect(window.getByLabel('Primary colour')).toHaveValue('#112233');
   await expect(window.getByLabel('Secondary colour')).toHaveValue('#445566');

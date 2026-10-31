@@ -6,7 +6,12 @@
 import { mkdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { launchApplication, openSettingsPage } from './application';
+import {
+  launchApplication,
+  openSettingsPage,
+  openBrandKit,
+  showTransitionControls,
+} from './application';
 
 const OUTPUT_DIRECTORY = resolve(import.meta.dirname, '../../../docs/screenshots');
 
@@ -43,6 +48,7 @@ test('documentation screenshots', async () => {
     await capture('inspector');
 
     await window.getByRole('button', { name: 'Koma 1: One connected system' }).click();
+    await showTransitionControls(window);
     await window.getByLabel('Position in the transition').fill('520');
     await expect(
       window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]'),
@@ -50,7 +56,7 @@ test('documentation screenshots', async () => {
     await capture('transition-preview');
 
     await window.getByRole('button', { name: 'Koma 1: One connected system' }).click();
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await window.getByLabel('Brand name').fill('Koma Motion');
     await window.getByLabel('Tone').fill('Calm, precise and a little playful');
     await expect(window.getByRole('button', { name: 'Save to library' })).toBeEnabled();

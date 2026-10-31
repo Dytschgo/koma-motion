@@ -21,6 +21,9 @@ import {
   launchApplication,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
+  showTransitionControls,
 } from './application';
 
 let running: RunningApplication;
@@ -205,6 +208,7 @@ test('moves between Koma, element and motion contexts with the pointer and the k
   await expect(window.getByLabel('Why this motion')).toBeVisible();
   // The duration of the Inspector and of the transport are one setting.
   await window.getByLabel('Duration in seconds', { exact: true }).fill('2');
+  await showTransitionControls(window);
   await expect(window.getByLabel('Transition duration in seconds')).toHaveValue('2');
   await capture(window, testInfo, 'inspector-motion.png');
 
@@ -298,10 +302,10 @@ test('selects hidden, covered and off-canvas elements from Layers and changes th
   // Saved and reopened, the order and states remain.
   const path = join(running.directory, 'layers.koma');
   await answerSaveDialog(application, path);
-  await window.getByRole('button', { name: 'Save as', exact: true }).click();
+  await chooseShareCommand(window, 'Save as');
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   await answerOpenDialog(application, path);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await showInspector(window);
   await expectTab(window, 'Koma');
   await expect(layer(window, 'Corner badge')).toHaveAccessibleName(/locked/);
@@ -342,14 +346,14 @@ test('reports out-of-date motion and recalculates it as one undoable step', asyn
   const status = window.getByRole('status', { name: 'Motion status' });
   await expect(status).toContainText('Motion is out of date');
   await expect(status).toContainText('Fix motion to preview again');
-  await expect(window.getByRole('button', { name: 'Preview', exact: true })).toBeDisabled();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
   await expect(window.getByRole('heading', { name: 'Stored effects (out of date)' })).toBeVisible();
   await capture(window, testInfo, 'inspector-motion-stale.png');
 
   await status.getByRole('button', { name: 'Fix motion' }).click();
   await expect(status).toContainText('Ready to play');
   await expect(motionTab).toHaveAccessibleName('Motion');
-  await expect(window.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   await expect(
     window.getByRole('list', { name: 'What happens to each object' }).getByText('Headline'),
   ).toBeVisible();
@@ -360,7 +364,7 @@ test('reports out-of-date motion and recalculates it as one undoable step', asyn
   await expect(status).toContainText('Ready to play');
 
   // Previewing keeps the motion in view.
-  await window.getByRole('button', { name: 'Preview', exact: true }).click();
+  await window.getByRole('button', { name: 'Play', exact: true }).click();
   await expectTab(window, 'Motion');
   await expect(stage(window)).toHaveAttribute('aria-label', /^Preview of the transition/);
   expect(running.problems).toEqual([]);

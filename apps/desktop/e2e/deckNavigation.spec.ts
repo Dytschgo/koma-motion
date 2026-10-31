@@ -7,7 +7,12 @@ import { expect, test } from '@playwright/test';
 import { recordInputEvidence } from './inputEvidence';
 import { openKomaActions } from './komaControls';
 import { buildNavigationProject } from '../src/renderer/src/lib/deckNavigation.fixture';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+} from './application';
 
 let running: RunningApplication;
 let inputEvidence: () => readonly unknown[];
@@ -55,7 +60,7 @@ async function overview() {
 }
 
 async function saveAndRead(source: string) {
-  await running.window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(running.window, 'Save');
   await expect(running.window.getByText('All changes saved')).toBeVisible();
   return komaProjectSchema.parse(JSON.parse(await readFile(source, 'utf8')));
 }
@@ -134,7 +139,6 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await expect(dialog.getByText('No Komas match this search.')).toBeVisible();
   await dialog.getByLabel('Find a Koma').press('Escape');
   await expectSelected(19, 'Chapter 19');
-  await window.getByRole('button', { name: 'Show Koma details' }).click();
   await window
     .getByRole('button', { name: 'Preview the transition from Koma 19 to Koma 20', exact: true })
     .click();
@@ -150,10 +154,10 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   ).toHaveAttribute('aria-label', 'Preview of the transition from Chapter 19 to Chapter 20');
   const duringPreview = await openKomaActions(window);
   await expect(
-    duringPreview.getByRole('menuitem', { name: 'Move Koma up', exact: true }),
+    duringPreview.getByRole('menuitem', { name: 'Move Koma left', exact: true }),
   ).toBeEnabled();
   await expect(
-    duringPreview.getByRole('menuitem', { name: 'Move Koma down', exact: true }),
+    duringPreview.getByRole('menuitem', { name: 'Move Koma right', exact: true }),
   ).toBeEnabled();
   await window.keyboard.press('Escape');
   dialog = await overview();
@@ -164,9 +168,11 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await expect(position).toHaveAttribute('aria-valuetext', '50 percent');
   await window.getByRole('button', { name: 'Stop preview', exact: true }).click();
   const actions = await openKomaActions(window);
-  await expect(actions.getByRole('menuitem', { name: 'Move Koma up', exact: true })).toBeEnabled();
   await expect(
-    actions.getByRole('menuitem', { name: 'Move Koma down', exact: true }),
+    actions.getByRole('menuitem', { name: 'Move Koma left', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    actions.getByRole('menuitem', { name: 'Move Koma right', exact: true }),
   ).toBeEnabled();
   await expect(actions.getByRole('menuitem', { name: 'Delete Koma', exact: true })).toBeEnabled();
   await window.keyboard.press('Escape');
@@ -330,7 +336,7 @@ test('moves first to last and back, moves a middle Koma, and retains holds and a
   expectPreserved(first, middle);
   expect(middle.presentation.komas[74]?.holdDurationMs).toBe(6000);
   await answerOpenDialog(application, source);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(window.getByLabel('Project name')).toHaveValue(project.name);
   dialog = await overview();
   await dialog.getByLabel('Find a Koma').fill('quarterly revenue');

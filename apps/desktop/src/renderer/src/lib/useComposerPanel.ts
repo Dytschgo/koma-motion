@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useUiStore } from '../state/uiStore';
 
-/** Sidebar focus, mutually exclusive choices and measured popup space. */
+/** Mutually exclusive composer choices and the measured space for their popups. */
 export function useComposerPanel(projectId: string, open: boolean) {
   const modelPickerRequest = useUiStore((state) => state.modelPickerRequest);
   const previousModelRequest = useRef(modelPickerRequest);
@@ -11,12 +11,9 @@ export function useComposerPanel(projectId: string, open: boolean) {
     previousModelRequest.current = modelPickerRequest;
     setChoice('model');
   }, [modelPickerRequest]);
-  const section = useRef<HTMLElement>(null);
-  const header = useRef<HTMLDivElement>(null);
   const composer = useRef<HTMLFormElement>(null);
   const [pickerMaxHeight, setPickerMaxHeight] = useState<number>();
   const requestField = useRef<HTMLTextAreaElement>(null);
-  const showButton = useRef<HTMLButtonElement>(null);
   const modelButton = useRef<HTMLButtonElement>(null);
   const countButton = useRef<HTMLButtonElement>(null);
   const choicesPanel = useRef<HTMLDivElement>(null);
@@ -29,20 +26,20 @@ export function useComposerPanel(projectId: string, open: boolean) {
   }, [open, projectId]);
 
   // A long request in a short window leaves less room above the composer.
-  // Bound the popup to that actual space so it never covers the chat header.
+  // Bound the popup to that actual space so it never covers the top bar.
   useLayoutEffect(() => {
-    if (choice === null || composer.current === null || header.current === null) return;
+    if (choice === null || composer.current === null) return;
     const measure = (): void => {
       const top = composer.current?.getBoundingClientRect().top;
-      const bottom = header.current?.getBoundingClientRect().bottom;
-      if (top !== undefined && bottom !== undefined) {
+      const bottom = document.querySelector('.studio-topbar')?.getBoundingClientRect().bottom ?? 0;
+      if (top !== undefined) {
         setPickerMaxHeight(Math.max(64, Math.floor(top - bottom - 12)));
       }
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(composer.current);
-    if (section.current !== null) observer.observe(section.current);
+    observer.observe(document.body);
     return () => observer.disconnect();
   }, [choice]);
 
@@ -72,12 +69,9 @@ export function useComposerPanel(projectId: string, open: boolean) {
   return {
     choice,
     setChoice,
-    section,
-    header,
     composer,
     pickerMaxHeight,
     requestField,
-    showButton,
     modelButton,
     countButton,
     choicesPanel,

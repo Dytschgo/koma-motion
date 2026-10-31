@@ -1,6 +1,6 @@
 import { agentError } from '@koma-motion/agent-runtime';
 import { describe, expect, it } from 'vitest';
-import { generationFailureSummary } from './generationFeedback';
+import { describeFailure, failureDetail, generationFailureSummary } from './generationFeedback';
 
 describe('chat recovery messages', () => {
   it.each(['invalidResponse', 'noStructuredOutput', 'conversionFailed'] as const)(
@@ -24,6 +24,25 @@ describe('chat recovery messages', () => {
 
   it('does not promise that rechecking the same oversized request will fix it', () => {
     expect(generationFailureSummary(agentError('outputTooLarge', 'Output buffer exceeded.'))).toBe(
+      'The response was too large. Try a new request with fewer Komas.',
+    );
+  });
+});
+
+describe('concise failure line', () => {
+  it('says that nothing changed for failures and time limits', () => {
+    expect(describeFailure('failed')).toBe('Couldn’t use the result. Nothing changed.');
+    expect(describeFailure('timedOut')).toBe('Generation took too long. Nothing changed.');
+    expect(describeFailure('cancelled')).toBe('Generation stopped');
+  });
+
+  it('adds a detail only when the person must act on it', () => {
+    expect(failureDetail(agentError('invalidResponse', 'bad json'))).toBeUndefined();
+    expect(failureDetail(agentError('internalError', 'stack'))).toBeUndefined();
+    expect(
+      failureDetail(agentError('providerUnavailable', 'Sign in to Claude Code, then try again.')),
+    ).toBe('Sign in to Claude Code, then try again.');
+    expect(failureDetail(agentError('outputTooLarge', 'Output buffer exceeded.'))).toBe(
       'The response was too large. Try a new request with fewer Komas.',
     );
   });

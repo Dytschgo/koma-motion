@@ -6,7 +6,14 @@ import { buildKoma, buildPresentation, buildProject, buildShape } from '@koma-mo
 import { buildTransition } from '@koma-motion/motion-engine';
 import { serialiseProject } from '@koma-motion/project-format';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+  showGenerationOptions,
+  showTransitionControls,
+} from './application';
 import { modelTrigger, selectProvider } from './composerControls';
 
 let running: RunningApplication;
@@ -46,17 +53,18 @@ async function capture(page: Page, name: string): Promise<void> {
   }
 }
 
-async function present(page: Page, from: 'From the beginning' | RegExp): Promise<void> {
-  await page.getByRole('button', { name: 'Present', exact: true }).click();
+async function present(page: Page, from: 'Present from the beginning' | RegExp): Promise<void> {
+  await page.getByRole('button', { name: 'Present or edit motion', exact: true }).click();
   await page
-    .getByRole('group', { name: 'Start the presentation' })
-    .getByRole('button', { name: from })
+    .getByRole('menu', { name: 'Present or edit motion' })
+    .getByRole('menuitem', { name: from })
     .click();
 }
 
 async function createGeneratedProject(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create a project' }).click();
   await selectProvider(page, 'mock');
+  await showGenerationOptions(page);
   await expect(modelTrigger(page)).toHaveAttribute(
     'aria-description',
     'Mock provider has no model choice',
@@ -113,7 +121,7 @@ async function openProject(project: KomaProject): Promise<void> {
   const filePath = join(directory, 'deck.koma');
   await writeFile(filePath, result.value);
   await answerOpenDialog(application, filePath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(window.getByLabel('Project name')).toHaveValue(project.name);
 }
 
@@ -127,10 +135,11 @@ test('plays every Koma with its transitions, from the keyboard, and exits with E
   const { window, problems } = running;
   await createGeneratedProject(window);
   // A long transition, so that pausing it can be observed.
+  await showTransitionControls(window);
   await window.getByLabel('Transition duration in seconds').fill('6');
 
   // The single-transition preview is still there and separate.
-  await expect(window.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
   await window.keyboard.press('F5');
   const dialog = player(window);
   await expect(dialog).toBeVisible();
@@ -195,7 +204,7 @@ test('plays every Koma with its transitions, from the keyboard, and exits with E
   await window.keyboard.press('Escape');
   await expect(dialog).toHaveCount(0);
   await expect(editorStage(window)).toBeVisible();
-  await expect(window.getByRole('group', { name: 'Transition preview' })).toBeVisible();
+  await expect(window.getByRole('region', { name: 'Filmstrip' })).toBeVisible();
   expect(problems).toEqual([]);
 });
 
@@ -203,7 +212,7 @@ test('starts from the selected Koma, autoplays to the end and goes full screen',
   const { window, problems } = running;
   await createGeneratedProject(window);
   await window.getByRole('button', { name: /^Koma 2:/ }).click();
-  await present(window, /^From Koma 2/);
+  await present(window, /^Present from Koma 2/);
   await expect(position(window)).toHaveText('2 of 3');
 
   await controls(window).getByRole('button', { name: 'Full screen' }).click();
@@ -230,7 +239,7 @@ test('reviews transitions that cannot play: return to edit, or cut across them b
   const { window, problems } = running;
   await openProject(deckWithStaleTransition('last'));
 
-  await present(window, 'From the beginning');
+  await present(window, 'Present from the beginning');
   const review = window.getByRole('dialog', { name: '1 transition cannot play' });
   await expect(review).toBeVisible();
   const listed = review.getByRole('list', { name: 'Transitions that cannot play' });
@@ -245,7 +254,7 @@ test('reviews transitions that cannot play: return to edit, or cut across them b
   await expect(editorStage(window)).toHaveAttribute('aria-label', 'Koma 2: Middle');
   await expect(window.getByRole('region', { name: /Transition 2 to 3\./ })).toBeVisible();
 
-  await present(window, 'From the beginning');
+  await present(window, 'Present from the beginning');
   await window
     .getByRole('dialog', { name: '1 transition cannot play' })
     .getByRole('button', { name: 'Present and cut across it' })
@@ -272,7 +281,7 @@ test('reviews transitions that cannot play: return to edit, or cut across them b
 test('returns from presentation review to regenerate the transition in the Koma strip', async () => {
   const { window, problems } = running;
   await openProject(deckWithStaleTransition('last'));
-  await present(window, 'From the beginning');
+  await present(window, 'Present from the beginning');
   await window
     .getByRole('dialog', { name: '1 transition cannot play' })
     .getByRole('button', { name: 'Return to edit' })
@@ -280,7 +289,7 @@ test('returns from presentation review to regenerate the transition in the Koma 
   const issue = window.getByRole('region', { name: /Transition 2 to 3\./ });
   await issue.getByRole('button', { name: /^Regenerate transition/ }).click();
   await expect(issue).toHaveCount(0);
-  await present(window, 'From the beginning');
+  await present(window, 'Present from the beginning');
   await expect(position(window)).toHaveText('1 of 3');
   await window.keyboard.press('End');
   await expect(playerStage(window)).toHaveAttribute('aria-label', 'Koma 3 of 3: End');
@@ -299,7 +308,7 @@ test('stops at a transition that cannot play when it was not reviewed', async ()
   await openProject(deckWithStaleTransition('first'));
   await window.getByRole('button', { name: /^Koma 2:/ }).click();
   // Nothing after Koma 2 is wrong, so there is no review.
-  await present(window, /^From Koma 2/);
+  await present(window, /^Present from Koma 2/);
   await expect(position(window)).toHaveText('2 of 3');
   await window.keyboard.press('ArrowLeft');
   await expect(position(window)).toHaveText('1 of 3');
@@ -339,7 +348,9 @@ test('stops at a transition that cannot play when it was not reviewed', async ()
 test('follows undo and redo of Komas during a presentation and refuses an empty one', async () => {
   const { window, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
-  await expect(window.getByRole('button', { name: 'Present', exact: true })).toBeDisabled();
+  await expect(
+    window.getByRole('button', { name: 'Present or edit motion', exact: true }),
+  ).toBeDisabled();
   await window.keyboard.press('F5');
   await expect(player(window)).toHaveCount(0);
   await expect(window.getByRole('status').filter({ hasText: 'nothing to present' })).toBeVisible();
@@ -380,7 +391,7 @@ test('keeps every control usable at the minimum window size', async () => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
   });
   await expect.poll(() => window.evaluate(() => innerWidth)).toBeLessThanOrEqual(1120);
-  await present(window, 'From the beginning');
+  await present(window, 'Present from the beginning');
   for (const name of ['Exit', 'Previous', 'Pause', 'Next', 'Replay the transition', 'Shortcuts']) {
     await expect(controls(window).getByRole('button', { name, exact: true })).toBeInViewport({
       ratio: 1,
@@ -404,7 +415,7 @@ test('cuts instead of moving with reduced motion', async () => {
   const { window, problems } = running;
   await window.emulateMedia({ reducedMotion: 'reduce' });
   await createGeneratedProject(window);
-  await present(window, 'From the beginning');
+  await present(window, 'Present from the beginning');
   await window.keyboard.press('ArrowRight');
   await expect(playerStage(window)).toHaveAttribute('aria-label', /^Koma 2 of 3: /);
   await expect(player(window).getByRole('note')).toContainText('Reduced motion is on');

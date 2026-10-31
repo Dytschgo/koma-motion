@@ -6,7 +6,13 @@ import { serialiseProject } from '@koma-motion/project-format';
 import { expect, test } from '@playwright/test';
 import { buildNavigationProject } from '../src/renderer/src/lib/deckNavigation.fixture';
 import { buildDeck, makeStale } from '../src/renderer/src/lib/presentationDeck.fixture';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  chooseProjectCommand,
+  launchApplication,
+  openMotion,
+  type RunningApplication,
+} from './application';
 
 let running: RunningApplication;
 
@@ -49,6 +55,11 @@ test('navigates thumbnails and reorders with PowerPoint-style keyboard controls'
   await openDeck();
   const { window, problems } = running;
   await thumbnail(1, 'Chapter 1').focus();
+  // The strip runs left to right; up and down keep working as before.
+  await window.keyboard.press('ArrowRight');
+  await expect(thumbnail(2, 'Chapter 2')).toBeFocused();
+  await window.keyboard.press('ArrowLeft');
+  await expect(thumbnail(1, 'Chapter 1')).toBeFocused();
   await window.keyboard.press('ArrowDown');
   await expect(thumbnail(2, 'Chapter 2')).toBeFocused();
   await expect(thumbnail(2, 'Chapter 2')).toHaveAttribute('aria-current', 'true');
@@ -83,7 +94,7 @@ test('duplicates and deletes through a keyboard-accessible thumbnail context men
   await expect(thumbnail(3, 'Chapter 2')).toHaveAttribute('aria-current', 'true');
   await expect(thumbnail(3, 'Chapter 2')).toBeFocused();
   await expect(thumbnails().getByRole('button', { name: /^Koma \d+:/ })).toHaveCount(101);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(path, 'utf8')));
   const original = project.presentation.komas[1];
@@ -110,37 +121,36 @@ test('duplicates and deletes through a keyboard-accessible thumbnail context men
   expect(problems).toEqual([]);
 });
 
-test('resizes and collapses thumbnails without changing the document or losing focus', async () => {
+test('opens motion between thumbnails from its marker without changing the document', async () => {
   await openDeck();
   const { window, problems } = running;
-  const pane = window.getByRole('complementary', { name: 'Project', exact: true });
-  const resize = window.getByRole('separator', { name: 'Resize Koma thumbnails' });
-  await resize.focus();
-  await window.keyboard.press('ArrowRight');
-  await expect(resize).toHaveAttribute('aria-valuenow', '260');
-  await window.keyboard.press('Home');
-  await expect(resize).toHaveAttribute('aria-valuenow', '180');
-  await window.keyboard.press('End');
-  await expect(resize).toHaveAttribute(
-    'aria-valuenow',
-    (await resize.getAttribute('aria-valuemax')) ?? '',
-  );
-  await window.getByRole('button', { name: 'Hide Koma thumbnails' }).click();
-  const show = window.getByRole('button', { name: 'Show Koma thumbnails' });
-  await expect(show).toBeFocused();
-  await expect(thumbnails()).toBeHidden();
+  const strip = window.getByRole('region', { name: 'Filmstrip' });
+  // Canvas first: no Koma column beside the canvas, the strip runs below it.
+  const canvas = await window.getByRole('region', { name: 'Canvas' }).boundingBox();
+  const stripBox = await strip.boundingBox();
+  if (canvas === null || stripBox === null) throw new Error('Expected canvas and filmstrip');
+  expect(stripBox.y).toBeGreaterThanOrEqual(canvas.y + canvas.height - 1);
+  const marker = thumbnails().getByRole('button', {
+    name: 'Preview the transition from Koma 1 to Koma 2',
+    exact: true,
+  });
+  await expect(marker).toBeVisible();
+  // Markers beside the selected Koma are reachable with Tab.
+  await thumbnail(1, 'Chapter 1').focus();
+  await window.keyboard.press('Tab');
+  await expect(marker).toBeFocused();
   await window.keyboard.press('Enter');
-  await expect(thumbnail(1, 'Chapter 1')).toBeFocused();
+  const transport = window.getByRole('group', { name: 'Transition preview' });
+  await expect(transport).toBeVisible();
+  await expect(transport).toContainText('Koma 1 to Koma 2');
+  await expect(marker).toHaveAttribute('aria-current', 'true');
+  await expect(thumbnail(1, 'Chapter 1')).toHaveAttribute('aria-current', 'true');
   await expect(window.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
-  await window.getByRole('button', { name: 'Show Koma details' }).click();
-  await expect(pane.getByRole('button', { name: 'Hide Koma details' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  await expect(
-    pane.getByRole('button', { name: 'Preview the transition from Koma 1 to Koma 2', exact: true }),
-  ).toBeVisible();
-  await window.screenshot({ path: test.info().outputPath('pane-details.png'), scale: 'css' });
+  // Escape inside the transition controls closes them.
+  await transport.getByRole('button', { name: 'Restart', exact: true }).focus();
+  await window.keyboard.press('Escape');
+  await expect(transport).toBeHidden();
+  await window.screenshot({ path: test.info().outputPath('filmstrip-markers.png'), scale: 'css' });
   expect(problems).toEqual([]);
 });
 
@@ -156,17 +166,14 @@ test('inserts after the selected thumbnail with duplicate and new-Koma shortcuts
   await window.keyboard.press('ControlOrMeta+z');
   await expect(thumbnails().getByRole('button', { name: /^Koma \d+:/ })).toHaveCount(101);
   await expect(thumbnails().locator('button[aria-current="true"]')).toBeFocused();
-  await window.getByRole('button', { name: 'Hide Koma thumbnails' }).click();
-  await window.getByRole('button', { name: 'Show Koma thumbnails' }).click();
+  // The removed Koma's selection falls back to the first Koma, which keeps focus.
   await expect(thumbnail(1, 'Chapter 1')).toBeFocused();
   await window.keyboard.press('ArrowDown');
   await expect(thumbnail(2, 'Chapter 2')).toBeFocused();
   await window.keyboard.press('ControlOrMeta+z');
   await expect(thumbnails().getByRole('button', { name: /^Koma \d+:/ })).toHaveCount(100);
   await expect(thumbnail(2, 'Chapter 2')).toBeFocused();
-  await window.getByRole('button', { name: 'Hide Koma thumbnails' }).click();
-  await window.getByRole('button', { name: 'Show Koma thumbnails' }).click();
-  await expect(thumbnail(2, 'Chapter 2')).toBeFocused();
+  await expect(thumbnail(2, 'Chapter 2')).toHaveAttribute('aria-current', 'true');
   await expect(window.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
   expect(problems).toEqual([]);
 });
@@ -190,43 +197,27 @@ test('returns focus after cancelling deletion, leaving the menu, and deleting th
     .getByRole('button', { name: 'Delete Koma', exact: true })
     .click();
   await expect(window.getByRole('button', { name: 'Add Koma', exact: true })).toBeFocused();
-  await expect(window.getByText('Your Komas will appear here.')).toBeVisible();
+  await expect(window.getByText('No Komas yet', { exact: true })).toBeVisible();
   await window.keyboard.press('ControlOrMeta+z');
   await expect(thumbnail(1, 'One')).toBeVisible();
   expect(problems).toEqual([]);
 });
 
-test('remembers pane preferences across reload and supports pointer resizing and edge collapse', async () => {
+test('scrolls a long deck sideways and draws only nearby thumbnails', async () => {
   await openDeck();
   const { window, problems } = running;
-  const resize = window.getByRole('separator', { name: 'Resize Koma thumbnails' });
-  const bounds = await resize.boundingBox();
-  if (bounds === null) throw new Error('Expected the pane divider');
-  const x = bounds.x + bounds.width / 2;
-  const y = bounds.y + bounds.height / 2;
-  await window.mouse.move(x, y);
-  await window.mouse.down();
-  await window.mouse.move(x + 56, y, { steps: 8 });
-  await window.mouse.up();
-  await expect(resize).toHaveAttribute('aria-valuenow', '300');
-  await window.getByRole('button', { name: 'Show Koma details' }).click();
-  await window.getByRole('button', { name: 'Hide Koma thumbnails' }).click();
-  await window.reload();
-  await window.getByRole('button', { name: 'Open a project', exact: true }).click();
-  await expect(window.getByRole('button', { name: 'Show Koma thumbnails' })).toBeVisible();
-  await window.getByRole('button', { name: 'Show Koma thumbnails' }).click();
-  await expect(resize).toHaveAttribute('aria-valuenow', '300');
-  await expect(window.getByRole('button', { name: 'Hide Koma details' })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  );
-  const restored = await resize.boundingBox();
-  if (restored === null) throw new Error('Expected the restored divider');
-  await window.mouse.move(restored.x + restored.width / 2, y);
-  await window.mouse.down();
-  await window.mouse.move(60, y, { steps: 12 });
-  await window.mouse.up();
-  await expect(window.getByRole('button', { name: 'Show Koma thumbnails' })).toBeFocused();
+  const drawn = thumbnails().locator('[data-koma-thumbnail] [data-koma-stage]');
+  // A 100-Koma deck draws far fewer stages than it has Komas.
+  await expect.poll(() => drawn.count()).toBeGreaterThan(0);
+  expect(await drawn.count()).toBeLessThan(40);
+  await thumbnail(1, 'Chapter 1').focus();
+  await window.keyboard.press('End');
+  await expect(thumbnail(100, 'Chapter 100')).toBeInViewport();
+  await expect(thumbnail(1, 'Chapter 1')).not.toBeInViewport();
+  // The overview reaches any Koma without scrolling through the strip.
+  await window.getByRole('button', { name: 'Deck overview', exact: true }).click();
+  await expect(window.getByRole('dialog', { name: /overview/i })).toBeVisible();
+  await window.keyboard.press('Escape');
   await expect(window.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
   expect(problems).toEqual([]);
 });
@@ -239,26 +230,36 @@ test('keeps motion recovery reachable in compact 4:3 thumbnails at short window 
   await application.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 640),
   );
-  await expect(window.getByRole('button', { name: 'Show Koma details' })).toBeVisible();
+  // The marker shows the problem without a paragraph; opening it offers the fix.
+  const marker = thumbnails().getByRole('button', {
+    name: 'Motion from Koma 1 to Koma 2 cannot play',
+    exact: true,
+  });
+  await expect(marker).toBeVisible();
+  const transport = await openMotion(window, 1);
+  await expect(transport.getByText('Cannot play', { exact: true })).toBeVisible();
   await expect(
-    window.getByRole('button', { name: /Regenerate transition from/ }).first(),
+    transport.getByRole('button', { name: /Regenerate transition from/ }).first(),
   ).toBeVisible();
   await expect(window.getByRole('button', { name: 'Add Koma', exact: true })).toBeInViewport();
-  await expect(window.getByRole('button', { name: 'Brand Kit', exact: true })).toBeInViewport();
   await thumbnail(1, 'One').focus();
   await window.keyboard.press('End');
   await expect(thumbnail(3, 'Three')).toBeFocused();
   await expect(thumbnail(3, 'Three')).toBeInViewport();
-  await window.screenshot({ path: test.info().outputPath('pane-short-4-3.png'), scale: 'css' });
+  await window.screenshot({
+    path: test.info().outputPath('filmstrip-short-4-3.png'),
+    scale: 'css',
+  });
   expect(problems).toEqual([]);
 });
 
-test('captures the thumbnail pane with a generated presentation at wide and narrow sizes', async () => {
+test('captures the filmstrip with a generated presentation at wide and narrow sizes', async () => {
   const { window, application, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
   await window.getByRole('button', { name: 'Use the example request' }).click();
   await window.getByRole('button', { name: 'Generate Komas' }).click();
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
+  await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();
   for (const width of [1480, 1120] as const) {
     await application.evaluate(
       ({ BrowserWindow }, size) => BrowserWindow.getAllWindows()[0]?.setContentSize(size, 920),
@@ -266,7 +267,7 @@ test('captures the thumbnail pane with a generated presentation at wide and narr
     );
     await expect.poll(() => window.evaluate(() => innerWidth)).toBe(width);
     await window.screenshot({
-      path: test.info().outputPath(`pane-${String(width)}.png`),
+      path: test.info().outputPath(`filmstrip-${String(width)}.png`),
       scale: 'css',
     });
   }

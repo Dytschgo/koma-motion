@@ -6,7 +6,14 @@ import type { KomaProject } from '@koma-motion/core';
 import { buildTransition } from '@koma-motion/motion-engine';
 import { serialiseProject } from '@koma-motion/project-format';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+  showTransitionControls,
+  openMotion,
+} from './application';
 
 let running: RunningApplication;
 
@@ -32,7 +39,7 @@ function serialise(project: KomaProject): string {
 
 async function openProject(window: Page, filePath: string): Promise<void> {
   await answerOpenDialog(running.application, filePath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
 }
 
 interface LayerFact {
@@ -100,6 +107,7 @@ test('keeps source stacking in the middle of a valid transition', async () => {
   await expect(window.getByLabel('Project name')).toHaveValue('Stacking');
   await expect(getStage()).toHaveAttribute('aria-label', 'Koma 1: Source order');
 
+  await showTransitionControls(window);
   await window.getByLabel('Position in the transition').fill('500');
   await expect(getStage()).toHaveAttribute('aria-label', /^Preview of the transition/);
   await expect.poll(layerFacts).toEqual([
@@ -154,6 +162,8 @@ test('blocks a false element reference until the transition is regenerated', asy
 
   await openProject(window, filePath);
   await expect(window.getByLabel('Project name')).toHaveValue('False reference');
+  // The filmstrip marker opens the damaged motion and its explanation.
+  await openMotion(window, 1);
   const warning = window.getByRole('region', { name: /Transition 1 to 2\./ });
   await warning.getByRole('button', { name: 'Details' }).click();
   await expect(warning).toContainText('The stored motion is damaged.');

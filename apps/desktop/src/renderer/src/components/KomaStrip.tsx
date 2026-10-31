@@ -5,11 +5,10 @@ import {
   type KomaTransition,
   type Presentation,
 } from '@koma-motion/core';
-import { createAssetResolver, useElementSize, type AssetResolver } from '@koma-motion/renderer';
+import { createAssetResolver, type AssetResolver } from '@koma-motion/renderer';
 import {
   useCallback,
   useEffect,
-  useId,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -25,101 +24,84 @@ import { useKomaDrag, type KomaDragHandlers } from '../lib/useKomaDrag';
 import { addKomaAfter } from '../lib/projectActions';
 import { deleteKoma, duplicateKomaInProject, reorderKoma } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
+import { useTransitionRegenerationStore } from '../state/transitionRegenerationStore';
 import { useUiStore } from '../state/uiStore';
-import { ChevronIcon, PlusIcon, SettingsIcon, WarningIcon } from './icons';
-import { TransitionStripStatus } from './TransitionStripStatus';
+import { PlusIcon } from './icons';
 import { DeckOverview } from './DeckOverview';
-import { Button, IconButton } from './ui';
-import { clampKomaPaneWidth, getKomaPaneMaximum, KOMA_PANE_COLLAPSED_WIDTH } from '../lib/komaPane';
-import { KomaPaneResizeHandle } from './KomaPaneResizeHandle';
+import { IconButton } from './ui';
 import { KomaContextMenu, type KomaMenuAnchor } from './KomaContextMenu';
 import { KomaThumbnail } from './KomaThumbnail';
 
-function countChanges(transition: KomaTransition): number {
-  const changed = new Set(
-    transition.elementTransitions
-      .filter((item) => item.operation !== 'hold')
-      .map((item) => item.persistentId),
-  );
-  return changed.size;
-}
+/** Width of a filmstrip thumbnail in CSS pixels. */
+const THUMBNAIL_WIDTH = 96;
 
 /**
- * The in-between of two Komas. It is part of the strip because motion is
- * part of the presentation, not an effect added afterwards.
+ * The motion between two neighbouring Komas. Selecting it opens that motion
+ * below the canvas: a playable motion starts its preview, a motion that
+ * cannot play shows what is wrong and how to fix it.
  */
-function InBetween({
+function MotionMarker({
   presentation,
   transition,
   fromKoma,
   toKoma,
   from,
-  to,
   active,
-  showDetails,
+  tabbable,
 }: {
   readonly presentation: Presentation;
   readonly transition: KomaTransition;
   readonly fromKoma: Koma;
   readonly toKoma: Koma;
   readonly from: number;
-  readonly to: number;
   readonly active: boolean;
-  readonly showDetails: boolean;
+  /** Markers beside the selected Koma are in the Tab order; Tab skips the others. */
+  readonly tabbable: boolean;
 }): ReactElement {
-  const startPreview = useUiStore((state) => state.startPreview);
-  const changes = countChanges(transition);
   const assessment = assessTransition(presentation, transition, fromKoma, toKoma);
   const blocked = assessment?.blocked === true;
-  if (!showDetails && assessment === null) return <></>;
-  let spine = 'bg-line-strong';
-  if (active) {
-    spine = 'bg-motion';
-  }
-  if (blocked) {
-    spine = 'bg-signal-warn';
-  }
+  const regenerating = useTransitionRegenerationStore(
+    (state) => state.entries[transition.id]?.status === 'running',
+  );
+  const to = from + 1;
+  const label = blocked
+    ? `Motion from Koma ${String(from)} to Koma ${String(to)} cannot play`
+    : `Preview the transition from Koma ${String(from)} to Koma ${String(to)}`;
+  const state = blocked ? 'blocked' : assessment !== null ? 'warning' : 'ready';
   return (
-    <li className="flex items-stretch gap-2 pl-[18px]">
-      <span aria-hidden="true" className={`w-px flex-none ${spine}`} />
-      <div className="my-1 flex min-w-0 flex-1 flex-col gap-1">
-        {!blocked && (
-          <button
-            type="button"
-            aria-label={`Preview the transition from Koma ${String(from)} to Koma ${String(to)}`}
-            className={`flex min-w-0 flex-1 items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-sm transition-colors ${
-              active
-                ? 'bg-motion-deep text-ink-100'
-                : 'text-ink-400 hover:bg-surface-3 hover:text-ink-100'
-            }`}
-            onClick={() => {
-              startPreview(transition.id);
-            }}
-          >
-            <span className="truncate">
-              {formatSeconds(transition.duration)}, {transition.strategy}
-            </span>
-            <span className="flex flex-none items-center gap-1 tabular-nums">
-              {assessment !== null && (
-                <span className="text-ink-400" title={assessment.headline}>
-                  <WarningIcon size={12} />
-                  <span className="sr-only">{assessment.label}.</span>
-                </span>
-              )}
-              {changes} {changes === 1 ? 'change' : 'changes'}
-            </span>
-          </button>
-        )}
-        {assessment !== null && (
-          <TransitionStripStatus
-            transitionId={transition.id}
-            from={fromKoma}
-            to={toKoma}
-            fromNumber={from}
-            assessment={assessment}
-          />
-        )}
-      </div>
+    <li className="filmstrip-gap">
+      <button
+        type="button"
+        aria-label={label}
+        tabIndex={tabbable ? 0 : -1}
+        aria-description={
+          assessment === null
+            ? `${formatSeconds(transition.duration)}, ${transition.strategy}`
+            : assessment.label
+        }
+        aria-current={active ? 'true' : undefined}
+        aria-busy={regenerating || undefined}
+        title={
+          assessment === null
+            ? `${formatSeconds(transition.duration)}, ${transition.strategy}`
+            : assessment.headline
+        }
+        data-motion-state={state}
+        className="filmstrip-marker"
+        onClick={() => {
+          const ui = useUiStore.getState();
+          ui.selectKoma(fromKoma.id);
+          ui.setMotionEditing(true);
+          if (!blocked) ui.startPreview(transition.id);
+        }}
+      >
+        <span aria-hidden="true" className="filmstrip-marker-dots">
+          <span />
+          <span />
+          <span />
+        </span>
+        {state !== 'ready' && <span aria-hidden="true" className="filmstrip-marker-issue" />}
+      </button>
     </li>
   );
 }
@@ -133,9 +115,7 @@ function KomaItem({
   dragHandlers,
   dragging,
   dropIndicator,
-  thumbnailWidth,
   scrollRoot,
-  details,
   register,
   onKey,
   onMenu,
@@ -150,9 +130,7 @@ function KomaItem({
   readonly dragging: boolean;
   /** Where a drop would place the dragged Koma relative to this one. */
   readonly dropIndicator: 'before' | 'after' | null;
-  readonly thumbnailWidth: number;
   readonly scrollRoot: RefObject<HTMLElement | null>;
-  readonly details: boolean;
   readonly register: (id: string, node: HTMLButtonElement | null) => void;
   readonly onKey: (event: KeyboardEvent<HTMLButtonElement>, koma: Koma, index: number) => void;
   readonly onMenu: (anchor: KomaMenuAnchor) => void;
@@ -167,103 +145,103 @@ function KomaItem({
   return (
     <li
       data-koma-drag-item=""
-      className={`koma-pane-item ${selected ? 'is-selected' : ''} ${dragging ? 'is-dragging' : ''}`}
+      className={`filmstrip-item ${selected ? 'is-selected' : ''} ${dragging ? 'is-dragging' : ''}`}
     >
       {dropIndicator !== null && (
         <span
           aria-hidden="true"
           data-koma-drop-indicator={dropIndicator}
-          className="koma-pane-drop-indicator"
+          className="filmstrip-drop-indicator"
         />
       )}
-      <div className="koma-pane-thumbnail-row">
-        <span aria-hidden="true" className="koma-pane-number">
-          {number}
-        </span>
-        <div aria-hidden="true" className="koma-pane-thumbnail-content">
-          <div className="koma-pane-thumbnail-frame">
-            <KomaThumbnail
-              koma={koma}
-              aspectRatio={project.presentation.aspectRatio}
-              width={thumbnailWidth}
-              scrollRoot={scrollRoot}
-              resolveAsset={resolveAsset}
-            />
-          </div>
-          {details && <span className="koma-pane-title">{koma.title}</span>}
-        </div>
-        {/* Covers the thumbnail, so the whole item selects the Koma. */}
-        <button
-          type="button"
-          ref={attachButton}
-          tabIndex={selected ? 0 : -1}
-          aria-current={selected ? 'true' : undefined}
-          aria-label={`Koma ${String(number)}: ${koma.title}`}
-          title={`Koma ${String(number)}: ${koma.title}`}
-          className="koma-thumbnail-select"
-          {...dragHandlers}
-          onClick={() => {
-            selectKoma(koma.id);
-          }}
-          onKeyDown={(event) => onKey(event, koma, index)}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            selectKoma(koma.id);
-            event.currentTarget.focus();
-            onMenu({
-              komaId: koma.id,
-              x: event.clientX,
-              y: event.clientY,
-              source: event.currentTarget,
-            });
-          }}
+      <div aria-hidden="true" className="filmstrip-frame">
+        <KomaThumbnail
+          koma={koma}
+          aspectRatio={project.presentation.aspectRatio}
+          width={THUMBNAIL_WIDTH}
+          scrollRoot={scrollRoot}
+          resolveAsset={resolveAsset}
         />
       </div>
+      <span aria-hidden="true" className="filmstrip-number">
+        {number}
+      </span>
+      {/* Covers the thumbnail and its number, so the whole item selects the Koma. */}
+      <button
+        type="button"
+        ref={attachButton}
+        tabIndex={selected ? 0 : -1}
+        aria-current={selected ? 'true' : undefined}
+        aria-label={`Koma ${String(number)}: ${koma.title}`}
+        title={`Koma ${String(number)}: ${koma.title}`}
+        className="koma-thumbnail-select"
+        {...dragHandlers}
+        onClick={() => {
+          selectKoma(koma.id);
+        }}
+        onKeyDown={(event) => onKey(event, koma, index)}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          selectKoma(koma.id);
+          event.currentTarget.focus();
+          onMenu({
+            komaId: koma.id,
+            x: event.clientX,
+            y: event.clientY,
+            source: event.currentTarget,
+          });
+        }}
+      />
     </li>
   );
 }
 
+function OverviewIcon(): ReactElement {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      aria-hidden="true"
+    >
+      <rect x="2" y="2" width="4.5" height="4.5" rx=".6" />
+      <rect x="9.5" y="2" width="4.5" height="4.5" rx=".6" />
+      <rect x="2" y="9.5" width="4.5" height="4.5" rx=".6" />
+      <rect x="9.5" y="9.5" width="4.5" height="4.5" rx=".6" />
+    </svg>
+  );
+}
+
+/**
+ * The horizontal filmstrip below the canvas: numbered Koma thumbnails with
+ * the motion between neighbours, an Add button, Koma actions and an
+ * overview for long decks. Thumbnails are drawn only near the visible part.
+ */
 export function KomaStrip({ project }: { readonly project: KomaProject }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
-  const view = useUiStore((state) => state.view);
-  const dockOpen = useUiStore((state) => state.agentPanelOpen);
-  const dockMode = useUiStore((state) => state.studioPanel);
-  const brandKitVisible = view === 'brandKit' && dockOpen && dockMode === 'inspect';
-  const setView = useUiStore((state) => state.setView);
   const preview = useUiStore((state) => state.preview);
+  const motionEditing = useUiStore((state) => state.motionEditing);
   const selectedKoma = useSelectedKoma();
-  const pane = useUiStore((state) => state.komaPane);
-  const setPane = useUiStore((state) => state.setKomaPane);
   const selectKoma = useUiStore((state) => state.selectKoma);
   const sessionId = useProjectStore((state) => state.sessionId);
   const [overviewOpen, setOverviewOpen] = useState(false);
   const [menu, setMenu] = useState<KomaMenuAnchor | null>(null);
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const bodyId = useId();
-  const showButton = useRef<HTMLButtonElement>(null);
   const footer = useRef<HTMLDivElement>(null);
   const buttons = useRef(new Map<string, HTMLButtonElement>());
   const focusRequested = useRef(false);
-  const previousOpen = useRef(pane.open);
   const strip = useRef<HTMLDivElement>(null);
-  const [measureStrip, stripSize] = useElementSize<HTMLDivElement>();
-  const attachStrip = useCallback(
-    (node: HTMLDivElement | null): void => {
-      strip.current = node;
-      measureStrip(node);
-    },
-    [measureStrip],
+  const { drag, announcement, handlers } = useKomaDrag(
+    strip,
+    project.presentation.komas.length,
+    'x',
   );
-  const { drag, announcement, handlers } = useKomaDrag(strip, project.presentation.komas.length);
   const resolveAsset = useMemo(() => createAssetResolver(project.assets), [project.assets]);
   const { komas } = project.presentation;
   const selectedId = selectedKoma?.id;
   const selectedIndex = komas.findIndex((koma) => koma.id === selectedId);
-  const maximum = getKomaPaneMaximum(windowWidth);
-  const width = clampKomaPaneWidth(pane.width, maximum);
-  // Measure content space after padding and the reserved scrollbar, then allow
-  // 24px for numbering, an 8px gap, and the frame's two 2px borders.
-  const thumbnailWidth = Math.max(1, stripSize.width > 0 ? stripSize.width - 36 : width - 70);
   const register = useCallback((id: string, node: HTMLButtonElement | null): void => {
     if (node === null) {
       if (buttons.current.get(id) === document.activeElement) focusRequested.current = true;
@@ -279,35 +257,25 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
     (target ?? footer.current?.querySelector<HTMLButtonElement>('[data-koma-add]'))?.focus();
   }, []);
   useEffect(() => {
-    const resize = (): void => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
-  }, []);
-  useEffect(() => {
     setMenu(null);
   }, [sessionId]);
   useLayoutEffect(() => {
-    if (previousOpen.current !== pane.open) {
-      previousOpen.current = pane.open;
-      if (pane.open) focusSelected();
-      else showButton.current?.focus();
-    } else if (pane.open && focusRequested.current) {
-      // A native modal keeps the rest of the document inert until close().
-      // Deletion can commit before the confirmation's closing effect runs.
-      const dialog = document.querySelector<HTMLDialogElement>('dialog[open]');
-      if (dialog !== null) {
-        const restore = (): void => {
-          focusRequested.current = false;
-          focusSelected();
-        };
-        dialog.addEventListener('close', restore, { once: true });
-        return () => dialog.removeEventListener('close', restore);
-      }
-      focusRequested.current = false;
-      focusSelected();
+    if (!focusRequested.current) return undefined;
+    // A native modal keeps the rest of the document inert until close().
+    // Deletion can commit before the confirmation's closing effect runs.
+    const dialog = document.querySelector<HTMLDialogElement>('dialog[open]');
+    if (dialog !== null) {
+      const restore = (): void => {
+        focusRequested.current = false;
+        focusSelected();
+      };
+      dialog.addEventListener('close', restore, { once: true });
+      return () => dialog.removeEventListener('close', restore);
     }
+    focusRequested.current = false;
+    focusSelected();
     return undefined;
-  }, [pane.open, selectedId, selectedIndex, komas.length, focusSelected]);
+  }, [selectedId, selectedIndex, komas.length, focusSelected]);
   const move = (komaId: string, offset: number): void => {
     if (offset === 0) return;
     focusRequested.current = true;
@@ -357,7 +325,7 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
       event.preventDefault();
       event.stopPropagation();
       const rect = event.currentTarget.getBoundingClientRect();
-      setMenu({ komaId: koma.id, x: rect.x + 24, y: rect.y + 24, source: event.currentTarget });
+      setMenu({ komaId: koma.id, x: rect.x + 24, y: rect.y - 8, source: event.currentTarget });
       return;
     }
     if (event.altKey) return;
@@ -381,20 +349,22 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
       void remove(koma.id);
       return;
     }
-    const destination =
-      event.key === 'ArrowDown'
+    // Left and right follow the strip; up and down keep working as before.
+    const later = event.key === 'ArrowRight' || event.key === 'ArrowDown';
+    const earlier = event.key === 'ArrowLeft' || event.key === 'ArrowUp';
+    const destination = later
+      ? modifier && event.shiftKey
+        ? komas.length - 1
+        : Math.min(komas.length - 1, index + 1)
+      : earlier
         ? modifier && event.shiftKey
-          ? komas.length - 1
-          : Math.min(komas.length - 1, index + 1)
-        : event.key === 'ArrowUp'
-          ? modifier && event.shiftKey
-            ? 0
-            : Math.max(0, index - 1)
-          : !modifier && event.key === 'Home'
-            ? 0
-            : !modifier && event.key === 'End'
-              ? komas.length - 1
-              : null;
+          ? 0
+          : Math.max(0, index - 1)
+        : !modifier && event.key === 'Home'
+          ? 0
+          : !modifier && event.key === 'End'
+            ? komas.length - 1
+            : null;
     if (destination === null) return;
     event.preventDefault();
     event.stopPropagation();
@@ -427,200 +397,118 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
   useEffect(() => {
     strip.current
       ?.querySelector<HTMLButtonElement>('button[aria-current="true"]')
-      ?.scrollIntoView({ block: 'nearest' });
+      ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }, [selectedId, selectedIndex]);
 
   return (
-    <aside
-      aria-label="Project"
-      className="koma-pane"
-      style={{ inlineSize: pane.open ? width : KOMA_PANE_COLLAPSED_WIDTH }}
-    >
-      {!pane.open && (
-        <button
-          ref={showButton}
-          type="button"
-          className="koma-pane-show"
-          aria-label="Show Koma thumbnails"
-          aria-expanded={false}
-          aria-controls={bodyId}
-          onClick={() => setPane({ open: true })}
-        >
-          <ChevronIcon direction="right" />
-          <span>Komas</span>
-          <span className="tabular-nums">{komas.length}</span>
-        </button>
-      )}
-      <div id={bodyId} hidden={!pane.open} className="koma-pane-body">
-        <div className="koma-pane-header">
-          <div className="koma-pane-heading-row">
-            <span className="koma-pane-heading">
-              Komas <span className="text-ink-400 tabular-nums">{komas.length}</span>
-            </span>
-            <IconButton
-              label="Deck overview"
-              disabled={komas.length === 0}
-              onClick={() => setOverviewOpen(true)}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.3"
-                aria-hidden="true"
-              >
-                <rect x="2" y="2" width="4.5" height="4.5" rx=".6" />
-                <rect x="9.5" y="2" width="4.5" height="4.5" rx=".6" />
-                <rect x="2" y="9.5" width="4.5" height="4.5" rx=".6" />
-                <rect x="9.5" y="9.5" width="4.5" height="4.5" rx=".6" />
-              </svg>
-            </IconButton>
-            <IconButton
-              label={pane.details ? 'Hide Koma details' : 'Show Koma details'}
-              aria-pressed={pane.details}
-              onClick={() => setPane({ details: !pane.details })}
-            >
-              <SettingsIcon size={14} />
-            </IconButton>
-            <IconButton
-              label="Hide Koma thumbnails"
-              aria-expanded={true}
-              aria-controls={bodyId}
-              onClick={() => setPane({ open: false })}
-            >
-              <ChevronIcon direction="left" size={14} />
-            </IconButton>
-          </div>
-        </div>
-
-        <p aria-live="polite" className="sr-only">
-          {announcement}
-        </p>
-        <div ref={attachStrip} className="koma-pane-scroll">
-          {komas.length === 0 ? (
-            <p className="px-2 py-6 text-ink-400">Your Komas will appear here.</p>
-          ) : (
-            <ol
-              aria-label="Komas"
-              className={`koma-pane-list ${drag === null ? '' : 'cursor-grabbing select-none'}`}
-            >
-              {komas.map((koma, index) => {
-                const previous = komas[index - 1];
-                const transition =
-                  previous === undefined
-                    ? undefined
-                    : findTransitionBetween(project.presentation, previous.id, koma.id);
-                return [
-                  transition !== undefined && previous !== undefined && (
-                    <InBetween
-                      key={transition.id}
-                      presentation={project.presentation}
-                      transition={transition}
-                      fromKoma={previous}
-                      toKoma={koma}
-                      from={index}
-                      to={index + 1}
-                      active={
-                        preview !== null &&
+    <section aria-label="Filmstrip" className="filmstrip">
+      <p aria-live="polite" className="sr-only">
+        {announcement}
+      </p>
+      <div
+        ref={strip}
+        className="filmstrip-scroll"
+        onWheel={(event) => {
+          // A mouse wheel scrolls the strip sideways.
+          if (Math.abs(event.deltaY) > Math.abs(event.deltaX))
+            event.currentTarget.scrollLeft += event.deltaY;
+        }}
+      >
+        {komas.length === 0 ? (
+          <p className="filmstrip-empty">No Komas yet</p>
+        ) : (
+          <ol
+            aria-label="Komas"
+            className={`filmstrip-list ${drag === null ? '' : 'cursor-grabbing select-none'}`}
+          >
+            {komas.map((koma, index) => {
+              const previous = komas[index - 1];
+              const transition =
+                previous === undefined
+                  ? undefined
+                  : findTransitionBetween(project.presentation, previous.id, koma.id);
+              return [
+                transition !== undefined && previous !== undefined && (
+                  <MotionMarker
+                    key={transition.id}
+                    presentation={project.presentation}
+                    transition={transition}
+                    fromKoma={previous}
+                    toKoma={koma}
+                    from={index}
+                    tabbable={selectedIndex === index - 1 || selectedIndex === index}
+                    active={
+                      (preview !== null &&
                         preview.transitionId === transition.id &&
                         preview.fromKomaId === transition.fromKomaId &&
-                        preview.toKomaId === transition.toKomaId
-                      }
-                      showDetails={pane.details}
-                    />
-                  ),
-                  <KomaItem
-                    key={koma.id}
-                    koma={koma}
-                    index={index}
-                    project={project}
-                    resolveAsset={resolveAsset}
-                    selected={selectedKoma?.id === koma.id}
-                    dragHandlers={handlers(koma.id, index)}
-                    dragging={drag?.komaId === koma.id}
-                    dropIndicator={dropIndicatorFor(index, komas.length)}
-                    thumbnailWidth={thumbnailWidth}
-                    scrollRoot={strip}
-                    details={pane.details}
-                    register={register}
-                    onKey={onThumbnailKey}
-                    onMenu={setMenu}
-                  />,
-                ];
-              })}
-            </ol>
-          )}
-        </div>
-
-        <div ref={footer} className="koma-pane-footer">
-          <div className="koma-pane-actions">
-            <Button
-              data-koma-add=""
-              variant="outline"
-              icon={<PlusIcon size={14} />}
-              onClick={() => {
-                add(selectedKoma?.id ?? null);
-              }}
-            >
-              Add Koma
-            </Button>
-            <IconButton
-              label="Koma actions"
-              disabled={selectedId === undefined}
-              aria-haspopup="menu"
-              aria-expanded={menu !== null}
-              onClick={(event) => {
-                if (selectedId === undefined) return;
-                const rect = event.currentTarget.getBoundingClientRect();
-                setMenu({
-                  komaId: selectedId,
-                  x: rect.x,
-                  y: rect.y,
-                  source: event.currentTarget,
-                });
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-                <circle cx="3" cy="8" r="1.2" fill="currentColor" />
-                <circle cx="8" cy="8" r="1.2" fill="currentColor" />
-                <circle cx="13" cy="8" r="1.2" fill="currentColor" />
-              </svg>
-            </IconButton>
-          </div>
-          <Button
-            aria-pressed={brandKitVisible}
-            active={brandKitVisible}
-            onClick={() => {
-              setView(brandKitVisible ? 'canvas' : 'brandKit');
-            }}
-          >
-            <span
-              aria-hidden="true"
-              className="flex overflow-hidden rounded-sm outline outline-1 outline-line-strong"
-            >
-              {[
-                project.brandKit.colours.primary,
-                project.brandKit.colours.secondary,
-                project.brandKit.colours.accent,
-              ].map((colour, index) => (
-                <span key={index} className="size-3" style={{ background: colour }} />
-              ))}
-            </span>
-            Brand Kit
-          </Button>
-        </div>
+                        preview.toKomaId === transition.toKomaId) ||
+                      (preview === null && motionEditing && selectedId === previous.id)
+                    }
+                  />
+                ),
+                <KomaItem
+                  key={koma.id}
+                  koma={koma}
+                  index={index}
+                  project={project}
+                  resolveAsset={resolveAsset}
+                  selected={selectedKoma?.id === koma.id}
+                  dragHandlers={handlers(koma.id, index)}
+                  dragging={drag?.komaId === koma.id}
+                  dropIndicator={dropIndicatorFor(index, komas.length)}
+                  scrollRoot={strip}
+                  register={register}
+                  onKey={onThumbnailKey}
+                  onMenu={setMenu}
+                />,
+              ];
+            })}
+          </ol>
+        )}
       </div>
-      {pane.open && (
-        <KomaPaneResizeHandle
-          width={width}
-          maximum={maximum}
-          controls={bodyId}
-          onResize={(value) => setPane({ width: value })}
-          onCollapse={() => setPane({ open: false })}
-        />
-      )}
+
+      <div ref={footer} className="filmstrip-actions">
+        <IconButton
+          data-koma-add=""
+          label="Add Koma"
+          title="Add Koma (Ctrl+M)"
+          className="filmstrip-add"
+          onClick={() => {
+            add(selectedKoma?.id ?? null);
+          }}
+        >
+          <PlusIcon />
+        </IconButton>
+        <IconButton
+          label="Koma actions"
+          disabled={selectedId === undefined}
+          aria-haspopup="menu"
+          aria-expanded={menu !== null}
+          onClick={(event) => {
+            if (selectedId === undefined) return;
+            const rect = event.currentTarget.getBoundingClientRect();
+            setMenu({
+              komaId: selectedId,
+              x: rect.x,
+              y: rect.y - 8,
+              source: event.currentTarget,
+            });
+          }}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+            <circle cx="3" cy="8" r="1.2" fill="currentColor" />
+            <circle cx="8" cy="8" r="1.2" fill="currentColor" />
+            <circle cx="13" cy="8" r="1.2" fill="currentColor" />
+          </svg>
+        </IconButton>
+        <IconButton
+          label="Deck overview"
+          disabled={komas.length === 0}
+          onClick={() => setOverviewOpen(true)}
+        >
+          <OverviewIcon />
+        </IconButton>
+      </div>
       {menu !== null && menuIndex >= 0 && (
         <KomaContextMenu
           anchor={menu}
@@ -629,14 +517,14 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
             { label: 'New Koma after', shortcut: 'Ctrl+M', action: () => add(menu.komaId) },
             { label: 'Duplicate Koma', shortcut: '⌘/Ctrl+D', action: () => duplicate(menu.komaId) },
             {
-              label: 'Move Koma up',
-              shortcut: '⌘/Ctrl+↑',
+              label: 'Move Koma left',
+              shortcut: '⌘/Ctrl+←',
               disabled: menuIndex === 0,
               action: () => move(menu.komaId, -1),
             },
             {
-              label: 'Move Koma down',
-              shortcut: '⌘/Ctrl+↓',
+              label: 'Move Koma right',
+              shortcut: '⌘/Ctrl+→',
               disabled: menuIndex === komas.length - 1,
               action: () => move(menu.komaId, 1),
             },
@@ -658,6 +546,6 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
           setOverviewOpen(false);
         }}
       />
-    </aside>
+    </section>
   );
 }

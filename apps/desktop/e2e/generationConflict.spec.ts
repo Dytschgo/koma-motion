@@ -139,11 +139,9 @@ async function completeGenerationWithEdits(): Promise<void> {
   await expect(window.getByRole('dialog', { name: 'Replace your edited Komas?' })).toHaveCount(0);
   await heldGeneration.evaluate((gate, reply) => gate.release(reply), generationReply(captured));
   await expect(window.getByRole('dialog', { name: 'Replace your edited Komas?' })).toBeVisible();
-  // The shared dock stays in Inspect while the confirmation owns focus.
-  await expect(window.getByRole('tab', { name: 'Inspect', exact: true })).toHaveAttribute(
-    'aria-selected',
-    'true',
-  );
+  // The properties panel stays open behind the confirmation, which owns focus.
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toHaveCount(1);
+  await expect(window.getByLabel('Title', { exact: true })).toHaveValue('My work in progress');
   await expect(
     window
       .getByRole('dialog', { name: 'Replace your edited Komas?' })

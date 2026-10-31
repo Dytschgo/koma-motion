@@ -11,7 +11,7 @@ import { useUiStore } from '../state/uiStore';
 /** Pointer travel, in CSS pixels, before a press on a Koma becomes a drag rather than a click. */
 export const DRAG_START_DISTANCE = 5;
 
-/** Distance from the strip's top or bottom edge, in CSS pixels, that scrolls it during a drag. */
+/** Distance from either end of the strip, in CSS pixels, that scrolls it during a drag. */
 export const AUTO_SCROLL_EDGE = 48;
 
 /** Largest scroll step per animation frame while the pointer is at the strip's very edge. */
@@ -23,7 +23,7 @@ export function exceedsDragStartDistance(dx: number, dy: number): boolean {
 
 /**
  * The gap the pointer points at: 0 is before the first Koma, `midlines.length`
- * after the last. `midlines` are the vertical centres of the Komas in deck order.
+ * after the last. `midlines` are the centres of the Komas along the strip, in deck order.
  */
 export function getDropInsertion(midlines: readonly number[], y: number): number {
   const index = midlines.findIndex((midline) => y < midline);
@@ -40,8 +40,8 @@ export function getDropOffset(from: number, insertion: number): number {
 }
 
 /**
- * Scroll step for one frame: negative near the top edge, positive near the
- * bottom, else 0. The strip scrolls only in the direction the pointer has
+ * Scroll step for one frame: negative near the start edge (top or left), positive
+ * near the end edge, else 0. The strip scrolls only in the direction the pointer has
  * travelled from `originY`, so a drag that starts near an edge stays put.
  */
 export function getAutoScrollStep(y: number, originY: number, top: number, bottom: number): number {

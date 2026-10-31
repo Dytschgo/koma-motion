@@ -3,8 +3,8 @@ import { writeFile } from 'node:fs/promises';
 import {
   launchApplication,
   openSettingsPage,
-  showChat,
   type RunningApplication,
+  openBrandKit,
 } from './application';
 import { openKomaActions } from './komaControls';
 
@@ -45,7 +45,7 @@ async function demo(): Promise<void> {
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
 }
 
-test('the compact Koma footer keeps the full menu, keyboard dismissal and destructive confirmation', async () => {
+test('the filmstrip keeps the full Koma menu, keyboard dismissal and destructive confirmation', async () => {
   const { window, application } = running;
   await application.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700),
@@ -59,14 +59,14 @@ test('the compact Koma footer keeps the full menu, keyboard dismissal and destru
   for (const action of [
     'New Koma after',
     'Duplicate Koma',
-    'Move Koma up',
-    'Move Koma down',
+    'Move Koma left',
+    'Move Koma right',
     'Delete Koma',
   ]) {
     await expect(menu.getByRole('menuitem', { name: action, exact: true })).toBeVisible();
   }
-  await expect(menu.getByRole('menuitem', { name: 'Move Koma up', exact: true })).toBeDisabled();
-  await expect(menu.getByRole('menuitem', { name: 'Move Koma down', exact: true })).toBeEnabled();
+  await expect(menu.getByRole('menuitem', { name: 'Move Koma left', exact: true })).toBeDisabled();
+  await expect(menu.getByRole('menuitem', { name: 'Move Koma right', exact: true })).toBeEnabled();
   await capture(window, '02-koma-menu');
   await menu.getByRole('menuitem').first().press('End');
   await expect(menu.getByRole('menuitem', { name: 'Delete Koma', exact: true })).toBeFocused();
@@ -84,24 +84,28 @@ test('the compact Koma footer keeps the full menu, keyboard dismissal and destru
   expect(running.problems).toEqual([]);
 });
 
-test('returning from Brand Kit restores Inspect focus and concise template actions still fill and save drafts', async () => {
+test('returning from Brand Kit restores Inspector focus and concise template actions still fill and save drafts', async () => {
   const { window, application } = running;
   await application.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800),
   );
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   const back = window.getByRole('button', { name: 'Back to Inspector', exact: true });
   await expect(back).toHaveAttribute('title', 'Back to Inspector');
   await expect(back).toBeInViewport({ ratio: 1 });
   await capture(window, '02-brand-kit-navigation');
   await back.focus();
   await back.press('Enter');
-  await expect(window.getByRole('tab', { name: 'Inspect', exact: true })).toBeFocused();
-  await expect(window.getByRole('complementary', { name: 'Inspector', exact: true })).toBeVisible();
-  await showChat(window);
+  const inspector = window.getByRole('complementary', { name: 'Inspector', exact: true });
+  await expect(inspector).toBeVisible();
+  await expect(inspector.getByRole('tab', { selected: true })).toBeFocused();
+  // Provider refresh stays one menu away instead of in a permanent header.
+  await window.getByRole('button', { name: 'Project menu', exact: true }).click();
   await expect(
-    window.getByRole('button', { name: 'Refresh providers', exact: true }),
+    window.getByRole('menuitem', { name: 'Refresh providers', exact: true }),
   ).toBeVisible();
+  await window.keyboard.press('Escape');
+  await expect(window.getByRole('button', { name: 'Project menu', exact: true })).toBeFocused();
   await openSettingsPage(window, 'Instructions');
   await window.getByLabel('Project system instructions').fill('Use plain language.');
   await openSettingsPage(window, 'Templates');

@@ -1,5 +1,5 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useEffect, useId, type KeyboardEvent, type ReactElement } from 'react';
+import { useEffect, useId, type KeyboardEvent, type ReactElement, type ReactNode } from 'react';
 import { loadBrandKitLibrary } from '../lib/brandKitLibraryActions';
 import { selectSavedKits, useBrandKitLibraryStore } from '../state/brandKitLibraryStore';
 import { useUiStore, type BrandKitTab } from '../state/uiStore';
@@ -14,15 +14,18 @@ const TABS: readonly { readonly id: BrandKitTab; readonly label: string }[] = [
 ];
 
 /**
- * The Brand Kit beside the canvas. It takes the place of the inspector, so
- * the canvas, the Komas and the transition controls stay where they are.
+ * The Brand Kit in the properties panel. It takes the place of the Inspector,
+ * so the canvas, the Komas and the transition controls stay where they are.
  */
 export function BrandKitPanel({
   project,
   active,
+  actions,
 }: {
   readonly project: KomaProject;
   readonly active: boolean;
+  /** Panel controls shown at the end of the header, such as Pin and Close. */
+  readonly actions?: ReactNode;
 }): ReactElement {
   const tab = useUiStore((state) => state.brandKitTab);
   const setTab = useUiStore((state) => state.setBrandKitTab);
@@ -54,14 +57,17 @@ export function BrandKitPanel({
             setView('canvas');
             requestAnimationFrame(() => {
               document
-                .querySelector<HTMLButtonElement>('[role="tab"][aria-label="Inspect"]')
+                .querySelector<HTMLButtonElement>(
+                  '[aria-label="Inspector"] [role="tab"][aria-selected="true"]',
+                )
                 ?.focus();
             });
           }}
         >
           <ChevronIcon direction="left" />
         </IconButton>
-        <h2 className="text-base font-semibold">Brand Kit</h2>
+        <h2 className="min-w-0 flex-1 text-base font-semibold">Brand Kit</h2>
+        {actions}
       </div>
 
       <div role="tablist" aria-label="Brand Kit" className={`${SEGMENT_TRACK} flex-none p-2`}>

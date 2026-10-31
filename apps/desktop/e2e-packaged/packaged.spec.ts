@@ -16,6 +16,7 @@ import {
   openSettingsPage,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
 } from '../e2e/application';
 import { selectProvider } from '../e2e/composerControls';
 
@@ -99,7 +100,7 @@ test('creates, generates, previews, edits, saves and reopens a presentation', as
     .poll(() => window.evaluate(() => document.fonts.check('16px "Instrument Sans Variable"')))
     .toBe(true);
 
-  await window.getByRole('button', { name: 'Preview', exact: true }).click();
+  await window.getByRole('button', { name: 'Play', exact: true }).click();
   const stage = window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]');
   await expect(stage).toHaveAttribute('aria-label', 'Koma 2: The motion engine', {
     timeout: 15_000,
@@ -111,7 +112,7 @@ test('creates, generates, previews, edits, saves and reopens a presentation', as
   await expect(window.getByLabel('Width', { exact: true })).toHaveValue('460');
 
   await answerSaveDialog(application, filePath);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(filePath, 'utf8')));
   expect(saved).toMatchObject({
@@ -125,7 +126,7 @@ test('creates, generates, previews, edits, saves and reopens a presentation', as
     )?.size.width,
   ).toBe(460);
   await answerOpenDialog(application, filePath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(window.getByLabel('Project name')).toHaveValue('Packaged');
   await window.getByRole('button', { name: 'Koma 2: The motion engine', exact: true }).click();
   await stage.getByRole('button', { name: 'Motion engine (shape)', exact: true }).click();

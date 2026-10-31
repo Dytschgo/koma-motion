@@ -33,7 +33,7 @@ const BUTTON_VARIANTS = {
   outline:
     'border border-line-strong bg-surface-2 text-ink-100 shadow-raised hover:border-ink-400/60 hover:bg-surface-3 disabled:border-line disabled:bg-transparent disabled:text-line-strong disabled:shadow-none disabled:hover:bg-transparent',
   danger:
-    'bg-motion text-surface-0 font-semibold shadow-raised hover:bg-[#f48673] disabled:bg-surface-3 disabled:text-ink-400 disabled:shadow-none',
+    'bg-motion text-surface-0 font-semibold shadow-raised hover:bg-accent-hover disabled:bg-surface-3 disabled:text-ink-400 disabled:shadow-none',
 } as const;
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -295,8 +295,8 @@ export function Help({
 }
 
 const CONTROL =
-  'rounded-control border border-line-strong bg-surface-0 px-2.5 text-ink-100 shadow-[0_1px_2px_rgb(0_0_0/0.2)_inset] placeholder:text-ink-400 ' +
-  'transition-[border-color,background-color,box-shadow] duration-150 ease-standard hover:border-ink-400/70 focus:border-accent focus:shadow-[0_0_0_3px_rgb(124_196_232/0.16)] ' +
+  'rounded-control border border-line-strong bg-surface-0 px-2.5 text-ink-100 shadow-[inset_0_1px_2px_oklch(30%_0.02_60/0.06)] placeholder:text-ink-400 ' +
+  'transition-[border-color,background-color,box-shadow] duration-150 ease-standard hover:border-ink-400/70 focus:border-accent focus:shadow-[0_0_0_3px_oklch(62%_0.17_35/0.16)] ' +
   'disabled:cursor-not-allowed disabled:border-line disabled:bg-surface-1 disabled:text-ink-400 disabled:hover:border-line ' +
   'aria-invalid:border-motion';
 
@@ -564,7 +564,7 @@ export function SearchField({
       className={join(
         'flex min-w-0 items-center gap-2',
         variant === 'field' &&
-          'min-h-9 rounded-control border border-line-strong bg-surface-0 px-2.5 transition-[border-color,box-shadow] duration-150 ease-standard focus-within:border-accent focus-within:shadow-[0_0_0_3px_rgb(124_196_232/0.16)] hover:border-ink-400/70',
+          'min-h-9 rounded-control border border-line-strong bg-surface-0 px-2.5 transition-[border-color,box-shadow] duration-150 ease-standard focus-within:border-accent focus-within:shadow-[0_0_0_3px_oklch(62%_0.17_35/0.16)] hover:border-ink-400/70',
         className,
       )}
     >

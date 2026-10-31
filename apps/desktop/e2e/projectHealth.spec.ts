@@ -16,6 +16,10 @@ import {
   showInspector,
   showChat,
   type RunningApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
+  openBrandKit,
+  showGenerationOptions,
 } from './application';
 
 let running: RunningApplication;
@@ -73,7 +77,7 @@ async function writeProject(name: string, project: unknown): Promise<string> {
 }
 async function open(path: string, discard = false): Promise<void> {
   await answerOpenDialog(running.application, path);
-  await running.window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(running.window, 'Open');
   if (discard)
     await running.window
       .getByRole('dialog', { name: 'Discard unsaved changes?' })
@@ -81,7 +85,10 @@ async function open(path: string, discard = false): Promise<void> {
       .click();
 }
 async function showHealth(): Promise<void> {
-  await running.window.getByRole('button', { name: /^Project health/ }).click();
+  // The bar shows Project health only while there are issues; the menu always has it.
+  const trigger = running.window.getByRole('button', { name: /^Project health/ });
+  if (await trigger.isVisible()) await trigger.click();
+  else await chooseProjectCommand(running.window, 'Project health');
   await expect(health()).toBeVisible();
 }
 
@@ -123,7 +130,7 @@ test('failed migration preserves original bytes, the active document and draft; 
   await running.window.getByRole('button', { name: 'Create a project' }).click();
   await showInspector(running.window);
   await running.window.getByLabel('Project name', { exact: true }).fill('Keep my edits');
-  await running.window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(running.window);
   await running.window.getByLabel('Primary colour', { exact: true }).fill('unfinished');
   const source = await writeProject('failed-migration.koma', {
     ...buildProject(),
@@ -149,7 +156,7 @@ test('failed migration preserves original bytes, the active document and draft; 
   await expect(running.window.getByLabel('Primary colour', { exact: true })).toHaveValue(
     'unfinished',
   );
-  await running.window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(running.window);
   await expect(running.window.getByLabel('Project name', { exact: true })).toHaveValue(
     'Keep my edits',
   );
@@ -168,6 +175,7 @@ test('Save current format writes the current version; optional generation timing
   await health().getByRole('button', { name: 'Close', exact: true }).click();
   await showChat(running.window);
   // No time limit: the composer shows no stop time.
+  await showGenerationOptions(running.window);
   await expect(
     running.window.getByRole('button', { name: 'Change generation time limit', exact: true }),
   ).toHaveCount(0);
@@ -175,6 +183,7 @@ test('Save current format writes the current version; optional generation timing
   const settings = running.window.getByRole('dialog', { name: 'Settings', exact: true });
   await settings.getByLabel('Generation time limit', { exact: true }).selectOption('300');
   await settings.getByRole('button', { name: 'Done' }).click();
+  await showGenerationOptions(running.window);
   await expect(running.window.getByText('Limit: 5 minutes', { exact: false })).toBeVisible();
   await showHealth();
   await expect(health()).toContainText('No project issues found');
@@ -223,7 +232,7 @@ for (const corrupt of [false, true]) {
     await health().getByRole('button', { name: 'Close', exact: true }).click();
     await running.window.getByRole('button', { name: 'Redo', exact: true }).click();
     await answerSaveDialog(running.application, join(running.directory, 'repaired.koma'));
-    await running.window.getByRole('button', { name: 'Save as', exact: true }).click();
+    await chooseShareCommand(running.window, 'Save as');
     await expect(running.window.getByText('All changes saved', { exact: true })).toBeVisible();
     const savedText = await readFile(join(running.directory, 'repaired.koma'), 'utf8');
     expect(savedText).not.toContain(running.directory);

@@ -7,6 +7,8 @@ import {
   showChat,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  openBrandKit,
 } from './application';
 
 /**
@@ -67,7 +69,7 @@ for (const size of SIZES) {
     await window.getByRole('tab', { name: 'Element' }).click();
     await shot('07-inspector-element');
 
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await shot('08-brand-kit');
     await window.getByRole('button', { name: 'Back to Inspector' }).click();
 
@@ -77,11 +79,11 @@ for (const size of SIZES) {
     await shot('10-settings-providers');
     await window.getByRole('button', { name: 'Done' }).click();
 
-    await window.getByRole('button', { name: 'Project health' }).click();
+    await chooseProjectCommand(window, 'Project health');
     await shot('11-project-health');
     await window.keyboard.press('Escape');
 
-    await window.getByRole('button', { name: 'New', exact: true }).click();
+    await chooseProjectCommand(window, 'New');
     const confirm = window.getByRole('alertdialog');
     if (await confirm.isVisible().catch(() => false)) {
       await shot('12-confirm');

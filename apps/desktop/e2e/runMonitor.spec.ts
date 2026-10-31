@@ -85,24 +85,24 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
     )
     .toBe('failed');
   expect([...seen]).toEqual(expect.arrayContaining(['generating', 'repairing', 'failed']));
-  await expect(window.getByText('Generation failed')).toBeVisible();
-  const failure = window.getByRole('alert').filter({ hasText: 'Generation failed' });
+  // One concise line where the request was made; the details stay optional.
+  await expect(window.getByText('Couldn’t use the result. Nothing changed.')).toBeVisible();
+  const failure = window
+    .getByRole('alert')
+    .filter({ hasText: 'Couldn’t use the result. Nothing changed.' });
   await expect(
     failure.getByText('The generated Komas could not be used. Recheck to try again.', {
       exact: true,
     }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   const issue = failure.getByText(
     'presentation: Invalid input: expected object, received undefined',
     { exact: true },
   );
   await expect(issue).toBeHidden();
-  await expect(
-    failure.getByText('Your presentation was not changed.', { exact: true }),
-  ).toBeVisible();
   await expect(failure.getByRole('button', { name: 'Recheck', exact: true })).toBeEnabled();
   await window.screenshot({ path: test.info().outputPath('failure-summary.png'), scale: 'css' });
-  const details = failure.locator('summary').filter({ hasText: 'Diagnostics' });
+  const details = failure.locator('summary').filter({ hasText: 'Details' });
   await details.focus();
   await details.press('Enter');
   await expect(
@@ -179,9 +179,10 @@ test('keeps a still pose with reduced motion and survives hiding the chat during
   await expect(activity(window).getByRole('status')).toContainText('Generating');
 
   await window.getByRole('button', { name: 'Hide the chat' }).click();
-  await expect(
-    window.getByRole('button', { name: /Show the chat\. Komas are being generated/ }),
-  ).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Show the chat', exact: true })).toHaveAttribute(
+    'aria-description',
+    'Generating',
+  );
   await window.waitForTimeout(2200);
   await window.getByRole('button', { name: /Show the chat/ }).click();
   await expect(activity(window)).toHaveAttribute('data-run-phase', 'generating');

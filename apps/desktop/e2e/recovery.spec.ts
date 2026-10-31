@@ -10,6 +10,7 @@ import {
   launchApplication,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
 } from './application';
 
 let running: RunningApplication | undefined;
@@ -64,7 +65,7 @@ async function openAndEdit() {
   const original = JSON.stringify(fixture());
   await writeFile(source, original);
   await answerOpenDialog(running.application, source);
-  await running.window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(running.window, 'Open');
   await showInspector(running.window);
   await running.window.getByRole('tab', { name: 'Koma', exact: true }).click();
   await running.window
@@ -116,14 +117,14 @@ test('forced termination offers committed edits, images and holds as an unsaved 
   ).toBeVisible();
   await app.window.screenshot({ path: testInfo.outputPath('recovered-copy.png') });
   await answerSaveDialog(app.application, source);
-  await app.window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(app.window, 'Save');
   await expect(
     app.window.getByRole('alert').filter({ hasText: 'Choose a different name' }),
   ).toBeVisible();
   expect(await readFile(source, 'utf8')).toBe(original);
   const copy = join(directory, 'recovered-copy.koma');
   await answerSaveDialog(app.application, copy);
-  await app.window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(app.window, 'Save');
   await expect(app.window.getByText('All changes saved', { exact: true })).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(copy, 'utf8')));
   expect(saved.presentation.komas[0]?.title).toBe('Recovered committed title');
@@ -138,7 +139,7 @@ test('forced termination offers committed edits, images and holds as an unsaved 
     app.window.getByRole('dialog', { name: 'Recover interrupted work' }),
   ).not.toBeVisible();
   await answerOpenDialog(app.application, copy);
-  await app.window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(app.window, 'Open');
   await expect(
     app.window.getByRole('list', { name: 'Komas' }).getByRole('button', {
       name: 'Koma 1: Recovered committed title',

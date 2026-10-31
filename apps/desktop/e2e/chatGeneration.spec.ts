@@ -51,15 +51,12 @@ test('retrying a stopped request preserves a different follow-up draft and block
   expect(problems).toEqual([]);
 });
 
-test('keeps the composer and header stationary around a scrollable conversation in a short window', async () => {
+test('keeps the prompt and top bar stationary around a scrollable conversation in a short window', async () => {
   const { window, application, problems } = running;
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1024, 655);
   });
   const chat = window.getByRole('region', { name: 'Agent chat' });
-  const divider = window.getByRole('separator', { name: 'Resize studio dock' });
-  await divider.focus();
-  await window.keyboard.press('Home');
   const request = window.getByLabel('Your request');
   await request.fill('Create the starting Komas.');
   await request.press('Enter');
@@ -75,15 +72,16 @@ test('keeps the composer and header stationary around a scrollable conversation 
       log.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight),
     )
     .toBeLessThan(48);
-  await divider.focus();
-  await window.keyboard.press('Shift+ArrowLeft');
+  await application.evaluate(({ BrowserWindow }) => {
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1060, 655);
+  });
   await expect
     .poll(() =>
       log.evaluate((element) => element.scrollHeight - element.scrollTop - element.clientHeight),
     )
     .toBeLessThan(48);
   await expect(request).toBeInViewport({ ratio: 1 });
-  await expect(window.getByTestId('chat-header')).toBeInViewport({ ratio: 1 });
+  await expect(window.getByRole('banner')).toBeInViewport({ ratio: 1 });
   await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeInViewport({ ratio: 1 });
   await expect
     .poll(() => chat.evaluate((body) => body.scrollHeight - body.clientHeight))
@@ -101,8 +99,8 @@ test('keeps the composer and header stationary around a scrollable conversation 
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800);
   });
   expect(await log.evaluate((element) => element.scrollTop)).toBeLessThan(10);
-  await expect(window.getByTestId('chat-header')).toBeInViewport({ ratio: 1 });
-  // Reading history is still reading history after visiting another dock context.
+  await expect(window.getByRole('banner')).toBeInViewport({ ratio: 1 });
+  // Reading history is still reading history after collapsing and expanding the conversation.
   for (const target of [0, 120]) {
     await log.evaluate((element, top) => {
       element.scrollTop = top;
@@ -110,8 +108,9 @@ test('keeps the composer and header stationary around a scrollable conversation 
     }, target);
     const readingPosition = await log.evaluate((element) => element.scrollTop);
     await expect(chat.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
-    await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
-    await window.getByRole('tab', { name: 'Chat', exact: true }).click();
+    await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();
+    await expect(log).toBeHidden();
+    await window.getByRole('button', { name: 'Show the chat', exact: true }).click();
     await expect.poll(() => log.evaluate((element) => element.scrollTop)).toBe(readingPosition);
     await expect(chat.getByRole('button', { name: 'Jump to latest' })).toBeVisible();
     await expect(request).toHaveValue('Shorter draft while I keep reading history.');

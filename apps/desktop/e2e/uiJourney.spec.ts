@@ -4,9 +4,13 @@ import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import {
   answerSaveDialog,
+  chooseProjectCommand,
+  chooseShareCommand,
   launchApplication,
   openSettingsPage,
   showChat,
+  showGenerationOptions,
+  showInspector,
   type RunningApplication,
 } from './application';
 import { countTrigger, openProviderChoices } from './composerControls';
@@ -29,12 +33,11 @@ async function demo() {
   await expect(running.window.getByText(/Created 3 Komas/)).toBeVisible();
 }
 
-test('the title-bar name stays editable with thumbnails collapsed and saves independently of the filename', async () => {
+test('the title-bar name stays editable and saves independently of the filename', async () => {
   await demo();
   const { window, application, directory } = running;
   const header = window.getByRole('banner');
   const name = header.getByLabel('Project name', { exact: true });
-  await window.getByRole('button', { name: 'Hide Koma thumbnails', exact: true }).click();
   await name.fill('');
   await expect(name).toHaveAttribute('aria-invalid', 'true');
   await expect(header.getByRole('alert')).toContainText('A project needs a name');
@@ -47,13 +50,16 @@ test('the title-bar name stays editable with thumbnails collapsed and saves inde
   await expect(name).toHaveValue('A clear title');
   const path = join(directory, 'different-filename.koma');
   await answerSaveDialog(application, path);
-  await header.getByRole('button', { name: 'Save as', exact: true }).click();
+  await chooseShareCommand(window, 'Save as');
   await expect(header.getByText('All changes saved', { exact: true })).toBeVisible();
-  await expect(header.getByText('different-filename.koma', { exact: true })).toBeVisible();
+  // The file stays available as the saved state's tooltip, not as more text.
+  await expect(header.getByText('All changes saved', { exact: true })).toHaveAttribute(
+    'title',
+    /different-filename.koma$/,
+  );
   expect(komaProjectSchema.parse(JSON.parse(await readFile(path, 'utf8'))).name).toBe(
     'A clear title',
   );
-  await window.getByRole('button', { name: 'Show Koma thumbnails', exact: true }).click();
   const overview = window.getByRole('button', { name: 'Deck overview', exact: true });
   await overview.focus();
   await overview.press('Enter');
@@ -74,9 +80,8 @@ test('long project names use available title-bar space without displacing narrow
   await name.fill(projectName);
   await name.press('Tab');
   await answerSaveDialog(application, join(directory, fileName));
-  await header.getByRole('button', { name: 'Save as', exact: true }).click();
+  await chooseShareCommand(window, 'Save as');
   await expect(header.getByText('All changes saved', { exact: true })).toBeVisible();
-  const filename = header.getByText(fileName, { exact: true });
   for (const width of [1480, 1120]) {
     await application.evaluate(({ BrowserWindow }, contentWidth) => {
       BrowserWindow.getAllWindows()[0]?.setContentSize(contentWidth, 700);
@@ -85,23 +90,21 @@ test('long project names use available title-bar space without displacing narrow
     await expect
       .poll(() => name.evaluate((field) => field.scrollWidth <= field.clientWidth + 1))
       .toBe(true);
-    await expect
-      .poll(() => filename.evaluate((label) => label.scrollWidth <= label.clientWidth + 1))
-      .toBe(true);
     for (const action of [
-      'Save',
-      'Save as',
-      'Export',
-      'Preview',
+      'Project menu',
+      'Undo',
+      'Redo',
+      'Add element',
+      'Properties',
+      'Play',
       'Present',
-      'Getting started',
-      'Settings',
+      'Share',
     ]) {
       await expect(header.getByRole('button', { name: action, exact: true })).toBeInViewport({
         ratio: 1,
       });
     }
-    await expect(header.getByRole('button', { name: 'Preview', exact: true })).toBeEnabled();
+    await expect(header.getByRole('button', { name: 'Play', exact: true })).toBeEnabled();
     await window.screenshot({
       path: test.info().outputPath(`long-title-${width}.png`),
       scale: 'css',
@@ -124,6 +127,7 @@ test('the example count agrees with its request and does not manufacture a misma
   await create();
   const { window } = running;
   await window.getByRole('button', { name: 'Use the example request' }).click();
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toContainText('3 Komas');
   await window.getByRole('button', { name: 'Generate Komas', exact: true }).click();
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
@@ -176,18 +180,23 @@ test('a selected-Koma proposal reads as ready for review and stays undoable afte
 test('a healthy project does not show instructions about unresolved issues', async () => {
   await create();
   const { window } = running;
-  await window.getByRole('button', { name: 'Project health', exact: true }).click();
+  // A healthy project keeps Project health in the project menu instead of the bar.
+  await expect(window.getByRole('button', { name: 'Project health', exact: true })).toHaveCount(0);
+  await chooseProjectCommand(window, 'Project health');
   const health = window.getByRole('dialog', { name: 'Project health', exact: true });
   await expect(health).toContainText('No project issues found.');
   await expect(health.getByText(/Hiding a notification does not fix/)).toHaveCount(0);
 });
 
-test('a blank deck is not told to add another Koma', async () => {
+test('a single Koma offers no motion to play and no explanatory text', async () => {
   await create();
   const { window } = running;
-  await expect(window.getByText('Add another Koma for motion.', { exact: true })).toHaveCount(0);
   await window.getByRole('button', { name: 'Add first Koma', exact: true }).click();
-  await expect(window.getByText('Add another Koma for motion.', { exact: true })).toBeVisible();
+  await expect(window.getByRole('button', { name: /^Koma 1:/ })).toHaveCount(1);
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
+  await expect(window.getByRole('button', { name: /^Preview the transition/ })).toHaveCount(0);
+  await expect(window.getByRole('group', { name: 'Transition preview' })).toHaveCount(0);
+  await expect(window.getByText('Add another Koma for motion.', { exact: true })).toHaveCount(0);
 });
 
 test('mock run details show only the active provider without starting another request', async () => {
@@ -209,7 +218,7 @@ test('mock run details show only the active provider without starting another re
 test('export groups repeated font caveats without losing their details or the destination action', async () => {
   await demo();
   const { window, application, directory } = running;
-  await window.getByRole('button', { name: 'Export', exact: true }).click();
+  await chooseShareCommand(window, 'Export PowerPoint');
   const dialog = window.getByRole('dialog', { name: 'Export PowerPoint', exact: true });
   const summary = dialog
     .locator('summary')
@@ -274,8 +283,10 @@ test('canvas and panel navigation preserve the sent request and the empty follow
       });
     });
   });
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Model', exact: true }).click();
   await window.keyboard.press('Escape');
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Choose Brand Kit', exact: true }).click();
   await window.keyboard.press('Escape');
   await window.getByRole('button', { name: 'Use the example request' }).click();
@@ -292,7 +303,9 @@ test('canvas and panel navigation preserve the sent request and the empty follow
   for (let round = 0; round < 3; round += 1) {
     await window.getByRole('button', { name: 'Koma 1: One connected system', exact: true }).click();
     await stage.locator('[data-element-id]').first().click({ force: true });
+    await showInspector(window);
     await window.getByRole('tab', { name: /^Element(?::|$)/ }).click();
+    await window.getByRole('button', { name: 'Close properties', exact: true }).click();
     await showChat(window);
     await expect(bubble).toHaveText(expectedBubble);
     await expect(request).toHaveValue('');

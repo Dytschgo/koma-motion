@@ -14,6 +14,10 @@ import {
   answerSaveDialog,
   launchApplication,
   type RunningApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
+  openBrandKit,
+  showTransitionControls,
 } from './application';
 
 const ONE_PIXEL =
@@ -50,10 +54,7 @@ function harbourProjectText(): string {
 }
 
 async function openLibrary(page: Page): Promise<void> {
-  const toggle = page.getByRole('button', { name: 'Brand Kit', exact: true });
-  if ((await toggle.getAttribute('aria-pressed')) !== 'true') {
-    await toggle.click();
-  }
+  await openBrandKit(page);
   await page.getByRole('tab', { name: /Library/ }).click();
 }
 
@@ -85,7 +86,7 @@ test('saves a Brand Kit with its logo and applies it to another project', async 
 
   await test.step('build a Brand Kit with a logo in a first project', async () => {
     await window.getByRole('button', { name: 'Create a project' }).click();
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     const name = window.getByLabel('Brand name');
     await name.fill('Acme Corp');
     await name.blur();
@@ -119,7 +120,7 @@ test('saves a Brand Kit with its logo and applies it to another project', async 
 
   await test.step('replace the project and apply the saved kit there', async () => {
     await answerOpenDialog(application, harbourPath);
-    await window.getByRole('button', { name: 'Open', exact: true }).click();
+    await chooseProjectCommand(window, 'Open');
     await window.getByRole('button', { name: 'Discard changes' }).click();
     await expect(window.getByLabel('Project name')).toHaveValue('Harbour project');
 
@@ -153,7 +154,7 @@ test('saves a Brand Kit with its logo and applies it to another project', async 
   await test.step('save the project with its own copy of the logo', async () => {
     const savedPath = join(directory, 'harbour-acme.koma');
     await answerSaveDialog(application, savedPath);
-    await window.getByRole('button', { name: 'Save as' }).click();
+    await chooseShareCommand(window, 'Save as');
     await expect(window.getByText('All changes saved')).toBeVisible();
     const text = await readFile(savedPath, 'utf8');
     expect(text).toContain(ONE_PIXEL);
@@ -309,7 +310,7 @@ test('keeps the canvas controls usable beside the Brand Kit at the minimum width
   await window.getByRole('button', { name: 'Generate Komas' }).click();
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
 
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   const panel = window.getByRole('complementary', { name: 'Brand Kit' });
   await expect(panel.getByLabel('Brand name')).toBeVisible();
   const page = await window.locator('body').boundingBox();
@@ -317,6 +318,7 @@ test('keeps the canvas controls usable beside the Brand Kit at the minimum width
   expect(panelBox?.width ?? 0).toBeGreaterThanOrEqual(360);
   expect((panelBox?.x ?? 0) + (panelBox?.width ?? 0)).toBeLessThanOrEqual((page?.width ?? 0) + 1);
 
+  await showTransitionControls(window);
   const slider = window.getByLabel('Position in the transition');
   await expect(slider).toBeVisible();
   expect((await slider.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(96);
@@ -330,12 +332,11 @@ test('keeps the canvas controls usable beside the Brand Kit at the minimum width
   await expect(panel).toBeVisible();
   await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(panel).toHaveCount(0);
-  // Closing Brand Kit returns to properties in the shared dock.
+  // Leaving the Brand Kit returns to properties in the same panel; the prompt stays.
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
-  await window.getByRole('tab', { name: 'Chat', exact: true }).click();
   await expect(window.getByRole('region', { name: 'Agent chat' })).toBeVisible();
-  await window.getByRole('tab', { name: 'Inspect', exact: true }).click();
-  await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
+  await window.getByRole('button', { name: 'Close properties', exact: true }).click();
+  await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeHidden();
 });
 
 test('replaces invalid Brand Kit text with a saved kit the project already uses', async () => {

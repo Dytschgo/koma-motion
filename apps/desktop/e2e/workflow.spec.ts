@@ -13,6 +13,10 @@ import {
   showChat,
   type RunningApplication,
   openSettingsPage,
+  chooseProjectCommand,
+  openBrandKit,
+  showGenerationOptions,
+  showTransitionControls,
 } from './application';
 import { openProviderChoices } from './composerControls';
 
@@ -55,6 +59,7 @@ test('explains the mock demo and how to generate from a request', async () => {
   await expect(mockExplanation).toHaveCount(0);
   await expect(window.getByText('What would you like to present?')).toBeVisible();
   await expect(window.getByText(/^Claude Code sends your request.*online\.$/)).toBeVisible();
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Model', exact: true }).click();
   await expect(providerChoices).toHaveCount(0);
   await window.getByRole('button', { name: 'Use the example request' }).click();
@@ -89,7 +94,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   });
 
   await test.step('configure the Brand Kit', async () => {
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await window.getByLabel('Brand name').fill('Koma Motion');
     await window.getByLabel('Primary colour').fill('#e4572e');
 
@@ -109,6 +114,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     await expect(provider).toHaveValue('mock');
     await expect(providerChoices.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
     await expect(providerChoices.getByText('Demo only · 3 Komas')).toBeVisible();
+    await showGenerationOptions(window);
     await window.getByRole('button', { name: 'Model', exact: true }).click();
   });
 
@@ -120,7 +126,6 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     const komas = window.getByRole('list', { name: 'Komas' });
     await expect(komas.getByRole('button', { name: /^Koma \d:/ })).toHaveCount(3);
     await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
-    await window.getByRole('button', { name: 'Show Koma details' }).click();
     await expect(komas.getByRole('button', { name: /^Preview the transition/ })).toHaveCount(2);
   });
 
@@ -151,8 +156,9 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     const atRest = await getEnginePosition();
 
     // A long transition leaves time to look at a frame in the middle of it.
+    await showTransitionControls(window);
     await window.getByLabel('Transition duration in seconds').fill('4');
-    await window.getByRole('button', { name: 'Preview', exact: true }).click();
+    await window.getByRole('button', { name: 'Play', exact: true }).click();
     await expect(window.getByRole('button', { name: 'Pause' })).toBeVisible();
     await expect(getStage()).toHaveAttribute(
       'aria-label',
@@ -178,7 +184,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
 
   await test.step('save the project', async () => {
     await answerSaveDialog(application, filePath);
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect(window.getByText('All changes saved')).toBeVisible();
     await expect(window.getByText('introduction.koma', { exact: true })).toBeVisible();
 
@@ -196,11 +202,11 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
   await test.step('reopen the project without losing content', async () => {
     const saved = await readFile(filePath, 'utf8');
 
-    await window.getByRole('button', { name: 'New', exact: true }).click();
+    await chooseProjectCommand(window, 'New');
     await expect(window.getByRole('list', { name: 'Komas' })).toHaveCount(0);
 
     await answerOpenDialog(application, filePath);
-    await window.getByRole('button', { name: 'Open', exact: true }).click();
+    await chooseProjectCommand(window, 'Open');
     await expect(window.getByLabel('Project name')).toHaveValue('Introduction');
     await expect(
       window.getByRole('list', { name: 'Komas' }).getByRole('button', { name: /^Koma \d:/ }),
@@ -210,7 +216,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     // Saving the reopened project writes the same content again.
     await window.getByLabel('Project name').fill('Introduction ');
     await window.getByLabel('Project name').fill('Introduction');
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect(window.getByText('All changes saved')).toBeVisible();
     const withoutTime = (text: string): string => text.replace(/"updatedAt": "[^"]+"/, '');
     expect(withoutTime(await readFile(filePath, 'utf8'))).toBe(withoutTime(saved));
@@ -237,7 +243,6 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
   await expect(komas).toHaveCount(3);
 
   await test.step('a new Koma continues the selected Koma', async () => {
-    await window.getByRole('button', { name: 'Show Koma details' }).click();
     await window.getByRole('button', { name: 'Add Koma' }).click();
     await expect(komas).toHaveCount(4);
     expect(await titles()).toEqual([
@@ -281,7 +286,7 @@ test('adds, moves and deletes Komas and undoes every step', async () => {
   });
 
   await test.step('move and delete', async () => {
-    await chooseKomaAction(window, 'Move Koma down');
+    await chooseKomaAction(window, 'Move Koma right');
     expect((await titles())[2]).toBe('Koma 3: Koma 4');
 
     await chooseKomaAction(window, 'Delete Koma');
@@ -376,7 +381,7 @@ test('adds a logo to the Brand Kit without storing where it came from', async ()
   await writeFile(logoPath, Buffer.from(onePixel, 'base64'));
 
   await window.getByRole('button', { name: 'Create a project' }).click();
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   await answerOpenDialog(application, logoPath);
   await window.getByRole('button', { name: 'Choose a logo' }).click();
   await expect(window.getByRole('button', { name: 'Replace the logo' })).toBeVisible();
@@ -386,7 +391,7 @@ test('adds a logo to the Brand Kit without storing where it came from', async ()
   ).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
   await answerSaveDialog(application, projectPath);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const text = await readFile(projectPath, 'utf8');
   expect(text).toContain(onePixel);
@@ -443,19 +448,19 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
   const canvasImage = getStage().getByRole('img', { name: 'Original logo' });
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   await answerOpenDialog(application, replacementPath);
   await window.getByRole('button', { name: 'Replace the logo' }).click();
   await expect(window.getByText('replacement.png')).toBeVisible();
   await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   await window.getByRole('button', { name: 'Remove the logo' }).click();
   await window.getByRole('button', { name: 'Back to Inspector' }).click();
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = JSON.parse(await readFile(projectPath, 'utf8')) as unknown;
   expect(saved).toMatchObject({
@@ -463,9 +468,9 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
     assets: [{ id: 'asset-original-logo', embeddedData: { data: onePixel } }],
   });
 
-  await window.getByRole('button', { name: 'New', exact: true }).click();
+  await chooseProjectCommand(window, 'New');
   await answerOpenDialog(application, projectPath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
   const originalAsset = project.assets[0];
@@ -490,10 +495,10 @@ test('keeps a canvas image through logo edits and reports the asset limit', asyn
   const fullPath = join(directory, 'full-project.koma');
   await writeFile(fullPath, fullText.value, 'utf8');
   await answerOpenDialog(application, fullPath);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(canvasImage).toHaveAttribute('src', `data:image/png;base64,${onePixel}`);
 
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+  await openBrandKit(window);
   await answerOpenDialog(application, replacementPath);
   await window.getByRole('button', { name: 'Replace the logo' }).click();
   await expect(window.getByRole('alert')).toContainText(`${String(MAX_PROJECT_ASSETS)} images`);
@@ -515,7 +520,12 @@ test('offers the verified editable PowerPoint exporter', async () => {
   await window.getByRole('button', { name: 'Create a project' }).click();
   await openSettingsPage(window, 'About');
   await expect(window.getByText('PowerPoint: available')).toBeVisible();
-  await expect(window.getByRole('button', { name: 'Export', exact: true })).toBeDisabled();
+  await window.getByRole('button', { name: 'Done' }).click();
+  // An empty project cannot be exported yet.
+  await window.getByRole('button', { name: 'Share', exact: true }).click();
+  await expect(
+    window.getByRole('menuitem', { name: 'Export PowerPoint', exact: true }),
+  ).toBeDisabled();
 });
 
 test('explains why a file cannot be opened', async () => {

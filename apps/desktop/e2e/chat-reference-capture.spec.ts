@@ -21,13 +21,6 @@ for (const width of [1480, 1120] as const) {
       await expect.poll(() => window.evaluate(() => innerWidth)).toBe(width);
       await window.getByRole('button', { name: 'Create a project' }).click();
       const chat = window.getByRole('region', { name: 'Agent chat' });
-      const divider = window.getByRole('separator', { name: 'Resize studio dock' });
-      await divider.focus();
-      if (width === 1120) {
-        await window.keyboard.press('Home');
-      } else {
-        for (let index = 0; index < 3; index += 1) await window.keyboard.press('ArrowLeft');
-      }
       await window.screenshot({
         path: join(output, `empty-studio-${String(width)}.png`),
         scale: 'css',

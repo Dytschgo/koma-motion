@@ -19,6 +19,8 @@ import {
   launchApplication,
   openSettingsPage,
   showInspector,
+  chooseProjectCommand,
+  showGenerationOptions,
 } from './application';
 
 const provider = process.env['KOMA_LIVE_E2E'] ?? '';
@@ -64,6 +66,7 @@ for (const starter of STARTER_PRESETS.filter((preset) => only === '' || preset.i
       if (model !== '') {
         const options = await openProviderChoices(window);
         await chooseModel(options, 'Model', model);
+        await showGenerationOptions(window);
         await window.getByRole('button', { name: 'Model', exact: true }).click();
       }
 
@@ -81,7 +84,7 @@ for (const starter of STARTER_PRESETS.filter((preset) => only === '' || preset.i
       await expect(komas.first()).toBeVisible();
 
       await answerSaveDialog(application, filePath);
-      await window.getByRole('button', { name: 'Save', exact: true }).click();
+      await chooseProjectCommand(window, 'Save');
       await expect(window.getByText('All changes saved')).toBeVisible();
       const saved = komaProjectSchema.parse(JSON.parse(await readFile(filePath, 'utf8')));
 
@@ -100,7 +103,7 @@ for (const starter of STARTER_PRESETS.filter((preset) => only === '' || preset.i
           (koma) => koma.id === transition.fromKomaId,
         );
         await komas.nth(fromIndex).click();
-        await window.getByRole('button', { name: 'Preview', exact: true }).click();
+        await window.getByRole('button', { name: 'Play', exact: true }).click();
         await expect(stage).toHaveAttribute('aria-label', /^Preview of the transition/);
         for (const fraction of [0.3, 0.6]) {
           await window.waitForTimeout(Math.round(transition.duration * 0.3));

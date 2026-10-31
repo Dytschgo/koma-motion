@@ -1,4 +1,4 @@
-import { useState, type ReactElement } from 'react';
+import { useEffect, useRef, useState, type ReactElement } from 'react';
 import {
   MIN_KOMA_HOLD_DURATION_MS,
   MAX_KOMA_HOLD_DURATION_MS,
@@ -12,12 +12,15 @@ import {
 import { invoke } from '../lib/api';
 import { usePresenterStore } from '../state/presenterStore';
 import { selectProject, useProjectStore } from '../state/projectStore';
-import { DownloadIcon } from './icons';
+import { useUiStore } from '../state/uiStore';
 import { Button, Field, Modal, NumberInput, Select } from './ui';
 import { ExportIssues } from './ExportIssues';
 import type { ExportIssue } from '../lib/exportIssues';
 
-/** This control is keyed by project session, so a replacement closes its dialog. */
+/**
+ * The export dialog. Share > Export PowerPoint opens it through `requestExport`.
+ * It is keyed by project session, so a replacement closes the dialog.
+ */
 export function PowerPointExport(): ReactElement {
   const project = useProjectStore(selectProject);
   const [snapshot, setSnapshot] = useState<KomaProject | null>(null);
@@ -78,17 +81,18 @@ export function PowerPointExport(): ReactElement {
     }
   };
 
+  const exportRequest = useUiStore((state) => state.exportRequest);
+  const handledRequest = useRef(exportRequest);
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => {
+    if (handledRequest.current === exportRequest) return;
+    handledRequest.current = exportRequest;
+    if (project !== null && project.presentation.komas.length > 0) void openRef.current();
+  }, [exportRequest, project]);
+
   return (
     <>
-      <Button
-        compact
-        data-guide-target="export"
-        icon={<DownloadIcon size={14} />}
-        disabled={project === null || project.presentation.komas.length === 0}
-        onClick={() => void open()}
-      >
-        Export
-      </Button>
       <Modal
         title="Export PowerPoint"
         open={snapshot !== null}

@@ -1,31 +1,31 @@
 @import 'tailwindcss';
 
 /*
- * The interface borrows from the animation desk. Surfaces are graphite with
- * a blue cast. The two signal colours are the pencils of an animator:
- * non-photo blue marks structure and selection, red marks motion.
+ * A quiet, warm paper desk. The Koma is the brightest thing on screen; the
+ * interface stays neutral and uses one coral for actions and selection.
+ * Document and Brand Kit colours are content and never follow these tokens.
  */
 @theme {
   --font-sans: 'Instrument Sans Variable', 'Segoe UI', system-ui, sans-serif;
 
-  --color-desk-950: #101317;
-  --color-desk-900: #15181d;
-  --color-desk-800: #1c2026;
-  --color-desk-700: #252a32;
-  --color-desk-600: #333a45;
-  --color-desk-500: #4a5361;
+  --color-paper-0: #ffffff;
+  --color-paper-50: #fbf9f6;
+  --color-paper-100: #f6f2ed;
+  --color-paper-200: #efe9e2;
+  --color-paper-300: #e6dfd6;
+  --color-paper-400: #d4cabe;
 
-  --color-ink-100: #e6e8ec;
-  --color-ink-300: #b9c0cc;
-  --color-ink-400: #9aa3b2;
+  --color-ink-100: #1f1b18;
+  --color-ink-300: #4f4943;
+  --color-ink-400: #6c655d;
 
-  --color-pencil-blue: #7cc4e8;
-  --color-pencil-blue-deep: #1d3a4a;
-  --color-pencil-red: #f0705a;
-  --color-pencil-red-deep: #4a241e;
+  --color-coral-500: #ee6a4d;
+  --color-coral-600: #c4462a;
+  --color-coral-700: #a93a21;
+  --color-coral-50: #fdede8;
 
-  --color-signal-ok: #7fd1a0;
-  --color-signal-warn: #f2c46d;
+  --color-signal-ok: #2f7d4f;
+  --color-signal-warn: #94600a;
 
   --text-xs: 0.6875rem;
   --text-sm: 0.75rem;
@@ -35,29 +35,30 @@
   --text-2xl: 1.5rem;
 
   /*
-   * Semantic layer. Components name the role of a surface, not its shade, so
-   * elevation reads the same everywhere: the desk is darkest, sheets placed on
-   * it get lighter, and a raised control is lighter still.
+   * Semantic layer. Components name the role of a surface, not its shade:
+   * fields and floating surfaces are white, the shell is warm paper, and
+   * pressed or hovered controls take a slightly deeper paper.
    */
-  --color-surface-0: var(--color-desk-950);
-  --color-surface-1: var(--color-desk-900);
-  --color-surface-2: var(--color-desk-800);
-  --color-surface-3: var(--color-desk-700);
-  --color-line: var(--color-desk-600);
-  --color-line-strong: var(--color-desk-500);
-  --color-accent: var(--color-pencil-blue);
-  --color-accent-deep: var(--color-pencil-blue-deep);
-  --color-accent-hover: #a4d8f0;
-  --color-motion: var(--color-pencil-red);
-  --color-motion-deep: var(--color-pencil-red-deep);
+  --color-surface-0: var(--color-paper-0);
+  --color-surface-1: var(--color-paper-50);
+  --color-surface-2: var(--color-paper-0);
+  --color-surface-3: var(--color-paper-200);
+  --color-line: var(--color-paper-300);
+  --color-line-strong: var(--color-paper-400);
+  --color-accent: var(--color-coral-600);
+  --color-accent-deep: var(--color-coral-50);
+  --color-accent-hover: var(--color-coral-700);
+  --color-motion: var(--color-coral-600);
+  --color-motion-deep: var(--color-coral-50);
 
-  --radius-control: 0.4375rem;
-  --radius-card: 0.625rem;
-  --radius-dialog: 0.875rem;
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-dialog: 1rem;
 
-  --shadow-raised: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 1px 2px rgb(0 0 0 / 0.24);
-  --shadow-popover: 0 16px 40px rgb(0 0 0 / 0.45), 0 0 0 1px rgb(255 255 255 / 0.02);
-  --shadow-dialog: 0 28px 90px rgb(0 0 0 / 0.6), 0 0 0 1px rgb(255 255 255 / 0.03);
+  --shadow-raised: 0 1px 2px oklch(30% 0.02 60 / 0.08);
+  --shadow-popover: 0 12px 32px oklch(30% 0.03 60 / 0.14), 0 0 0 1px oklch(30% 0.03 60 / 0.05);
+  --shadow-dialog: 0 24px 64px oklch(30% 0.03 60 / 0.2), 0 0 0 1px oklch(30% 0.03 60 / 0.05);
+  --shadow-float: 0 6px 20px oklch(30% 0.03 60 / 0.1), 0 0 0 1px oklch(30% 0.03 60 / 0.06);
 
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
 }
@@ -72,14 +73,14 @@
   body {
     margin: 0;
     overflow: hidden;
-    background: var(--color-desk-900);
+    background: var(--color-paper-100);
     color: var(--color-ink-100);
     font-family: var(--font-sans);
     font-size: var(--text-base);
     line-height: 1.45;
     -webkit-font-smoothing: antialiased;
     user-select: none;
-    --koma-selection: var(--color-pencil-blue);
+    --koma-selection: var(--color-coral-500);
   }
 
   input,
@@ -96,17 +97,17 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--color-pencil-blue);
+    outline: 2px solid var(--color-coral-600);
     outline-offset: 2px;
   }
 
   ::selection {
-    background: var(--color-pencil-blue);
-    color: var(--color-desk-950);
+    background: color-mix(in oklch, var(--color-coral-500) 30%, white);
+    color: var(--color-ink-100);
   }
 
   dialog::backdrop {
-    background: rgb(8 10 13 / 0.72);
+    background: oklch(25% 0.02 60 / 0.32);
   }
 
   ::-webkit-scrollbar {
@@ -115,16 +116,18 @@
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--color-desk-600);
+    background: var(--color-paper-400);
     border: 2px solid transparent;
     border-radius: 6px;
     background-clip: content-box;
   }
 
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--color-desk-500);
-    border: 2px solid transparent;
-    background-clip: content-box;
+  @media (hover: hover) and (pointer: fine) {
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-ink-400);
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -317,23 +320,6 @@
     }
   }
 
-  /*
-   * The desk under the canvas. A faint dot grid, like a cutting mat, tells the
-   * working surface apart from the panels without competing with the Koma.
-   */
-  .studio-desk {
-    background-color: var(--color-surface-0);
-    background-image: radial-gradient(rgb(255 255 255 / 0.045) 1px, transparent 1.2px);
-    background-size: 18px 18px;
-    background-position: center;
-  }
-
-  @media (forced-colors: active) {
-    .studio-desk {
-      background-image: none;
-    }
-  }
-
   /* In forced colours the pixel character is hidden; the phase stays as text. */
   @media (forced-colors: active) {
     .pixel-sprite {
@@ -343,7 +329,7 @@
 
   .studio-select {
     appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23b9c0cc' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%236c655d' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-position: right 0.75rem center;
     background-repeat: no-repeat;
   }
@@ -361,8 +347,8 @@
     border-radius: 2px;
     background: linear-gradient(
       to right,
-      var(--color-pencil-red) 0 var(--progress, 0%),
-      var(--color-desk-600) var(--progress, 0%) 100%
+      var(--color-coral-600) 0 var(--progress, 0%),
+      var(--color-paper-300) var(--progress, 0%) 100%
     );
   }
 
@@ -372,8 +358,8 @@
     height: 12px;
     margin-top: -4px;
     border-radius: 50%;
-    background: var(--color-ink-100);
-    border: 2px solid var(--color-pencil-red);
+    background: var(--color-paper-0);
+    border: 2px solid var(--color-coral-600);
   }
 
   .working-dot {
@@ -391,94 +377,7 @@
   }
 }
 
-/* Chat follows T3 Code's quiet transcript and rounded, self-contained composer. */
-.chat-panel {
-  --chat-composer-background: oklch(24% 0 none);
-  --chat-message-background: oklch(27% 0 none);
-  container-type: inline-size;
-  container-name: chat;
-  background: var(--color-surface-1);
-}
-.studio-dock-body:not([hidden]),
-.studio-dock-context:not([hidden]) {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-block-size: 0;
-  min-inline-size: 0;
-}
-.studio-dock-header {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  flex: none;
-  min-block-size: 3.25rem;
-  border-block-end: 1px solid var(--color-line);
-  padding-inline: 0.75rem 0.375rem;
-}
-.studio-dock-tabs {
-  display: flex;
-  align-self: stretch;
-  flex: 1;
-  gap: 0.25rem;
-}
-.studio-dock-tabs > button {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  border-block-end: 2px solid transparent;
-  padding-inline: 0.5rem;
-  color: var(--color-ink-400);
-  font-weight: 600;
-}
-.studio-dock-tabs > button[aria-selected='true'] {
-  border-block-end-color: var(--color-accent);
-  color: var(--color-ink-100);
-}
-.studio-dock-tabs > button:active,
-.studio-dock-rail > button:active {
-  background: var(--color-surface-3);
-}
-.studio-dock-tabs > button:focus-visible,
-.studio-dock-rail > button:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: -3px;
-}
-.studio-dock-status {
-  border-radius: 0.25rem;
-  padding-inline: 0.25rem;
-  background: var(--color-surface-3);
-  color: var(--color-ink-300);
-  font-size: 0.625rem;
-  font-weight: 500;
-}
-.studio-dock-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-.studio-dock-rail > button {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding-block: 0.75rem;
-  writing-mode: vertical-rl;
-  color: var(--color-ink-300);
-}
-@media (hover: hover) and (pointer: fine) {
-  .studio-dock-tabs > button:hover,
-  .studio-dock-rail > button:hover {
-    background: var(--color-surface-3);
-    color: var(--color-ink-100);
-  }
-}
-.chat-body:not([hidden]) {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-block-size: 0;
-  overflow-y: auto;
-}
+/* The conversation keeps a quiet transcript inside the sheet above the prompt. */
 .chat-conversation-panel {
   position: relative;
   display: flex;
@@ -591,135 +490,6 @@
   padding-inline: 1rem;
   font-size: 0.8125rem;
 }
-.chat-composer {
-  padding-block: 0.5rem 0.875rem;
-  padding-inline: 0.875rem;
-}
-.chat-composer .chat-scope {
-  align-self: flex-start;
-  inline-size: auto;
-  max-inline-size: 100%;
-  min-block-size: 1.75rem;
-  block-size: auto;
-  border-color: transparent;
-  background-color: transparent;
-  padding-block: 0.25rem;
-  padding-inline: 0.75rem 1.75rem;
-  font-size: 0.75rem;
-  color: var(--color-ink-400);
-  box-shadow: none;
-}
-.chat-composer-surface {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  border: 1px solid color-mix(in oklch, var(--color-line-strong) 65%, transparent);
-  border-radius: 1.5rem;
-  padding-block: 0.375rem 0.625rem;
-  padding-inline: 0.625rem;
-  background: var(--chat-composer-background);
-  box-shadow: 0 1px 0 color-mix(in oklch, white 3%, transparent) inset;
-}
-.chat-composer-surface:focus-within {
-  border-color: color-mix(in oklch, var(--color-accent) 55%, var(--color-line));
-}
-.chat-request {
-  field-sizing: content;
-  inline-size: 100%;
-  min-inline-size: 0;
-  min-block-size: 4.5rem;
-  max-block-size: 9rem;
-  resize: none;
-  background: transparent;
-  padding-block: 0.75rem;
-  padding-inline: 0.5rem;
-  font-size: 0.9375rem;
-  line-height: 1.6;
-  color: var(--color-ink-100);
-}
-.chat-request::placeholder {
-  color: var(--color-ink-400);
-}
-.chat-request:focus-visible {
-  outline: 2px solid transparent;
-  outline-offset: 0;
-  border-radius: 0.875rem;
-}
-.chat-composer-toolbar {
-  display: grid;
-  grid-template-columns: 2rem minmax(0, 1fr) minmax(0, 1fr) 2rem;
-  grid-template-areas:
-    'model model brand brand'
-    'attach count count send';
-  align-items: center;
-  gap: 0.25rem;
-}
-.chat-model-trigger,
-.chat-brand-trigger,
-.chat-count-trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  min-inline-size: 0;
-  min-block-size: 2rem;
-  border: 0;
-  border-radius: 999px;
-  padding-inline: 0.5rem;
-  background: transparent;
-  font-size: 0.75rem;
-  color: var(--color-ink-300);
-  text-align: start;
-}
-.chat-model-trigger {
-  grid-area: model;
-  color: var(--color-ink-100);
-}
-.chat-brand-picker {
-  grid-area: brand;
-}
-.chat-brand-trigger {
-  inline-size: 100%;
-}
-.chat-count-trigger {
-  grid-area: count;
-  justify-self: start;
-}
-.chat-count-trigger[aria-invalid='true'] {
-  color: var(--color-motion);
-}
-.chat-composer .chat-attach {
-  grid-area: attach;
-  inline-size: 2rem;
-  block-size: 2rem;
-  border-radius: 999px;
-}
-.chat-send {
-  grid-area: send;
-  display: grid;
-  place-items: center;
-  inline-size: 2rem;
-  block-size: 2rem;
-  border-radius: 999px;
-  background: var(--color-ink-100);
-  color: var(--color-surface-1);
-}
-.chat-send:disabled {
-  cursor: not-allowed;
-  background: color-mix(in oklch, var(--color-ink-100) 12%, transparent);
-  color: var(--color-ink-400);
-}
-.chat-composer-toolbar button:disabled {
-  opacity: 0.5;
-}
-.chat-keyboard-hint {
-  text-align: center;
-  font-size: 0.6875rem;
-  line-height: 1.5;
-  color: var(--color-ink-400);
-}
-.chat-keyboard-hint span {
-  padding-inline: 0.25rem;
-}
 .chat-run-finished {
   display: flex;
   align-items: center;
@@ -742,315 +512,934 @@
   margin-inline-start: 2.5rem;
 }
 .chat-composer-toolbar button:active:not(:disabled),
-.chat-example:active {
-  background: color-mix(in oklch, var(--color-ink-100) 15%, var(--color-surface-3));
-}
-.chat-send:active:not(:disabled) {
-  background: var(--color-accent);
-}
-@media (hover: hover) and (pointer: fine) {
-  .chat-model-trigger:hover:not(:disabled),
-  .chat-brand-trigger:hover:not(:disabled),
-  .chat-count-trigger:hover:not(:disabled) {
-    background: color-mix(in oklch, var(--color-ink-100) 7%, transparent);
-    color: var(--color-ink-100);
-  }
-  .chat-send:hover:not(:disabled) {
-    background: var(--color-accent-hover);
-  }
-}
-@media (forced-colors: active) {
-  .chat-composer-surface:focus-within {
-    border-color: Highlight;
-  }
-  .chat-send {
-    border: 1px solid ButtonText;
-  }
-}
-@container chat (min-width: 460px) {
-  .chat-composer-toolbar {
-    grid-template-columns: 2rem minmax(0, 1.1fr) minmax(0, 1fr) auto 2rem;
-    grid-template-areas: 'attach model brand count send';
-  }
+
+/* ------------------------------------------------------------------------
+ * Quiet Stage: one thin top bar, the canvas, a floating prompt and the
+ * filmstrip. Everything else opens on request next to what it changes.
+ * --------------------------------------------------------------------- */
+.studio-shell {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
 }
 
-/* The document has one editable name, even when its thumbnail pane is closed. */
 .studio-topbar {
+  container: topbar / inline-size;
   display: flex;
   flex: none;
-  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-block-size: 3.25rem;
+  padding-block: 0.375rem;
+  padding-inline: 0.75rem;
+  background: var(--color-paper-100);
+}
+.studio-topbar-start {
+  display: flex;
+  flex: 1 1 auto;
   align-items: center;
   gap: 0.25rem;
-  min-block-size: 3rem;
-  border-block-end: 1px solid var(--color-line);
-  padding-block: 0.25rem;
-  padding-inline: 0.625rem;
-  background: var(--color-surface-1);
+  min-inline-size: 0;
 }
-.studio-app-name {
+.studio-topbar-end {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 0.5rem;
-  margin-inline-end: 0.75rem;
-  padding-inline-start: 0.25rem;
 }
-.studio-project-heading {
-  display: flex;
-  flex: 1 1 17rem;
-  flex-wrap: wrap;
+.studio-project-menu {
+  display: inline-flex;
+  flex: none;
   align-items: center;
-  justify-content: safe center;
-  gap: 0.125rem 0.5rem;
-  min-inline-size: min(100%, 17rem);
+  gap: 0.125rem;
+  block-size: 2.25rem;
+  border-radius: var(--radius-control);
+  padding-inline: 0.375rem 0.25rem;
+  color: var(--color-ink-400);
+}
+.studio-nightly {
+  flex: none;
+  border: 1px solid color-mix(in oklch, var(--color-signal-warn) 45%, transparent);
+  border-radius: 999px;
   padding-inline: 0.5rem;
-}
-.studio-topbar-utilities {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.25rem;
-  margin-inline-start: auto;
+  color: var(--color-signal-warn);
+  font-size: var(--text-xs);
+  font-weight: 500;
 }
 .studio-project-identity {
-  display: grid;
-  flex: 0 1 auto;
-  grid-template-columns: minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 0.375rem;
   min-inline-size: 0;
-  inline-size: fit-content;
-  max-inline-size: min(32rem, 100%);
 }
 .studio-project-identity .studio-project-name {
   field-sizing: content;
   inline-size: auto;
-  min-inline-size: min(8rem, 100%);
-  max-inline-size: 100%;
-  min-block-size: 1.75rem;
-  block-size: 1.75rem;
+  min-inline-size: 6rem;
+  max-inline-size: clamp(9rem, 32cqi, 26rem);
+  min-block-size: 2rem;
+  block-size: 2rem;
   border-color: transparent;
-  padding-block: 0.125rem;
   padding-inline: 0.375rem;
   background: transparent;
   box-shadow: none;
+  font-size: 0.9375rem;
   font-weight: 600;
   text-overflow: ellipsis;
 }
 .studio-project-name:focus-visible {
   border-color: var(--color-accent);
-}
-.studio-project-file {
-  overflow: clip;
-  padding-inline: 0.375rem;
-  font-size: 0.6875rem;
-  line-height: 1.2;
-  color: var(--color-ink-400);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  background: var(--color-paper-0);
 }
 .studio-save-status {
-  display: flex;
+  display: inline-flex;
   flex: none;
   align-items: center;
   gap: 0.375rem;
+  color: var(--color-ink-400);
   font-size: 0.75rem;
+  white-space: nowrap;
 }
 .studio-project-error {
   flex-basis: 100%;
-  font-size: 0.75rem;
+  padding-inline: 0.375rem;
   color: var(--color-motion);
+  font-size: 0.75rem;
 }
-.studio-topbar button:active:not(:disabled) {
-  background: var(--color-surface-3);
+.studio-topbar-group {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.125rem;
+  margin-inline-start: 0.25rem;
+  border-inline-start: 1px solid var(--color-line);
+  padding-inline-start: 0.375rem;
+}
+.studio-icon-trigger {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: var(--radius-control);
+  color: var(--color-ink-300);
+}
+.studio-icon-trigger:disabled {
+  cursor: not-allowed;
+  color: var(--color-line-strong);
+}
+.studio-play {
+  display: inline-flex;
+  align-items: stretch;
+  overflow: clip;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 999px;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-raised);
+}
+.studio-play .studio-play-main {
+  border: 0;
+  border-radius: 0;
+  padding-inline: 0.875rem 0.625rem;
+  background: transparent;
+  box-shadow: none;
+  font-weight: 500;
+}
+.studio-play-more {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2rem;
+  border-inline-start: 1px solid var(--color-line);
+  color: var(--color-ink-300);
+}
+.studio-play-more:disabled {
+  cursor: not-allowed;
+  color: var(--color-line-strong);
+}
+.studio-share {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 2.25rem;
+  border-radius: 999px;
+  padding-inline: 0.875rem 1.125rem;
+  background: var(--color-coral-600);
+  color: var(--color-paper-0);
+  font-weight: 600;
+  box-shadow: var(--shadow-raised);
+}
+.studio-project-menu:active,
+.studio-icon-trigger:active:not(:disabled),
+.studio-play-more:active:not(:disabled),
+.studio-play .studio-play-main:active:not(:disabled) {
+  background: var(--color-paper-300);
+}
+.studio-share:active {
+  background: var(--color-coral-700);
 }
 @media (hover: hover) and (pointer: fine) {
+  .studio-project-menu:hover,
+  .studio-icon-trigger:hover:not(:disabled),
+  .studio-play-more:hover:not(:disabled),
+  .studio-play .studio-play-main:hover:not(:disabled) {
+    background: var(--color-paper-200);
+    color: var(--color-ink-100);
+  }
   .studio-project-identity .studio-project-name:hover {
-    background: var(--color-surface-2);
+    background: var(--color-paper-200);
+  }
+  .studio-share:hover {
+    background: var(--color-coral-700);
+  }
+}
+/* A narrow bar keeps the saved state as a dot; the words stay for assistive technology. */
+@container topbar (max-width: 66rem) {
+  .studio-save-status {
+    position: relative;
+    inline-size: 0.75rem;
+    overflow: clip;
+    color: transparent;
   }
 }
 
-/* A thumbnail pane: frame selection stays separate from optional motion detail. */
-.koma-pane {
+.studio-body {
   position: relative;
   display: flex;
-  flex: none;
-  flex-direction: column;
+  flex: 1;
   min-block-size: 0;
-  min-inline-size: 0;
-  border-inline-end: 1px solid var(--color-line);
-  background: var(--color-surface-1);
 }
-.koma-pane-body:not([hidden]) {
+.studio-main {
+  position: relative;
   display: flex;
   flex: 1;
   flex-direction: column;
   min-block-size: 0;
+  min-inline-size: 0;
 }
-.koma-pane-header {
+.studio-stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+/* Transition controls make room for a floating properties panel. */
+.studio-stage:has(> .properties-panel:not([hidden])) .studio-transport {
+  inline-size: auto;
+  margin-inline: 1rem calc(min(22rem, 100% - 1.5rem) + 1.5rem);
+}
+.studio-canvas {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+.studio-desk {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: safe center;
+  min-block-size: 0;
+  overflow: auto;
+  background: var(--color-paper-100);
+}
+.studio-sheet {
+  margin: auto;
+  border-radius: 3px;
+  background: var(--color-paper-0);
+  box-shadow:
+    0 1px 2px oklch(30% 0.02 60 / 0.06),
+    0 16px 48px oklch(30% 0.03 60 / 0.08),
+    0 0 0 1px oklch(30% 0.03 60 / 0.06);
+}
+.studio-empty {
+  margin: auto;
+  max-inline-size: 22rem;
+  border: 1px dashed var(--color-line-strong);
+  border-radius: var(--radius-dialog);
+  padding: 1.75rem 2rem;
+  background: var(--color-paper-50);
+  text-align: center;
+}
+.studio-zoom {
+  position: absolute;
+  inset-block-end: 0.5rem;
+  inset-inline-end: 0.75rem;
+  display: flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.125rem;
+  background: color-mix(in oklch, var(--color-paper-0) 85%, transparent);
+  box-shadow: var(--shadow-float);
+  color: var(--color-ink-300);
+  font-size: 0.75rem;
+}
+.studio-zoom button {
+  min-inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: 999px;
+  padding-inline: 0.375rem;
+}
+.studio-zoom button:disabled {
+  cursor: not-allowed;
+  color: var(--color-line-strong);
+}
+.studio-zoom button:active:not(:disabled) {
+  background: var(--color-paper-300);
+}
+@media (hover: hover) and (pointer: fine) {
+  .studio-zoom button:hover:not(:disabled) {
+    background: var(--color-paper-200);
+    color: var(--color-ink-100);
+  }
+}
+
+/* Transition controls appear only while playing or editing motion. */
+.studio-transport {
+  display: flex;
   flex: none;
-  padding-block: 0.375rem;
-  padding-inline: 0.5rem;
-  border-block-end: 1px solid var(--color-line);
+  flex-direction: column;
+  gap: 0.375rem;
+  inline-size: min(52rem, calc(100% - 2rem));
+  margin-inline: auto;
+  margin-block-end: 0.375rem;
+  border-radius: var(--radius-card);
+  padding: 0.375rem 0.625rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-float);
 }
-.koma-pane-heading-row {
+.studio-transport-row {
   display: flex;
   align-items: center;
   gap: 0.25rem;
+  min-inline-size: 0;
 }
-.koma-pane-heading {
+.studio-transport-label {
+  flex: none;
+  margin-inline: 0.5rem;
+  color: var(--color-ink-300);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+.studio-transport-note {
+  padding-inline: 0.5rem;
+  color: var(--color-ink-400);
+  font-size: var(--text-xs);
+}
+
+.studio-recovery-failure {
+  position: fixed;
+  z-index: 70;
+  inset-block-end: 0.75rem;
+  inset-inline-start: 0.75rem;
   display: flex;
-  flex: 1;
+  align-items: center;
+  gap: 0.75rem;
+  max-inline-size: min(32rem, calc(100vw - 1.5rem));
+  border: 1px solid color-mix(in oklch, var(--color-coral-600) 40%, var(--color-line));
+  border-radius: var(--radius-card);
+  padding: 0.5rem 0.5rem 0.5rem 0.875rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-popover);
+  font-size: 0.75rem;
+}
+
+/* The prompt and the filmstrip share the bottom edge of the canvas. */
+.studio-bottom {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  padding-inline-start: 0.375rem;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  padding-block: 0.25rem 0.625rem;
+  padding-inline: 1rem;
 }
-.koma-pane-heading-row button {
-  inline-size: 2rem;
-  block-size: 2rem;
-}
-.koma-pane-scroll {
-  flex: 1;
-  min-block-size: 0;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding-block: 1rem;
-  padding-inline: 0.75rem;
-}
-.koma-pane-list {
+.prompt-dock {
+  container: chat / inline-size;
+  position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.375rem;
+  inline-size: min(40rem, 100%);
 }
-.koma-pane-item {
+/* In flow above the prompt: the canvas makes room instead of being covered. */
+.prompt-sheet:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  block-size: min(20rem, 36vh);
+  overflow: clip;
+  border-radius: 1.125rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-popover);
+}
+.prompt-sheet .chat-conversation-panel,
+.prompt-sheet .chat-conversation {
+  min-block-size: 0;
+}
+.prompt-failure {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid color-mix(in oklch, var(--color-coral-600) 35%, transparent);
+  border-radius: 1rem;
+  padding: 0.375rem 0.375rem 0.375rem 0.875rem;
+  background: var(--color-coral-50);
+  color: var(--color-ink-100);
+  font-size: 0.8125rem;
+}
+.prompt-failure > span:first-child {
+  color: var(--color-coral-600);
+}
+.prompt-composer {
   position: relative;
-  flex: none;
-  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
 }
-.koma-pane-item.is-dragging {
-  opacity: 0.45;
+.prompt-options:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 1rem;
+  padding: 0.375rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-float);
 }
-.koma-pane-thumbnail-row {
+.prompt-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding-inline: 0.875rem;
+  color: var(--color-ink-300);
+  font-size: var(--text-xs);
+}
+.prompt-pill {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.25rem;
+  border: 1px solid transparent;
+  border-radius: 1.5rem;
+  padding: 0.375rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-float);
+}
+.prompt-pill:focus-within {
+  border-color: color-mix(in oklch, var(--color-coral-600) 45%, var(--color-line));
+}
+.prompt-pill[data-failed='true'] {
+  border-color: var(--color-coral-600);
+  box-shadow:
+    var(--shadow-float),
+    0 0 0 3px color-mix(in oklch, var(--color-coral-500) 18%, transparent);
+}
+.prompt-pill-icon {
   position: relative;
   display: grid;
-  grid-template-columns: 1.5rem minmax(0, 1fr);
-  gap: 0.5rem;
-  align-items: start;
-}
-.koma-pane-number {
-  padding-block-start: 0.25rem;
+  flex: none;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 999px;
   color: var(--color-ink-400);
+}
+.prompt-pill-icon[aria-expanded='true'] {
+  background: var(--color-paper-200);
+  color: var(--color-ink-100);
+}
+.prompt-pill-icon:active {
+  background: var(--color-paper-300);
+}
+.prompt-pill-dot {
+  position: absolute;
+  inset-block-start: 0.375rem;
+  inset-inline-end: 0.375rem;
+  inline-size: 0.4375rem;
+  block-size: 0.4375rem;
+  border-radius: 999px;
+  background: var(--color-coral-500);
+}
+.chat-request {
+  field-sizing: content;
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: 2.25rem;
+  max-block-size: 8rem;
+  resize: none;
+  background: transparent;
+  padding-block: 0.4375rem;
+  padding-inline: 0.25rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  color: var(--color-ink-100);
+}
+.chat-request::placeholder {
+  color: var(--color-ink-400);
+}
+.chat-request:focus-visible {
+  outline: 2px solid transparent;
+  outline-offset: 0;
+}
+.prompt-pill .chat-scope {
+  field-sizing: content;
+  flex: none;
+  inline-size: auto;
+  max-inline-size: 11rem;
+  min-block-size: 2.25rem;
+  block-size: 2.25rem;
+  border-color: transparent;
+  border-radius: 999px;
+  padding-inline: 0.875rem 1.875rem;
+  background-color: var(--color-paper-100);
+  box-shadow: none;
+  color: var(--color-ink-300);
   font-size: 0.8125rem;
-  text-align: end;
-  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
 }
-.is-selected .koma-pane-number {
-  color: var(--color-accent);
-  font-weight: 600;
+.chat-send {
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 999px;
+  background: var(--color-coral-600);
+  color: var(--color-paper-0);
 }
-.koma-pane-thumbnail-content {
+.chat-send:disabled {
+  cursor: not-allowed;
+  background: var(--color-paper-200);
+  color: var(--color-ink-400);
+}
+.chat-send:active:not(:disabled) {
+  background: var(--color-coral-700);
+}
+.chat-model-trigger,
+.chat-brand-trigger,
+.chat-count-trigger {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-inline-size: 0;
+  max-inline-size: 15rem;
+  min-block-size: 2rem;
+  border: 0;
+  border-radius: 999px;
+  padding-inline: 0.625rem;
+  background: transparent;
+  color: var(--color-ink-300);
+  font-size: 0.75rem;
+  text-align: start;
+}
+.chat-model-trigger {
+  color: var(--color-ink-100);
+}
+.chat-brand-picker {
   min-inline-size: 0;
 }
-.koma-pane-thumbnail-frame {
-  inline-size: fit-content;
+.chat-count-trigger[aria-invalid='true'] {
+  color: var(--color-motion);
+}
+.prompt-options .chat-attach {
+  inline-size: 2rem;
+  block-size: 2rem;
+  border-radius: 999px;
+}
+.prompt-options button:disabled {
+  opacity: 0.5;
+}
+.prompt-options button:active:not(:disabled) {
+  background: var(--color-paper-300);
+}
+@media (hover: hover) and (pointer: fine) {
+  .prompt-pill-icon:hover,
+  .chat-model-trigger:hover:not(:disabled),
+  .chat-brand-trigger:hover:not(:disabled),
+  .chat-count-trigger:hover:not(:disabled) {
+    background: var(--color-paper-200);
+    color: var(--color-ink-100);
+  }
+  .chat-send:hover:not(:disabled) {
+    background: var(--color-coral-700);
+  }
+}
+@media (forced-colors: active) {
+  .prompt-pill,
+  .prompt-sheet,
+  .prompt-options,
+  .element-toolbar,
+  .studio-menu,
+  .studio-transport {
+    border: 1px solid CanvasText;
+  }
+  .chat-send,
+  .studio-share {
+    border: 1px solid ButtonText;
+  }
+}
+
+/* The filmstrip: numbered thumbnails with the motion between them. */
+.filmstrip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   max-inline-size: 100%;
+}
+.filmstrip-scroll {
+  min-inline-size: 0;
+  overflow-x: auto;
+  overflow-y: clip;
+  overscroll-behavior-x: contain;
+  scroll-padding-inline: 1rem;
+  scrollbar-width: thin;
+}
+.filmstrip-list {
+  display: flex;
+  align-items: stretch;
+  padding: 0.125rem 0.25rem;
+}
+.filmstrip-item {
+  position: relative;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.125rem;
+  border-radius: 0.75rem;
+  padding: 0.25rem;
+}
+.filmstrip-item.is-dragging {
+  opacity: 0.45;
+}
+.filmstrip-frame {
   overflow: clip;
-  border: 2px solid var(--color-line-strong);
-  border-radius: 2px;
-  background: var(--color-surface-0);
+  border: 1.5px solid var(--color-line);
+  border-radius: 0.5rem;
+  background: var(--color-paper-0);
   box-shadow: var(--shadow-raised);
 }
-.is-selected .koma-pane-thumbnail-frame {
-  border-color: var(--color-accent);
+.filmstrip .koma-thumbnail {
+  border-radius: 0;
+  outline: 0;
 }
-.koma-pane-title {
-  display: block;
-  margin-block-start: 0.375rem;
-  overflow: clip;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.75rem;
+.is-selected .filmstrip-frame {
+  border-color: var(--color-coral-600);
+  box-shadow: 0 0 0 1px var(--color-coral-600);
+}
+.filmstrip-number {
+  color: var(--color-ink-400);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+.is-selected .filmstrip-number {
+  color: var(--color-coral-600);
+  font-weight: 600;
 }
 .koma-thumbnail-select {
   position: absolute;
   inset: 0;
-  border-radius: 2px;
+  border-radius: 0.75rem;
 }
 .koma-thumbnail-select:active {
-  background: color-mix(in oklch, var(--color-accent) 12%, transparent);
+  background: color-mix(in oklch, var(--color-coral-500) 10%, transparent);
 }
-.koma-pane-drop-indicator {
+.filmstrip-drop-indicator {
   position: absolute;
   z-index: 1;
-  inset-inline: 1.75rem 0;
-  block-size: 3px;
+  inset-block: 0.25rem 1.25rem;
+  inline-size: 3px;
   border-radius: 2px;
-  background: var(--color-accent);
+  background: var(--color-coral-600);
 }
 [data-koma-drop-indicator='before'] {
-  inset-block-start: -0.625rem;
+  inset-inline-start: -0.125rem;
 }
 [data-koma-drop-indicator='after'] {
-  inset-block-end: -0.625rem;
+  inset-inline-end: -0.125rem;
 }
-.koma-pane-footer {
+.filmstrip-gap {
   display: flex;
   flex: none;
-  flex-direction: column;
-  gap: 0.25rem;
-  border-block-start: 1px solid var(--color-line);
-  padding-block: 0.375rem;
-  padding-inline: 0.5rem;
-}
-.koma-pane-actions {
-  display: flex;
   align-items: center;
-  gap: 0.25rem;
+  padding-block-end: 1rem;
 }
-.koma-pane-actions > [data-koma-add] {
-  flex: 1;
+.filmstrip-marker {
+  position: relative;
+  display: grid;
+  place-items: center;
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: 999px;
+  color: var(--color-paper-400);
 }
-.koma-pane-actions > button:not([data-koma-add]) {
-  inline-size: 2rem;
-  block-size: 2rem;
-}
-.koma-pane-show {
+.filmstrip-marker-dots {
   display: flex;
-  flex-direction: column;
+  gap: 2px;
+}
+.filmstrip-marker-dots > span {
+  inline-size: 3px;
+  block-size: 3px;
+  border-radius: 999px;
+  background: currentColor;
+}
+.filmstrip-marker[aria-current='true'] {
+  color: var(--color-coral-600);
+}
+.filmstrip-marker[data-motion-state='warning'] {
+  color: var(--color-signal-warn);
+}
+.filmstrip-marker[data-motion-state='blocked'] {
+  color: var(--color-coral-600);
+}
+.filmstrip-marker-issue {
+  position: absolute;
+  inset-block-start: 0.125rem;
+  inset-inline-end: 0.125rem;
+  inline-size: 0.5rem;
+  block-size: 0.5rem;
+  border: 1.5px solid var(--color-paper-100);
+  border-radius: 999px;
+  background: currentColor;
+}
+.filmstrip-marker:active {
+  background: var(--color-paper-300);
+}
+.filmstrip-actions {
+  display: flex;
+  flex: none;
   align-items: center;
-  gap: 0.875rem;
-  inline-size: 100%;
-  padding-block: 0.875rem;
+  gap: 0.125rem;
+  padding-block-end: 1rem;
+}
+.filmstrip-actions .filmstrip-add {
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border: 1px solid var(--color-line);
+  border-radius: 0.625rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-raised);
   color: var(--color-ink-300);
 }
-.koma-pane-show span:first-of-type {
-  writing-mode: vertical-rl;
+.filmstrip-empty {
+  padding: 0.75rem 1rem;
+  color: var(--color-ink-400);
+  font-size: var(--text-sm);
 }
-.koma-pane-show:active {
-  background: var(--color-surface-3);
+@media (hover: hover) and (pointer: fine) {
+  .filmstrip-item:hover .filmstrip-frame {
+    border-color: var(--color-line-strong);
+  }
+  .filmstrip-item.is-selected:hover .filmstrip-frame {
+    border-color: var(--color-coral-600);
+  }
+  .filmstrip-marker:hover {
+    background: var(--color-paper-200);
+    color: var(--color-ink-300);
+  }
+  .filmstrip-marker[data-motion-state='blocked']:hover,
+  .filmstrip-marker[aria-current='true']:hover {
+    color: var(--color-coral-600);
+  }
 }
-.koma-pane-resize {
+
+/* All properties: a popover over the canvas, or pinned beside it. */
+.properties-panel:not([hidden]) {
   position: absolute;
-  z-index: 10;
-  inset-block: 0;
-  inset-inline-end: -0.3125rem;
+  z-index: 30;
+  inset-block-start: 0.5rem;
+  inset-inline-end: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  inline-size: min(22rem, calc(100% - 1.5rem));
+  max-block-size: calc(100% - 1rem);
+  overflow: clip;
+  border-radius: var(--radius-card);
+  background: var(--color-paper-50);
+  box-shadow: var(--shadow-popover);
+}
+.properties-panel[data-pinned='true']:not([hidden]) {
+  position: relative;
+  inset: auto;
+  flex: none;
+  inline-size: 21rem;
+  max-block-size: none;
+  border-inline-start: 1px solid var(--color-line);
+  border-radius: 0;
+  box-shadow: none;
+}
+.properties-panel:focus-visible {
+  outline-offset: -2px;
+}
+.properties-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.25rem;
+  border-block-end: 1px solid var(--color-line);
+  padding-block: 0.25rem;
+  padding-inline: 0.875rem 0.375rem;
+}
+.properties-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-block-size: 2rem;
+  border-radius: var(--radius-control);
+  padding-inline: 0.5rem;
+  color: var(--color-ink-300);
+  font-size: 0.75rem;
+}
+.properties-brand-swatches {
+  display: flex;
+  overflow: clip;
+  border-radius: 3px;
+  outline: 1px solid var(--color-line-strong);
+}
+.properties-brand-swatches > span {
   inline-size: 0.625rem;
-  cursor: col-resize;
-  touch-action: none;
+  block-size: 0.75rem;
 }
-.koma-pane-resize span {
-  position: absolute;
-  inset-block: 0;
-  inset-inline-start: calc(50% - 1px);
-  inline-size: 2px;
+.properties-brand:active {
+  background: var(--color-paper-300);
 }
-.koma-pane-resize:focus-visible span {
-  background: var(--color-accent);
+@media (hover: hover) and (pointer: fine) {
+  .properties-brand:hover {
+    background: var(--color-paper-200);
+    color: var(--color-ink-100);
+  }
 }
-.koma-pane-resize:active span {
-  background: var(--color-accent);
+
+/* The toolbar beside a selected element and its small panels. */
+.element-toolbar {
+  position: fixed;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  border-radius: 0.875rem;
+  padding: 0.25rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-float);
 }
+.element-tool {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: 0.625rem;
+  color: var(--color-ink-300);
+}
+.element-tool-text {
+  padding-inline: 0.625rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+}
+.element-tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+.element-tool[aria-expanded='true'] {
+  background: var(--color-paper-200);
+  color: var(--color-ink-100);
+}
+.element-tool:active:not(:disabled) {
+  background: var(--color-paper-300);
+}
+.element-tool-swatch {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px oklch(0% 0 none / 0.16);
+}
+.element-popover {
+  position: fixed;
+  z-index: 60;
+  border-radius: var(--radius-card);
+  padding: 0.75rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-popover);
+}
+.element-swatch {
+  inline-size: 1.75rem;
+  block-size: 1.75rem;
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px oklch(0% 0 none / 0.16);
+}
+.element-swatch[aria-pressed='true'] {
+  outline: 2px solid var(--color-coral-600);
+  outline-offset: 2px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .element-tool:hover:not(:disabled) {
+    background: var(--color-paper-200);
+    color: var(--color-ink-100);
+  }
+}
+
+/* Menus opened from a button: project, Add, Present, Share, Arrange and More. */
+.studio-menu {
+  position: fixed;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 13rem;
+  max-inline-size: calc(100vw - 1rem);
+  max-block-size: calc(100dvh - 1rem);
+  overflow-y: auto;
+  border-radius: var(--radius-card);
+  padding: 0.375rem;
+  background: var(--color-paper-0);
+  box-shadow: var(--shadow-popover);
+}
+.studio-menu [role='menuitem'] {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  min-block-size: 2.25rem;
+  border-radius: var(--radius-control);
+  padding-inline: 0.625rem;
+  font-size: 0.8125rem;
+  text-align: start;
+}
+.studio-menu [role='menuitem']:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+.studio-menu [role='menuitem']:active:not(:disabled) {
+  background: var(--color-paper-300);
+}
+.studio-menu-icon {
+  flex: none;
+  color: var(--color-ink-400);
+}
+.studio-menu-hint {
+  flex: none;
+  color: var(--color-ink-400);
+  font-size: var(--text-xs);
+}
+.studio-menu-separator {
+  margin-block: 0.25rem;
+  border: 0;
+  border-block-start: 1px solid var(--color-line);
+}
+@media (hover: hover) and (pointer: fine) {
+  .studio-menu [role='menuitem']:hover:not(:disabled) {
+    background: var(--color-paper-200);
+  }
+}
+
 .koma-context-menu {
   position: fixed;
   z-index: 100;
@@ -1088,18 +1477,6 @@
   font-size: 0.6875rem;
 }
 @media (hover: hover) and (pointer: fine) {
-  .koma-pane-item:hover .koma-pane-thumbnail-frame {
-    border-color: var(--color-ink-400);
-  }
-  .koma-pane-item.is-selected:hover .koma-pane-thumbnail-frame {
-    border-color: var(--color-accent);
-  }
-  .koma-pane-show:hover {
-    background: var(--color-surface-2);
-  }
-  .koma-pane-resize:hover span {
-    background: var(--color-line-strong);
-  }
   .koma-context-menu button:hover:not(:disabled) {
     background: var(--color-surface-3);
   }

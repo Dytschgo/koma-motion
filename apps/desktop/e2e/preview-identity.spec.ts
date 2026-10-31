@@ -1,6 +1,11 @@
 import { chooseKomaAction } from './komaControls';
 import { expect, test, type Locator, type Page } from '@playwright/test';
-import { launchApplication, type RunningApplication } from './application';
+import {
+  launchApplication,
+  type RunningApplication,
+  showGenerationOptions,
+  showTransitionControls,
+} from './application';
 import { selectProvider, modelTrigger } from './composerControls';
 
 let running: RunningApplication;
@@ -24,6 +29,7 @@ function positionSlider(page: Page): Locator {
 async function createGeneratedProject(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Create a project' }).click();
   await selectProvider(page, 'mock');
+  await showGenerationOptions(page);
   await expect(modelTrigger(page)).toHaveAttribute(
     'aria-description',
     'Mock provider has no model choice',
@@ -37,6 +43,7 @@ async function createGeneratedProject(page: Page): Promise<void> {
 
 /** The slider is 0–1000. `percent` 50 sets the accessible value to 50 percent. */
 async function setPosition(page: Page, percent: number): Promise<void> {
+  await showTransitionControls(page);
   const slider = positionSlider(page);
   await slider.fill(String(percent * 10));
   await expect(slider).toHaveAttribute('aria-valuetext', `${String(percent)} percent`);
@@ -67,15 +74,16 @@ test('resets a scrubbed preview when undo removes its transition', async () => {
   await expect(stage()).not.toHaveAttribute('aria-label', /Preview of the transition/);
   await expect(slider).toHaveAttribute('aria-valuetext', '0 percent');
   await expect(slider).toBeFocused();
-  await expect(window.getByRole('button', { name: 'Preview', exact: true })).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeVisible();
   expect(running.problems).toEqual([]);
 });
 
 test('pauses at the scrubbed position instead of restarting', async () => {
   const { window } = running;
   await createGeneratedProject(window);
+  await showTransitionControls(window);
   await window.getByLabel('Transition duration in seconds').fill('4');
-  await window.getByRole('button', { name: 'Preview', exact: true }).click();
+  await window.getByRole('button', { name: 'Play', exact: true }).click();
   await expect(window.getByRole('button', { name: 'Pause', exact: true })).toBeVisible();
 
   await setPosition(window, 50);
@@ -134,7 +142,7 @@ test('resets the preview when the pair is moved or deleted', async () => {
     'Preview of the transition from One connected system to The motion engine',
   );
 
-  await chooseKomaAction(window, 'Move Koma down');
+  await chooseKomaAction(window, 'Move Koma right');
   await expect(stage()).toHaveAttribute('aria-label', 'Koma 2: One connected system');
   await expect(stage()).not.toHaveAttribute('aria-label', /Preview of the transition/);
   await expect(positionSlider(window)).toHaveAttribute('aria-valuetext', '0 percent');
@@ -153,6 +161,7 @@ test('resets an invalid preview when reduced motion is emulated', async () => {
   // Playwright media emulation, not the operating-system reduced-motion setting.
   await window.emulateMedia({ reducedMotion: 'reduce' });
   await createGeneratedProject(window);
+  await showTransitionControls(window);
   await expect(window.getByText(/Reduced motion is on/)).toBeVisible();
 
   await window.getByRole('button', { name: 'Koma 3: Motion you can edit' }).click();

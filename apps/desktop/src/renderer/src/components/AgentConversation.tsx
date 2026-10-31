@@ -10,17 +10,11 @@ import {
   type ReactElement,
 } from 'react';
 import { useAgentStore, type ConversationEntry } from '../state/agentStore';
-import { generationFailureSummary } from '../lib/generationFeedback';
+import { describeFailure, failureDetail } from '../lib/generationFeedback';
 import { ChevronIcon, KomaMark, WarningIcon } from './icons';
 import { Button } from './ui';
 import { RunActivity, RunMonitor } from './RunActivity';
 import { ScopedProposal } from './ScopedProposal';
-
-const FAILURE_TITLES = {
-  failed: 'Generation failed',
-  cancelled: 'Generation stopped',
-  timedOut: 'Generation took too long',
-} as const;
 
 /** Text a provider wrote during a finished run, kept with its outcome. */
 function KeptOutput({
@@ -116,6 +110,7 @@ function Entry({
   }
   const { error, diagnostics } = entry;
   const lastAttempt = diagnostics.attempts.at(-1);
+  const detail = entry.status === 'cancelled' ? undefined : failureDetail(error);
   return (
     <li
       role={entry.status === 'cancelled' ? 'status' : 'alert'}
@@ -125,14 +120,14 @@ function Entry({
       <p
         className={`font-semibold ${entry.status === 'cancelled' ? 'text-ink-300' : 'text-motion'}`}
       >
-        {FAILURE_TITLES[entry.status]}
+        {describeFailure(entry.status)}
       </p>
-      {entry.status !== 'cancelled' && (
-        <p className="whitespace-pre-wrap">{generationFailureSummary(error)}</p>
+      {detail !== undefined && <p className="whitespace-pre-wrap">{detail}</p>}
+      {entry.status === 'cancelled' && (
+        <p className="mt-1 text-sm text-ink-400">Your presentation was not changed.</p>
       )}
-      <p className="mt-2 text-sm text-ink-400">Your presentation was not changed.</p>
       <details className="mt-1 text-sm text-ink-400">
-        <summary className="cursor-pointer hover:text-ink-100">Diagnostics</summary>
+        <summary className="cursor-pointer hover:text-ink-100">Details</summary>
         <p className="my-2 whitespace-pre-wrap">{error.message}</p>
         {entry.output !== undefined && (
           <section aria-label="Provider output" className="my-2">

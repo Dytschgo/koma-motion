@@ -14,6 +14,11 @@ import {
   answerSaveDialog,
   launchApplication,
   openSettingsPage,
+  chooseProjectCommand,
+  chooseShareCommand,
+  showGenerationOptions,
+  showTransitionControls,
+  showInspector,
 } from './application';
 
 const provider = process.env['KOMA_LIVE_E2E'] ?? '';
@@ -48,6 +53,7 @@ test('generates a presentation with Claude Code', async () => {
     await providerChoices.getByLabel('Provider', { exact: true }).selectOption('claude-code');
     if (model !== '') await chooseModel(providerChoices, 'Model', model);
     await expect(providerChoices.getByRole('status').filter({ hasText: 'Ready' })).toBeVisible();
+    await showGenerationOptions(window);
     await window.getByRole('button', { name: 'Model', exact: true }).click();
 
     await setKomaCount(window, '3');
@@ -72,7 +78,7 @@ test('generates a presentation with Claude Code', async () => {
     await expect(komas).toHaveCount(3);
 
     await answerSaveDialog(application, filePath);
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect(window.getByText('All changes saved')).toBeVisible();
     const saved = komaProjectSchema.parse(JSON.parse(await readFile(filePath, 'utf8')));
     expect(saved).toMatchObject({
@@ -111,6 +117,7 @@ test('generates a presentation with Claude Code', async () => {
     // A short replacement tests editing without adding lines beyond the AI's layout.
     const editedText = editable.content.text === 'Test edit' ? 'Test copy' : 'Test edit';
     await komas.first().click();
+    await showInspector(window);
     await stage.locator(`[data-persistent-id="${editable.persistentId}"]`).click();
     await window.getByLabel('Text', { exact: true }).fill(editedText);
     await expect(stage.locator(`[data-persistent-id="${editable.persistentId}"]`)).toContainText(
@@ -122,7 +129,7 @@ test('generates a presentation with Claude Code', async () => {
     await expect(window.getByLabel('Text', { exact: true })).toHaveValue(editedText);
 
     await answerSaveDialog(application, editedPath);
-    await window.getByRole('button', { name: 'Save as', exact: true }).click();
+    await chooseShareCommand(window, 'Save as');
     await expect(window.getByText('All changes saved')).toBeVisible();
     const edited = komaProjectSchema.parse(JSON.parse(await readFile(editedPath, 'utf8')));
     expect(edited.presentation.komas[0]?.elements).toContainEqual(
@@ -132,10 +139,10 @@ test('generates a presentation with Claude Code', async () => {
       }),
     );
 
-    await window.getByRole('button', { name: 'New', exact: true }).click();
+    await chooseProjectCommand(window, 'New');
     await expect(komas).toHaveCount(0);
     await answerOpenDialog(application, editedPath);
-    await window.getByRole('button', { name: 'Open', exact: true }).click();
+    await chooseProjectCommand(window, 'Open');
     await expect(komas).toHaveCount(3);
     await expect(window.getByText('All changes saved')).toBeVisible();
     await komas.first().click();
@@ -148,8 +155,9 @@ test('generates a presentation with Claude Code', async () => {
       await komas.nth(index).click();
       // Generated durations can be too brief to observe reliably in automation.
       // Change only the open copy; keep both saved evidence files untouched.
+      await showTransitionControls(window);
       await window.getByLabel('Transition duration in seconds').fill('2');
-      await window.getByRole('button', { name: 'Preview', exact: true }).click();
+      await window.getByRole('button', { name: 'Play', exact: true }).click();
       await expect(stage).toHaveAttribute('aria-label', /^Preview of the transition/);
       await expect(stage).toHaveAttribute(
         'aria-label',
