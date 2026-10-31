@@ -393,13 +393,18 @@ export async function listProviderModels(providerId: string): Promise<void> {
 
 export async function cancelGeneration(): Promise<void> {
   const { execution, requestCancel } = useAgentStore.getState();
-  if (execution === null) {
+  if (execution === null || execution.cancelRequested) {
     return;
   }
   requestCancel();
   try {
     await invoke('koma:providers:cancel', { executionId: execution.executionId });
   } catch {
-    useUiStore.getState().notify('error', 'The generation could not be stopped.');
+    // A failed IPC request must not leave Stop disabled, or reset another run.
+    if (useAgentStore.getState().execution?.executionId !== execution.executionId) return;
+    useAgentStore.setState((state) => ({
+      execution: state.execution === null ? null : { ...state.execution, cancelRequested: false },
+    }));
+    useUiStore.getState().notify('error', 'The generation could not be stopped. Try again.');
   }
 }
