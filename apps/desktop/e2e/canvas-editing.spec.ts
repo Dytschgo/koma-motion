@@ -280,7 +280,9 @@ test('validates, imports, saves, reopens and replaces embedded images', async ()
   const original = saved.presentation.komas[0]?.elements.find((item) => item.type === 'image');
   await answerOpenDialog(application, savedPath);
   await chooseProjectCommand(window, 'Open');
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
   await image.click();
+  await showInspector(window);
   await expect(window.getByLabel('X', { exact: true })).toHaveValue('520');
   await answerOpenDialog(application, imagePath);
   await window.getByRole('button', { name: 'Replace image', exact: true }).click();
@@ -512,9 +514,14 @@ test('keeps editor bounds at zoom/resize and discards drafts when reopening the 
   const before = await stage.boundingBox();
   const beforeEditor = await editor.boundingBox();
   if (!before || !beforeEditor) throw new Error('Missing bounds before resize');
-  await application.evaluate(({ BrowserWindow }) =>
-    BrowserWindow.getAllWindows()[0]?.setSize(1200, 700),
+  const contentBefore = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+  // macOS may already have clamped the initial window near 1200 pixels.
+  // Request a distinct supported width, then verify a resize really happened.
+  await application.evaluate(
+    ({ BrowserWindow }, width) => BrowserWindow.getAllWindows()[0]?.setContentSize(width, 700),
+    contentBefore.width > 1120 ? 1120 : 1280,
   );
+  await expect.poll(() => window.evaluate(() => innerWidth)).not.toBe(contentBefore.width);
   await expect.poll(async () => (await stage.boundingBox())?.width).not.toBe(before.width);
   await expect.poll(async () => (await editor.boundingBox())?.width).not.toBe(beforeEditor.width);
   await expect(editor).toHaveValue('Resize draft');

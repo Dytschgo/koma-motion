@@ -41,7 +41,9 @@ export function PromptDock({ project }: { readonly project: KomaProject }): Reac
       ? 'Proposal to review'
       : failure !== undefined
         ? 'Failed'
-        : null;
+        : latestOutcome?.kind === 'result' && latestOutcome.warnings.length > 0
+          ? 'Warnings to review'
+          : null;
 
   // A new run and a proposal to review open the conversation, so progress,
   // Stop and Apply or Discard are visible where the request was made.

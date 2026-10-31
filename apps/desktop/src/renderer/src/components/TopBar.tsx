@@ -291,7 +291,7 @@ export function TopBar(): ReactElement {
               label="Properties"
               aria-expanded={propertiesOpen}
               active={propertiesOpen}
-              disabled={!hasKomas}
+              disabled={!hasProject}
               onClick={() => {
                 const ui = useUiStore.getState();
                 if (ui.propertiesOpen) ui.setPropertiesOpen(false);

@@ -81,11 +81,13 @@ test('keeps drafts, transcript, selection and focus while properties open and cl
   await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
   await expect(properties).toBeFocused();
   await expect(request).toHaveValue('Keep this unfinished follow-up.');
+  await expect(window.getByRole('log', { name: 'Conversation' })).toBeHidden();
+  await showChat(window);
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
 
   // Selecting an element shows its toolbar; it does not open a panel by itself.
   await window.getByRole('button', { name: 'Koma 2: The motion engine', exact: true }).click();
-  await canvas.locator('[data-element-id]').first().click({ force: true });
+  await canvas.locator('[data-element-id]').first().click();
   const toolbar = window.getByRole('toolbar', { name: 'Element actions' });
   await expect(toolbar).toBeVisible();
   await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
@@ -142,7 +144,7 @@ test('narrow window preserves Brand Kit input, count and popups and offers Koma 
   await counts.getByRole('spinbutton', { name: 'Komas' }).fill('7');
   await window.keyboard.press('Escape');
   await window.getByLabel('Generation scope').selectOption('selected');
-  await window.getByRole('button', { name: 'Use the example request' }).click();
+  await window.getByRole('button', { name: 'Try a selected-Koma proposal', exact: true }).click();
   await expect(window.getByLabel('Your request')).toHaveValue(
     'Make this Koma clearer while keeping its main idea and styling.',
   );

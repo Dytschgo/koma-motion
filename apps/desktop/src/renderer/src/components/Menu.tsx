@@ -125,8 +125,13 @@ export function MenuButton({
     if (!open || button.current === null || menu.current === null) return;
     const rect = menu.current.getBoundingClientRect();
     setPosition(placeBeside(button.current.getBoundingClientRect(), rect, align));
-    menu.current.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
   }, [open, align]);
+
+  // A menu cannot receive focus while its unmeasured surface is hidden.
+  useLayoutEffect(() => {
+    if (open && position !== null)
+      menu.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
+  }, [open, position]);
 
   useEffect(() => {
     if (!open) return;

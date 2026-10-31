@@ -150,12 +150,7 @@ function resumeEditing(event: SyntheticEvent<HTMLElement>): void {
   const outcome = agent.conversation.findLast((entry) => entry.kind !== 'request');
   // Editing and playback controls signal the return to the canvas before an
   // object can be covered by chat. Keep unresolved outcomes available.
-  if (
-    agent.execution === null &&
-    agent.scopedProposal === null &&
-    outcome?.kind === 'result' &&
-    outcome.warnings.length === 0
-  ) {
+  if (agent.execution === null && agent.scopedProposal === null && outcome?.kind === 'result') {
     useUiStore.getState().setChatOpen(false);
   }
 }

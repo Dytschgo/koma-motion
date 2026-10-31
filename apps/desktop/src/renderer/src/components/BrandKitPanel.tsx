@@ -56,11 +56,12 @@ export function BrandKitPanel({
           onClick={() => {
             setView('canvas');
             requestAnimationFrame(() => {
-              document
-                .querySelector<HTMLButtonElement>(
+              const target =
+                document.querySelector<HTMLElement>(
                   '[aria-label="Inspector"] [role="tab"][aria-selected="true"]',
-                )
-                ?.focus();
+                ) ??
+                document.querySelector<HTMLElement>('[role="region"][aria-label="Properties"]');
+              target?.focus();
             });
           }}
         >

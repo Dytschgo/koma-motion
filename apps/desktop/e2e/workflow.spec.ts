@@ -187,7 +187,7 @@ test('creates, generates, previews, saves and reopens a presentation', async () 
     await answerSaveDialog(application, filePath);
     await chooseProjectCommand(window, 'Save');
     await expect(window.getByText('All changes saved')).toBeVisible();
-    await expect(window.getByText('introduction.koma', { exact: true })).toBeVisible();
+    await expect(window.getByLabel('Project name')).toHaveAttribute('title', /introduction\.koma$/);
 
     const saved: unknown = JSON.parse(await readFile(filePath, 'utf8'));
     expect(saved).toMatchObject({

@@ -218,6 +218,29 @@ test('uses Model and Brand Kit pickers above the open conversation at minimum si
   expect(problems).toEqual([]);
 });
 
+test('keeps result warnings discoverable after returning to canvas editing', async () => {
+  running = await launchApplication();
+  const { window, problems } = running;
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  // Keep the default requested count of five; the mock returns three and explains it.
+  await window.getByLabel('Your request').fill('Explain how an idea becomes a presentation.');
+  await window.getByRole('button', { name: 'Generate Komas', exact: true }).click();
+  const warning = 'The mock provider always creates its demonstration story with three Komas.';
+  const log = window.getByRole('log', { name: 'Conversation' });
+  await expect(log.getByText(warning, { exact: true })).toBeVisible();
+  await window.getByLabel('Your request').fill('Keep this follow-up draft.');
+  await window.getByRole('button', { name: 'Properties', exact: true }).click();
+  await expect(log).toBeHidden();
+  await expect(window.getByRole('button', { name: 'Show the chat', exact: true })).toHaveAttribute(
+    'aria-description',
+    'Warnings to review',
+  );
+  await showChat(window);
+  await expect(log.getByText(warning, { exact: true })).toBeVisible();
+  await expect(window.getByLabel('Your request')).toHaveValue('Keep this follow-up draft.');
+  expect(problems).toEqual([]);
+});
+
 test('keeps menus keyboard operable and returns focus when they close', async () => {
   running = await launchApplication();
   const { window, problems } = running;

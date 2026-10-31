@@ -88,10 +88,12 @@ test('retains selected draft/count through narrow Inspect collapse and edits, th
     .getByRole('button', { name: 'Object (shape)' })
     .click();
   await showInspector(window);
-  await expect(request).toBeHidden();
+  await expect(request).toBeVisible();
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
-  await window.getByRole('tab', { name: 'Chat', exact: true }).click();
-  await expect(window.getByRole('tab', { name: 'Chat', exact: true })).toBeFocused();
+  await expect(window.getByRole('log', { name: 'Conversation' })).toBeHidden();
+  await expect(request).toBeVisible();
+  await showChat(window);
+  await expect(window.getByRole('button', { name: 'Hide the chat', exact: true })).toBeFocused();
   await expect(request).toHaveValue('A selected draft with spaces');
   await expect(window.getByLabel('Generation scope')).toHaveValue('selected');
   await showGenerationOptions(window);
@@ -329,6 +331,7 @@ test('preserves model defaults, custom IDs, undo and project settings through mo
   expect(saved.agentConfiguration.selectedProviderId).toBe('mock');
   expect(saved.agentConfiguration.providers['claude-code']?.model).toBe('opus');
   expect(saved.presentation.audience).toBe('People who create presentations');
+  await showChat(window);
   await window.getByRole('button', { name: 'Hide the chat' }).click();
   // Collapsing the conversation is session state; nothing about it is stored.
   const storage = await window.evaluate(() => JSON.stringify({ ...localStorage }));

@@ -97,7 +97,7 @@ test('long project names use available title-bar space without displacing narrow
       'Add element',
       'Properties',
       'Play',
-      'Present',
+      'Present or edit motion',
       'Share',
     ]) {
       await expect(header.getByRole('button', { name: action, exact: true })).toBeInViewport({
@@ -311,6 +311,7 @@ test('canvas and panel navigation preserve the sent request and the empty follow
     await expect(request).toHaveValue('');
     await window.getByRole('button', { name: /^Deck overview/ }).click();
     await window.getByLabel('Find a Koma').press('Escape');
+    await showChat(window);
     await expect(bubble).toHaveText(expectedBubble);
     await expect(request).toHaveValue('');
   }

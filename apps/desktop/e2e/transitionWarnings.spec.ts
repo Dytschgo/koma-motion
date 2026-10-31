@@ -91,7 +91,7 @@ async function expectBlocked(window: Page): Promise<void> {
   await expect(transport.getByRole('button', { name: 'Play' })).toBeDisabled();
   await expect(transport.getByRole('button', { name: 'Restart' })).toBeDisabled();
   await expect(transport.getByLabel('Position in the transition')).toBeDisabled();
-  await expect(transport.getByText('Cannot play')).toBeVisible();
+  await expect(transport.getByText('Cannot play', { exact: true })).toBeVisible();
   await expect(window.getByRole('button', { name: 'Play', exact: true })).toBeDisabled();
 }
 

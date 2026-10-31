@@ -234,7 +234,9 @@ export async function expectInstructionsState(window: Page, state: string): Prom
 export async function showGenerationOptions(window: Page): Promise<void> {
   const toggle = window.getByRole('button', { name: 'Generation options', exact: true });
   if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
-  await expect(window.getByRole('group', { name: 'Generation choices' })).toBeVisible();
+  await expect(
+    window.getByRole('group', { name: 'Generation choices', exact: true }),
+  ).toBeVisible();
 }
 
 /**

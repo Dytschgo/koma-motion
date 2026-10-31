@@ -98,6 +98,11 @@ test('returning from Brand Kit restores Inspector focus and concise template act
   await back.press('Enter');
   const inspector = window.getByRole('complementary', { name: 'Inspector', exact: true });
   await expect(inspector).toBeVisible();
+  // An empty project has no Inspector tabs; focus returns to the properties surface.
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeFocused();
+  await window.getByRole('button', { name: 'Add first Koma', exact: true }).click();
+  await openBrandKit(window);
+  await back.press('Enter');
   await expect(inspector.getByRole('tab', { selected: true })).toBeFocused();
   // Provider refresh stays one menu away instead of in a permanent header.
   await window.getByRole('button', { name: 'Project menu', exact: true }).click();

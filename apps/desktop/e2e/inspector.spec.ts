@@ -182,13 +182,14 @@ test('moves between Koma, element and motion contexts with the pointer and the k
 
   // A shape shows its fill first.
   await stage(window).getByRole('button', { name: 'Cover panel (shape)', exact: true }).click();
-  await expect(window.getByLabel('Fill colour')).toHaveValue('#F2C14E');
-  await window.getByLabel('Fill colour').fill('#12');
+  const fill = inspector(window).getByRole('textbox', { name: 'Fill colour', exact: true });
+  await expect(fill).toHaveValue('#F2C14E');
+  await fill.fill('#12');
   await expect(window.getByText('Error: Choose a colour or enter a hex value.')).toBeVisible();
-  await expect(window.getByLabel('Fill colour')).toHaveAttribute('aria-invalid', 'true');
-  await window.getByLabel('Fill colour').fill('#123456');
+  await expect(fill).toHaveAttribute('aria-invalid', 'true');
+  await fill.fill('#123456');
   await expect(window.getByText('Error: Choose a colour or enter a hex value.')).toHaveCount(0);
-  await expect(window.getByLabel('Fill colour')).not.toHaveAttribute('aria-invalid', 'true');
+  await expect(fill).not.toHaveAttribute('aria-invalid', 'true');
 
   // The tabs work with the arrow keys; the Koma keeps its fields.
   const elementTab = inspector(window).getByRole('tab', { name: /^Element/ });
@@ -306,6 +307,8 @@ test('selects hidden, covered and off-canvas elements from Layers and changes th
   await expect(window.getByText('Unsaved changes', { exact: true })).toHaveCount(0);
   await answerOpenDialog(application, path);
   await chooseProjectCommand(window, 'Open');
+  // Loading the same file resets properties even though the project name is unchanged.
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
   await showInspector(window);
   await expectTab(window, 'Koma');
   await expect(layer(window, 'Corner badge')).toHaveAccessibleName(/locked/);

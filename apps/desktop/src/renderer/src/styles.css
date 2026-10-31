@@ -731,7 +731,7 @@
 /* Transition controls make room for a floating properties panel. */
 .studio-stage:has(> .properties-panel:not([hidden])) .studio-transport {
   inline-size: auto;
-  margin-inline: 1rem calc(min(22rem, 100% - 1.5rem) + 1.5rem);
+  margin-inline: 1rem calc(min(22.5rem, 100% - 1.5rem) + 1.5rem);
 }
 .studio-canvas {
   display: flex;
@@ -760,7 +760,8 @@
     0 0 0 1px oklch(30% 0.03 60 / 0.06);
 }
 .studio-empty {
-  margin: auto;
+  margin-block: clamp(1rem, 4vh, 2.5rem) auto;
+  margin-inline: auto;
   max-inline-size: 22rem;
   border: 1px dashed var(--color-line-strong);
   border-radius: var(--radius-dialog);
@@ -1266,7 +1267,7 @@
   inset-inline-end: 0.75rem;
   display: flex;
   flex-direction: column;
-  inline-size: min(22rem, calc(100% - 1.5rem));
+  inline-size: min(22.5rem, calc(100% - 1.5rem));
   max-block-size: calc(100% - 1rem);
   overflow: clip;
   border-radius: var(--radius-card);
@@ -1277,7 +1278,7 @@
   position: relative;
   inset: auto;
   flex: none;
-  inline-size: 21rem;
+  inline-size: 22.5rem;
   max-block-size: none;
   border-inline-start: 1px solid var(--color-line);
   border-radius: 0;
