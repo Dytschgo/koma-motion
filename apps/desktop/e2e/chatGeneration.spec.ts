@@ -1,15 +1,23 @@
 import { expect, test } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
 import { launchApplication, showChat, type RunningApplication } from './application';
+import { recordInputEvidence } from './inputEvidence';
 
 let running: RunningApplication;
+let inputEvidence: () => readonly unknown[];
 
 test.beforeEach(async () => {
   running = await launchApplication({ env: { KOMA_MOCK_DELAY_MS: '2400' } });
   await running.window.getByRole('button', { name: 'Create a project' }).click();
   await showChat(running.window);
+  inputEvidence = await recordInputEvidence(running.window);
 });
 
 test.afterEach(async () => {
+  await writeFile(
+    test.info().outputPath('input-events.json'),
+    JSON.stringify(inputEvidence(), null, 2),
+  );
   if (test.info().status !== test.info().expectedStatus) {
     await running.window.screenshot({ path: test.info().outputPath('chat.png'), scale: 'css' });
   }
@@ -35,6 +43,9 @@ test('retrying a stopped request preserves a different follow-up draft and block
   const request = window.getByLabel('Your request');
   const log = window.getByRole('log', { name: 'Conversation' });
   await request.fill('The original request to retry.');
+  // Keyboard submission needs the same ready composer as a click on Generate.
+  // Unlike click(), press('Enter') does not wait for the send button to enable.
+  await expect(window.getByRole('button', { name: 'Generate Komas', exact: true })).toBeEnabled();
   await request.press('Enter');
   await window.getByRole('button', { name: 'Stop generating' }).click();
   await expect(log.getByText('Generation stopped')).toBeVisible();
@@ -59,9 +70,11 @@ test('keeps the prompt and top bar stationary around a scrollable conversation i
   const chat = window.getByRole('region', { name: 'Agent chat' });
   const request = window.getByLabel('Your request');
   await request.fill('Create the starting Komas.');
+  await expect(window.getByRole('button', { name: 'Generate Komas', exact: true })).toBeEnabled();
   await request.press('Enter');
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
   await request.fill('An extended request with room for a detailed story. '.repeat(30));
+  await expect(window.getByRole('button', { name: 'Generate Komas', exact: true })).toBeEnabled();
   await request.press('Enter');
   await window.getByRole('button', { name: 'Stop generating' }).click();
   await expect(window.getByText('Generation stopped')).toBeVisible();
