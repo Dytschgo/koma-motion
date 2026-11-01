@@ -134,14 +134,22 @@ export async function answerSaveDialog(
   }, filePath);
 }
 
-/** Makes the next "Open" dialog answer with `filePath`. */
+/** Makes the next "Open" dialog answer with `filePath`, optionally delayed in the guest. */
 export async function answerOpenDialog(
   application: ElectronApplication,
   filePath: string,
+  delayMs = 0,
 ): Promise<void> {
-  await application.evaluate(({ dialog }, chosen) => {
-    dialog.showOpenDialog = () => Promise.resolve({ canceled: false, filePaths: [chosen] });
-  }, filePath);
+  await application.evaluate(
+    ({ dialog }, { chosen, responseDelayMs }) => {
+      dialog.showOpenDialog = async () => {
+        if (responseDelayMs > 0)
+          await new Promise<void>((resolve) => setTimeout(resolve, responseDelayMs));
+        return { canceled: false, filePaths: [chosen] };
+      };
+    },
+    { chosen: filePath, responseDelayMs: delayMs },
+  );
 }
 
 /** Whether a requested wide sizing scenario fits on this screen. */

@@ -85,12 +85,26 @@ for (const reducedMotion of [false, true]) {
     expect(saved.presentation.komas.map((koma) => koma.holdDurationMs)).toEqual([1000, 2500, null]);
     expect(saved.presentation.transitions).toEqual(transitions);
     expect(await readFile(source, 'utf8')).toBe(original);
-    await answerOpenDialog(application, savedPath);
+    // The old session also has a 2.5-second field, so that value cannot prove
+    // reopening has finished. Keep Open pending long enough to exercise this
+    // boundary, then wait for the new session's first-Koma selection.
+    const strip = window.getByRole('list', { name: 'Komas' });
+    await expect(strip.getByRole('button', { name: /^Koma 2:/ })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    await answerOpenDialog(application, savedPath, 500);
     await chooseProjectCommand(window, 'Open');
+    await expect(strip.getByRole('button', { name: /^Koma 1:/ })).toHaveAttribute(
+      'aria-current',
+      'true',
+    );
+    await showInspector(window);
     await window
       .getByRole('list', { name: 'Komas' })
       .getByRole('button', { name: /^Koma 2:/ })
       .click();
+    await expect(seconds).toBeVisible();
     await expect(seconds).toHaveValue('2.5');
     await window.screenshot({ path: test.info().outputPath('saved-koma-hold.png') });
 
