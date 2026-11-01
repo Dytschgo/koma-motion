@@ -101,8 +101,17 @@ test('creates, generates, previews, edits, saves and reopens a presentation', as
     .toBe(true);
 
   await window.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect(window.getByRole('log', { name: 'Conversation' })).toBeHidden();
-  const stage = window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]');
+  // The right-hand conversation stays available during playback without
+  // covering the canvas, including in the installed application.
+  await expect(window.getByRole('log', { name: 'Conversation' })).toBeVisible();
+  const canvas = window.getByRole('region', { name: 'Canvas' });
+  const chat = window.getByRole('region', { name: 'Agent chat' });
+  await expect(chat).toBeInViewport({ ratio: 1 });
+  const canvasBounds = await canvas.boundingBox();
+  const chatBounds = await chat.boundingBox();
+  if (canvasBounds === null || chatBounds === null) throw new Error('Missing editor bounds.');
+  expect(canvasBounds.x + canvasBounds.width).toBeLessThanOrEqual(chatBounds.x + 1);
+  const stage = canvas.locator('[data-koma-stage]');
   await expect(stage).toHaveAttribute('aria-label', 'Koma 2: The motion engine', {
     timeout: 15_000,
   });
