@@ -1392,10 +1392,14 @@
   mask-image: linear-gradient(
     to bottom,
     transparent,
-    #000 var(--inspector-fade-start),
-    #000 calc(100% - var(--inspector-fade-end)),
+    oklch(0% 0 none) var(--inspector-fade-start),
+    oklch(0% 0 none) calc(100% - var(--inspector-fade-end)),
     transparent
   );
+}
+.inspector-scroll:focus-within {
+  /* Focus and editable content stay fully opaque even at a scrolled edge. */
+  mask-image: none;
 }
 @media (forced-colors: active) {
   .inspector-scroll {

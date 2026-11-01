@@ -286,6 +286,13 @@ change.
 
 ## Pending native evidence
 
+Coordinator review preserves the twenty-round count and accepts removing the
+duplicate Brand Kit route from the Properties header. It also disables the
+Inspector edge mask while a field has focus, so focused content and its outline
+stay fully opaque even at a scrolled edge. The mask's black stops use the existing
+OKLCH colour convention. These are follow-up review corrections, not extra Opus
+rounds.
+
 - The full CI workflow and the UI-confidence workflow must pass on the pushed
   head before these loops count as accepted.
 - New captures of the changed states must be inspected: chat bubble,
