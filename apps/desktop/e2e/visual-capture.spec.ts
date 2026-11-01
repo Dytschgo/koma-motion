@@ -49,6 +49,19 @@ for (const size of SIZES) {
       await page.screenshot({ path: join(output, `${name}.png`), scale: 'css' });
     };
 
+    // A short window may scroll, but the beginning of Welcome must remain
+    // reachable at scrollTop 0 rather than being centred above the scrollport.
+    const welcome = window.getByRole('main');
+    const welcomeBounds = await welcome.evaluate((node) => {
+      node.scrollTop = 0;
+      const content = node.firstElementChild;
+      if (content === null) throw new Error('Missing Welcome content');
+      return {
+        viewportTop: node.getBoundingClientRect().top,
+        contentTop: content.getBoundingClientRect().top,
+      };
+    });
+    expect(welcomeBounds.contentTop).toBeGreaterThanOrEqual(welcomeBounds.viewportTop);
     await shot('01-welcome');
     await window.getByRole('button', { name: 'Create a project' }).click();
     await showChat(window);
@@ -97,6 +110,7 @@ for (const size of SIZES) {
         {
           ...size,
           phase,
+          welcomeBounds,
           viewport: await window.evaluate(() => ({
             width: innerWidth,
             height: innerHeight,

@@ -760,6 +760,10 @@
   overflow: auto;
   background: var(--color-paper-100);
 }
+.studio-welcome {
+  /* Tall welcome content starts inside the scrollport instead of above it. */
+  align-items: safe center;
+}
 .studio-sheet {
   margin: auto;
   border-radius: 3px;

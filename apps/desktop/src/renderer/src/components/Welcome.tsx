@@ -49,7 +49,7 @@ function Sequence(): ReactElement {
 
 export function Welcome(): ReactElement {
   return (
-    <main className="studio-desk flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-8">
+    <main className="studio-desk studio-welcome flex min-h-0 flex-1 justify-center overflow-y-auto p-8">
       <div className="flex w-full max-w-3xl flex-col items-start gap-8">
         <div className="w-full rounded-dialog border border-line bg-surface-1 p-7 shadow-raised sm:p-9">
           <Sequence />

@@ -297,6 +297,12 @@ The Windows VM preflight also enables the existing visual-capture scenarios at
 1480 × 920 and 1120 × 700, retaining clean captures and actual viewport metadata.
 These captures remain separate from the twenty full functional UI runs.
 
+Rendered review also corrected Welcome's overflow alignment: at the minimum
+window height its tall content starts inside the scrollport rather than above
+it. The visual-capture scenarios assert that the page's beginning is reachable
+at scroll position zero. This is a post-review responsive correction, not an
+additional Opus round.
+
 - The full CI workflow and the UI-confidence workflow must pass on the pushed
   head before these loops count as accepted.
 - New captures of the changed states must be inspected: chat bubble,
