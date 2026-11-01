@@ -67,6 +67,15 @@ jobs:
       - name: Summarize repeated chat retry outcomes
         if: always() && steps.chat.outcome != 'skipped'
         run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-chat-retry-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat grouping geometry across refits without retries
+        id: groups
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test groups.spec.ts --repeat-each=20 --retries=0 --output "${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated grouping geometry outcomes
+        if: always() && steps.groups.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
       - name: Capture the design at wide and minimum window sizes
         if: matrix.os == 'windows-latest'
         id: visuals
@@ -89,6 +98,7 @@ jobs:
             ${{ runner.temp }}/koma-hold-timing-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-startup-keyboard-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-chat-retry-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 7

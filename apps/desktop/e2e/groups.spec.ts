@@ -38,21 +38,29 @@ interface Box {
 
 /** Where objects are drawn, in logical canvas units, so that a change of zoom does not matter. */
 async function drawnBoxes(locators: readonly Locator[]): Promise<Box[]> {
-  const canvas = await stage().boundingBox();
-  if (canvas === null) throw new Error('The canvas is not drawn');
-  const unit = 1920 / canvas.width;
-  const boxes: Box[] = [];
-  for (const locator of locators) {
-    const box = await locator.boundingBox();
-    if (box === null) throw new Error('An object is not drawn');
-    boxes.push({
-      x: (box.x - canvas.x) * unit,
-      y: (box.y - canvas.y) * unit,
-      width: box.width * unit,
-      height: box.height * unit,
-    });
+  const elements = await Promise.all(locators.map((locator) => locator.elementHandle()));
+  try {
+    // Opening transition controls can refit the canvas. Read its rectangle
+    // and every object in one browser task, so they share the same fit scale.
+    return await stage().evaluate((node, targets) => {
+      const canvas = node.getBoundingClientRect();
+      if (canvas.width <= 0) throw new Error('The canvas is not drawn');
+      const unit = 1920 / canvas.width;
+      return targets.map((element) => {
+        if (element === null || !element.isConnected || element.getClientRects().length === 0)
+          throw new Error('An object is not drawn');
+        const box = element.getBoundingClientRect();
+        return {
+          x: (box.x - canvas.x) * unit,
+          y: (box.y - canvas.y) * unit,
+          width: box.width * unit,
+          height: box.height * unit,
+        };
+      });
+    }, elements);
+  } finally {
+    await Promise.all(elements.map((element) => element?.dispose()));
   }
-  return boxes;
 }
 
 function expectSameBoxes(actual: readonly Box[], expected: readonly Box[]): void {
