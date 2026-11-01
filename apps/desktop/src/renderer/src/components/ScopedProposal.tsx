@@ -30,10 +30,7 @@ export function ScopedProposal({
       <h3 className="text-sm font-semibold text-ink-100">
         Proposal for Koma {number || 'removed'}: {proposal.target.title}
       </h3>
-      <p className="mt-1 text-xs text-ink-300">
-        Applies to this Koma only. Its saved hold time and other Komas stay unchanged. Neighboring
-        motion may need repair.
-      </p>
+      <p className="mt-1 text-xs text-ink-300">Only this Koma changes.</p>
       <div
         ref={previewRef}
         className="my-3 overflow-hidden rounded-control"

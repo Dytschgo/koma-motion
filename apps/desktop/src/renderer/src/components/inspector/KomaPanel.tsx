@@ -43,7 +43,7 @@ export function KomaPanel({
             />
           )}
         </Field>
-        <Field label="Purpose" hint="What this Koma should make the audience understand.">
+        <Field label="Purpose">
           {(ids) => (
             <TextArea
               {...ids}
@@ -58,7 +58,7 @@ export function KomaPanel({
         </Field>
       </div>
 
-      <Section title="Presentation timing">
+      <Section title="Timing">
         <label className="flex items-center justify-between gap-2 text-sm">
           Use global hold duration
           <Switch
@@ -69,10 +69,7 @@ export function KomaPanel({
             }
           />
         </label>
-        <Field
-          label="Koma hold duration in seconds"
-          hint="Wait before the next transition. Saved with this Koma; used for autoplay and timed PowerPoint export."
-        >
+        <Field label="Koma hold duration in seconds">
           {(ids) => (
             <NumberInput
               {...ids}
@@ -89,7 +86,7 @@ export function KomaPanel({
         </Field>
       </Section>
 
-      <Section title="Background">
+      <Section>
         <ColourField
           label="Background"
           value={koma.background.colour}
@@ -99,7 +96,7 @@ export function KomaPanel({
         />
       </Section>
 
-      <Section title="Speaker notes">
+      <Section>
         <Field label="Speaker notes">
           {(ids) => (
             <TextArea

@@ -198,8 +198,19 @@ test('returns focus after cancelling deletion, leaving the menu, and deleting th
     .click();
   await expect(window.getByRole('button', { name: 'Add Koma', exact: true })).toBeFocused();
   await expect(window.getByText('No Komas yet', { exact: true })).toBeVisible();
+  // Without Komas only Add Koma remains: nothing waits disabled beside it or on the canvas.
+  const komaActions = window.getByRole('button', { name: 'Koma actions', exact: true });
+  const overview = window.getByRole('button', { name: 'Deck overview', exact: true });
+  const zoom = window.getByRole('group', { name: 'Zoom', exact: true });
+  await expect(komaActions).toHaveCount(0);
+  await expect(overview).toHaveCount(0);
+  await expect(zoom).toHaveCount(0);
   await window.keyboard.press('ControlOrMeta+z');
   await expect(thumbnail(1, 'One')).toBeVisible();
+  // Undo brings the Koma back with its actions and zoom.
+  await expect(komaActions).toBeEnabled();
+  await expect(overview).toBeEnabled();
+  await expect(zoom.getByRole('button', { name: 'Zoom in', exact: true })).toBeEnabled();
   expect(problems).toEqual([]);
 });
 

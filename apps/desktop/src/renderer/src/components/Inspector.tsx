@@ -92,12 +92,9 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
   return (
     <aside aria-label="Inspector" className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-1">
       {koma === null ? (
-        <div className="m-auto flex max-w-64 flex-col items-center gap-1.5 px-4 text-center">
-          <p className="font-medium text-ink-300">Select a Koma to see its details.</p>
-          <p className="text-sm text-ink-400">
-            Its elements, layers and the motion to the next Koma appear here.
-          </p>
-        </div>
+        <p className="m-auto max-w-64 px-4 text-center font-medium text-ink-300">
+          Select a Koma to see its details.
+        </p>
       ) : (
         <>
           <div className="flex-none p-2">
@@ -146,7 +143,7 @@ export function Inspector({ project }: { readonly project: KomaProject }): React
             role="tabpanel"
             id={`${id}-panel`}
             aria-labelledby={`${id}-${tab}-tab`}
-            className="min-h-0 flex-1 overflow-y-auto border-t border-line"
+            className="inspector-scroll min-h-0 flex-1 overflow-y-auto border-t border-line"
           >
             {tab === 'motion' ? (
               <MotionPanel

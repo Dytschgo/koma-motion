@@ -78,15 +78,9 @@ export function Welcome(): ReactElement {
           </Help>
         </div>
         <section aria-labelledby="starters-heading" className="flex w-full flex-col gap-3">
-          <div>
-            <h2 id="starters-heading" className="eyebrow">
-              Or begin with a starter
-            </h2>
-            <p className="mt-1 text-sm text-pretty text-ink-400">
-              Each starter adds a Brand Kit, instructions and a first request in chat. Choose a
-              provider and send it.
-            </p>
-          </div>
+          <h2 id="starters-heading" className="eyebrow">
+            Or begin with a starter
+          </h2>
           <StarterList
             actionLabel="Start"
             onChoose={(preset) => void createProjectFromStarter(preset)}

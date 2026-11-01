@@ -448,6 +448,13 @@ test('expands the prompt into the conversation and keeps a failed request where 
     .getByRole('alert')
     .filter({ hasText: 'Couldn’t use the result. Nothing changed.' });
   await expect(failure).toBeVisible();
+  // The summary sits directly above the prompt, not at the far end of the sidebar.
+  const failureBox = await failure.boundingBox();
+  const requestBox = await request.boundingBox();
+  if (!failureBox || !requestBox) throw new Error('The failure or the prompt is not laid out');
+  const gap = requestBox.y - (failureBox.y + failureBox.height);
+  expect(gap).toBeGreaterThanOrEqual(0);
+  expect(gap).toBeLessThan(48);
   await capture(window, 'failure-prompt');
   // A new draft survives rechecking the original request.
   await request.fill('A follow-up I have not sent.');

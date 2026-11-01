@@ -155,7 +155,6 @@ export function PromptDock({ project }: { readonly project: KomaProject }): Reac
           open: chatOpen,
           controls: sheetId,
           status,
-          failed: showFailure,
           toggle: () => {
             if (chatOpen) collapse();
             else setChatOpen(true);

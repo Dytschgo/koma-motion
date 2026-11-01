@@ -116,6 +116,13 @@ test('shows checking, correcting and a failure when the answer stays invalid', a
     failure.getByText('komas: Invalid input: expected array, received string', { exact: true }),
   ).toBeVisible();
   await expect(failure.getByText('invalidResponse', { exact: true })).toBeVisible();
+  // Open diagnostics never push the recovery action below them.
+  const recheck = failure.getByRole('button', { name: 'Recheck', exact: true });
+  await expect(recheck).toBeEnabled();
+  const recheckBox = await recheck.boundingBox();
+  const detailsBox = await details.boundingBox();
+  if (!recheckBox || !detailsBox) throw new Error('Recheck or Details is not laid out');
+  expect(recheckBox.y + recheckBox.height).toBeLessThanOrEqual(detailsBox.y);
   await window.screenshot({
     path: test.info().outputPath('failure-diagnostics.png'),
     scale: 'css',

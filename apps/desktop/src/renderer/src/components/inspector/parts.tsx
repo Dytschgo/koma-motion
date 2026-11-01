@@ -4,21 +4,29 @@ import { useId, useState, type ReactElement, type ReactNode } from 'react';
 import { ChevronIcon } from '../icons';
 import { ColourControl } from '../ColourControl';
 
+/**
+ * A group of controls. Without a title it is only a divided block, for a
+ * single field whose own label already names it.
+ */
 export function Section({
   title,
   action,
   children,
 }: {
-  readonly title: string;
+  readonly title?: string;
   readonly action?: ReactNode;
   readonly children: ReactNode;
 }): ReactElement {
   return (
-    <section className="border-t border-line px-3 pt-2 pb-3 first:border-t-0">
-      <div className="flex min-h-7 items-center justify-between gap-2 pb-1">
-        <h3 className="eyebrow">{title}</h3>
-        {action}
-      </div>
+    <section
+      className={`border-t border-line px-3 pb-3 first:border-t-0 ${title === undefined ? 'pt-3' : 'pt-2'}`}
+    >
+      {title !== undefined && (
+        <div className="flex min-h-7 items-center justify-between gap-2 pb-1">
+          <h3 className="eyebrow">{title}</h3>
+          {action}
+        </div>
+      )}
       <div className="flex flex-col gap-3">{children}</div>
     </section>
   );

@@ -89,8 +89,6 @@ export interface ComposerChat {
   readonly controls: string;
   /** A short state of the conversation while it is collapsed. */
   readonly status: string | null;
-  /** The latest request failed and its line is shown above the prompt. */
-  readonly failed: boolean;
   readonly toggle: () => void;
 }
 
@@ -302,7 +300,7 @@ export function AgentComposer({
       )}
       <BrandMaterial disabled={running} />
 
-      <div className="prompt-pill" data-failed={chat.failed ? 'true' : undefined}>
+      <div className="prompt-pill">
         <button
           type="button"
           className="prompt-pill-icon"

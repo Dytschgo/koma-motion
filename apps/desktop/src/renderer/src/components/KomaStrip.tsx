@@ -479,35 +479,36 @@ export function KomaStrip({ project }: { readonly project: KomaProject }): React
         >
           <PlusIcon />
         </IconButton>
-        <IconButton
-          label="Koma actions"
-          disabled={selectedId === undefined}
-          aria-haspopup="menu"
-          aria-expanded={menu !== null}
-          onClick={(event) => {
-            if (selectedId === undefined) return;
-            const rect = event.currentTarget.getBoundingClientRect();
-            setMenu({
-              komaId: selectedId,
-              x: rect.x,
-              y: rect.y - 8,
-              source: event.currentTarget,
-            });
-          }}
-        >
-          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
-            <circle cx="3" cy="8" r="1.2" fill="currentColor" />
-            <circle cx="8" cy="8" r="1.2" fill="currentColor" />
-            <circle cx="13" cy="8" r="1.2" fill="currentColor" />
-          </svg>
-        </IconButton>
-        <IconButton
-          label="Deck overview"
-          disabled={komas.length === 0}
-          onClick={() => setOverviewOpen(true)}
-        >
-          <OverviewIcon />
-        </IconButton>
+        {/* With no Komas, Add Koma is the only action; nothing waits disabled beside it. */}
+        {komas.length > 0 && (
+          <>
+            <IconButton
+              label="Koma actions"
+              disabled={selectedId === undefined}
+              aria-haspopup="menu"
+              aria-expanded={menu !== null}
+              onClick={(event) => {
+                if (selectedId === undefined) return;
+                const rect = event.currentTarget.getBoundingClientRect();
+                setMenu({
+                  komaId: selectedId,
+                  x: rect.x,
+                  y: rect.y - 8,
+                  source: event.currentTarget,
+                });
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">
+                <circle cx="3" cy="8" r="1.2" fill="currentColor" />
+                <circle cx="8" cy="8" r="1.2" fill="currentColor" />
+                <circle cx="13" cy="8" r="1.2" fill="currentColor" />
+              </svg>
+            </IconButton>
+            <IconButton label="Deck overview" onClick={() => setOverviewOpen(true)}>
+              <OverviewIcon />
+            </IconButton>
+          </>
+        )}
       </div>
       {menu !== null && menuIndex >= 0 && (
         <KomaContextMenu

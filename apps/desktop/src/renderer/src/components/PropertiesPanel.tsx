@@ -26,9 +26,10 @@ function PinIcon({ pinned }: { readonly pinned: boolean }): ReactElement {
 }
 
 /**
- * All properties of the selection, the Koma and its motion, with Layers and
- * the Brand Kit. It opens on request as a popover over the canvas and can be
- * pinned beside it. Nothing here is shown by default.
+ * All properties of the selection, the Koma and its motion, with Layers. The
+ * Brand Kit opens here from the project menu or a colour popover; the header
+ * carries only pinning and closing. It opens on request as a popover over the
+ * canvas and can be pinned beside it. Nothing here is shown by default.
  */
 export function PropertiesPanel({ project }: { readonly project: KomaProject }): ReactElement {
   const open = useUiStore((state) => state.propertiesOpen);
@@ -38,11 +39,6 @@ export function PropertiesPanel({ project }: { readonly project: KomaProject }):
   const setPinned = useUiStore((state) => state.setPropertiesPinned);
   const panel = useRef<HTMLDivElement>(null);
   const opener = useRef<HTMLElement | null>(null);
-  const brandKitColours = [
-    project.brandKit.colours.primary,
-    project.brandKit.colours.secondary,
-    project.brandKit.colours.accent,
-  ];
 
   // Opening moves focus into the panel; closing returns it to the control that opened it.
   useLayoutEffect(() => {
@@ -111,18 +107,6 @@ export function PropertiesPanel({ project }: { readonly project: KomaProject }):
         <>
           <div className="properties-header">
             <h2 className="min-w-0 flex-1 text-sm font-semibold">Properties</h2>
-            <button
-              type="button"
-              className="properties-brand"
-              onClick={() => useUiStore.getState().setView('brandKit')}
-            >
-              <span aria-hidden="true" className="properties-brand-swatches">
-                {brandKitColours.map((colour, index) => (
-                  <span key={index} style={{ background: colour }} />
-                ))}
-              </span>
-              Brand Kit
-            </button>
             {actions}
           </div>
           <Inspector project={project} />

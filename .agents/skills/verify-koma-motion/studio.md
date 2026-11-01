@@ -83,8 +83,8 @@ and `projectHealth.spec.ts` for the editing/health paths described below.
   act on the document with Undo. Properties in the top bar opens the Inspector
   (Element, Koma and Motion tabs, Layers) for the current Koma even without a
   selection; Pin properties moves it beside the canvas and survives restart.
-  Brand Kit opens in the same panel from the project menu or its header and
-  keeps its input and library context.
+  Brand Kit opens in the same panel from the project menu or the colour
+  popover's Edit Brand Kit and keeps its input and library context.
 - Motion: an edit can make stored motion stale. The filmstrip marks the dot
   between its source and destination Komas. Selecting that dot opens the
   transition controls below the canvas with Regenerate transition; the

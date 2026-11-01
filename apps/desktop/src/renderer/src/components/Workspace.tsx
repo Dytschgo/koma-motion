@@ -298,39 +298,41 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
           )}
         </div>
 
-        <div role="group" aria-label="Zoom" className="studio-zoom">
-          <button
-            type="button"
-            aria-label="Zoom out"
-            disabled={frame === null || (zoom ?? 1) <= MIN_ZOOM}
-            onClick={() => {
-              setZoom((zoom ?? 1) / ZOOM_STEP);
-            }}
-          >
-            −
-          </button>
-          <button
-            type="button"
-            aria-label={`Zoom ${String(Math.round((zoom ?? 1) * 100))} percent. Fit the canvas to the window`}
-            className="min-w-11 tabular-nums"
-            disabled={frame === null}
-            onClick={() => {
-              setZoom(null);
-            }}
-          >
-            {zoom === null ? 'Fit' : `${String(Math.round(zoom * 100))}%`}
-          </button>
-          <button
-            type="button"
-            aria-label="Zoom in"
-            disabled={frame === null || (zoom ?? 1) >= MAX_ZOOM}
-            onClick={() => {
-              setZoom((zoom ?? 1) * ZOOM_STEP);
-            }}
-          >
-            +
-          </button>
-        </div>
+        {/* Zoom appears with something to zoom; an empty project shows only how to start. */}
+        {frame !== null && (
+          <div role="group" aria-label="Zoom" className="studio-zoom">
+            <button
+              type="button"
+              aria-label="Zoom out"
+              disabled={(zoom ?? 1) <= MIN_ZOOM}
+              onClick={() => {
+                setZoom((zoom ?? 1) / ZOOM_STEP);
+              }}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              aria-label={`Zoom ${String(Math.round((zoom ?? 1) * 100))} percent. Fit the canvas to the window`}
+              className="min-w-11 tabular-nums"
+              onClick={() => {
+                setZoom(null);
+              }}
+            >
+              {zoom === null ? 'Fit' : `${String(Math.round(zoom * 100))}%`}
+            </button>
+            <button
+              type="button"
+              aria-label="Zoom in"
+              disabled={(zoom ?? 1) >= MAX_ZOOM}
+              onClick={() => {
+                setZoom((zoom ?? 1) * ZOOM_STEP);
+              }}
+            >
+              +
+            </button>
+          </div>
+        )}
       </div>
 
       {transportOpen && transportContext !== null && (

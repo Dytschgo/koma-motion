@@ -126,7 +126,18 @@ function Entry({
       {entry.status === 'cancelled' && (
         <p className="mt-1 text-sm text-ink-400">Your presentation was not changed.</p>
       )}
-      <details className="mt-1 text-sm text-ink-400">
+      {/* The recovery action stays put when the diagnostics below are opened. */}
+      <Button
+        variant="outline"
+        disabled={!canRetry}
+        className="mt-2"
+        onClick={() => {
+          onRetry(entry.input);
+        }}
+      >
+        Recheck
+      </Button>
+      <details className="mt-2 text-sm text-ink-400">
         <summary className="cursor-pointer hover:text-ink-100">Details</summary>
         <p className="my-2 whitespace-pre-wrap">{error.message}</p>
         {entry.output !== undefined && (
@@ -169,16 +180,6 @@ function Entry({
           )}
         </dl>
       </details>
-      <Button
-        variant="outline"
-        disabled={!canRetry}
-        className="mt-2"
-        onClick={() => {
-          onRetry(entry.input);
-        }}
-      >
-        Recheck
-      </Button>
     </li>
   );
 }

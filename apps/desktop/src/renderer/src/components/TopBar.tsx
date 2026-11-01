@@ -57,6 +57,10 @@ function ShareIcon(): ReactElement {
   );
 }
 
+/**
+ * A window with a side panel. Generation options in the composer use the
+ * sliders icon, so the two controls never look alike.
+ */
 function PropertiesIcon(): ReactElement {
   return (
     <svg
@@ -67,11 +71,11 @@ function PropertiesIcon(): ReactElement {
       stroke="currentColor"
       strokeWidth="1.5"
       strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden="true"
     >
-      <path d="M2.5 4.5h6M11.5 4.5h2M2.5 11.5h2M7.5 11.5h6" />
-      <circle cx="10" cy="4.5" r="1.5" />
-      <circle cx="6" cy="11.5" r="1.5" />
+      <rect x="2" y="2.75" width="12" height="10.5" rx="1.75" />
+      <path d="M10 2.75v10.5M11.75 5.5h0.5M11.75 7.75h0.5" />
     </svg>
   );
 }
