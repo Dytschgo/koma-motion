@@ -236,65 +236,67 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
 
   return (
     <section data-guide-target="canvas" tabIndex={-1} aria-label="Canvas" className="studio-canvas">
-      <div ref={attachDesk} className="studio-desk">
-        {frame === null ? (
-          <div className="studio-empty">
-            {generating ? (
-              <p className="flex items-center justify-center gap-2 text-lg font-semibold tracking-tight">
-                <span aria-hidden="true" className="working-dot size-2 rounded-full bg-motion" />
-                Drawing your Komas
-              </p>
-            ) : (
-              <>
-                <p className="text-lg font-semibold tracking-tight">Start your presentation</p>
-                <Button
-                  variant="outline"
-                  className="mt-3"
-                  onClick={() => {
-                    addKomaAfter(null);
-                    // The next step is adding something to the new Koma.
-                    requestAnimationFrame(() => {
-                      document
-                        .querySelector<HTMLElement>('[data-guide-target="add-element"]')
-                        ?.focus();
-                    });
-                  }}
-                >
-                  Add first Koma
-                </Button>
-              </>
-            )}
-          </div>
-        ) : (
-          scale > 0 && (
-            <div className="studio-sheet">
-              <KomaStage
-                key={`${String(sessionId)}:${koma?.id ?? ''}:${String(preview !== null)}`}
-                onCommitElement={
-                  preview !== null || koma === null
-                    ? undefined
-                    : (element) => apply(changeElement(koma.id, element))
-                }
-                frame={frame}
-                canvasSize={canvasSize}
-                scale={scale}
-                resolveAsset={resolveAsset}
-                label={
-                  stageContext !== null && playback.status !== 'idle'
-                    ? `Preview of the transition from ${stageContext.from.title} to ${stageContext.to.title}`
-                    : `Koma ${String(komaIndex + 1)}: ${koma?.title ?? ''}`
-                }
-                selectedElementId={preview !== null ? null : selectedElementId}
-                selectedElementIds={preview !== null ? [] : selectedElementIds}
-                onSelectElement={preview !== null ? undefined : selectElement}
-                onToggleElement={preview !== null ? undefined : toggleElementSelection}
-              />
+      <div className="studio-desk-frame">
+        <div ref={attachDesk} className="studio-desk">
+          {frame === null ? (
+            <div className="studio-empty">
+              {generating ? (
+                <p className="flex items-center justify-center gap-2 text-lg font-semibold tracking-tight">
+                  <span aria-hidden="true" className="working-dot size-2 rounded-full bg-motion" />
+                  Drawing your Komas
+                </p>
+              ) : (
+                <>
+                  <p className="text-lg font-semibold tracking-tight">Start your presentation</p>
+                  <Button
+                    variant="outline"
+                    className="mt-3"
+                    onClick={() => {
+                      addKomaAfter(null);
+                      // The next step is adding something to the new Koma.
+                      requestAnimationFrame(() => {
+                        document
+                          .querySelector<HTMLElement>('[data-guide-target="add-element"]')
+                          ?.focus();
+                      });
+                    }}
+                  >
+                    Add first Koma
+                  </Button>
+                </>
+              )}
             </div>
-          )
-        )}
-        {koma !== null && frame !== null && (
-          <ElementToolbar project={project} koma={koma} desk={desk} />
-        )}
+          ) : (
+            scale > 0 && (
+              <div className="studio-sheet">
+                <KomaStage
+                  key={`${String(sessionId)}:${koma?.id ?? ''}:${String(preview !== null)}`}
+                  onCommitElement={
+                    preview !== null || koma === null
+                      ? undefined
+                      : (element) => apply(changeElement(koma.id, element))
+                  }
+                  frame={frame}
+                  canvasSize={canvasSize}
+                  scale={scale}
+                  resolveAsset={resolveAsset}
+                  label={
+                    stageContext !== null && playback.status !== 'idle'
+                      ? `Preview of the transition from ${stageContext.from.title} to ${stageContext.to.title}`
+                      : `Koma ${String(komaIndex + 1)}: ${koma?.title ?? ''}`
+                  }
+                  selectedElementId={preview !== null ? null : selectedElementId}
+                  selectedElementIds={preview !== null ? [] : selectedElementIds}
+                  onSelectElement={preview !== null ? undefined : selectElement}
+                  onToggleElement={preview !== null ? undefined : toggleElementSelection}
+                />
+              </div>
+            )
+          )}
+          {koma !== null && frame !== null && (
+            <ElementToolbar project={project} koma={koma} desk={desk} />
+          )}
+        </div>
 
         <div role="group" aria-label="Zoom" className="studio-zoom">
           <button

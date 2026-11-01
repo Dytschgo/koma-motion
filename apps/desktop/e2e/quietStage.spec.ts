@@ -511,8 +511,14 @@ test('dismisses a menu when its canvas scrolls', async () => {
   running = await launchApplication();
   const { window, problems } = running;
   await openEdgeProject(window);
-  for (let step = 0; step < 4; step += 1)
-    await window.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  const zoomIn = window.getByRole('button', { name: 'Zoom in', exact: true });
+  const initialZoomBounds = await box(zoomIn);
+  for (let step = 0; step < 4; step += 1) {
+    await zoomIn.click();
+    const bounds = await box(zoomIn);
+    expect(Math.abs(bounds.x - initialZoomBounds.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(bounds.y - initialZoomBounds.y)).toBeLessThanOrEqual(1);
+  }
   const desk = window.getByRole('region', { name: 'Canvas' }).locator('.studio-desk');
   await expect
     .poll(() => desk.evaluate((element) => element.scrollWidth > element.clientWidth))
@@ -523,6 +529,9 @@ test('dismisses a menu when its canvas scrolls', async () => {
     element.scrollLeft = 30;
   });
   await expect(window.getByRole('menu', { name: 'Project menu', exact: true })).toHaveCount(0);
+  const afterScroll = await box(zoomIn);
+  expect(Math.abs(afterScroll.x - initialZoomBounds.x)).toBeLessThanOrEqual(1);
+  expect(Math.abs(afterScroll.y - initialZoomBounds.y)).toBeLessThanOrEqual(1);
   expect(problems).toEqual([]);
 });
 

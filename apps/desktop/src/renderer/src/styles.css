@@ -740,6 +740,13 @@
   min-block-size: 0;
   min-inline-size: 0;
 }
+.studio-desk-frame {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
 .studio-desk {
   position: relative;
   display: flex;

@@ -204,7 +204,12 @@ test('links to real workflows without changing the project and preserves complet
   await expect(window.getByText('All changes saved')).toBeVisible();
   await guide(window).getByRole('button', { name: 'Close getting started' }).click();
   await chooseProjectCommand(window, 'Save');
-  expect(await readFile(filePath, 'utf8')).toBe(saved);
+  // A save updates its timestamp even when the guide did not edit the project.
+  // Wait for that write, then compare all project content except the save time.
+  await expect.poll(() => readFile(filePath, 'utf8')).not.toBe(saved);
+  const withoutSaveTime = (text: string): string =>
+    text.replace(/"updatedAt": "[^"]+"/, '"updatedAt": "<save time>"');
+  expect(withoutSaveTime(await readFile(filePath, 'utf8'))).toBe(withoutSaveTime(saved));
   expect(running.problems).toEqual([]);
 
   // A new native process, using this test's isolated profile, proves app-level persistence.
