@@ -375,14 +375,13 @@ export function ElementToolbar({
           ? previous
           : next,
       );
-    const nodes = selectionKey
-      .split(' ')
-      .flatMap((elementId) => [
-        ...area.querySelectorAll<HTMLElement>(`[data-element-id="${CSS.escape(elementId)}"]`),
-      ]);
-    const rects = nodes
-      .map((node) => node.getBoundingClientRect())
-      .filter((rect) => rect.width > 0 || rect.height > 0);
+    const selected = new Set(selectionKey.split(' '));
+    const visible = [...area.querySelectorAll<HTMLElement>('[data-element-id]')]
+      .map((node) => ({ node, rect: node.getBoundingClientRect() }))
+      .filter(({ rect }) => rect.width > 0 || rect.height > 0);
+    const rects = visible
+      .filter(({ node }) => selected.has(node.dataset['elementId'] ?? ''))
+      .map(({ rect }) => rect);
     if (rects.length === 0) {
       setPlacement(null);
       return;
@@ -400,6 +399,9 @@ export function ElementToolbar({
         target,
         { left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom },
         { width: size.width, height: size.height },
+        visible
+          .filter(({ node }) => !selected.has(node.dataset['elementId'] ?? ''))
+          .map(({ rect }) => rect),
       ),
     );
   }, [desk, selectionKey]);

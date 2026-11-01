@@ -28,6 +28,21 @@ describe('element toolbar placement', () => {
     expect(right.x).toBe(area.right - TOOLBAR_MARGIN - size.width);
   });
 
+  it('moves below text when the toolbar would cover a neighboring shape on a fitted canvas', () => {
+    const fittedArea = { left: 0, top: 50, right: 600, bottom: 500 };
+    const text = { left: 50, top: 230, right: 300, bottom: 275 };
+    const shape = { left: 50, top: 120, right: 150, bottom: 220 };
+    const placement = placeToolbar(text, fittedArea, size, [shape]);
+    expect(placement.side).toBe('below');
+    expect(placement.y).toBeGreaterThanOrEqual(text.bottom + TOOLBAR_GAP);
+  });
+
+  it('keeps the preferred side when neighboring content does not intersect it', () => {
+    const text = { left: 400, top: 300, right: 600, bottom: 400 };
+    const shape = { left: 50, top: 200, right: 150, bottom: 290 };
+    expect(placeToolbar(text, area, size, [shape]).side).toBe('above');
+  });
+
   it('starts at the area edge when the area is narrower than the toolbar', () => {
     const narrow = { left: 0, top: 0, right: 100, bottom: 400 };
     expect(placeToolbar({ left: 10, top: 200, right: 90, bottom: 260 }, narrow, size).x).toBe(

@@ -14,7 +14,7 @@ import { syncTransitions } from '@koma-motion/motion-engine';
 import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { expect, test } from '@playwright/test';
+import { expect, test, type Locator } from '@playwright/test';
 import { recordInputEvidence } from './inputEvidence';
 import {
   answerOpenDialog,
@@ -41,6 +41,20 @@ test.afterEach(async () => {
   );
   await running.close();
 });
+
+/** A nearby floating toolbar must not intercept the center used for a drag or click. */
+async function expectPointerTarget(element: Locator): Promise<void> {
+  await expect
+    .poll(() =>
+      element.evaluate((node) => {
+        const bounds = node.getBoundingClientRect();
+        return node.contains(
+          document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2),
+        );
+      }),
+    )
+    .toBe(true);
+}
 
 async function openFixture(): Promise<void> {
   const from = buildKoma({
@@ -339,6 +353,8 @@ test('cancels pointer and text drafts and maps dragging at a different zoom', as
 
   await window.getByRole('button', { name: 'Zoom in', exact: true }).click();
   await shape.hover();
+  await window.screenshot({ path: test.info().outputPath('toolbar-neighbor-after-zoom.png') });
+  await expectPointerTarget(shape);
   const rect = await stage.boundingBox();
   const box = await shape.boundingBox();
   if (!rect || !box) throw new Error('No zoomed canvas');
@@ -420,7 +436,12 @@ test('commits on Tab, another selection, stage background and preview focus exit
   await expect(text).toHaveText('Tabbed copy');
   await text.press('Enter');
   await editor.fill('Selected copy');
-  await stage.getByRole('button', { name: 'Shape (shape)', exact: true }).click();
+  const shape = stage.getByRole('button', { name: 'Shape (shape)', exact: true });
+  await window.screenshot({
+    path: test.info().outputPath('toolbar-neighbor-during-text-edit.png'),
+  });
+  await expectPointerTarget(shape);
+  await shape.click();
   await expect(text).toHaveText('Selected copy');
   await expect(stage.getByRole('button', { name: 'Shape (shape)', exact: true })).toHaveAttribute(
     'aria-pressed',

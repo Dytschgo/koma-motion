@@ -15,9 +15,13 @@ concurrency:
 
 jobs:
   preflight:
-    name: Windows sidebar checks
-    runs-on: windows-latest
+    name: Sidebar checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -32,7 +36,7 @@ jobs:
         working-directory: apps/desktop
         env:
           PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}/report.json
-        run: pnpm exec playwright test brandKitLibrary.spec.ts chatBrandKit.spec.ts composer.spec.ts quietStage.spec.ts chatSidebar.spec.ts focusDock.spec.ts --retries=0 --output "${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+        run: pnpm exec playwright test brandKitLibrary.spec.ts chatBrandKit.spec.ts composer.spec.ts quietStage.spec.ts chatSidebar.spec.ts focusDock.spec.ts canvas-editing.spec.ts --retries=0 --output "${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
       - name: Summarize skips and outcomes
         if: always() && steps.ui.outcome != 'skipped'
         run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
@@ -40,7 +44,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: windows-ui-preflight
+          name: ui-preflight-${{ matrix.os }}
           path: ${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 7
