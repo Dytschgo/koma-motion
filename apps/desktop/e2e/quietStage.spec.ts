@@ -502,7 +502,7 @@ test('opens menus from either arrow and finds actions by their first letter', as
   await expect(trigger).toBeFocused();
   await window.keyboard.press('ArrowDown');
   await expect(menu.getByRole('menuitem', { name: 'New', exact: true })).toBeFocused();
-  await window.evaluate(() => window.dispatchEvent(new Event('blur')));
+  await window.evaluate(() => globalThis.dispatchEvent(new Event('blur')));
   await expect(menu).toHaveCount(0);
   expect(problems).toEqual([]);
 });
