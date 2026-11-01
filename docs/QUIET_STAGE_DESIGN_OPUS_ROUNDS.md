@@ -293,6 +293,10 @@ stay fully opaque even at a scrolled edge. The mask's black stops use the existi
 OKLCH colour convention. These are follow-up review corrections, not extra Opus
 rounds.
 
+The Windows VM preflight also enables the existing visual-capture scenarios at
+1480 × 920 and 1120 × 700, retaining clean captures and actual viewport metadata.
+These captures remain separate from the twenty full functional UI runs.
+
 - The full CI workflow and the UI-confidence workflow must pass on the pushed
   head before these loops count as accepted.
 - New captures of the changed states must be inspected: chat bubble,

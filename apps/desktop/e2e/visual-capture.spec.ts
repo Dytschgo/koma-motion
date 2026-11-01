@@ -43,8 +43,10 @@ for (const size of SIZES) {
     }, size);
     await expect.poll(() => window.evaluate(() => innerWidth)).toBe(size.width);
     const shot = async (name: string, page: Page = window): Promise<void> => {
-      await page.waitForTimeout(250);
-      await page.screenshot({ path: join(output, `${name}.png`) });
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+      await page.screenshot({ path: join(output, `${name}.png`), scale: 'css' });
     };
 
     await shot('01-welcome');
@@ -91,7 +93,21 @@ for (const size of SIZES) {
     }
     await writeFile(
       join(output, 'capture.json'),
-      JSON.stringify({ ...size, phase, problems: running.problems }, null, 2),
+      JSON.stringify(
+        {
+          ...size,
+          phase,
+          viewport: await window.evaluate(() => ({
+            width: innerWidth,
+            height: innerHeight,
+            deviceScaleFactor: devicePixelRatio,
+          })),
+          problems: running.problems,
+        },
+        null,
+        2,
+      ),
     );
+    expect(running.problems).toEqual([]);
   });
 }
