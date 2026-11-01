@@ -40,7 +40,7 @@ function getParts(window: Page): {
   };
 }
 
-test('asks below the canvas and keeps the draft when the conversation collapses', async () => {
+test('asks beside the canvas and keeps the draft when the conversation collapses', async () => {
   const { window, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
   const { prompt, canvas, conversation, filmstrip } = getParts(window);
@@ -49,12 +49,13 @@ test('asks below the canvas and keeps the draft when the conversation collapses'
   await expect(conversation).toBeVisible();
   const request = window.getByLabel('Your request');
   await expect(request).toBeInViewport({ ratio: 1 });
-  // The prompt sits between the canvas and the filmstrip.
+  // Chat has its own right column; the filmstrip stays below the canvas.
   const canvasBox = await getBox(canvas);
   const promptBox = await getBox(prompt);
   const stripBox = await getBox(filmstrip);
-  expect(promptBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height - 1);
-  expect(stripBox.y).toBeGreaterThanOrEqual(promptBox.y + promptBox.height - 1);
+  expect(promptBox.x).toBeGreaterThanOrEqual(canvasBox.x + canvasBox.width - 1);
+  expect(stripBox.y).toBeGreaterThanOrEqual(canvasBox.y + canvasBox.height - 1);
+  expect(stripBox.x + stripBox.width).toBeLessThanOrEqual(promptBox.x);
 
   await window.getByRole('button', { name: 'Use the example request' }).click();
   const generate = window.getByRole('button', { name: 'Generate Komas' });

@@ -13,10 +13,9 @@ import { Button, IconButton } from './ui';
 import { isNestedEscape } from './Menu';
 
 /**
- * The one way to ask for changes: a floating prompt above the filmstrip.
- * The conversation opens upward on demand into a bounded sheet. Both stay
- * mounted, so collapsing keeps the draft, choices, consent, reading
- * position and run state.
+ * The right sidebar keeps the conversation beside the canvas and the composer
+ * at its bottom. Both stay mounted, so hiding the transcript keeps the draft,
+ * choices, consent, reading position and run state.
  */
 export function PromptDock({ project }: { readonly project: KomaProject }): ReactElement {
   const chatOpen = useUiStore((state) => state.chatOpen);
@@ -57,16 +56,14 @@ export function PromptDock({ project }: { readonly project: KomaProject }): Reac
   useEffect(() => {
     if (hasProposal) setChatOpen(true);
   }, [hasProposal, setChatOpen]);
-  // A new, empty project has nothing on the canvas yet: the conversation
-  // shows how to start. A project with Komas opens canvas first.
+  // Every project opens with its conversation beside the canvas.
   const sessionId = draft.sessionId;
-  const empty = project.presentation.komas.length === 0 && conversation.length === 0;
   const openedSession = useRef<number | null>(null);
   useEffect(() => {
     if (openedSession.current === sessionId) return;
     openedSession.current = sessionId;
-    if (empty) setChatOpen(true);
-  }, [sessionId, empty, setChatOpen]);
+    setChatOpen(true);
+  }, [sessionId, setChatOpen]);
 
   const collapse = (): void => {
     setChatOpen(false);
@@ -75,6 +72,7 @@ export function PromptDock({ project }: { readonly project: KomaProject }): Reac
 
   return (
     <section aria-label="Agent chat" className="prompt-dock">
+      <h2 className="chat-sidebar-title">Chat</h2>
       <div
         id={sheetId}
         hidden={!chatOpen}

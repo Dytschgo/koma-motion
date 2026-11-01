@@ -108,12 +108,15 @@ test('opens canvas first with one thin bar, one prompt and the filmstrip at wide
       { width, height },
     );
     const viewport = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }));
-    // No permanent Koma column, chat dock or Inspector.
+    // No permanent Koma column or Inspector. Chat has its own right column.
     await expect(window.getByRole('complementary', { name: 'Inspector' })).toHaveCount(0);
     await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
     await expect(window.getByRole('log', { name: 'Conversation' })).toBeHidden();
     const canvas = await box(window.getByRole('region', { name: 'Canvas' }));
-    expect(Math.abs(canvas.width - viewport.width)).toBeLessThanOrEqual(2);
+    const chat = await box(window.getByRole('region', { name: 'Agent chat' }));
+    expect(chat.x).toBeGreaterThanOrEqual(canvas.x + canvas.width - 1);
+    expect(Math.abs(chat.x + chat.width - viewport.width)).toBeLessThanOrEqual(2);
+    expect(canvas.width).toBeGreaterThan(viewport.width * 0.6);
     // One bar holds the project, history, adding, properties, playing and sharing.
     for (const name of [
       'Project menu',
@@ -149,7 +152,7 @@ test('opens canvas first with one thin bar, one prompt and the filmstrip at wide
   expect(problems).toEqual([]);
 });
 
-test('keeps the canvas fitted while chatting and tucks completed work away when editing resumes', async () => {
+test('keeps chat beside the canvas through editing, properties and playback', async () => {
   running = await launchApplication();
   const { window, application, problems } = running;
   await application.evaluate(({ BrowserWindow }) => {
@@ -163,23 +166,30 @@ test('keeps the canvas fitted while chatting and tucks completed work away when 
   expect(await box(canvas)).toEqual(fitted);
   await showChat(window);
   expect(await box(canvas)).toEqual(fitted);
+  const chat = await box(window.getByRole('region', { name: 'Agent chat' }));
+  const transcript = await box(log);
+  expect(transcript.x).toBeGreaterThanOrEqual(fitted.x + fitted.width);
+  expect(transcript.x + transcript.width).toBeLessThanOrEqual(chat.x + chat.width);
+  await expect(window.getByLabel('Your request')).toBeInViewport({ ratio: 1 });
+  await expect(window.getByRole('button', { name: 'Generate Komas' })).toBeInViewport({ ratio: 1 });
   await window.getByLabel('Your request').fill('Keep this follow-up draft.');
   await canvas.locator('[data-koma-stage]').click({ position: { x: 20, y: 20 } });
-  await expect(log).toBeHidden();
+  await expect(log).toBeVisible();
   await expect(window.getByLabel('Your request')).toHaveValue('Keep this follow-up draft.');
   await showChat(window);
   await expect(log.getByText(/Created 3 Komas/)).toBeVisible();
   expect(await box(canvas)).toEqual(fitted);
-  await capture(window, 'conversation-over-canvas');
+  await capture(window, 'conversation-right-sidebar');
   await canvas.focus();
-  await expect(log).toBeHidden();
+  await expect(log).toBeVisible();
   await expect(canvas).toBeFocused();
   await showChat(window);
   await window.getByRole('button', { name: 'Properties', exact: true }).click();
-  await expect(log).toBeHidden();
+  await expect(log).toBeVisible();
+  await capture(window, 'properties-with-right-chat');
   await showChat(window);
   await window.getByRole('button', { name: 'Play', exact: true }).click();
-  await expect(log).toBeHidden();
+  await expect(log).toBeVisible();
   await expect(window.getByLabel('Your request')).toHaveValue('Keep this follow-up draft.');
   expect(problems).toEqual([]);
 });
@@ -231,6 +241,8 @@ test('keeps result warnings discoverable after returning to canvas editing', asy
   await expect(log.getByText(warning, { exact: true })).toBeVisible();
   await window.getByLabel('Your request').fill('Keep this follow-up draft.');
   await window.getByRole('button', { name: 'Properties', exact: true }).click();
+  await expect(log).toBeVisible();
+  await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();
   await expect(log).toBeHidden();
   await expect(window.getByRole('button', { name: 'Show the chat', exact: true })).toHaveAttribute(
     'aria-description',

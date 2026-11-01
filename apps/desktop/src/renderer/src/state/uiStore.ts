@@ -229,7 +229,7 @@ export const useUiStore = create<UiState>((set, get) => ({
   composerSeed: null,
 
   setView(view) {
-    set(view === 'brandKit' ? { view, propertiesOpen: true, chatOpen: false } : { view });
+    set(view === 'brandKit' ? { view, propertiesOpen: true } : { view });
   },
   setBrandKitTab(brandKitTab) {
     set({ brandKitTab });
@@ -311,7 +311,6 @@ export const useUiStore = create<UiState>((set, get) => ({
       view: 'canvas',
       inspectorTab: tab ?? (state.selectedElementId === null ? 'koma' : 'element'),
       propertiesOpen: true,
-      chatOpen: false,
     }));
   },
   setSettingsOpen(settingsOpen) {

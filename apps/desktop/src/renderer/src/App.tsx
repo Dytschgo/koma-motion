@@ -1,5 +1,5 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useEffect, type ReactElement, type SyntheticEvent } from 'react';
+import { useEffect, type ReactElement } from 'react';
 import { Recovery } from './components/Recovery';
 import { followRecovery } from './lib/recovery';
 import { PromptDock } from './components/PromptDock';
@@ -137,27 +137,9 @@ function useApplicationEvents(): void {
   }, []);
 }
 
-/** Tuck completed chat away before the person resumes editing or playback. */
-function resumeEditing(event: SyntheticEvent<HTMLElement>): void {
-  if (
-    !useUiStore.getState().chatOpen ||
-    !(event.target instanceof Element) ||
-    event.target.closest('[data-guide-target="canvas"], .studio-topbar, .filmstrip') === null
-  ) {
-    return;
-  }
-  const agent = useAgentStore.getState();
-  const outcome = agent.conversation.findLast((entry) => entry.kind !== 'request');
-  // Editing and playback controls signal the return to the canvas before an
-  // object can be covered by chat. Keep unresolved outcomes available.
-  if (agent.execution === null && agent.scopedProposal === null && outcome?.kind === 'result') {
-    useUiStore.getState().setChatOpen(false);
-  }
-}
-
 /**
- * Canvas first: the stage fills the window, with one floating prompt and the
- * filmstrip below it. Properties open on request and can be pinned beside it.
+ * Canvas and filmstrip on the left, conversation and composer on the right.
+ * Properties open over the canvas on request and can be pinned beside it.
  */
 function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
   const pinned = useUiStore((state) => state.propertiesPinned);
@@ -170,11 +152,11 @@ function ProjectLayout({ project }: { readonly project: KomaProject }): ReactEle
           {!pinned && <PropertiesPanel project={project} />}
         </div>
         <div className="studio-bottom">
-          <PromptDock project={project} />
           <KomaStrip project={project} />
         </div>
       </main>
       {pinned && <PropertiesPanel project={project} />}
+      <PromptDock project={project} />
     </div>
   );
 }
@@ -184,11 +166,7 @@ export function App(): ReactElement {
   useApplicationEvents();
 
   return (
-    <div
-      className="studio-shell"
-      onPointerDownCapture={resumeEditing}
-      onFocusCapture={resumeEditing}
-    >
+    <div className="studio-shell">
       <TopBar />
       {project === null ? <Welcome /> : <ProjectLayout project={project} />}
       <Recovery />

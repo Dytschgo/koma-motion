@@ -68,8 +68,11 @@ test('keeps drafts, transcript, selection and focus while properties open and cl
   const canvas = window.getByRole('region', { name: 'Canvas' });
   const bounds = await canvas.boundingBox();
   const viewportWidth = await window.evaluate(() => innerWidth);
-  // Canvas first: no Koma column and no dock take width from the canvas.
-  expect(Math.abs((bounds?.width ?? 0) - viewportWidth)).toBeLessThanOrEqual(2);
+  // The canvas and right-hand chat each have their own space.
+  const chatBounds = await window.getByRole('region', { name: 'Agent chat' }).boundingBox();
+  expect(
+    Math.abs((bounds?.width ?? 0) + (chatBounds?.width ?? 0) - viewportWidth),
+  ).toBeLessThanOrEqual(2);
   await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
 
   // Properties float over the canvas and close with Escape, returning focus.
@@ -81,7 +84,7 @@ test('keeps drafts, transcript, selection and focus while properties open and cl
   await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
   await expect(properties).toBeFocused();
   await expect(request).toHaveValue('Keep this unfinished follow-up.');
-  await expect(window.getByRole('log', { name: 'Conversation' })).toBeHidden();
+  await expect(window.getByRole('log', { name: 'Conversation' })).toBeVisible();
   await showChat(window);
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
 

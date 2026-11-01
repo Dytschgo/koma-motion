@@ -83,7 +83,7 @@ function ChatIcon(): ReactElement {
   );
 }
 
-/** How the composer shows and opens the conversation sheet above it. */
+/** How the composer shows and opens the conversation beside the canvas. */
 export interface ComposerChat {
   readonly open: boolean;
   readonly controls: string;
@@ -95,7 +95,7 @@ export interface ComposerChat {
 }
 
 /**
- * The floating prompt: the request, its scope and Send or Stop. Model, Brand
+ * The sidebar composer: the request, its scope and Send or Stop. Model, Brand
  * Kit, Koma count, references and the time limit open in one area above it.
  */
 export function AgentComposer({
@@ -303,24 +303,6 @@ export function AgentComposer({
       <BrandMaterial disabled={running} />
 
       <div className="prompt-pill" data-failed={chat.failed ? 'true' : undefined}>
-        <button
-          type="button"
-          className="prompt-pill-icon"
-          aria-label={chat.open ? 'Hide the chat' : 'Show the chat'}
-          aria-description={chat.open ? undefined : (chat.status ?? undefined)}
-          aria-expanded={chat.open}
-          aria-controls={chat.controls}
-          title={chat.open ? 'Hide the chat' : 'Show the chat'}
-          onClick={chat.toggle}
-        >
-          <ChatIcon />
-          {!chat.open && chat.status !== null && (
-            <span
-              aria-hidden="true"
-              className={`prompt-pill-dot ${running ? 'working-dot' : ''}`}
-            />
-          )}
-        </button>
         <label htmlFor={requestId} className="sr-only">
           Your request
         </label>
@@ -351,6 +333,24 @@ export function AgentComposer({
             }
           }}
         />
+        <button
+          type="button"
+          className="prompt-pill-icon"
+          aria-label={chat.open ? 'Hide the chat' : 'Show the chat'}
+          aria-description={chat.open ? undefined : (chat.status ?? undefined)}
+          aria-expanded={chat.open}
+          aria-controls={chat.controls}
+          title={chat.open ? 'Hide the chat' : 'Show the chat'}
+          onClick={chat.toggle}
+        >
+          <ChatIcon />
+          {!chat.open && chat.status !== null && (
+            <span
+              aria-hidden="true"
+              className={`prompt-pill-dot ${running ? 'working-dot' : ''}`}
+            />
+          )}
+        </button>
         <Select
           className="chat-scope"
           aria-label="Generation scope"
@@ -438,7 +438,7 @@ export function AgentComposer({
           role="dialog"
           aria-label="Model"
           style={{ maxHeight: Math.min(pickerMaxHeight ?? 560, 560) }}
-          className={`absolute bottom-[calc(100%+0.5rem)] left-0 z-30 flex max-h-[min(35rem,72vh)] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden ${POPOVER_SURFACE}`}
+          className={`chat-model-menu absolute z-30 flex max-h-[min(35rem,72vh)] w-[min(22rem,calc(100vw-2rem))] flex-col overflow-hidden ${POPOVER_SURFACE}`}
           onKeyDown={(event) => {
             if (event.key === 'Escape') {
               event.preventDefault();
