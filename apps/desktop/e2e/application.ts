@@ -40,6 +40,17 @@ export function getApplicationEnvironment(): Record<string, string> {
   return environment;
 }
 
+/** Initial recovery checks must finish before a keyboard test can focus Welcome. */
+export async function waitForStartupReady(window: Page): Promise<void> {
+  await expect(window.locator('.studio-shell')).toBeVisible();
+  await expect(window.getByText('Checking for a recovery snapshot…', { exact: true })).toHaveCount(
+    0,
+  );
+  // React removes the loading contents before its effect closes the native
+  // dialog. A real recovery offer has contents and remains available to tests.
+  await expect(window.locator('dialog[open]:empty')).toHaveCount(0);
+}
+
 /**
  * Starts the built application, exactly as `pnpm start` does. With
  * `executablePath`, a packaged application is started instead.
@@ -101,6 +112,7 @@ export async function launchApplication(
   ) {
     await mockModelDiscovery(application);
   }
+  await waitForStartupReady(window);
 
   return {
     application,

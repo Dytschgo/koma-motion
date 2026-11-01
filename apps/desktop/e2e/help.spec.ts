@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { launchApplication } from './application';
+import { recordInputEvidence } from './inputEvidence';
 
 test('opens secondary guidance by hover, keyboard and click without clipping', async () => {
   const running = await launchApplication();
@@ -47,21 +48,28 @@ test('opens secondary guidance by hover, keyboard and click without clipping', a
 test('closes help when its trigger leaves the screen', async () => {
   const running = await launchApplication();
   const { window } = running;
+  const inputEvidence = await recordInputEvidence(window);
   try {
     const help = window.getByRole('button', { name: 'About Koma Motion project files' });
     const tooltip = window.getByRole('tooltip');
     await help.focus();
+    await expect(help).toBeFocused();
     await help.press('Enter');
     await expect(tooltip).toBeVisible();
 
     // Creating a project replaces the welcome screen that holds the trigger.
     const create = window.getByRole('button', { name: 'Create a project' });
     await create.focus();
+    await expect(create).toBeFocused();
     await create.press('Enter');
     await expect(help).toHaveCount(0);
     await expect(tooltip).toHaveCount(0);
     expect(running.problems).toEqual([]);
   } finally {
+    await test.info().attach('input-events', {
+      body: JSON.stringify(inputEvidence()),
+      contentType: 'application/json',
+    });
     await running.close();
   }
 });

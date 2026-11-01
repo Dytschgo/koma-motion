@@ -6,6 +6,7 @@ import {
   answerSaveDialog,
   getApplicationEnvironment,
   launchApplication,
+  waitForStartupReady,
   type RunningApplication,
   chooseProjectCommand,
 } from './application';
@@ -61,6 +62,7 @@ test('opens on demand, supports keyboard navigation, dismisses and reopens at na
     await startupCheck.evaluate((gate) => gate.release());
     await startupCheck.dispose();
   }
+  await waitForStartupReady(window);
   await expect(recovery).toBeHidden();
   await welcomeLink.focus();
   await expect(welcomeLink).toBeFocused();
