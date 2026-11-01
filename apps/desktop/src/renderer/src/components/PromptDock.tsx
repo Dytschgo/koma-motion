@@ -39,7 +39,7 @@ export function PromptDock({ project }: { readonly project: KomaProject }): Reac
     ? 'Generating'
     : draft.proposal !== null
       ? 'Proposal to review'
-      : failure !== undefined
+      : showFailure
         ? 'Failed'
         : latestOutcome?.kind === 'result' && latestOutcome.warnings.length > 0
           ? 'Warnings to review'
@@ -120,7 +120,7 @@ export function PromptDock({ project }: { readonly project: KomaProject }): Reac
           <p className="min-w-0 flex-1">
             <span className="font-semibold">{describeFailure(failure.status)}</span>
             {detail !== undefined && (
-              <span className="block truncate text-ink-300" title={detail}>
+              <span className="block wrap-break-word text-ink-300" title={detail}>
                 {detail}
               </span>
             )}

@@ -57,6 +57,29 @@ export function placeBeside(
 
 /** Moves focus between the enabled items of a menu with the arrow keys, Home and End. */
 function moveFocus(event: KeyboardEvent<HTMLElement>): void {
+  if (
+    event.key.length === 1 &&
+    !event.ctrlKey &&
+    !event.metaKey &&
+    !event.altKey &&
+    event.key !== ' '
+  ) {
+    const buttons = [
+      ...event.currentTarget.querySelectorAll<HTMLButtonElement>(
+        '[role="menuitem"]:not(:disabled)',
+      ),
+    ];
+    const current = buttons.findIndex((button) => button === document.activeElement);
+    const ordered = [...buttons.slice(current + 1), ...buttons.slice(0, current + 1)];
+    const match = ordered.find((button) =>
+      button.textContent?.trim().toLocaleLowerCase().startsWith(event.key.toLocaleLowerCase()),
+    );
+    if (match !== undefined) {
+      event.preventDefault();
+      match.focus();
+    }
+    return;
+  }
   if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
   event.preventDefault();
   const choices = [
@@ -113,6 +136,7 @@ export function MenuButton({
   const button = useRef<HTMLButtonElement>(null);
   const menu = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  const focusLast = useRef(false);
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
 
   const close = useCallback((restoreFocus: boolean): void => {
@@ -129,8 +153,12 @@ export function MenuButton({
 
   // A menu cannot receive focus while its unmeasured surface is hidden.
   useLayoutEffect(() => {
-    if (open && position !== null)
-      menu.current?.querySelector<HTMLButtonElement>('[role="menuitem"]:not(:disabled)')?.focus();
+    if (!open || position === null) return;
+    const choices = [
+      ...(menu.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]:not(:disabled)') ??
+        []),
+    ];
+    (focusLast.current ? choices.at(-1) : choices[0])?.focus();
   }, [open, position]);
 
   useEffect(() => {
@@ -145,12 +173,23 @@ export function MenuButton({
     };
     const dismiss = (): void => close(false);
     document.addEventListener('pointerdown', outside);
+    const scrollOutside = (event: Event): void => {
+      if (!(event.target instanceof Node) || !menu.current?.contains(event.target)) close(false);
+    };
+    document.addEventListener('scroll', scrollOutside, true);
     window.addEventListener('resize', dismiss);
+    window.addEventListener('blur', dismiss);
     return () => {
       document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('scroll', scrollOutside, true);
       window.removeEventListener('resize', dismiss);
+      window.removeEventListener('blur', dismiss);
     };
   }, [open, close]);
+
+  useEffect(() => {
+    if (open && disabled === true) close(false);
+  }, [open, disabled, close]);
 
   return (
     <>
@@ -167,10 +206,14 @@ export function MenuButton({
         className={className}
         onClick={() => {
           if (open) close(false);
-          else setOpen(true);
+          else {
+            focusLast.current = false;
+            setOpen(true);
+          }
         }}
         onKeyDown={(event) => {
-          if (event.key === 'ArrowDown' && !open) {
+          if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && !open) {
+            focusLast.current = event.key === 'ArrowUp';
             event.preventDefault();
             setOpen(true);
           }

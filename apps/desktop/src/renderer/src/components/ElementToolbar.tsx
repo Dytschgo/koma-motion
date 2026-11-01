@@ -108,11 +108,13 @@ function MoreIcon(): ReactElement {
 /** A small panel below or above the toolbar, for colour and size. */
 function ToolbarPopover({
   label,
+  id,
   anchor,
   onClose,
   children,
 }: {
   readonly label: string;
+  readonly id: string;
   readonly anchor: RefObject<HTMLElement | null>;
   readonly onClose: (restoreFocus: boolean) => void;
   readonly children: ReactNode;
@@ -128,10 +130,13 @@ function ToolbarPopover({
     const y =
       below + own.height <= innerHeight - 8 ? below : Math.max(8, host.top - own.height - 6);
     setPosition({ x, y });
-    surface.current
-      ?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')
-      ?.focus();
   }, [anchor]);
+  useLayoutEffect(() => {
+    if (position !== null)
+      surface.current
+        ?.querySelector<HTMLElement>('button:not(:disabled), input:not(:disabled)')
+        ?.focus();
+  }, [position]);
   useEffect(() => {
     const outside = (event: PointerEvent): void => {
       if (
@@ -141,15 +146,35 @@ function ToolbarPopover({
       )
         onClose(false);
     };
+    const resized = (): void => onClose(true);
     document.addEventListener('pointerdown', outside);
-    return () => document.removeEventListener('pointerdown', outside);
+    const scrolled = (event: Event): void => {
+      if (!(event.target instanceof Node) || !surface.current?.contains(event.target))
+        onClose(false);
+    };
+    document.addEventListener('scroll', scrolled, true);
+    window.addEventListener('resize', resized);
+    return () => {
+      document.removeEventListener('pointerdown', outside);
+      document.removeEventListener('scroll', scrolled, true);
+      window.removeEventListener('resize', resized);
+    };
   }, [anchor, onClose]);
   return (
     <div
       ref={surface}
+      id={id}
       role="dialog"
       aria-label={label}
       className="element-popover"
+      onBlur={(event) => {
+        if (
+          event.relatedTarget instanceof Node &&
+          !event.currentTarget.contains(event.relatedTarget) &&
+          !anchor.current?.contains(event.relatedTarget)
+        )
+          onClose(false);
+      }}
       style={{
         insetInlineStart: position?.x ?? 0,
         insetBlockStart: position?.y ?? 0,
@@ -395,8 +420,10 @@ export function ElementToolbar({
         event.target instanceof Element &&
         !toolbar.current?.contains(event.target) &&
         event.target.closest('.element-popover') === null
-      )
+      ) {
+        setPopover(null);
         setDragging(true);
+      }
     };
     const stop = (): void => {
       setDragging(false);
@@ -419,7 +446,7 @@ export function ElementToolbar({
 
   useEffect(() => {
     setPopover(null);
-  }, [selectionKey]);
+  }, [selectionKey, preview]);
 
   const closePopover = useCallback(
     (restoreFocus: boolean): void => {
@@ -490,9 +517,11 @@ export function ElementToolbar({
             ref={colourButton}
             type="button"
             aria-label={colour.label}
+            aria-description={colour.value ?? 'No fill'}
             title={colour.label}
             aria-haspopup="dialog"
             aria-expanded={popover === 'colour'}
+            aria-controls={popover === 'colour' ? `${id}-colour` : undefined}
             disabled={locked}
             className="element-tool"
             onClick={() => setPopover(popover === 'colour' ? null : 'colour')}
@@ -543,6 +572,7 @@ export function ElementToolbar({
               title="Size and position"
               aria-haspopup="dialog"
               aria-expanded={popover === 'size'}
+              aria-controls={popover === 'size' ? `${id}-size` : undefined}
               disabled={locked}
               className="element-tool"
               onClick={() => setPopover(popover === 'size' ? null : 'size')}
@@ -585,7 +615,10 @@ export function ElementToolbar({
               aria-label="Motion"
               title="Motion to the next Koma"
               className="element-tool"
-              disabled={project.presentation.komas.length < 2}
+              disabled={
+                project.presentation.komas.findIndex((item) => item.id === koma.id) >=
+                project.presentation.komas.length - 1
+              }
               onClick={() => {
                 ui.inspectSelection('motion');
                 ui.setMotionEditing(true);
@@ -614,12 +647,17 @@ export function ElementToolbar({
         </MenuButton>
       </div>
       {popover === 'colour' && single !== undefined && (
-        <ToolbarPopover label="Colour" anchor={toolbar} onClose={closePopover}>
+        <ToolbarPopover id={`${id}-colour`} label="Colour" anchor={toolbar} onClose={closePopover}>
           <ColourChoices project={project} koma={koma} element={single} />
         </ToolbarPopover>
       )}
       {popover === 'size' && single !== undefined && (
-        <ToolbarPopover label="Size and position" anchor={toolbar} onClose={closePopover}>
+        <ToolbarPopover
+          id={`${id}-size`}
+          label="Size and position"
+          anchor={toolbar}
+          onClose={closePopover}
+        >
           <SizeChoices koma={koma} element={single} />
         </ToolbarPopover>
       )}

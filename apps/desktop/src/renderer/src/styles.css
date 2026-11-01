@@ -1373,15 +1373,21 @@
 }
 .element-popover {
   position: fixed;
+  max-inline-size: calc(100vw - 1rem);
+  max-block-size: calc(100dvh - 1rem);
+  overflow: auto;
   z-index: 60;
   border-radius: var(--radius-card);
   padding: 0.75rem;
   background: var(--color-paper-0);
   box-shadow: var(--shadow-popover);
 }
+.element-popover > * {
+  max-inline-size: 100%;
+}
 .element-swatch {
-  inline-size: 1.75rem;
-  block-size: 1.75rem;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
   border-radius: 999px;
   box-shadow: inset 0 0 0 1px oklch(0% 0 none / 0.16);
 }

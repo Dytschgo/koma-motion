@@ -176,6 +176,14 @@ export function AgentComposer({
     <form
       ref={composer}
       className="prompt-composer"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape' && !event.defaultPrevented && choice === null && optionsOpen) {
+          event.preventDefault();
+          event.stopPropagation();
+          setOptionsOpen(false);
+          requestField.current?.focus();
+        }
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         submit(request);
@@ -383,6 +391,7 @@ export function AgentComposer({
         <button
           type={running ? 'button' : 'submit'}
           aria-label={running ? 'Stop generating' : 'Generate Komas'}
+          aria-keyshortcuts={running ? undefined : 'Enter'}
           title={
             running ? 'Stop generating' : 'Generate Komas (Enter). Shift+Enter for a new line.'
           }

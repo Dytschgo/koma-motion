@@ -452,6 +452,14 @@ test('expands the prompt into the conversation and keeps a failed request where 
   await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();
   await failure.getByRole('button', { name: 'Details', exact: true }).click();
   await expect(log).toBeVisible();
+  await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();
+  await failure.getByRole('button', { name: 'Dismiss', exact: true }).click();
+  await expect(failure).toHaveCount(0);
+  await expect(
+    window.getByRole('button', { name: 'Show the chat', exact: true }),
+  ).not.toHaveAttribute('aria-description', 'Failed');
+  await showChat(window);
+  await expect(log.getByText('Couldn’t use the result. Nothing changed.')).toHaveCount(2);
   expect(problems).toEqual([]);
 });
 
@@ -476,5 +484,92 @@ test('reviews a selected-Koma proposal from the expanded prompt', async () => {
   await expect(
     window.getByRole('button', { name: 'Koma 2: The motion engine', exact: true }),
   ).toBeVisible();
+  expect(problems).toEqual([]);
+});
+
+test('opens menus from either arrow and finds actions by their first letter', async () => {
+  running = await launchApplication();
+  const { window, problems } = running;
+  await generateDemo(window);
+  const trigger = window.getByRole('button', { name: 'Project menu', exact: true });
+  await trigger.focus();
+  await window.keyboard.press('ArrowUp');
+  const menu = window.getByRole('menu', { name: 'Project menu', exact: true });
+  await expect(menu.getByRole('menuitem', { name: 'Getting started', exact: true })).toBeFocused();
+  await window.keyboard.press('s');
+  await expect(menu.getByRole('menuitem', { name: 'Save', exact: true })).toBeFocused();
+  await window.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  await window.keyboard.press('ArrowDown');
+  await expect(menu.getByRole('menuitem', { name: 'New', exact: true })).toBeFocused();
+  await window.evaluate(() => window.dispatchEvent(new Event('blur')));
+  await expect(menu).toHaveCount(0);
+  expect(problems).toEqual([]);
+});
+
+test('dismisses a menu when its canvas scrolls', async () => {
+  running = await launchApplication();
+  const { window, problems } = running;
+  await openEdgeProject(window);
+  for (let step = 0; step < 4; step += 1)
+    await window.getByRole('button', { name: 'Zoom in', exact: true }).click();
+  const desk = window.getByRole('region', { name: 'Canvas' }).locator('.studio-desk');
+  await expect
+    .poll(() => desk.evaluate((element) => element.scrollWidth > element.clientWidth))
+    .toBe(true);
+  await window.getByRole('button', { name: 'Project menu', exact: true }).click();
+  await expect(window.getByRole('menu', { name: 'Project menu', exact: true })).toBeVisible();
+  await desk.evaluate((element) => {
+    element.scrollLeft = 30;
+  });
+  await expect(window.getByRole('menu', { name: 'Project menu', exact: true })).toHaveCount(0);
+  expect(problems).toEqual([]);
+});
+
+test('focuses object popovers, returns to their trigger and respects outgoing motion', async () => {
+  running = await launchApplication();
+  const { window, problems } = running;
+  await openEdgeProject(window);
+  const canvas = window.getByRole('region', { name: 'Canvas' });
+  await canvas.getByRole('button', { name: 'Corner (shape)', exact: true }).click();
+  const toolbar = window.getByRole('toolbar', { name: 'Element actions' });
+  const colour = toolbar.getByRole('button', { name: 'Fill colour', exact: true });
+  await expect(colour).toHaveAttribute('aria-description', /^#/);
+  await colour.click();
+  const palette = window.getByRole('dialog', { name: 'Colour', exact: true });
+  await expect(palette.getByRole('button', { name: /^Use primary colour/ })).toBeFocused();
+  expect(await colour.getAttribute('aria-controls')).toBe(await palette.getAttribute('id'));
+  await window.keyboard.press('Escape');
+  await expect(colour).toBeFocused();
+  const size = toolbar.getByRole('button', { name: 'Size and position', exact: true });
+  await size.click();
+  const geometry = window.getByRole('dialog', { name: 'Size and position', exact: true });
+  await expect(geometry.getByLabel('Width', { exact: true })).toBeFocused();
+  expect(await size.getAttribute('aria-controls')).toBe(await geometry.getAttribute('id'));
+  await window.getByLabel('Your request').focus();
+  await expect(geometry).toHaveCount(0);
+  await expect(window.getByLabel('Your request')).toBeFocused();
+  await expect(toolbar.getByRole('button', { name: 'Motion', exact: true })).toBeEnabled();
+  await window.getByRole('button', { name: 'Koma 2: Edges later', exact: true }).click();
+  await canvas.getByRole('button', { name: 'Corner (shape)', exact: true }).click();
+  await expect(toolbar.getByRole('button', { name: 'Motion', exact: true })).toBeDisabled();
+  expect(problems).toEqual([]);
+});
+
+test('dismisses generation options with Escape while keeping the request', async () => {
+  running = await launchApplication();
+  const { window, problems } = running;
+  await window.getByRole('button', { name: 'Create a project' }).click();
+  await showGenerationOptions(window);
+  const request = window.getByLabel('Your request');
+  await request.fill('An idea I am still writing.');
+  await request.press('Escape');
+  await expect(window.getByRole('group', { name: 'Generation choices', exact: true })).toBeHidden();
+  await expect(request).toBeFocused();
+  await expect(request).toHaveValue('An idea I am still writing.');
+  await expect(window.getByRole('button', { name: 'Generate Komas', exact: true })).toHaveAttribute(
+    'aria-keyshortcuts',
+    'Enter',
+  );
   expect(problems).toEqual([]);
 });
