@@ -57,7 +57,7 @@ test('sends with Enter, keeps Shift+Enter as a newline and does not submit IME c
   expect(problems).toEqual([]);
 });
 
-test('retains selected draft/count through narrow Inspect collapse and edits, then clears them on same-file reopen', async () => {
+test('retains selected draft/count beside narrow properties and through chat collapse, then clears them on same-file reopen', async () => {
   const { window, application, directory } = running;
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1024, 700);
@@ -90,6 +90,8 @@ test('retains selected draft/count through narrow Inspect collapse and edits, th
   await showInspector(window);
   await expect(request).toBeVisible();
   await expect(window.getByRole('complementary', { name: 'Inspector' })).toBeVisible();
+  await expect(window.getByRole('log', { name: 'Conversation' })).toBeVisible();
+  await window.getByRole('button', { name: 'Hide the chat', exact: true }).click();
   await expect(window.getByRole('log', { name: 'Conversation' })).toBeHidden();
   await expect(request).toBeVisible();
   await showChat(window);

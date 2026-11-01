@@ -14,8 +14,39 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  preflight:
+    name: Windows sidebar checks
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Check affected sidebar, properties and motion paths before repetition
+        id: ui
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test brandKitLibrary.spec.ts chatBrandKit.spec.ts composer.spec.ts quietStage.spec.ts chatSidebar.spec.ts focusDock.spec.ts --retries=0 --output "${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize skips and outcomes
+        if: always() && steps.ui.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Preserve the focused report, captures and failure traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ui-preflight
+          path: ${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 7
   windows:
     name: Windows UI pass ${{ matrix.pass }} of 20
+    needs: preflight
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:
@@ -35,16 +66,16 @@ jobs:
         id: ui
         working-directory: apps/desktop
         env:
-          PLAYWRIGHT_JSON_OUTPUT_NAME: test-results/report.json
-        run: pnpm exec playwright test --retries=0 "--reporter=list,github,json"
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}/report.json
+        run: pnpm exec playwright test --retries=0 --output "${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}" "--reporter=list,github,json"
       - name: Summarize skips and outcomes
         if: always() && steps.ui.outcome != 'skipped'
-        run: node apps/desktop/scripts/ci-quality.mjs summarize-report apps/desktop/test-results/report.json
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}/report.json"
       - name: Preserve the report, captures and failure traces for this pass
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: windows-ui-pass-${{ matrix.pass }}
-          path: apps/desktop/test-results
+          path: ${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}
           if-no-files-found: error
           retention-days: 7

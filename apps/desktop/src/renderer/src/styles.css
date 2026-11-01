@@ -825,9 +825,14 @@
 }
 .studio-transport-row {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem;
   min-inline-size: 0;
+}
+.studio-transport-row > .scrubber {
+  flex-basis: 6rem;
+  min-inline-size: 6rem;
 }
 .studio-transport-label {
   flex: none;
@@ -932,8 +937,8 @@
   margin-block-start: auto;
 }
 .prompt-options:not([hidden]) {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) minmax(0, 1fr);
   align-items: center;
   gap: 0.25rem;
   border-radius: 1rem;
@@ -941,9 +946,27 @@
   background: var(--color-paper-0);
   box-shadow: var(--shadow-float);
 }
+.prompt-options > .chat-count-trigger {
+  grid-column: 2 / -1;
+  justify-self: start;
+}
+.prompt-options > p {
+  grid-column: 1 / -1;
+}
 .chat-model-menu {
   inset-block-end: calc(100% + 0.5rem);
   inset-inline-end: 0;
+  inline-size: min(22rem, 100%);
+}
+/* Anchor the Brand Kit popup to the composer, rather than its narrow trigger. */
+.prompt-options .chat-brand-picker {
+  position: static;
+}
+.prompt-options .chat-brand-trigger {
+  inline-size: 100%;
+}
+.chat-brand-menu {
+  inline-size: min(17rem, 100%);
 }
 .prompt-consent {
   display: flex;

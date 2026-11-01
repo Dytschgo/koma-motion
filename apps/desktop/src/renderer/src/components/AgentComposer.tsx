@@ -303,6 +303,24 @@ export function AgentComposer({
       <BrandMaterial disabled={running} />
 
       <div className="prompt-pill" data-failed={chat.failed ? 'true' : undefined}>
+        <button
+          type="button"
+          className="prompt-pill-icon"
+          aria-label={chat.open ? 'Hide the chat' : 'Show the chat'}
+          aria-description={chat.open ? undefined : (chat.status ?? undefined)}
+          aria-expanded={chat.open}
+          aria-controls={chat.controls}
+          title={chat.open ? 'Hide the chat' : 'Show the chat'}
+          onClick={chat.toggle}
+        >
+          <ChatIcon />
+          {!chat.open && chat.status !== null && (
+            <span
+              aria-hidden="true"
+              className={`prompt-pill-dot ${running ? 'working-dot' : ''}`}
+            />
+          )}
+        </button>
         <label htmlFor={requestId} className="sr-only">
           Your request
         </label>
@@ -333,24 +351,6 @@ export function AgentComposer({
             }
           }}
         />
-        <button
-          type="button"
-          className="prompt-pill-icon"
-          aria-label={chat.open ? 'Hide the chat' : 'Show the chat'}
-          aria-description={chat.open ? undefined : (chat.status ?? undefined)}
-          aria-expanded={chat.open}
-          aria-controls={chat.controls}
-          title={chat.open ? 'Hide the chat' : 'Show the chat'}
-          onClick={chat.toggle}
-        >
-          <ChatIcon />
-          {!chat.open && chat.status !== null && (
-            <span
-              aria-hidden="true"
-              className={`prompt-pill-dot ${running ? 'working-dot' : ''}`}
-            />
-          )}
-        </button>
         <Select
           className="chat-scope"
           aria-label="Generation scope"
