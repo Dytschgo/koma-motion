@@ -33,7 +33,37 @@ test('opens on demand, supports keyboard navigation, dismisses and reopens at na
   const { window, application } = running;
   await expect(guide(window)).toBeHidden();
   const welcomeLink = window.getByRole('button', { name: 'Open quick-start guide' });
+  // Hold the startup check at the real IPC boundary. While its native modal
+  // is open, a background focus() cannot make Enter activate the welcome link.
+  const startupCheck = await application.evaluateHandle(({ ipcMain }) => {
+    let release = (): void => undefined;
+    const pending = new Promise<{ status: 'none' }>((resolve) => {
+      release = () => resolve({ status: 'none' });
+    });
+    ipcMain.removeHandler('koma:recovery:offer');
+    ipcMain.handle('koma:recovery:offer', () => pending);
+    return { release: () => release() };
+  });
+  const recovery = window.getByRole('dialog', { name: 'Recover interrupted work', exact: true });
+  try {
+    await window.reload();
+    await expect(recovery).toBeVisible();
+    const blockedLink = window.getByRole('button', {
+      name: 'Open quick-start guide',
+      exact: true,
+      includeHidden: true,
+    });
+    await blockedLink.focus();
+    await expect(blockedLink).not.toBeFocused();
+    await window.keyboard.press('Enter');
+    await expect(guide(window)).toBeHidden();
+  } finally {
+    await startupCheck.evaluate((gate) => gate.release());
+    await startupCheck.dispose();
+  }
+  await expect(recovery).toBeHidden();
   await welcomeLink.focus();
+  await expect(welcomeLink).toBeFocused();
   await window.keyboard.press('Enter');
   await expect(guide(window).getByRole('heading', { name: '1. Start', exact: true })).toBeFocused();
   await expect(
