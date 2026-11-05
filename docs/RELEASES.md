@@ -246,6 +246,23 @@ installed applications are not offered the new version.
 Do not remove a check to get a release through. Keep earlier releases: they
 are the way back.
 
+### Recovering public-download verification
+
+If assets were published but public-download verification did not complete,
+run the stable workflow from `main` with the existing tag:
+
+```sh
+gh workflow run release.yml --repo Dytschgo/koma-motion --ref main -f tag=v0.3.0
+```
+
+This mode checks that the tag is stable, belongs to `main`, matches its
+application version, has a published stable release, and has exact-commit CI
+coverage. It does not rebuild or replace assets. It downloads and verifies the
+Windows installer and both macOS packages, exercises them, and promotes the
+release only after both platform jobs succeed. A failed or skipped download
+check cannot promote the release. Normal tag releases run these checks even
+when earlier quality jobs were deliberately skipped because CI covered them.
+
 ## Files of a release
 
 | File                                       | Purpose                                   |
