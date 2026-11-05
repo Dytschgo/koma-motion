@@ -49,6 +49,7 @@ import {
 import { ModelPicker } from './ModelPicker';
 import { ProviderLogo } from './ProviderLogo';
 import { UpdateControl } from './UpdateControl';
+import { ProviderConnection } from './ProviderConnection';
 
 const REPOSITORY_URL = 'https://github.com/Dytschgo/koma-motion';
 
@@ -72,11 +73,14 @@ function ScopeBadge({ scope }: { readonly scope: SettingsScope }): ReactElement 
 function GenerationPage({
   project,
   providers,
+  onOpenProviders,
 }: {
   readonly project: KomaProject | null;
   readonly providers: readonly DetectedProvider[];
+  readonly onOpenProviders: () => void;
 }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
+  const detection = useAgentStore((state) => state.detection);
   if (project === null) {
     return <NoProject />;
   }
@@ -139,7 +143,20 @@ function GenerationPage({
         description="The model each provider uses for this project. The chat composer shows the same choice."
       >
         {selectable.length === 0 ? (
-          <p className="text-ink-400">Checking which providers can choose a model…</p>
+          <div className="flex flex-col gap-2 text-ink-300" role="status">
+            <p>
+              {detection === 'idle' || detection === 'running'
+                ? 'Checking which providers can choose a model…'
+                : detection === 'failed'
+                  ? 'Provider check failed. Check providers again to load model choices.'
+                  : 'No detected provider supports model selection.'}
+            </p>
+            {detection !== 'idle' && detection !== 'running' && (
+              <Button variant="outline" compact onClick={onOpenProviders}>
+                Open providers
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="flex flex-col gap-5 divide-y divide-line [&>*:not(:first-child)]:pt-5">
             {selectable.map((provider) => (
@@ -176,13 +193,14 @@ function ProvidersPage({
           disabled={detection === 'running' || running}
           onClick={() => void detectProviders()}
         >
-          Check again
+          {detection === 'running' ? 'Checking…' : 'Check again'}
         </Button>
       }
     >
-      {detection === 'failed' && (
-        <p role="alert" className="mb-2 text-motion">
-          Error: the providers could not be checked.
+      <ProviderConnection detection={detection} hasProviders={providers.length > 0} />
+      {running && (
+        <p className="text-sm text-ink-300 [margin-block-end:0.5rem]">
+          You can check again when generation finishes.
         </p>
       )}
       <ul className="flex flex-col divide-y divide-line">
@@ -200,11 +218,14 @@ function ProvidersPage({
                     <span aria-hidden="true" className="mr-1 inline-flex">
                       {available ? <CheckIcon size={12} /> : <WarningIcon size={12} />}
                     </span>
+                    {detection !== 'done' ? 'Last check · ' : ''}
                     {available
                       ? provider.detection.version === null
                         ? 'Ready'
                         : `Ready · version ${provider.detection.version}`
-                      : 'Not available'}
+                      : provider.detection.availability === 'error'
+                        ? 'Check failed'
+                        : 'Not available'}
                   </Badge>
                 </p>
                 <p className="mt-0.5 text-ink-300">{provider.metadata.description}</p>
@@ -218,8 +239,10 @@ function ProvidersPage({
             </li>
           );
         })}
-        {providers.length === 0 && detection !== 'failed' && (
-          <li className="text-ink-400">Checking providers…</li>
+        {providers.length === 0 && detection === 'done' && (
+          <li className="text-ink-300">
+            No providers were found. Install a supported provider, then check again.
+          </li>
         )}
       </ul>
     </SettingsCard>
@@ -311,7 +334,18 @@ export function SettingsDialog({
 
   const pages: Readonly<Record<SettingsPageId, ReactNode>> = {
     instructions: instructions.projectPage,
-    generation: <GenerationPage project={project} providers={providers} />,
+    generation: (
+      <GenerationPage
+        project={project}
+        providers={providers}
+        onOpenProviders={() => {
+          setPage('providers');
+          navigation.current
+            ?.querySelector<HTMLButtonElement>('[data-settings-page="providers"]')
+            ?.focus();
+        }}
+      />
+    ),
     templates: instructions.libraryPage,
     providers: <ProvidersPage providers={providers} />,
     updates: <UpdateControl />,
