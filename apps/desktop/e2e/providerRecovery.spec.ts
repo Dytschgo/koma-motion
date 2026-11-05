@@ -22,6 +22,32 @@ test('provider checks explain stale results, failure and recovery without losing
     dialog.getByText('Ready · version test-fixture', { exact: true }).first(),
   ).toBeVisible();
   await window.screenshot({ path: test.info().outputPath('providers-ready.png') });
+  for (const size of [
+    { width: 1480, height: 920 },
+    { width: 1120, height: 720 },
+  ]) {
+    await application.evaluate(({ BrowserWindow }, size) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(size.width, size.height);
+    }, size);
+    const guide = dialog.locator('.provider-connection');
+    const diagram = guide.locator('svg');
+    await expect(async () => {
+      const bounds = await guide.boundingBox();
+      const svg = await diagram.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(svg).not.toBeNull();
+      if (bounds === null || svg === null) throw new Error('Connection guide is not visible');
+      expect(Math.abs(svg.x + svg.width / 2 - (bounds.x + bounds.width / 2))).toBeLessThanOrEqual(
+        1,
+      );
+      expect(svg.x).toBeGreaterThanOrEqual(bounds.x);
+      expect(svg.x + svg.width).toBeLessThanOrEqual(bounds.x + bounds.width + 1);
+    }).toPass();
+    await expect(guide).toHaveCSS('text-align', 'center');
+    await window.screenshot({
+      path: test.info().outputPath(`providers-aligned-${String(size.width)}.png`),
+    });
+  }
 
   await application.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler('koma:providers:detect');
