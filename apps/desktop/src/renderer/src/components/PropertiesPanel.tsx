@@ -1,5 +1,5 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useEffect, useLayoutEffect, useRef, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useRef, type ReactElement, type RefObject } from 'react';
 import { useUiStore } from '../state/uiStore';
 import { CloseIcon } from './icons';
 import { BrandKitPanel } from './BrandKitPanel';
@@ -31,23 +31,35 @@ function PinIcon({ pinned }: { readonly pinned: boolean }): ReactElement {
  * carries only pinning and closing. It opens on request as a popover over the
  * canvas and can be pinned beside it. Nothing here is shown by default.
  */
-export function PropertiesPanel({ project }: { readonly project: KomaProject }): ReactElement {
+export function PropertiesPanel({
+  project,
+  opener,
+}: {
+  readonly project: KomaProject;
+  readonly opener: RefObject<HTMLElement | null>;
+}): ReactElement {
   const open = useUiStore((state) => state.propertiesOpen);
   const pinned = useUiStore((state) => state.propertiesPinned);
   const view = useUiStore((state) => state.view);
   const setOpen = useUiStore((state) => state.setPropertiesOpen);
   const setPinned = useUiStore((state) => state.setPropertiesPinned);
   const panel = useRef<HTMLDivElement>(null);
-  const opener = useRef<HTMLElement | null>(null);
 
   // Opening moves focus into the panel; closing returns it to the control that opened it.
   useLayoutEffect(() => {
     if (!open) return;
     const active = document.activeElement;
-    opener.current = active instanceof HTMLElement && active !== document.body ? active : null;
+    // Pinning relocates this panel. Keep the original opener when the old
+    // focused control disconnects and the browser temporarily focuses body.
+    if (
+      active instanceof HTMLElement &&
+      active !== document.body &&
+      !panel.current?.contains(active)
+    )
+      opener.current = active;
     if (!panel.current?.contains(document.activeElement))
       panel.current?.focus({ preventScroll: true });
-  }, [open]);
+  }, [open, opener]);
   useEffect(() => {
     if (open) return;
     const target = opener.current;
@@ -57,7 +69,7 @@ export function PropertiesPanel({ project }: { readonly project: KomaProject }):
       (document.activeElement === null || document.activeElement === document.body)
     )
       target.focus();
-  }, [open]);
+  }, [open, opener]);
 
   const close = (): void => {
     setOpen(false);

@@ -1,5 +1,5 @@
 import type { KomaProject } from '@koma-motion/core';
-import { useEffect, type ReactElement } from 'react';
+import { useEffect, useRef, type ReactElement } from 'react';
 import { Recovery } from './components/Recovery';
 import { followRecovery } from './lib/recovery';
 import { PromptDock } from './components/PromptDock';
@@ -143,19 +143,20 @@ function useApplicationEvents(): void {
  */
 function ProjectLayout({ project }: { readonly project: KomaProject }): ReactElement {
   const pinned = useUiStore((state) => state.propertiesPinned);
+  const propertiesOpener = useRef<HTMLElement | null>(null);
   return (
     <div className="studio-body">
       <main className="studio-main">
         {/* A floating properties panel stays over the canvas, never over the prompt. */}
         <div className="studio-stage">
           <Workspace project={project} />
-          {!pinned && <PropertiesPanel project={project} />}
+          {!pinned && <PropertiesPanel project={project} opener={propertiesOpener} />}
         </div>
         <div className="studio-bottom">
           <KomaStrip project={project} />
         </div>
       </main>
-      {pinned && <PropertiesPanel project={project} />}
+      {pinned && <PropertiesPanel project={project} opener={propertiesOpener} />}
       <PromptDock project={project} />
     </div>
   );
