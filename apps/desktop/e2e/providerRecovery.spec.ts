@@ -94,7 +94,7 @@ test('an empty provider response finishes checking and can recover without resto
   await dialog.getByRole('button', { name: 'Refresh providers', exact: true }).click();
   await expect(dialog.getByText('Provider check complete.', { exact: true })).toBeVisible();
   await expect(
-    dialog.getByText('Ready � version test-fixture', { exact: true }).first(),
+    dialog.getByText('Ready · version test-fixture', { exact: true }).first(),
   ).toBeVisible();
   expect(running.problems).toEqual([]);
 });
