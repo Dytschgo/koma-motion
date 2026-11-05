@@ -18,6 +18,7 @@ test('public checks override inherited skips but still require publication or co
     const guard = block.split('    if: |\n')[1]?.split('    runs-on:')[0];
     assert.ok(guard, 'Public verification must have an explicit job condition');
     assert.match(guard, /always\(\)/);
+    assert.match(guard, /!cancelled\(\)/);
     assert.match(guard, /needs\.classify\.result == 'success'/);
     assert.match(guard, /needs\.publish\.result == 'success'/);
     assert.match(guard, /github\.event_name == 'workflow_dispatch'/);
@@ -28,6 +29,7 @@ test('public checks override inherited skips but still require publication or co
   }
   const promote = job('promote-latest');
   assert.match(promote, /always\(\)/);
+  assert.match(promote, /!cancelled\(\)/);
   for (const id of ['classify', 'verify-public-download', 'verify-public-download-macos']) {
     assert.ok(promote.includes(`needs.${id}.result == 'success'`));
   }

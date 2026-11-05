@@ -315,6 +315,7 @@ jobs:
     needs: [classify, ci-coverage, publish]
     if: |
       always() &&
+      !cancelled() &&
       needs.classify.result == 'success' &&
       (needs.publish.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.ci-coverage.result == 'success' && needs.ci-coverage.outputs.covered == 'true'))
     runs-on: windows-latest
@@ -354,6 +355,7 @@ jobs:
     needs: [classify, ci-coverage, publish]
     if: |
       always() &&
+      !cancelled() &&
       needs.classify.result == 'success' &&
       (needs.publish.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.ci-coverage.result == 'success' && needs.ci-coverage.outputs.covered == 'true'))
     runs-on: macos-latest
@@ -400,6 +402,7 @@ jobs:
     needs: [classify, verify-public-download, verify-public-download-macos]
     if: |
       always() &&
+      !cancelled() &&
       needs.classify.result == 'success' &&
       needs.verify-public-download.result == 'success' &&
       needs.verify-public-download-macos.result == 'success'
