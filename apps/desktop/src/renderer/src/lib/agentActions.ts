@@ -111,6 +111,7 @@ function describeModel(
 
 export async function detectProviders(): Promise<void> {
   const agent = useAgentStore.getState();
+  if (agent.detection === 'running') return;
   agent.setDetection('running');
   try {
     const { providers } = await invoke('koma:providers:detect', {});
