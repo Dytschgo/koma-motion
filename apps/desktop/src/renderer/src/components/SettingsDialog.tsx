@@ -42,6 +42,7 @@ import {
 } from './ui';
 import { ProviderLogo } from './ProviderLogo';
 import { UpdateControl } from './UpdateControl';
+import { ProviderConnection } from './ProviderConnection';
 
 const REPOSITORY_URL = 'https://github.com/Dytschgo/koma-motion';
 
@@ -123,13 +124,14 @@ function ProvidersPage({
           disabled={detection === 'running' || running}
           onClick={() => void detectProviders()}
         >
-          Refresh providers
+          {detection === 'running' ? 'Checking…' : 'Refresh providers'}
         </Button>
       }
     >
-      {detection === 'failed' && (
-        <p role="alert" className="mb-2 text-motion">
-          Error: the providers could not be checked.
+      <ProviderConnection detection={detection} hasProviders={providers.length > 0} />
+      {running && (
+        <p className="text-sm text-ink-300 [margin-block-end:0.5rem]">
+          You can refresh providers when generation finishes.
         </p>
       )}
       <ul className="flex flex-col divide-y divide-line">
@@ -147,11 +149,14 @@ function ProvidersPage({
                     <span aria-hidden="true" className="mr-1 inline-flex">
                       {available ? <CheckIcon size={12} /> : <WarningIcon size={12} />}
                     </span>
+                    {detection !== 'done' ? 'Last check · ' : ''}
                     {available
                       ? provider.detection.version === null
                         ? 'Ready'
                         : `Ready · version ${provider.detection.version}`
-                      : 'Not available'}
+                      : provider.detection.availability === 'error'
+                        ? 'Check failed'
+                        : 'Not available'}
                   </Badge>
                 </p>
                 <p className="mt-0.5 text-ink-300">{provider.metadata.description}</p>
@@ -170,8 +175,10 @@ function ProvidersPage({
             </li>
           );
         })}
-        {providers.length === 0 && detection !== 'failed' && (
-          <li className="text-ink-400">Checking providers…</li>
+        {providers.length === 0 && detection === 'done' && (
+          <li className="text-ink-300">
+            No providers were found. Install a supported provider, then refresh providers.
+          </li>
         )}
       </ul>
     </SettingsCard>
