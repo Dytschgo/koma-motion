@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
+import { showGenerationOptions } from './application';
 
 export function modelTrigger(page: Page): Locator {
   return page.getByRole('button', { name: 'Model', exact: true });
@@ -17,6 +18,7 @@ export async function openProviderChoices(page: Page): Promise<Locator> {
 }
 
 export async function openModelChoices(page: Page): Promise<Locator> {
+  await showGenerationOptions(page);
   const trigger = modelTrigger(page);
   if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
   const dialog = page.getByRole('dialog', { name: 'Model', exact: true });
@@ -35,6 +37,7 @@ export async function selectProvider(page: Page, id: string): Promise<void> {
 }
 
 export async function openCountChoices(page: Page): Promise<Locator> {
+  await showGenerationOptions(page);
   const trigger = countTrigger(page);
   if ((await trigger.getAttribute('aria-expanded')) !== 'true') await trigger.click();
   const dialog = page.getByRole('dialog', { name: 'Koma count' });

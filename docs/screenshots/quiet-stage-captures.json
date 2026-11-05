@@ -1,0 +1,50 @@
+{
+  "sourceRun": "https://github.com/Dytschgo/koma-motion/actions/runs/41227799603",
+  "sourceHead": "66e9f50251c3852cab07c7f5fac36a29fe61e05c",
+  "artifact": "application-test-results-windows-latest-2",
+  "platform": "Windows",
+  "provider": "mock",
+  "spec": "apps/desktop/e2e/quietStage.spec.ts",
+  "captures": [
+    {
+      "file": "quiet-stage.png",
+      "source": "quietStage-opens-canvas-fi-87f7f-p-at-wide-and-minimum-sizes/default-1480.png",
+      "scenario": "opens canvas first with one thin bar, one prompt and the filmstrip at wide and minimum sizes",
+      "outcome": "passed",
+      "attempts": 1,
+      "width": 1480,
+      "height": 920,
+      "sha256": "a495c797811fca81bca541a66d2b27ab7abf96a36d67529e354b0820425e5a9a"
+    },
+    {
+      "file": "quiet-stage-toolbar.png",
+      "source": "quietStage-places-the-obje-05c59-bjects-and-edits-through-it/selection-edge-toolbar.png",
+      "scenario": "places the object toolbar inside the canvas for edge objects and edits through it",
+      "outcome": "passed",
+      "attempts": 1,
+      "width": 1448,
+      "height": 816,
+      "sha256": "c33efa439b56e0c3727d641027d6a81951e0657777c201395562f7f63c50b9b7"
+    },
+    {
+      "file": "quiet-stage-properties.png",
+      "source": "quietStage-places-the-obje-05c59-bjects-and-edits-through-it/pinned-properties.png",
+      "scenario": "places the object toolbar inside the canvas for edge objects and edits through it",
+      "outcome": "passed",
+      "attempts": 1,
+      "width": 1448,
+      "height": 816,
+      "sha256": "76f39a6ac40b7f9734130772338fd7f4c2afe3692a6ebbb6a20539d5e8bd5361"
+    },
+    {
+      "file": "quiet-stage-recheck.png",
+      "source": "quietStage-expands-the-pro-3356d-d-request-where-it-was-made/failure-prompt.png",
+      "scenario": "expands the prompt into the conversation and keeps a failed request where it was made",
+      "outcome": "passed",
+      "attempts": 1,
+      "width": 1448,
+      "height": 816,
+      "sha256": "70fd9d8d393fb1ec3e6c9cb3c3c85a531da107c10836c013861cde107aa0f3d6"
+    }
+  ]
+}

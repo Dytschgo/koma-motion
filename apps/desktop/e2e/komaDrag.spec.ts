@@ -4,7 +4,13 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type Locator } from '@playwright/test';
 import { buildNavigationProject } from '../src/renderer/src/lib/deckNavigation.fixture';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import { chooseKomaAction } from './komaControls';
+import {
+  answerOpenDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+} from './application';
 
 let running: RunningApplication;
 test.beforeEach(async () => {
@@ -56,9 +62,9 @@ test('reorders Komas by dragging in a small window, with undo, Escape, auto-scro
   const announcement = window.locator('[aria-live="polite"]').filter({ hasText: /Koma \d+/ });
   const indicator = strip().locator('[data-koma-drop-indicator]');
   const scroller = strip().locator('..');
-  const scrollToTop = () =>
+  const scrollToStart = () =>
     scroller.evaluate((element) => {
-      element.scrollTop = 0;
+      element.scrollLeft = 0;
     });
   const original = ['Chapter 1', 'Chapter 2', 'Chapter 3', 'Chapter 4'];
   const koma2First = ['Chapter 2', 'Chapter 1', 'Chapter 3', 'Chapter 4'];
@@ -68,23 +74,23 @@ test('reorders Komas by dragging in a small window, with undo, Escape, auto-scro
   const stripBox = await box(scroller);
   test.info().annotations.push({
     type: 'layout',
-    description: `viewport ${viewport}, strip height ${String(stripBox.height)}`,
+    description: `viewport ${viewport}, strip width ${String(stripBox.width)}`,
   });
 
-  // In the small window only Koma 1 and the top of Koma 2 fit. Drag Koma 2
-  // above the middle of Koma 1: the indicator marks the gap before Koma 1.
+  // The filmstrip runs left to right. Drag Koma 2 left of the middle of
+  // Koma 1: the indicator marks the gap before Koma 1.
   await expect(komaButton(2, 'Chapter 2')).toBeInViewport();
   const koma1 = await box(komaButton(1, 'Chapter 1'));
   const koma2 = await box(komaButton(2, 'Chapter 2'));
-  const dragX = koma2.x + koma2.width / 2;
-  const grabKoma2 = Math.min(koma2.y + 12, stripBox.y + stripBox.height - 4);
-  const aboveKoma1 = koma1.y + koma1.height * 0.35;
+  const dragY = koma2.y + koma2.height / 2;
+  const grabKoma2 = koma2.x + 12;
+  const beforeKoma1 = koma1.x + koma1.width * 0.35;
   const dragKoma2Up = async (): Promise<void> => {
-    await scrollToTop();
-    await mouse.move(dragX, grabKoma2);
+    await scrollToStart();
+    await mouse.move(grabKoma2, dragY);
     await mouse.down();
-    await mouse.move(dragX, grabKoma2 - 10, { steps: 2 });
-    await mouse.move(dragX, aboveKoma1, { steps: 8 });
+    await mouse.move(grabKoma2 - 10, dragY, { steps: 2 });
+    await mouse.move(beforeKoma1, dragY, { steps: 8 });
   };
   await dragKoma2Up();
   await expect(indicator).toHaveCount(1);
@@ -116,11 +122,11 @@ test('reorders Komas by dragging in a small window, with undo, Escape, auto-scro
   await expect(undo).toBeDisabled();
 
   // Dropping a Koma beside itself is not a document change.
-  await scrollToTop();
-  const koma1Centre = koma1.y + koma1.height / 2;
-  await mouse.move(dragX, koma1Centre);
+  await scrollToStart();
+  const koma1Centre = koma1.x + koma1.width / 2;
+  await mouse.move(koma1Centre, dragY);
   await mouse.down();
-  await mouse.move(dragX, koma1Centre - 12, { steps: 4 });
+  await mouse.move(koma1Centre - 12, dragY, { steps: 4 });
   await expect(indicator).toHaveCount(0);
   await mouse.up();
   expect(await stripTitles(4)).toEqual(original);
@@ -134,29 +140,28 @@ test('reorders Komas by dragging in a small window, with undo, Escape, auto-scro
   expect(await stripTitles(4)).toEqual(original);
   await expect(redo).toBeEnabled();
 
-  // Holding a dragged Koma at the strip's bottom edge scrolls the strip; Escape still cancels.
-  await scrollToTop();
-  const grabKoma1 = koma1.y + 20;
-  await mouse.move(dragX, grabKoma1);
+  // Holding a dragged Koma at the strip's end scrolls the strip; Escape still cancels.
+  await scrollToStart();
+  const grabKoma1 = koma1.x + 20;
+  await mouse.move(grabKoma1, dragY);
   await mouse.down();
-  await mouse.move(dragX, grabKoma1 + 10, { steps: 2 });
-  await mouse.move(dragX, stripBox.y + stripBox.height - 6, { steps: 8 });
-  await expect.poll(() => scroller.evaluate((element) => element.scrollTop)).toBeGreaterThan(200);
+  await mouse.move(grabKoma1 + 10, dragY, { steps: 2 });
+  await mouse.move(stripBox.x + stripBox.width - 6, dragY, { steps: 8 });
+  await expect.poll(() => scroller.evaluate((element) => element.scrollLeft)).toBeGreaterThan(200);
   await expect(indicator).toHaveCount(1);
   await window.keyboard.press('Escape');
   await mouse.up();
   expect(await stripTitles(4)).toEqual(original);
   await expect(redo).toBeEnabled();
 
-  // Drag again, then the move buttons keep working alongside dragging.
+  // Drag again, then the menu move action keeps working alongside dragging.
   await dragKoma2Up();
   await mouse.up();
   expect(await stripTitles(4)).toEqual(koma2First);
   await expect(redo).toBeDisabled();
-  const moveDown = window.getByRole('button', { name: 'Move Koma down', exact: true });
-  await moveDown.click();
+  await chooseKomaAction(window, 'Move Koma right');
   expect(await stripTitles(4)).toEqual(original);
-  await moveDown.click();
+  await chooseKomaAction(window, 'Move Koma right');
   expect(await stripTitles(4)).toEqual(['Chapter 1', 'Chapter 3', 'Chapter 2', 'Chapter 4']);
   await undo.click();
   await undo.click();
@@ -167,7 +172,7 @@ test('reorders Komas by dragging in a small window, with undo, Escape, auto-scro
   expect(await stripTitles(4)).toEqual(koma2First);
 
   // The dragged order is what is saved, with motion reconnected for the new neighbours.
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(source, 'utf8')));
   expect(saved.presentation.komas.slice(0, 4).map((koma) => koma.id)).toEqual([

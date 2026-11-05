@@ -30,10 +30,7 @@ export function ScopedProposal({
       <h3 className="text-sm font-semibold text-ink-100">
         Proposal for Koma {number || 'removed'}: {proposal.target.title}
       </h3>
-      <p className="mt-1 text-xs text-ink-300">
-        Review the proposed content. Apply changes only this Koma. Its saved hold time and other
-        Komas stay as they are. Neighboring motion may need repair.
-      </p>
+      <p className="mt-1 text-xs text-ink-300">Only this Koma changes.</p>
       <div
         ref={previewRef}
         className="my-3 overflow-hidden rounded-control"
@@ -60,6 +57,7 @@ export function ScopedProposal({
       )}
       <div className="mt-3 flex flex-wrap gap-2">
         <Button
+          variant="primary"
           type="button"
           disabled={issue !== null}
           onClick={() => {
@@ -70,6 +68,7 @@ export function ScopedProposal({
           Apply proposal
         </Button>
         <Button
+          variant="outline"
           type="button"
           onClick={() => {
             discardScopedProposal();

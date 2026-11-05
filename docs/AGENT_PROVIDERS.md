@@ -150,6 +150,31 @@ like a generation. The model is the one configured for the selected provider.
 | no metadata                                   | `metadata` describes the provider     | The interface shows whether a provider sends data to an online service and whether it supports model selection.         |
 | the provider builds its own prompt            | the prompt is rendered by the runtime | Prompts are versioned in one place and are the same for every provider.                                                 |
 
+## Chat generation
+
+Enter sends a request; Shift+Enter inserts a new line. Ctrl/Command+Enter also
+sends, and composing text with an IME does not submit. Sending with the button
+returns focus to the request so a follow-up can be drafted during generation.
+The send button becomes Stop while a run is active. Stopping preserves the draft.
+
+Recheck resends a failed or stopped request without clearing a separate draft.
+It preserves the original Koma target and count, restores those choices in the
+composer, and uses the current provider and currently attached references.
+Reference consent is still required. A removed target is reported rather than
+redirecting the request to another Koma. Another run or pending proposal blocks
+rechecking.
+
+Typing `recheck` (or `/recheck`) reruns the latest failed request. After a successful
+run, or before generation, it checks the project locally and repairs motion that
+can be rebuilt from the current Komas. Other problems remain in Project health.
+Rechecking does not claim to repair provider sign-in, missing files or code.
+
+The conversation follows a newly sent request and output while the reader is at
+the bottom, including when a growing draft or window resize changes the visible
+conversation height. Reading earlier messages suspends following, including when a run
+finishes. Jump to latest returns to the end and places keyboard focus on the
+conversation; sending another request or reopening the chat resumes following.
+
 ## Model and reasoning selection
 
 The Text tab in the composer combines provider and model selection, with search,
@@ -235,7 +260,7 @@ still pose of the phase, and in forced colours it is hidden; the phase remains
 as text. A finished run stays in the chat, with how it ended and its duration,
 until the next run or another project.
 
-**Open run monitor** opens a larger view of the same run: phase, elapsed time,
+**Run details** opens a larger view of the same run: phase, elapsed time,
 attempt, run id, a timeline of status messages and the streamed text, with a
 Cancel button. It reads the same state as the chat and starts no process and
 no request. It is not an attached terminal: Claude Code runs in print mode
@@ -320,6 +345,9 @@ on the result. The promise does not reject for those outcomes.
 
 Executions run until completion or manual cancellation by default. Settings can
 opt into a deadline covering all attempts; `timeoutSeconds: null` disables it.
+The interface offers familiar minute/hour choices. Exact limits already stored
+in projects remain selected without rounding until deliberately changed. The
+composer's limit summary opens this setting directly.
 The optional timer accepts 10 through 2,147,483 whole seconds (the signed
 32-bit JavaScript timer boundary, about 24.9 days). Disable it for longer runs.
 The separate 15-second CLI **version probe** remains bounded; it is not a

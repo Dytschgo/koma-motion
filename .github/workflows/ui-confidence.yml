@@ -1,0 +1,139 @@
+name: UI confidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths: [.github/workflows/ui-confidence.yml]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ui-confidence-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight:
+    name: Sidebar checks (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Check affected sidebar, properties and motion paths before repetition
+        id: ui
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test brandKitLibrary.spec.ts chatBrandKit.spec.ts composer.spec.ts quietStage.spec.ts chatSidebar.spec.ts focusDock.spec.ts canvas-editing.spec.ts --retries=0 --output "${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize skips and outcomes
+        if: always() && steps.ui.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat delayed reopen and autoplay timing without retries
+        id: timing
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-hold-timing-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test holdTiming.spec.ts --repeat-each=20 --retries=0 --output "${{ runner.temp }}/koma-hold-timing-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated timing outcomes
+        if: always() && steps.timing.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-hold-timing-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat startup modal and keyboard help entry without retries
+        id: startup
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-startup-keyboard-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test quickStart.spec.ts help.spec.ts --grep "opens on demand|closes help when its trigger leaves the screen" --repeat-each=20 --retries=0 --output "${{ runner.temp }}/koma-startup-keyboard-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated startup keyboard outcomes
+        if: always() && steps.startup.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-startup-keyboard-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat keyboard generation, Stop and Recheck without retries
+        id: chat
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-chat-retry-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test chatGeneration.spec.ts --grep "retrying a stopped request" --repeat-each=20 --retries=0 --output "${{ runner.temp }}/koma-chat-retry-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated chat retry outcomes
+        if: always() && steps.chat.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-chat-retry-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat grouping geometry across refits without retries
+        id: groups
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test groups.spec.ts --repeat-each=20 --retries=0 --output "${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated grouping geometry outcomes
+        if: always() && steps.groups.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Capture the design at wide and minimum window sizes
+        if: matrix.os == 'windows-latest'
+        id: visuals
+        working-directory: apps/desktop
+        env:
+          KOMA_VISUAL_EVIDENCE_DIR: ${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}
+          KOMA_VISUAL_PHASE: opus-design-after
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test visual-capture.spec.ts --retries=0 --output "${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}/results" "--reporter=list,github,json"
+      - name: Summarize design capture outcomes
+        if: always() && matrix.os == 'windows-latest' && steps.visuals.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Preserve the focused report, captures and failure traces
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ui-preflight-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/koma-ui-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-hold-timing-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-startup-keyboard-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-chat-retry-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}
+          if-no-files-found: error
+          retention-days: 7
+  windows:
+    name: Windows UI pass ${{ matrix.pass }} of 20
+    needs: preflight
+    runs-on: windows-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        pass: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - name: Run the complete native UI suite without retries
+        id: ui
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}/report.json
+        run: pnpm exec playwright test --retries=0 --output "${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}" "--reporter=list,github,json"
+      - name: Summarize skips and outcomes
+        if: always() && steps.ui.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}/report.json"
+      - name: Preserve the report, captures and failure traces for this pass
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-ui-pass-${{ matrix.pass }}
+          path: ${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}
+          if-no-files-found: error
+          retention-days: 7

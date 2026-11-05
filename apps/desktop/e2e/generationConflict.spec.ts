@@ -139,10 +139,14 @@ async function completeGenerationWithEdits(): Promise<void> {
   await expect(window.getByRole('dialog', { name: 'Replace your edited Komas?' })).toHaveCount(0);
   await heldGeneration.evaluate((gate, reply) => gate.release(reply), generationReply(captured));
   await expect(window.getByRole('dialog', { name: 'Replace your edited Komas?' })).toBeVisible();
-  // A narrow window hides the chat to show the Inspector, and the dialog keeps it hidden.
-  if (await isWideWindow(window)) {
-    await expect(window.getByText('Generation complete. Waiting for your decision')).toBeVisible();
-  }
+  // The properties panel stays open behind the confirmation, which owns focus.
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toHaveCount(1);
+  await expect(window.getByLabel('Title', { exact: true })).toHaveValue('My work in progress');
+  await expect(
+    window
+      .getByRole('dialog', { name: 'Replace your edited Komas?' })
+      .getByRole('button', { name: 'Keep editing' }),
+  ).toBeFocused();
 }
 
 test('keeps edits when a completed generation is declined', async () => {

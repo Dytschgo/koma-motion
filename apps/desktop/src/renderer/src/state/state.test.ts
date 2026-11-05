@@ -405,7 +405,7 @@ describe('saved Brand Kits', () => {
     expect(useBrandKitLibraryStore.getState().selectedKitId).toBeNull();
   });
 
-  it('shows the inspector again when an element is selected', () => {
+  it('shows the Inspector again when an element is selected', () => {
     useUiStore.getState().setView('brandKit');
     useUiStore.getState().selectKoma('koma-1');
     expect(useUiStore.getState().view).toBe('brandKit');

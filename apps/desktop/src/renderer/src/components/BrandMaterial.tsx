@@ -4,7 +4,8 @@ import { attachBrandMaterial, discardBrandMaterial } from '../lib/brandProfileAc
 import { useBrandProfileStore } from '../state/brandProfileStore';
 import { useProjectStore } from '../state/projectStore';
 import { BrandProfileDialog } from './BrandProfileDialog';
-import { Button } from './ui';
+import { Button, IconButton } from './ui';
+import { CloseIcon } from './icons';
 
 /**
  * Brand material attached in the chat: images, PDFs and decks from which a
@@ -76,15 +77,13 @@ export function BrandMaterial({ disabled }: { readonly disabled: boolean }): Rea
             >
               Choose other files
             </Button>
-            <Button
-              compact
-              variant="outline"
+            <IconButton
               disabled={state.attaching}
-              aria-label="Remove brand material"
+              label="Remove brand material"
               onClick={() => void discardBrandMaterial()}
             >
-              Remove
-            </Button>
+              <CloseIcon size={14} />
+            </IconButton>
           </div>
           <p className="text-xs text-ink-400">
             Nothing is sent until you confirm in the next step. These files are not sent with a

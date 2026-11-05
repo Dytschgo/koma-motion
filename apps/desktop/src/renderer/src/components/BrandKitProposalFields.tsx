@@ -1,6 +1,7 @@
 import type { ReactElement } from 'react';
 import { BRAND_COLOUR_ROLES, brandKitSchema, type BrandKit } from '@koma-motion/core';
 import { BrandPreview } from './BrandKitEditor';
+import { ColourControl } from './ColourControl';
 import { Field, TextArea, TextInput } from './ui';
 
 const descriptions = [
@@ -54,23 +55,14 @@ export function BrandKitProposalFields({
         )}
       </Field>
       {validation.success && <BrandPreview brandKit={validation.data} logoUrl={logoUrl} />}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="colour-grid">
         {BRAND_COLOUR_ROLES.map((role) => (
-          <Field key={role} label={`${role[0]?.toUpperCase()}${role.slice(1)} colour`}>
-            {(ids) => (
-              <TextInput
-                {...ids}
-                value={draft.colours[role]}
-                maxLength={7}
-                onChange={(event) =>
-                  onDraft({
-                    ...draft,
-                    colours: { ...draft.colours, [role]: event.target.value },
-                  })
-                }
-              />
-            )}
-          </Field>
+          <ColourControl
+            key={role}
+            label={`${role[0]?.toUpperCase()}${role.slice(1)} colour`}
+            value={draft.colours[role]}
+            onValue={(value) => onDraft({ ...draft, colours: { ...draft.colours, [role]: value } })}
+          />
         ))}
       </div>
       <Field label="Heading font">

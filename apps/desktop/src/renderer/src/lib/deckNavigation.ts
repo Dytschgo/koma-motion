@@ -9,11 +9,19 @@ export interface KomaSearchResult {
 /** Searches metadata only. Filtering never changes the deck or its transition adjacency. */
 export function searchKomas(komas: readonly Koma[], query: string): KomaSearchResult[] {
   const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-  return komas.flatMap((koma, index) => {
+  const results = komas.flatMap((koma, index) => {
     const number = index + 1;
     const metadata = `${String(number)} ${koma.title} ${koma.purpose}`.toLocaleLowerCase();
     return words.every((word) => metadata.includes(word)) ? [{ koma, number }] : [];
   });
+  // A typed deck position wins over incidental numbers in earlier titles or purposes.
+  const position = /^\d+$/.test(query.trim()) ? Number(query.trim()) : null;
+  const exact = results.findIndex((result) => result.number === position);
+  if (exact > 0) {
+    const [match] = results.splice(exact, 1);
+    if (match !== undefined) results.unshift(match);
+  }
+  return results;
 }
 
 /** Direct moves reject invalid input rather than relying on the relative command's clamping. */

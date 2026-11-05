@@ -2,7 +2,13 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
 import { komaProjectSchema } from '@koma-motion/core';
-import { launchApplication, answerSaveDialog, answerOpenDialog } from './application';
+import {
+  launchApplication,
+  answerSaveDialog,
+  answerOpenDialog,
+  chooseProjectCommand,
+  showGenerationOptions,
+} from './application';
 import { modelTrigger, openModelChoices } from './composerControls';
 
 for (const provider of ['codex', 'grok'] as const) {
@@ -31,14 +37,13 @@ for (const provider of ['codex', 'grok'] as const) {
           'aria-pressed',
           'true',
         );
+        await showGenerationOptions(window);
         await expect(modelTrigger(window)).toHaveText('Mock provider · Demo');
         await window
           .getByRole('region', { name: 'Agent chat' })
           .screenshot({ path: info.outputPath('images-picker.png'), scale: 'css' });
-        const divider = window.getByRole('separator', { name: 'Resize the chat' });
         await window.keyboard.press('Escape');
-        await divider.focus();
-        await divider.press('Home');
+        await showGenerationOptions(window);
         await modelTrigger(window).click();
         await picker.getByRole('tab', { name: /^Images/ }).click();
         await expect(picker).toBeInViewport({ ratio: 1 });
@@ -56,14 +61,14 @@ for (const provider of ['codex', 'grok'] as const) {
             .first(),
         ).toBeVisible();
         if (outcome === 'cancel')
-          await window.getByRole('button', { name: 'Cancel', exact: true }).click();
+          await window.getByRole('button', { name: 'Stop generating', exact: true }).click();
         if (outcome === 'success') await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
         else if (outcome === 'cancel')
           await expect(window.getByText('Your presentation was not changed.')).toBeVisible();
         else await expect(window.getByText(/No Komas were replaced/).first()).toBeVisible();
         const path = join(directory, 'images.koma');
         await answerSaveDialog(application, path);
-        await window.getByRole('button', { name: 'Save', exact: true }).click();
+        await chooseProjectCommand(window, 'Save');
         await expect(window.getByText('All changes saved')).toBeVisible();
         const saved = komaProjectSchema.parse(JSON.parse(await readFile(path, 'utf8')));
         expect(saved.agentConfiguration.imageGeneration).toBe(provider);
@@ -81,16 +86,16 @@ for (const provider of ['codex', 'grok'] as const) {
             ),
           ).toBe(true);
           await window.getByRole('button', { name: 'Undo', exact: true }).click();
-          await window.getByRole('button', { name: 'Save', exact: true }).click();
+          await chooseProjectCommand(window, 'Save');
           await expect(window.getByText('All changes saved')).toBeVisible();
           const undone = komaProjectSchema.parse(JSON.parse(await readFile(path, 'utf8')));
           expect(undone.assets).toHaveLength(0);
           expect(undone.presentation.komas).toHaveLength(0);
           await window.getByRole('button', { name: 'Redo', exact: true }).click();
-          await window.getByRole('button', { name: 'Save', exact: true }).click();
+          await chooseProjectCommand(window, 'Save');
           await expect(window.getByText('All changes saved')).toBeVisible();
           await answerOpenDialog(application, path);
-          await window.getByRole('button', { name: 'Open', exact: true }).click();
+          await chooseProjectCommand(window, 'Open');
           const reopened = await openModelChoices(window);
           await reopened.getByRole('tab', { name: /^Images/ }).click();
           await expect(reopened.getByRole('button', { name: choice })).toHaveAttribute(

@@ -13,7 +13,7 @@ import {
   type TextElement,
 } from '@koma-motion/core';
 import type { ReactElement } from 'react';
-import { describeElementKind, getLayerName, orderLayers, type StackMove } from '../../lib/layers';
+import { getLayerName, orderLayers, type StackMove } from '../../lib/layers';
 import { chooseKomaImage } from '../../lib/projectActions';
 import { ungroupSelection } from '../../lib/groupActions';
 import { changeElement, deleteElement, restackElement } from '../../state/commands';
@@ -27,11 +27,10 @@ import {
   SendBackwardIcon,
   TrashIcon,
   UnlockIcon,
-  WarningIcon,
 } from '../icons';
 import { Badge, Button, Field, IconButton, NumberInput, Select, TextArea, TextInput } from '../ui';
 import { describeLayerState, ElementTypeIcon } from './LayersPanel';
-import { ColourField, Disclosure, Row, Section } from './parts';
+import { ColourField, Row, Section } from './parts';
 
 type Change = (next: KomaElement, field: string) => void;
 
@@ -606,17 +605,7 @@ export function ElementPanel({
             ))}
           </div>
         )}
-        {!element.visible && (
-          <p className="flex gap-2 text-sm text-ink-400">
-            <span className="mt-0.5 flex-none text-signal-warn">
-              <WarningIcon size={14} />
-            </span>
-            Hidden elements are not drawn on the canvas, in thumbnails or in previews.
-          </p>
-        )}
-        {locked && (
-          <p className="text-sm text-ink-400">Unlock the element to change or delete it.</p>
-        )}
+        {locked && <p className="text-sm text-ink-400">Unlock to edit.</p>}
       </div>
 
       {element.type === 'text' && (
@@ -659,8 +648,7 @@ export function ElementPanel({
           }
         >
           <p className="text-ink-400">
-            This group contains {element.content.children.length} elements. They move and scale with
-            the group.
+            This group contains {element.content.children.length} elements.
           </p>
           <ul aria-label="Elements in this group" className="flex flex-col gap-0.5 text-sm">
             {element.content.children.map((child) => (
@@ -670,42 +658,12 @@ export function ElementPanel({
             ))}
           </ul>
           <p className="text-sm text-ink-400">
-            Group the same elements on neighbouring Komas to move them together; otherwise the group
-            fades into and out of them.
+            Matching groups on neighbouring Komas move together.
           </p>
         </Section>
       )}
 
       <GeometryControls element={element} locked={locked} change={change} />
-
-      <Disclosure title="Details" summary={describeElementKind(element)}>
-        <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-sm">
-          <dt className="text-ink-400">Type</dt>
-          <dd>{describeElementKind(element)}</dd>
-          <dt className="text-ink-400">Persistent identity</dt>
-          <dd className="truncate select-text" title={element.persistentId}>
-            {element.persistentId}
-          </dd>
-        </dl>
-        <p className="text-sm text-ink-400">
-          Objects with the same persistent identity on neighbouring Komas move into one another.
-        </p>
-        <Field label="Layer number" hint="Higher layers are drawn in front.">
-          {(ids) => (
-            <NumberInput
-              {...ids}
-              value={element.zIndex}
-              disabled={locked}
-              minimum={-10000}
-              maximum={10000}
-              precision={0}
-              onValue={(zIndex) => {
-                change({ ...element, zIndex: Math.round(zIndex) }, 'layer');
-              }}
-            />
-          )}
-        </Field>
-      </Disclosure>
     </div>
   );
 }
