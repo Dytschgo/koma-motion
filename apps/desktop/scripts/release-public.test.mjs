@@ -9,7 +9,7 @@ const workflow = await readFile(
 function job(id) {
   const block = workflow.split(`\n  ${id}:\n`)[1];
   assert.ok(block, `Missing job ${id}`);
-  return block.split(/\n  [a-z][a-z-]*:\n/)[0];
+  return block.split(/\n {2}[a-z][a-z-]*:\n/)[0];
 }
 
 test('public checks override inherited skips but still require publication or covered recovery', () => {
