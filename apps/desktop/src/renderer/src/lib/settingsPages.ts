@@ -22,7 +22,7 @@ export const SETTINGS_PAGES = [
     id: 'generation',
     label: 'Generation',
     scope: 'project',
-    description: 'Time limit and the model each provider uses for this project.',
+    description: 'Optional time limit for generation. Choose models in chat.',
   },
   {
     id: 'templates',

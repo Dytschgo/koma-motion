@@ -40,7 +40,6 @@ export function QuickStartGuide(): ReactElement {
   const brandKit = (library: boolean): void =>
     visit(() => {
       const ui = useUiStore.getState();
-      ui.setAgentPanelOpen(false);
       ui.setBrandKitTab(library ? 'library' : 'project');
       ui.setView('brandKit');
     }, '[aria-label="Brand Kit"] [role="tab"][aria-selected="true"]');
@@ -50,8 +49,7 @@ export function QuickStartGuide(): ReactElement {
         const ui = useUiStore.getState();
         ui.stopPreview();
         ui.setView('canvas');
-        ui.setAgentPanelOpen(false);
-        ui.setInspectorTab(motion ? 'motion' : 'koma');
+        ui.inspectSelection(motion ? 'motion' : 'koma');
       },
       motion ? '[data-tab="motion"]' : '[data-guide-target="canvas"]',
     );
@@ -131,8 +129,8 @@ export function QuickStartGuide(): ReactElement {
                 </p>
                 <ol className="list-decimal space-y-2 pl-5">
                   <li>
-                    <strong>Create:</strong> open Brand Kit → This project, edit the fields and
-                    choose Save to library.
+                    <strong>Create:</strong> open the project menu → Brand Kit → This project, edit
+                    the fields and choose Save to library.
                   </li>
                   <li>
                     <strong>Import from a deck:</strong> in Library, choose Create Brand Kit from
@@ -146,10 +144,10 @@ export function QuickStartGuide(): ReactElement {
                     keep no logo. Choose Save new Brand Kit.
                   </li>
                   <li>
-                    <strong>Create from brand material:</strong> in the chat Brand Kit picker,
-                    choose Attach brand material, then Create Brand Kit and instructions. Review the
-                    listed content before sending it, edit the proposal, then save or apply the kit
-                    and instructions together.
+                    <strong>Create from brand material:</strong> in the prompt’s generation options,
+                    open the Brand Kit picker, choose Attach brand material, then Create Brand Kit
+                    and instructions. Review the listed content before sending it, edit the
+                    proposal, then save or apply the kit and instructions together.
                   </li>
                   <li>
                     <strong>Reuse:</strong> select the saved kit and Apply to this project, or
@@ -218,10 +216,11 @@ export function QuickStartGuide(): ReactElement {
             {step === 3 && (
               <>
                 <p>
-                  In chat, open <strong>Model</strong> to choose a provider and model. Model options
-                  includes provider details and custom IDs; Settings → Providers explains
-                  availability and sign-in requirements. External providers send your request and
-                  project context online.
+                  Below the canvas, open the prompt’s generation options, then{' '}
+                  <strong>Model</strong> to choose a provider and model. Model options includes
+                  provider details and custom IDs; Settings → Providers explains availability and
+                  sign-in requirements. External providers send your request and project context
+                  online.
                 </p>
                 <p>
                   <strong>Mock</strong> runs locally and always makes the same three-Koma demo. Use
@@ -230,9 +229,9 @@ export function QuickStartGuide(): ReactElement {
                 </p>
                 <p>
                   Review the Brand Kit and instructions, write your request, set{' '}
-                  <strong>Koma count</strong>, then choose <strong>Generate Komas</strong>{' '}
-                  (Ctrl/Command+Enter). Follow progress or Cancel. Successful generation replaces
-                  the current Komas; review the result and use Undo if needed.
+                  <strong>Koma count</strong>, then choose <strong>Generate Komas</strong> (Enter).
+                  Follow progress or Stop. Successful generation replaces the current Komas; review
+                  the result and use Undo if needed.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -242,7 +241,7 @@ export function QuickStartGuide(): ReactElement {
                       visit(() => {
                         const ui = useUiStore.getState();
                         ui.setView('canvas');
-                        ui.setAgentPanelOpen(true);
+                        ui.setChatOpen(true);
                       }, '[data-guide-target="request"]')
                     }
                   >
@@ -264,22 +263,20 @@ export function QuickStartGuide(): ReactElement {
             {step === 4 && (
               <>
                 <p>
-                  Select a Koma, then an object on the canvas or in <strong>Layers</strong>. Drag to
-                  move, resize or rotate; use the <strong>Inspector</strong> for precise values.
-                  Enter edits selected text, Ctrl/Command+Enter finishes, and Escape discards the
-                  text draft. Undo and Redo cover project edits.
+                  Select a Koma in the filmstrip, then an object on the canvas. Drag to move, resize
+                  or rotate. The toolbar beside the object changes its colour, size, stacking and
+                  motion; <strong>More → Properties</strong> or <strong>Properties</strong> in the
+                  top bar opens every value and <strong>Layers</strong>. Pin it to keep it beside
+                  the canvas. Enter edits selected text, Ctrl/Command+Enter finishes, and Escape
+                  discards the text draft. Shift- or Ctrl/Command-click adds to the selection;
+                  Ctrl/Command+G groups. Undo and Redo cover project edits.
                 </p>
                 <p>
-                  If chat hides the Inspector in a narrow window, choose{' '}
-                  <strong>Hide the chat</strong>. Use the Koma tab for frame details and Motion for
-                  the next transition.
-                </p>
-                <p>
-                  When motion is out of date, playback is blocked. Select its source Koma and open{' '}
-                  <strong>Motion → Recalculate motion</strong> to repair it locally while preserving
-                  timing. If offered, <strong>Regenerate transition</strong> in the Koma strip,
-                  between the source and destination Komas, asks the selected provider for new
-                  timing. Open Details on that transition to inspect the reason and both Komas.
+                  The dots between filmstrip thumbnails are the motion between Komas. A marked dot
+                  needs attention: select it to see why, then use{' '}
+                  <strong>Motion details → Fix motion</strong> to repair it locally while preserving
+                  timing, or <strong>Regenerate transition</strong> to ask the selected provider for
+                  new timing.
                 </p>
                 <div className="flex flex-wrap gap-2">
                   <Button
@@ -287,7 +284,7 @@ export function QuickStartGuide(): ReactElement {
                     disabled={!project?.presentation.komas.length}
                     onClick={() => canvas(false)}
                   >
-                    Open canvas & Inspector
+                    Open canvas & properties
                   </Button>
                   <Button
                     variant="outline"
@@ -302,18 +299,18 @@ export function QuickStartGuide(): ReactElement {
             {step === 5 && (
               <>
                 <p>
-                  <strong>Preview plays one transition at a time.</strong> Select the first Koma and
-                  choose Play below the canvas, or Preview in the top bar. Pause, scrub the position
-                  or restart to inspect the motion. Playback lands on the next Koma; choose Play
-                  again to continue through the sequence.
+                  <strong>Play previews one transition in place.</strong> Choose Play in the top bar
+                  or a dot in the filmstrip. Pause, scrub the position, change the duration or
+                  restart to inspect the motion. Playback lands on the next Koma; choose Play again
+                  to continue. Stop preview returns to editing.
                 </p>
                 <p>
                   Use Previous Koma and Next Koma to navigate. With reduced motion enabled, previews
                   cut instead of moving.
                 </p>
                 <p>
-                  <strong>Present plays the whole presentation.</strong> Choose Present in the top
-                  bar, F5 from the beginning, or Shift+F5 from the selected Koma. Advance with the
+                  <strong>Present plays the whole presentation.</strong> Open the menu beside Play,
+                  press F5 from the beginning, or Shift+F5 from the selected Koma. Advance with the
                   arrow keys or turn on Autoplay, and choose Full screen when needed. Escape returns
                   to editing. If a transition cannot play, review it before choosing to return to
                   edit or cut across it.
@@ -325,8 +322,8 @@ export function QuickStartGuide(): ReactElement {
                     visit(() => {
                       const ui = useUiStore.getState();
                       ui.setView('canvas');
-                      ui.setAgentPanelOpen(false);
                       ui.selectKoma(project?.presentation.komas[0]?.id ?? null);
+                      ui.setMotionEditing(true);
                     }, '[data-guide-target="preview"]')
                   }
                 >
@@ -338,8 +335,8 @@ export function QuickStartGuide(): ReactElement {
               <>
                 <p>
                   <strong>Save</strong> keeps the editable project, Brand Kit and instructions in a
-                  .koma file. Use <strong>Export</strong> in the top bar to make editable PowerPoint
-                  slides, then Choose destination.
+                  .koma file. Use <strong>Share → Export PowerPoint</strong> to make editable
+                  PowerPoint slides, then Choose destination.
                 </p>
                 <p>
                   Choose Static slides, Fade between slides or Morph matching objects. Fade and
@@ -357,7 +354,7 @@ export function QuickStartGuide(): ReactElement {
                   disabled={!project?.presentation.komas.length}
                   onClick={() => visit(() => undefined, '[data-guide-target="export"]')}
                 >
-                  Go to Export
+                  Go to Share
                 </Button>
               </>
             )}

@@ -16,11 +16,16 @@ Saving and reopening retains the objects and their styling. Creation observes
 the element count and project safety budgets; a failed addition leaves the
 document unchanged and shows an error.
 
-Choose **Inspect** after selecting an object on the canvas or in Layers to
-open its precise controls. In a narrow window, this collapses the chat to make
-room for the Inspector. The Inspect button keeps keyboard focus. **Show the
-chat** returns to the retained draft. In a wide window, both panels remain
-visible. Locked elements remain inspectable, with their existing edit limits.
+Add objects with **Add element** (+) in the top bar. Selecting an object on
+the canvas shows a small toolbar beside it: colour, size and position,
+**Arrange** for stacking, **Motion**, and **More** for properties, lock,
+visibility and delete. The toolbar stays inside the visible canvas: it moves
+below an object at the top edge, keeps edge objects reachable and hides while
+the object is dragged. **Properties** in the top bar (or **More → Properties**)
+opens every value and Layers in a popover over the canvas; **Pin properties**
+keeps it beside the canvas, and Escape closes the unpinned popover and returns
+focus. Opening properties never replaces the prompt or its draft. Locked
+elements retain their existing edit limits.
 
 ## Selecting several elements
 
@@ -64,7 +69,7 @@ Generation does not offer groups to agents yet.
 ## Motion
 
 Direct creation, like other visual edits, leaves stored motion unchanged.
-Review the resulting motion warning and choose **Recalculate motion** when
+Review the resulting motion warning and choose **Fix motion** when
 you want to update it. Creation never regenerates motion silently. Grouping
 and ungrouping are the exception: like deleting an element, they change which
 objects the Koma has, so the transitions on both sides are recomputed and stay

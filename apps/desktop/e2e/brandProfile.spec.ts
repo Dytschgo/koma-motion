@@ -3,7 +3,14 @@ import { copyFile, readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import { z } from 'zod';
-import { answerSaveDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerSaveDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+  openBrandKit,
+  showGenerationOptions,
+} from './application';
 
 const projectFileSchema = z.object({
   brandKit: z.object({ name: z.string(), tone: z.string(), logoAssetId: z.string().nullable() }),
@@ -45,6 +52,7 @@ async function fixtures(running: RunningApplication): Promise<string[]> {
 async function attach(running: RunningApplication, paths: readonly string[]): Promise<void> {
   const { window, application } = running;
   await answerOpenDialogWith(application, paths);
+  await showGenerationOptions(window);
   await window.getByRole('button', { name: 'Choose Brand Kit', exact: true }).click();
   await window
     .getByRole('dialog', { name: 'Choose Brand Kit', exact: true })
@@ -97,7 +105,7 @@ test('attach files in chat, review both outputs, save and apply as one undoable 
     await window.getByRole('button', { name: 'Create a project' }).click();
     const projectPath = join(directory, 'first.koma');
     await answerSaveDialog(application, projectPath);
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect.poll(() => readFile(projectPath, 'utf8').catch(() => '')).not.toBe('');
     const before = await readFile(projectPath, 'utf8');
     const original = await readProject(projectPath);
@@ -193,7 +201,7 @@ test('attach files in chat, review both outputs, save and apply as one undoable 
 
     // Applied to the project: kit, logo and instructions.
     expect(await readFile(projectPath, 'utf8')).toBe(before);
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect
       .poll(async () => (await readProject(projectPath)).systemInstructions)
       .toBe('Reviewed: one idea per Koma, navy backgrounds, short headlines.');
@@ -209,7 +217,7 @@ test('attach files in chat, review both outputs, save and apply as one undoable 
     // One Undo takes back kit, logo and instructions together.
     await window.getByRole('button', { name: 'Undo' }).click();
     await expect(window.getByRole('button', { name: 'Undo' })).toBeDisabled();
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect
       .poll(async () => (await readProject(projectPath)).brandKit.name)
       .toBe(original.brandKit.name);
@@ -218,15 +226,15 @@ test('attach files in chat, review both outputs, save and apply as one undoable 
     expect(undone.brandKit.logoAssetId).toBeNull();
     expect(undone.assets).toEqual([]);
     await window.getByRole('button', { name: 'Redo' }).click();
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect
       .poll(async () => (await readProject(projectPath)).brandKit.name)
       .toBe('Northstar Studio');
 
     // Another project reuses the saved profile from the library.
-    await window.getByRole('button', { name: 'New', exact: true }).click();
+    await chooseProjectCommand(window, 'New');
     await expect(window.getByRole('button', { name: 'Undo' })).toBeDisabled();
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await window.getByRole('tab', { name: /Library/ }).click();
     // The library still has the profile selected from the save in the first project.
     const saved = window.getByRole('button', { name: 'Northstar profile', exact: true });
@@ -240,7 +248,7 @@ test('attach files in chat, review both outputs, save and apply as one undoable 
     ).toBeVisible();
     const secondPath = join(directory, 'second.koma');
     await answerSaveDialog(application, secondPath);
-    await window.getByRole('button', { name: 'Save', exact: true }).click();
+    await chooseProjectCommand(window, 'Save');
     await expect.poll(() => readFile(secondPath, 'utf8').catch(() => '')).not.toBe('');
     const second = await readProject(secondPath);
     expect(second.systemInstructions).toBe(

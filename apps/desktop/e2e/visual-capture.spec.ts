@@ -7,6 +7,8 @@ import {
   showChat,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  openBrandKit,
 } from './application';
 
 /**
@@ -41,10 +43,25 @@ for (const size of SIZES) {
     }, size);
     await expect.poll(() => window.evaluate(() => innerWidth)).toBe(size.width);
     const shot = async (name: string, page: Page = window): Promise<void> => {
-      await page.waitForTimeout(250);
-      await page.screenshot({ path: join(output, `${name}.png`) });
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+      await page.screenshot({ path: join(output, `${name}.png`), scale: 'css' });
     };
 
+    // A short window may scroll, but the beginning of Welcome must remain
+    // reachable at scrollTop 0 rather than being centred above the scrollport.
+    const welcome = window.getByRole('main');
+    const welcomeBounds = await welcome.evaluate((node) => {
+      node.scrollTop = 0;
+      const content = node.firstElementChild;
+      if (content === null) throw new Error('Missing Welcome content');
+      return {
+        viewportTop: node.getBoundingClientRect().top,
+        contentTop: content.getBoundingClientRect().top,
+      };
+    });
+    expect(welcomeBounds.contentTop).toBeGreaterThanOrEqual(welcomeBounds.viewportTop);
     await shot('01-welcome');
     await window.getByRole('button', { name: 'Create a project' }).click();
     await showChat(window);
@@ -52,9 +69,9 @@ for (const size of SIZES) {
 
     await window.getByRole('button', { name: 'Use the example request' }).click();
     await window.getByRole('button', { name: 'Generate Komas' }).click();
-    await expect(window.getByRole('button', { name: 'Cancel' })).toBeVisible();
+    await expect(window.getByRole('button', { name: 'Stop generating' })).toBeVisible();
     await shot('03-generating');
-    await window.getByRole('button', { name: 'Open run monitor' }).click();
+    await window.getByRole('button', { name: 'Run details' }).click();
     await shot('03b-run-monitor');
     await window.keyboard.press('Escape');
     await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
@@ -67,9 +84,9 @@ for (const size of SIZES) {
     await window.getByRole('tab', { name: 'Element' }).click();
     await shot('07-inspector-element');
 
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await shot('08-brand-kit');
-    await window.getByRole('button', { name: 'Close panel' }).click();
+    await window.getByRole('button', { name: 'Back to Inspector' }).click();
 
     await openSettingsPage(window, 'Generation');
     await shot('09-settings-generation');
@@ -77,11 +94,11 @@ for (const size of SIZES) {
     await shot('10-settings-providers');
     await window.getByRole('button', { name: 'Done' }).click();
 
-    await window.getByRole('button', { name: 'Project health' }).click();
+    await chooseProjectCommand(window, 'Project health');
     await shot('11-project-health');
     await window.keyboard.press('Escape');
 
-    await window.getByRole('button', { name: 'New', exact: true }).click();
+    await chooseProjectCommand(window, 'New');
     const confirm = window.getByRole('alertdialog');
     if (await confirm.isVisible().catch(() => false)) {
       await shot('12-confirm');
@@ -89,7 +106,22 @@ for (const size of SIZES) {
     }
     await writeFile(
       join(output, 'capture.json'),
-      JSON.stringify({ ...size, phase, problems: running.problems }, null, 2),
+      JSON.stringify(
+        {
+          ...size,
+          phase,
+          welcomeBounds,
+          viewport: await window.evaluate(() => ({
+            width: innerWidth,
+            height: innerHeight,
+            deviceScaleFactor: devicePixelRatio,
+          })),
+          problems: running.problems,
+        },
+        null,
+        2,
+      ),
     );
+    expect(running.problems).toEqual([]);
   });
 }

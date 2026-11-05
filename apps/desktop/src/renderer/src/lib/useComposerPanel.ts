@@ -1,18 +1,22 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useUiStore } from '../state/uiStore';
 
-/** Sidebar focus, mutually exclusive choices and measured popup space. */
+/** Mutually exclusive composer choices and the measured space for their popups. */
 export function useComposerPanel(projectId: string, open: boolean) {
+  const modelPickerRequest = useUiStore((state) => state.modelPickerRequest);
+  const previousModelRequest = useRef(modelPickerRequest);
   const [choice, setChoice] = useState<'model' | 'count' | 'brand' | null>(null);
-  const section = useRef<HTMLElement>(null);
-  const header = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (previousModelRequest.current === modelPickerRequest) return;
+    previousModelRequest.current = modelPickerRequest;
+    setChoice('model');
+  }, [modelPickerRequest]);
   const composer = useRef<HTMLFormElement>(null);
   const [pickerMaxHeight, setPickerMaxHeight] = useState<number>();
   const requestField = useRef<HTMLTextAreaElement>(null);
-  const showButton = useRef<HTMLButtonElement>(null);
   const modelButton = useRef<HTMLButtonElement>(null);
   const countButton = useRef<HTMLButtonElement>(null);
   const choicesPanel = useRef<HTMLDivElement>(null);
-  const wasOpen = useRef(open);
   const choiceProject = useRef(projectId);
   useEffect(() => {
     if (!open || choiceProject.current !== projectId) {
@@ -22,20 +26,20 @@ export function useComposerPanel(projectId: string, open: boolean) {
   }, [open, projectId]);
 
   // A long request in a short window leaves less room above the composer.
-  // Bound the popup to that actual space so it never covers the chat header.
+  // Bound the popup to that actual space so it never covers the top bar.
   useLayoutEffect(() => {
-    if (choice === null || composer.current === null || header.current === null) return;
+    if (choice === null || composer.current === null) return;
     const measure = (): void => {
       const top = composer.current?.getBoundingClientRect().top;
-      const bottom = header.current?.getBoundingClientRect().bottom;
-      if (top !== undefined && bottom !== undefined) {
+      const bottom = document.querySelector('.studio-topbar')?.getBoundingClientRect().bottom ?? 0;
+      if (top !== undefined) {
         setPickerMaxHeight(Math.max(64, Math.floor(top - bottom - 12)));
       }
     };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(composer.current);
-    if (section.current !== null) observer.observe(section.current);
+    observer.observe(document.body);
     return () => observer.disconnect();
   }, [choice]);
 
@@ -62,32 +66,12 @@ export function useComposerPanel(projectId: string, open: boolean) {
     return () => document.removeEventListener('pointerdown', dismiss);
   }, [choice]);
 
-  // Opening moves focus to the request. Closing moves it to the control that
-  // opens the chat again, so focus is never lost in the hidden panel.
-  useEffect(() => {
-    if (wasOpen.current === open) {
-      return;
-    }
-    wasOpen.current = open;
-    if (open) {
-      requestField.current?.focus();
-      return;
-    }
-    const active = document.activeElement;
-    if (active === null || active === document.body || section.current?.contains(active)) {
-      showButton.current?.focus();
-    }
-  }, [open]);
-
   return {
     choice,
     setChoice,
-    section,
-    header,
     composer,
     pickerMaxHeight,
     requestField,
-    showButton,
     modelButton,
     countButton,
     choicesPanel,

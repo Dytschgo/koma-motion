@@ -41,7 +41,7 @@ export function ProviderConnection({
       </svg>
       <p role={failed ? 'alert' : 'status'} className={failed ? 'text-signal-warn' : 'font-medium'}>
         {failed
-          ? 'Provider check failed. Choose Check again to retry.'
+          ? 'Provider check failed. Choose Refresh providers to retry.'
           : checking
             ? 'Checking installed providers…'
             : hasProviders

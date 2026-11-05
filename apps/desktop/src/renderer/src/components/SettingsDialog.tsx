@@ -1,12 +1,9 @@
-import {
-  MAX_AGENT_TIMEOUT_SECONDS,
-  MIN_AGENT_TIMEOUT_SECONDS,
-  type KomaProject,
-} from '@koma-motion/core';
+import type { KomaProject } from '@koma-motion/core';
 import { useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 import type { IpcResponse } from '../../../shared/ipc';
 import { detectProviders } from '../lib/agentActions';
 import { invoke } from '../lib/api';
+import { generationTimeLimits } from '../lib/generationTimeLimit';
 import {
   getSettingsPage,
   groupSettingsPages,
@@ -14,7 +11,6 @@ import {
   SETTINGS_PAGES,
   SETTINGS_SCOPES,
   type SettingsPageId,
-  type SettingsScope,
 } from '../lib/settingsPages';
 import { useAgentStore, type DetectedProvider } from '../state/agentStore';
 import { changeAgentConfiguration } from '../state/commands';
@@ -40,13 +36,10 @@ import {
   IconButton,
   IconTile,
   ModalFrame,
-  NumberInput,
-  SettingRow,
+  Select,
   SettingsCard,
-  Switch,
   choiceRowClass,
 } from './ui';
-import { ModelPicker } from './ModelPicker';
 import { ProviderLogo } from './ProviderLogo';
 import { UpdateControl } from './UpdateControl';
 import { ProviderConnection } from './ProviderConnection';
@@ -64,111 +57,49 @@ const PAGE_ICONS: Readonly<Record<SettingsPageId, (props: { size?: number }) => 
   about: InfoIcon,
 };
 
-function ScopeBadge({ scope }: { readonly scope: SettingsScope }): ReactElement {
-  return (
-    <Badge tone={scope === 'project' ? 'accent' : 'neutral'}>{SETTINGS_SCOPES[scope].badge}</Badge>
-  );
-}
-
-function GenerationPage({
-  project,
-  providers,
-  onOpenProviders,
-}: {
-  readonly project: KomaProject | null;
-  readonly providers: readonly DetectedProvider[];
-  readonly onOpenProviders: () => void;
-}): ReactElement {
+function GenerationPage({ project }: { readonly project: KomaProject | null }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
-  const detection = useAgentStore((state) => state.detection);
   if (project === null) {
     return <NoProject />;
   }
   const { timeoutSeconds } = project.agentConfiguration;
-  const selectable = providers.filter((provider) => provider.metadata.supportsModelSelection);
+  const limits = generationTimeLimits(timeoutSeconds);
   return (
     <div className="flex flex-col gap-4">
       <SettingsCard title="Time limit">
-        <SettingRow
-          label="Stop generation after a time limit"
-          description="Off by default. Agents run until they finish or you cancel. A provider may have its own limits."
+        <Field
+          label="Generation time limit"
+          hint="No limit lets the provider finish or wait for you to stop it."
         >
           {(ids) => (
-            <Switch
+            <Select
               {...ids}
-              checked={timeoutSeconds !== null}
-              onCheckedChange={(checked) =>
+              value={timeoutSeconds === null ? 'none' : String(timeoutSeconds)}
+              onChange={(event) => {
+                const limit = limits.find((option) => option.value === event.target.value);
+                if (limit === undefined) return;
                 apply(
                   changeAgentConfiguration({
                     ...project.agentConfiguration,
-                    timeoutSeconds: checked ? 3600 : null,
+                    timeoutSeconds: limit.seconds,
                   }),
-                )
-              }
-            />
-          )}
-        </SettingRow>
-        {timeoutSeconds !== null && (
-          <div className="border-t border-line pt-3">
-            <Field
-              label="Time limit in seconds"
-              hint={`Between ${String(MIN_AGENT_TIMEOUT_SECONDS)} seconds and about 24 days. Turn the limit off for runs of any duration.`}
+                );
+              }}
             >
-              {(ids) => (
-                <NumberInput
-                  {...ids}
-                  className="w-32"
-                  value={timeoutSeconds}
-                  minimum={MIN_AGENT_TIMEOUT_SECONDS}
-                  maximum={MAX_AGENT_TIMEOUT_SECONDS}
-                  precision={0}
-                  onValue={(seconds) => {
-                    apply(
-                      changeAgentConfiguration({
-                        ...project.agentConfiguration,
-                        timeoutSeconds: Math.round(seconds),
-                      }),
-                      { coalesceKey: 'agent-timeout' },
-                    );
-                  }}
-                />
-              )}
-            </Field>
-          </div>
-        )}
+              {limits.map((limit) => (
+                <option key={limit.value} value={limit.value}>
+                  {limit.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
       </SettingsCard>
 
-      <SettingsCard
-        title="Models"
-        description="The model each provider uses for this project. The chat composer shows the same choice."
-      >
-        {selectable.length === 0 ? (
-          <div className="flex flex-col gap-2 text-ink-300" role="status">
-            <p>
-              {detection === 'idle' || detection === 'running'
-                ? 'Checking which providers can choose a model…'
-                : detection === 'failed'
-                  ? 'Provider check failed. Check providers again to load model choices.'
-                  : 'No detected provider supports model selection.'}
-            </p>
-            {detection !== 'idle' && detection !== 'running' && (
-              <Button variant="outline" compact onClick={onOpenProviders}>
-                Open providers
-              </Button>
-            )}
-          </div>
-        ) : (
-          <div className="flex flex-col gap-5 divide-y divide-line [&>*:not(:first-child)]:pt-5">
-            {selectable.map((provider) => (
-              <ModelPicker
-                key={provider.metadata.id}
-                project={project}
-                provider={provider}
-                label={`Model for ${provider.metadata.displayName}`}
-              />
-            ))}
-          </div>
-        )}
+      <SettingsCard title="Model">
+        <Button variant="outline" onClick={() => useUiStore.getState().showModelPicker()}>
+          Choose model in chat
+        </Button>
       </SettingsCard>
     </div>
   );
@@ -193,14 +124,14 @@ function ProvidersPage({
           disabled={detection === 'running' || running}
           onClick={() => void detectProviders()}
         >
-          {detection === 'running' ? 'Checking…' : 'Check again'}
+          {detection === 'running' ? 'Checking…' : 'Refresh providers'}
         </Button>
       }
     >
       <ProviderConnection detection={detection} hasProviders={providers.length > 0} />
       {running && (
         <p className="text-sm text-ink-300 [margin-block-end:0.5rem]">
-          You can check again when generation finishes.
+          You can refresh providers when generation finishes.
         </p>
       )}
       <ul className="flex flex-col divide-y divide-line">
@@ -229,7 +160,12 @@ function ProvidersPage({
                   </Badge>
                 </p>
                 <p className="mt-0.5 text-ink-300">{provider.metadata.description}</p>
-                <p className="mt-1 text-sm text-ink-400">{provider.detection.message}</p>
+                {!(
+                  available &&
+                  provider.detection.version !== null &&
+                  provider.detection.message ===
+                    `Version ${provider.detection.version} is installed.`
+                ) && <p className="mt-1 text-sm text-ink-400">{provider.detection.message}</p>}
                 {provider.metadata.usesExternalService && (
                   <p className="mt-1 text-sm text-ink-400">
                     Sends your request, instructions, Brand Kit, Koma text and asset names online.
@@ -241,7 +177,7 @@ function ProvidersPage({
         })}
         {providers.length === 0 && detection === 'done' && (
           <li className="text-ink-300">
-            No providers were found. Install a supported provider, then check again.
+            No providers were found. Install a supported provider, then refresh providers.
           </li>
         )}
       </ul>
@@ -334,18 +270,7 @@ export function SettingsDialog({
 
   const pages: Readonly<Record<SettingsPageId, ReactNode>> = {
     instructions: instructions.projectPage,
-    generation: (
-      <GenerationPage
-        project={project}
-        providers={providers}
-        onOpenProviders={() => {
-          setPage('providers');
-          navigation.current
-            ?.querySelector<HTMLButtonElement>('[data-settings-page="providers"]')
-            ?.focus();
-        }}
-      />
-    ),
+    generation: <GenerationPage project={project} />,
     templates: instructions.libraryPage,
     providers: <ProvidersPage providers={providers} />,
     updates: <UpdateControl />,
@@ -418,7 +343,6 @@ export function SettingsDialog({
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2.5">
                 <h3 className="text-xl font-semibold tracking-tight">{page.label}</h3>
-                <ScopeBadge scope={page.scope} />
               </div>
               <p className="mt-1 text-ink-300">{page.description}</p>
               <p className="mt-0.5 text-sm text-ink-400">{scope.note}</p>

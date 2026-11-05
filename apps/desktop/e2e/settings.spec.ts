@@ -1,7 +1,15 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
+import { buildProject } from '@koma-motion/core/testing';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
-import { answerSaveDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  answerSaveDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+  showGenerationOptions,
+} from './application';
 
 let running: RunningApplication;
 test.beforeEach(async () => {
@@ -24,8 +32,9 @@ function category(window: Page, name: string) {
 test('groups categories by where they are stored and moves with the keyboard', async () => {
   const { window } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
-  const opener = window.getByRole('button', { name: 'Settings', exact: true });
-  await opener.click();
+  // Settings opens from the project menu; closing it returns focus there.
+  const opener = window.getByRole('button', { name: 'Project menu', exact: true });
+  await chooseProjectCommand(window, 'Settings');
   const dialog = settings(window);
   await expect(dialog).toBeVisible();
 
@@ -64,7 +73,7 @@ test('groups categories by where they are stored and moves with the keyboard', a
   await expect(dialog).toBeHidden();
   await expect(opener).toBeFocused();
   // Settings reopens on the page it showed last.
-  await opener.click();
+  await chooseProjectCommand(window, 'Settings');
   await expect(category(window, 'Providers')).toHaveAttribute('aria-current', 'page');
   await dialog.getByRole('button', { name: 'Close settings' }).click();
   await expect(dialog).toBeHidden();
@@ -74,29 +83,28 @@ test('groups categories by where they are stored and moves with the keyboard', a
 test('project settings are saved in the project and can be undone', async () => {
   const { window, application, directory } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
-  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  await chooseProjectCommand(window, 'Settings');
   await category(window, 'Generation').click();
-  const limit = settings(window).getByRole('switch', {
-    name: 'Stop generation after a time limit',
-  });
-  await expect(limit).not.toBeChecked();
-  await limit.check();
-  await settings(window).getByLabel('Time limit in seconds', { exact: true }).fill('45');
+  const limit = settings(window).getByLabel('Generation time limit', { exact: true });
+  await expect(limit).toHaveValue('none');
+  await limit.selectOption('300');
   await settings(window).getByRole('button', { name: 'Done' }).click();
-  await expect(window.getByText('Stops after 45 seconds.', { exact: false })).toBeVisible();
+  await showGenerationOptions(window);
+  await expect(window.getByText('Limit: 5 minutes', { exact: false })).toBeVisible();
 
   const path = join(directory, 'limits.koma');
   await answerSaveDialog(application, path);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved: unknown = JSON.parse(await readFile(path, 'utf8'));
-  expect(saved).toHaveProperty('agentConfiguration.timeoutSeconds', 45);
+  expect(saved).toHaveProperty('agentConfiguration.timeoutSeconds', 300);
 
   await window.getByRole('button', { name: 'Undo', exact: true }).click();
-  await window.getByRole('button', { name: 'Undo', exact: true }).click();
-  await expect(window.getByText('Stops after', { exact: false })).toHaveCount(0);
-  await window.getByRole('button', { name: 'Settings', exact: true }).click();
-  await expect(limit).not.toBeChecked();
+  await expect(
+    window.getByRole('button', { name: 'Change generation time limit', exact: true }),
+  ).toHaveCount(0);
+  await chooseProjectCommand(window, 'Settings');
+  await expect(limit).toHaveValue('none');
   expect(running.problems).toEqual([]);
 });
 
@@ -105,7 +113,7 @@ test('project pages explain that a project is needed, and the layout fits the sm
   await application.evaluate(({ BrowserWindow }) => {
     BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700);
   });
-  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  await chooseProjectCommand(window, 'Settings');
   const dialog = settings(window);
   await expect(dialog.getByText('No project open', { exact: true })).toBeVisible();
   await expect(dialog.getByText('No project is open').filter({ visible: true })).toBeVisible();
@@ -122,5 +130,51 @@ test('project pages explain that a project is needed, and the layout fits the sm
   await expect(dialog.getByRole('button', { name: 'Done' })).toBeInViewport({ ratio: 1 });
   await category(window, 'Templates').click();
   await window.screenshot({ path: test.info().outputPath('settings-templates-1120.png') });
+  expect(running.problems).toEqual([]);
+});
+
+test('keeps an existing exact limit through navigation and restores it with one Undo', async () => {
+  const { window, application, directory } = running;
+  const original = buildProject();
+  const project = {
+    ...original,
+    agentConfiguration: { ...original.agentConfiguration, timeoutSeconds: 45 },
+  };
+  const path = join(directory, 'existing-limit.koma');
+  await writeFile(path, JSON.stringify(project));
+  await answerOpenDialog(application, path);
+  await chooseProjectCommand(window, 'Open');
+  await showGenerationOptions(window);
+  await window.getByRole('button', { name: 'Change generation time limit', exact: true }).click();
+  const limit = settings(window).getByLabel('Generation time limit', { exact: true });
+  await expect(limit).toHaveValue('45');
+  await expect(limit.locator('option:checked')).toHaveText('45 seconds');
+  await category(window, 'About').click();
+  await category(window, 'Generation').click();
+  await expect(limit).toHaveValue('45');
+  await settings(window).getByRole('button', { name: 'Done' }).click();
+  await expect(window.getByText('All changes saved')).toBeVisible();
+  await window.getByRole('button', { name: 'Change generation time limit', exact: true }).click();
+  await expect(limit).toHaveValue('45');
+  await limit.selectOption('none');
+  await settings(window).getByRole('button', { name: 'Done' }).click();
+  await expect(
+    window.getByRole('button', { name: 'Change generation time limit', exact: true }),
+  ).toHaveCount(0);
+  await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await expect(window.getByText('All changes saved')).toBeVisible();
+  await window.getByRole('button', { name: 'Change generation time limit', exact: true }).click();
+  await expect(limit).toHaveValue('45');
+  await window.screenshot({
+    path: test.info().outputPath('time-limit-existing.png'),
+    scale: 'css',
+  });
+  await settings(window).getByRole('button', { name: 'Done' }).click();
+  await chooseProjectCommand(window, 'Save');
+  await expect(window.getByText('All changes saved')).toBeVisible();
+  expect(JSON.parse(await readFile(path, 'utf8'))).toHaveProperty(
+    'agentConfiguration.timeoutSeconds',
+    45,
+  );
   expect(running.problems).toEqual([]);
 });

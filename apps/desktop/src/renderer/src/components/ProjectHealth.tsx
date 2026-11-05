@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { repairAsset, repairIsLocked, type RepairResult } from '../lib/assetRepairs';
 import { collectHealthIssues, type HealthIssue } from '../lib/projectHealth';
+import { hasRepairableMotion, repairProjectMotion } from '../lib/recheck';
 import { openProject, saveProject, saveProjectCopy } from '../lib/projectActions';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { useHealthStore } from '../state/healthStore';
@@ -68,6 +69,7 @@ function HealthContents(): ReactElement {
   const resolved = Object.entries(feedback).filter(
     ([id, result]) => result.status === 'fixed' && !issues.some((issue) => issue.id === id),
   );
+  const canFixMotion = project !== null && hasRepairableMotion(project);
 
   function row(issue: HealthIssue): ReactElement {
     const locked =
@@ -137,7 +139,6 @@ function HealthContents(): ReactElement {
                           element.content.children.some((child) => child.id === target.elementId),
                       );
                     useUiStore.getState().selectElement(parent?.id ?? target.elementId);
-                    useUiStore.getState().setAgentPanelOpen(false);
                     useHealthStore.getState().setOpen(false);
                   }}
                 >
@@ -177,10 +178,20 @@ function HealthContents(): ReactElement {
           ? 'Review recovery options below.'
           : issues.length === 0
             ? 'No project issues found.'
-            : `${String(issues.length)} project status items.`}{' '}
-        Hiding a notification does not fix the issue. Unresolved issues return when you reopen the
-        project.
+            : `${String(issues.length)} project status ${issues.length === 1 ? 'item' : 'items'}.`}
       </p>
+      {canFixMotion && (
+        <Button
+          variant="primary"
+          disabled={busy}
+          onClick={() => {
+            useProjectStore.getState().apply(repairProjectMotion);
+            heading.current?.focus();
+          }}
+        >
+          Fix motion
+        </Button>
+      )}
       {failure && (
         <section aria-label="Open recovery" className="rounded-lg border border-motion p-3">
           <h3 className="font-semibold text-motion">Opening blocked</h3>

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { launchApplication, type RunningApplication } from './application';
+import { launchApplication, chooseProjectCommand, type RunningApplication } from './application';
 import { mockModelDiscovery } from './modelFixtures';
 
 let running: RunningApplication;
@@ -13,10 +13,10 @@ test.afterEach(async () => {
 test('provider checks explain stale results, failure and recovery without losing the project', async () => {
   const { window, application } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
-  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  await chooseProjectCommand(window, 'Settings');
   const dialog = window.getByRole('dialog', { name: 'Settings', exact: true });
   await dialog.getByRole('button', { name: 'Providers', exact: true }).click();
-  await dialog.getByRole('button', { name: 'Check again', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Refresh providers', exact: true }).click();
   await expect(dialog.getByText('Provider check complete.', { exact: true })).toBeVisible();
   await expect(
     dialog.getByText('Ready · version test-fixture', { exact: true }).first(),
@@ -35,7 +35,7 @@ test('provider checks explain stale results, failure and recovery without losing
         }),
     );
   });
-  await dialog.getByRole('button', { name: 'Check again', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Refresh providers', exact: true }).click();
   await expect(dialog.getByRole('button', { name: 'Checking…', exact: true })).toBeDisabled();
   await expect(dialog.getByText('Checking installed providers…', { exact: true })).toBeVisible();
   await expect(
@@ -54,43 +54,47 @@ test('provider checks explain stale results, failure and recovery without losing
     ipcMain.emit('test:finish-provider-check');
   });
   await expect(dialog.getByRole('alert')).toHaveText(
-    'Provider check failed. Choose Check again to retry.',
+    'Provider check failed. Choose Refresh providers to retry.',
   );
   await expect(
     dialog.getByText('The results below are from the last completed check.'),
   ).toBeVisible();
   await window.screenshot({ path: test.info().outputPath('providers-failed.png') });
   await mockModelDiscovery(application);
-  await dialog.getByRole('button', { name: 'Check again', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Refresh providers', exact: true }).click();
   await expect(dialog.getByText('Provider check complete.', { exact: true })).toBeVisible();
   await expect(dialog.getByRole('alert')).toHaveCount(0);
   await expect(dialog.getByText('Last check ·', { exact: false })).toHaveCount(0);
   await dialog.getByRole('button', { name: 'Done', exact: true }).click();
-  await expect(window.getByRole('button', { name: 'Save', exact: true })).toBeVisible();
+  await expect(window.getByRole('button', { name: 'Project menu', exact: true })).toBeVisible();
+  await window.screenshot({ path: test.info().outputPath('quiet-stage-editor.png') });
   expect(running.problems).toEqual([]);
 });
 
-test('an empty provider response finishes checking and offers a route from Models to retry', async () => {
+test('an empty provider response finishes checking and can recover without restoring the removed model editor', async () => {
   const { window, application } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
-  await window.getByRole('button', { name: 'Settings', exact: true }).click();
+  await chooseProjectCommand(window, 'Settings');
   const dialog = window.getByRole('dialog', { name: 'Settings', exact: true });
   await dialog.getByRole('button', { name: 'Providers', exact: true }).click();
   await application.evaluate(({ ipcMain }) => {
     ipcMain.removeHandler('koma:providers:detect');
     ipcMain.handle('koma:providers:detect', () => ({ providers: [] }));
   });
-  await dialog.getByRole('button', { name: 'Check again', exact: true }).click();
+  await dialog.getByRole('button', { name: 'Refresh providers', exact: true }).click();
   await expect(
     dialog.getByText('Provider check complete. No providers found.', { exact: true }),
   ).toBeVisible();
   await dialog.getByRole('button', { name: 'Generation', exact: true }).click();
   await expect(
-    dialog.getByText('No detected provider supports model selection.', { exact: true }),
+    dialog.getByRole('button', { name: 'Choose model in chat', exact: true }),
   ).toBeVisible();
-  await dialog.getByRole('button', { name: 'Open providers', exact: true }).click();
-  await expect(dialog.getByRole('heading', { name: 'Providers', exact: true })).toBeVisible();
-  await expect(dialog.getByRole('button', { name: 'Providers', exact: true })).toBeFocused();
-  await expect(dialog.getByRole('button', { name: 'Check again', exact: true })).toBeEnabled();
+  await dialog.getByRole('button', { name: 'Providers', exact: true }).click();
+  await mockModelDiscovery(application);
+  await dialog.getByRole('button', { name: 'Refresh providers', exact: true }).click();
+  await expect(dialog.getByText('Provider check complete.', { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByText('Ready � version test-fixture', { exact: true }).first(),
+  ).toBeVisible();
   expect(running.problems).toEqual([]);
 });

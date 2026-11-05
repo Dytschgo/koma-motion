@@ -11,7 +11,7 @@ import type { UpdateService } from './updates/service';
 
 const APPLICATION_NAME = 'Koma Motion';
 /** Matches the background of the interface, so the window does not flash while it loads. */
-const WINDOW_BACKGROUND = '#15181D';
+const WINDOW_BACKGROUND = '#F6F2ED';
 
 const CLOSE_CHOICES = { save: 0, discard: 1, cancel: 2 } as const;
 

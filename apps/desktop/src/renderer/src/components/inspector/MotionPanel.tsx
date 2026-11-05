@@ -20,7 +20,7 @@ import { getTransitionContext } from '../../lib/selectors';
 import { changeTransition, recalculateTransition } from '../../state/commands';
 import { useProjectStore } from '../../state/projectStore';
 import { useUiStore } from '../../state/uiStore';
-import { CheckIcon, PlayIcon, RefreshIcon, WarningIcon } from '../icons';
+import { CheckIcon, RefreshIcon, WarningIcon } from '../icons';
 import { Badge, Button, Field, NumberInput, Select, TextArea, TextInput } from '../ui';
 import { Disclosure, Row, Section } from './parts';
 
@@ -50,16 +50,19 @@ export function MotionStatusBanner({
 }): ReactElement {
   const { status } = health;
   const ready = status.health === 'ready';
+  // Ready motion is one quiet line; only a problem gets a framed box.
   return (
     <div
       role="status"
       aria-label="Motion status"
-      className={`flex flex-col gap-2 rounded-lg border px-3 py-2 ${
-        ready ? 'border-signal-ok/40' : 'border-signal-warn/50 bg-surface-1'
-      }`}
+      className={
+        ready
+          ? 'flex flex-col gap-2'
+          : 'flex flex-col gap-2 rounded-lg border border-signal-warn/50 bg-surface-1 px-3 py-2'
+      }
     >
       <p
-        className={`flex items-center gap-2 font-semibold ${ready ? 'text-signal-ok' : 'text-signal-warn'}`}
+        className={`flex items-center gap-2 ${ready ? 'text-sm text-signal-ok' : 'font-semibold text-signal-warn'}`}
       >
         <span className="flex-none">
           {ready ? <CheckIcon size={14} /> : <WarningIcon size={14} />}
@@ -74,7 +77,7 @@ export function MotionStatusBanner({
           className="self-start"
           onClick={onRecalculate}
         >
-          Recalculate motion
+          Fix motion
         </Button>
       )}
       {!ready && !health.canRecalculate && status.health !== 'partial' && (
@@ -194,7 +197,6 @@ export function MotionPanel({
 }): ReactElement {
   const apply = useProjectStore((state) => state.apply);
   const preview = useUiStore((state) => state.preview);
-  const startPreview = useUiStore((state) => state.startPreview);
   const context =
     transition === null ? null : getTransitionContext(project.presentation, transition.id);
 
@@ -250,18 +252,6 @@ export function MotionPanel({
             apply(recalculateTransition(transition.id));
           }}
         />
-        {ready && (
-          <Button
-            variant="outline"
-            icon={<PlayIcon size={14} />}
-            className="self-start"
-            onClick={() => {
-              startPreview(transition.id);
-            }}
-          >
-            Preview this transition
-          </Button>
-        )}
       </div>
 
       <Section title="Timing">
@@ -328,7 +318,7 @@ export function MotionPanel({
         </Field>
       </Section>
 
-      <Section title="Intent">
+      <Section>
         <Field label="Why this motion">
           {(ids) => (
             <TextArea

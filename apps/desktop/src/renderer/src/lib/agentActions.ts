@@ -129,6 +129,8 @@ export async function detectProviders(): Promise<void> {
  * to replace those edits. A failed result leaves the presentation untouched.
  */
 export async function generate(input: GenerationInput): Promise<void> {
+  // Failed requests retain scope/count, never a second copy of attached reference text.
+  const { references: _references, ...recheckInput } = input;
   const project = selectProject(useProjectStore.getState());
   const sessionId = useProjectStore.getState().sessionId;
   const agent = useAgentStore.getState();
@@ -237,9 +239,9 @@ export async function generate(input: GenerationInput): Promise<void> {
         useAgentStore.getState().setScopedProposal({ ...proposal, invalidReason: issue });
         useAgentStore.getState().addEntry({
           ...streamed(),
-          kind: 'notApplied',
+          kind: 'proposalReady',
           providerName,
-          text: `Proposal ready for ${target.title || 'selected Koma'}. Review it before applying.`,
+          text: `Review the proposal for ${target.title || 'selected Koma'} before applying.`,
         });
         return;
       }
@@ -315,7 +317,7 @@ export async function generate(input: GenerationInput): Promise<void> {
           status: 'failed',
           error,
           diagnostics: outcome.diagnostics,
-          request: input.userRequest,
+          input: recheckInput,
         });
         return;
       }
@@ -340,7 +342,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         status: outcome.status,
         error: outcome.error,
         diagnostics: outcome.diagnostics,
-        request: input.userRequest,
+        input: recheckInput,
       });
     }
   } catch {
@@ -369,7 +371,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         promptTemplate: '',
         attempts: [],
       },
-      request: input.userRequest,
+      input: recheckInput,
     });
   } finally {
     unsubscribeSnapshot();
@@ -394,13 +396,18 @@ export async function listProviderModels(providerId: string): Promise<void> {
 
 export async function cancelGeneration(): Promise<void> {
   const { execution, requestCancel } = useAgentStore.getState();
-  if (execution === null) {
+  if (execution === null || execution.cancelRequested) {
     return;
   }
   requestCancel();
   try {
     await invoke('koma:providers:cancel', { executionId: execution.executionId });
   } catch {
-    useUiStore.getState().notify('error', 'The generation could not be stopped.');
+    // A failed IPC request must not leave Stop disabled, or reset another run.
+    if (useAgentStore.getState().execution?.executionId !== execution.executionId) return;
+    useAgentStore.setState((state) => ({
+      execution: state.execution === null ? null : { ...state.execution, cancelRequested: false },
+    }));
+    useUiStore.getState().notify('error', 'The generation could not be stopped. Try again.');
   }
 }

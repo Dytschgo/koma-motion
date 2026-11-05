@@ -179,6 +179,7 @@ export const usePresenterStore = create<PresenterState>((set, get) => {
       ui.setView('canvas');
       if (komaId !== null) {
         ui.selectKoma(komaId);
+        ui.setMotionEditing(true);
       }
     },
 
