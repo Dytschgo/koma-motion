@@ -8,26 +8,27 @@ changes to the project format.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-05
+
 ### Changed
 
-- The editor is canvas first, in a warm light theme. One thin top bar holds
-  the project menu (New, Open, Save, Brand Kit, instructions, model, settings,
-  Project health, Getting started), the project name and saved state, Undo and
-  Redo, Add element, Properties, Play with presenting and motion timing, and
-  Share (Export PowerPoint, Save as). The Koma column, the Chat/Inspect dock
-  and the permanent transport band are gone.
-- Komas form a horizontal filmstrip below the canvas. Dots between thumbnails
-  are the motion between Komas: selecting one previews it and opens its
-  timing, and a marked dot explains a motion that cannot play and offers its
-  fix.
-- One floating prompt sits above the filmstrip with the request, a scope chip
-  naming its target (for example Koma 2), Generation options and Send or Stop.
-  The conversation opens upward on demand and keeps the draft, choices,
-  consent, reading position and run. A failed request shows "Couldn’t use the
-  result. Nothing changed." with Recheck where it was made.
-- Selecting an object shows a toolbar beside it for colour, size, stacking,
-  motion and more. All properties and Layers open in a popover that can be
-  pinned beside the canvas.
+- Quiet Stage gives the editor a warm light theme, a canvas and horizontal
+  filmstrip on the left, and chat with its composer on the right. The compact
+  top bar groups project commands, history, Properties, playback and sharing.
+- Selecting an object opens contextual controls for colour, size, stacking
+  and motion. Properties and Layers can float over the canvas or be pinned
+  beside it.
+- Markers between Koma thumbnails open transition previews, timing and repair.
+  Failed generation offers Recheck beside the request while preserving drafts,
+  scope and consent. Model selection stays in the shared chat chooser.
+
+### Fixed
+
+- Provider checks distinguish fresh results, previous results, failed checks
+  and unavailable programs. A centered SVG guide explains local detection and
+  online generation, with matching settings spacing and reduced-motion support.
+- Closing Properties after pinning and unpinning returns keyboard focus to
+  the control that opened it.
 
 ## [0.2.0] - 2026-10-10
 
