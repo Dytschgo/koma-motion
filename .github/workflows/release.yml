@@ -5,12 +5,18 @@ name: Publish stable release
 on:
   push:
     tags: ['v*.*.*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Verify public downloads of an existing stable release and promote only after both pass'
+        required: true
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -21,27 +27,38 @@ jobs:
     outputs:
       sha: ${{ steps.classify.outputs.sha }}
       version: ${{ steps.classify.outputs.version }}
+      tag: ${{ steps.classify.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ github.workflow_sha }}
       - id: classify
         shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag || github.ref_name }}
+          VERIFY_ONLY: ${{ github.event_name == 'workflow_dispatch' }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
-          channel="$(node apps/desktop/scripts/release-channel.mjs classify-tag "$GITHUB_REF_NAME")"
+          channel="$(node apps/desktop/scripts/release-channel.mjs classify-tag "$RELEASE_TAG")"
           test "$channel" = stable
-          candidate="$(git rev-parse "$GITHUB_REF^{commit}")"
+          candidate="$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")"
           git fetch --force origin +refs/heads/main:refs/remotes/origin/main
           # Only commits of main are released.
           git merge-base --is-ancestor "$candidate" origin/main
-          version="$(node -p "require('./apps/desktop/package.json').version")"
-          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
-            echo "The tag $GITHUB_REF_NAME does not match the version $version of the application." >&2
+          version="$(git show "$candidate:apps/desktop/package.json" | node -e "let s='';process.stdin.on('data',c=>s+=c).on('end',()=>console.log(JSON.parse(s).version))")"
+          if [ "$RELEASE_TAG" != "v$version" ]; then
+            echo "The tag $RELEASE_TAG does not match the version $version of the application." >&2
             exit 1
+          fi
+          if [ "$VERIFY_ONLY" = true ]; then
+            test "$GITHUB_REF" = refs/heads/main
+            test "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$RELEASE_TAG" --jq '(.draft == false) and (.prerelease == false)')" = true
           fi
           echo "sha=$candidate" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
   ci-coverage:
     name: Check existing CI
@@ -68,11 +85,13 @@ jobs:
         shell: bash
         env:
           SHA: ${{ needs.classify.outputs.sha }}
+          VERIFY_ONLY: ${{ github.event_name == 'workflow_dispatch' }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&per_page=20" > runs.json
           run_id="$(node "$RUNNER_TEMP/koma-ci-quality.mjs" select-run runs.json "$SHA")"
+          covered=false
           if [ -z "$run_id" ]; then
             echo "covered=false" >> "$GITHUB_OUTPUT"
             echo "No completed successful CI run covers ${SHA}." >> "$GITHUB_STEP_SUMMARY"
@@ -82,12 +101,17 @@ jobs:
             echo "covered=${covered}" >> "$GITHUB_OUTPUT"
             echo "CI run ${run_id} covers the Windows and macOS quality checks: ${covered}." >> "$GITHUB_STEP_SUMMARY"
           fi
+          if [ "$VERIFY_ONLY" = true ] && [ "$covered" != true ]; then
+            echo 'Public-release recovery requires exact-commit CI coverage.' >&2
+            exit 1
+          fi
 
   quality:
     name: Check the code (${{ matrix.os }})
     needs: [classify, ci-coverage]
     if: |
       always() &&
+      github.event_name != 'workflow_dispatch' &&
       needs.classify.result == 'success' &&
       (needs.ci-coverage.result != 'success' || needs.ci-coverage.outputs.covered != 'true')
     runs-on: ${{ matrix.os }}
@@ -144,6 +168,7 @@ jobs:
     needs: [classify, ci-coverage]
     if: |
       always() &&
+      github.event_name != 'workflow_dispatch' &&
       needs.classify.result == 'success' &&
       (needs.ci-coverage.result != 'success' || needs.ci-coverage.outputs.covered != 'true')
     runs-on: windows-latest
@@ -187,6 +212,7 @@ jobs:
     name: Package (${{ matrix.platform }})
     # Runs beside the checks of the code. Publishing needs both.
     needs: classify
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
@@ -245,6 +271,7 @@ jobs:
     needs: [classify, ci-coverage, quality, libreoffice, package]
     if: |
       always() &&
+      github.event_name != 'workflow_dispatch' &&
       needs.classify.result == 'success' &&
       needs.package.result == 'success' &&
       (needs.libreoffice.result == 'success' || (needs.libreoffice.result == 'skipped' && needs.ci-coverage.outputs.covered == 'true')) &&
@@ -285,12 +312,17 @@ jobs:
 
   verify-public-download:
     name: Test the public download
-    needs: [classify, publish]
+    needs: [classify, ci-coverage, publish]
+    if: |
+      always() &&
+      needs.classify.result == 'success' &&
+      (needs.publish.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.ci-coverage.result == 'success' && needs.ci-coverage.outputs.covered == 'true'))
     runs-on: windows-latest
     timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
       KOMA_EXPECT_VERSION: ${{ needs.classify.outputs.version }}
+      RELEASE_TAG: ${{ needs.classify.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -306,7 +338,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir public-download
-          gh release download "$GITHUB_REF_NAME" \
+          gh release download "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --dir public-download \
             --pattern "Koma-Motion-Setup-$KOMA_EXPECT_VERSION.exe" \
@@ -319,12 +351,17 @@ jobs:
 
   verify-public-download-macos:
     name: Test the public macOS download
-    needs: [classify, publish]
+    needs: [classify, ci-coverage, publish]
+    if: |
+      always() &&
+      needs.classify.result == 'success' &&
+      (needs.publish.result == 'success' || (github.event_name == 'workflow_dispatch' && needs.ci-coverage.result == 'success' && needs.ci-coverage.outputs.covered == 'true'))
     runs-on: macos-latest
     timeout-minutes: 20
     env:
       GH_TOKEN: ${{ github.token }}
       KOMA_EXPECT_VERSION: ${{ needs.classify.outputs.version }}
+      RELEASE_TAG: ${{ needs.classify.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -340,7 +377,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir public-download
-          gh release download "$GITHUB_REF_NAME" \
+          gh release download "$RELEASE_TAG" \
             --repo "$GITHUB_REPOSITORY" \
             --dir public-download \
             --pattern "Koma-Motion-$KOMA_EXPECT_VERSION-universal.dmg" \
@@ -360,7 +397,12 @@ jobs:
 
   promote-latest:
     name: Mark as the latest release
-    needs: [verify-public-download, verify-public-download-macos]
+    needs: [classify, verify-public-download, verify-public-download-macos]
+    if: |
+      always() &&
+      needs.classify.result == 'success' &&
+      needs.verify-public-download.result == 'success' &&
+      needs.verify-public-download-macos.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -369,4 +411,5 @@ jobs:
       - name: Mark the tested release as the latest
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --latest
+          RELEASE_TAG: ${{ needs.classify.outputs.tag }}
+        run: gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --latest
