@@ -46,7 +46,7 @@ export const SETTINGS_PAGES = [
     id: 'about',
     label: 'About',
     scope: 'app',
-    description: 'Version, licence and export formats.',
+    description: 'Version, licence, export formats and the diagnostics log.',
   },
 ] as const satisfies readonly {
   readonly id: string;

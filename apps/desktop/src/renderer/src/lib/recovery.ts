@@ -11,13 +11,18 @@ let revision = 0;
 let lastWrite: Promise<void> = Promise.resolve();
 let following = false;
 
-/** Awaitable latest-document flush; reports failures without pretending the snapshot was stored. */
-export function flushRecovery(): Promise<void> {
+/**
+ * Awaitable latest-document flush; reports failures without pretending the snapshot was stored.
+ * `evenWhenStopped` is for the screen that replaces a failed interface: following has
+ * ended with the interface, but the store still holds the committed document.
+ */
+export function flushRecovery(evenWhenStopped = false): Promise<void> {
   clearTimeout(timer);
   timer = undefined;
   const state = useProjectStore.getState();
   const project = selectProject(state);
-  if (!following || project === null || state.recoverySessionId === null) return lastWrite;
+  if ((!following && !evenWhenStopped) || project === null || state.recoverySessionId === null)
+    return lastWrite;
   const sessionId = state.recoverySessionId;
   const serial = ++revision;
   lastWrite = invoke('koma:recovery:capture', {

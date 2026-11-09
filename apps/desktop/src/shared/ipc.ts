@@ -38,6 +38,7 @@ import {
   transitionStrategySchema,
 } from '@koma-motion/core';
 import { z } from 'zod';
+import { rendererReportSchema } from './diagnostics';
 import { updateChannelSchema, updateStatusSchema } from './updates';
 import {
   deckSessionIdSchema,
@@ -484,6 +485,24 @@ export const ipcContract = {
     response: actionResult,
   },
   'koma:updates:install': {
+    request: empty,
+    response: actionResult,
+  },
+  /**
+   * An error of the window for the diagnostics log: its class and call sites,
+   * never its message. Bounded here and rate-limited in the main process.
+   */
+  'koma:diagnostics:report': {
+    request: rendererReportSchema,
+    response: empty,
+  },
+  /** Shows the folder of the diagnostics log in the file manager. */
+  'koma:diagnostics:open-folder': {
+    request: empty,
+    response: actionResult,
+  },
+  /** Copies version, platform and the newest log entries to the clipboard. */
+  'koma:diagnostics:copy': {
     request: empty,
     response: actionResult,
   },
