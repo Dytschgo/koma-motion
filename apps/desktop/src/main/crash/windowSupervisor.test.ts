@@ -9,11 +9,15 @@ const electron = vi.hoisted(() => ({
     answer: (response: number) => void;
   }[],
   appListeners: new Map<string, Set<() => void>>(),
+  quits: 0,
 }));
 const written = vi.hoisted(() => [] as { level: string; event: string; data: unknown }[]);
 
 vi.mock('electron', () => ({
   app: {
+    quit: () => {
+      electron.quits += 1;
+    },
     on: (name: string, listener: () => void) => {
       electron.appListeners.set(name, (electron.appListeners.get(name) ?? new Set()).add(listener));
     },
@@ -75,6 +79,7 @@ function setup() {
 beforeEach(() => {
   electron.questions.length = 0;
   electron.appListeners.clear();
+  electron.quits = 0;
   written.length = 0;
 });
 
@@ -151,6 +156,40 @@ describe('superviseWindow', () => {
     await settle();
     expect(contents.reload).toHaveBeenCalledTimes(2);
     expect(window.destroy).toHaveBeenCalledOnce();
+  });
+
+  it('asks to quit again once the question is gone, when the window is still open', async () => {
+    const { lose, settle } = setup();
+    lose();
+    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    expect(electron.quits).toBe(0);
+    await settle();
+    await settle();
+    expect(electron.quits).toBe(1);
+    // The second request finds no question and asks for nothing more.
+    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    await settle();
+    await settle();
+    expect(electron.quits).toBe(1);
+  });
+
+  it('does not ask to quit again when the window closed with the first request', async () => {
+    const { lose, settle, window } = setup();
+    lose();
+    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    window.emit('closed');
+    await settle();
+    await settle();
+    expect(electron.quits).toBe(0);
+  });
+
+  it('does not quit when a question is withdrawn for another reason', async () => {
+    const { settle, window } = setup();
+    window.emit('unresponsive');
+    window.emit('responsive');
+    await settle();
+    await settle();
+    expect(electron.quits).toBe(0);
   });
 
   it('does nothing with a question that was withdrawn because the application quits', async () => {

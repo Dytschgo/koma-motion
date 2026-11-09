@@ -44,6 +44,8 @@ export function superviseWindow(supervision: WindowSupervision): void {
   /** Set while this code ends an unresponsive renderer itself. */
   let endingRenderer = false;
   let closed = false;
+  /** The application was asked to quit while a question was showing. */
+  let quitRequested = false;
   let question: {
     readonly about: 'gone' | 'unresponsive';
     readonly cancel: AbortController;
@@ -70,6 +72,18 @@ export function superviseWindow(supervision: WindowSupervision): void {
     } finally {
       if (question?.cancel === cancel) {
         question = null;
+      }
+      if (quitRequested && cancel.signal.aborted) {
+        quitRequested = false;
+        if (!closed && !window.isDestroyed()) {
+          // On macOS the question is a sheet of the window, and a window that
+          // still shows a sheet does not close: a quit that arrives during the
+          // question can stop at this window. The question is gone now, so
+          // the quit is asked for again.
+          setImmediate(() => {
+            app.quit();
+          });
+        }
       }
     }
   };
@@ -180,7 +194,10 @@ export function superviseWindow(supervision: WindowSupervision): void {
 
   // A question must not hold the application open while it quits.
   const withdraw = (): void => {
-    question?.cancel.abort();
+    if (question !== null) {
+      quitRequested = true;
+      question.cancel.abort();
+    }
   };
   app.on('before-quit', withdraw);
   window.on('closed', () => {

@@ -1,4 +1,4 @@
-import { readFile } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type ElectronApplication, type Page } from '@playwright/test';
 import {
@@ -132,7 +132,8 @@ test('a crashed renderer is reported, reloaded on request and offers the unsaved
     expect.objectContaining({
       event: 'window.renderer-gone',
       level: 'error',
-      reason: 'crashed',
+      // Windows reports the ended process as crashed, macOS as killed.
+      reason: expect.stringMatching(/^(crashed|killed)$/),
       expected: false,
       canReload: true,
     }),
@@ -266,7 +267,8 @@ test('Settings shows the diagnostics log and opens its folder without naming a p
   const opened = await application.evaluate(() =>
     String(Reflect.get(globalThis, 'komaTestOpened')),
   );
-  expect(opened).toBe(join(running.directory, 'user-data', 'logs'));
+  // macOS names its temporary folder through a link (/var for /private/var).
+  expect(await realpath(opened)).toBe(await realpath(join(running.directory, 'user-data', 'logs')));
 
   // The channels take no input: a path or any other property is refused.
   const refused = await window.evaluate(async () => {
