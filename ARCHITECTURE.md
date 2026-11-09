@@ -109,10 +109,15 @@ code also cannot import or re-export a `/node` entry point, even within its own
 package. This keeps the renderer's allowed package entries portable. Shared IPC
 types remain available to the renderer.
 
-Files ending in `.test.ts` may import Node utilities and Vitest for fixtures;
-they still obey package directions, the desktop boundary and renderer bans on
-Electron and privileged entry points. Test helpers without that suffix follow
-the production rules, and production code cannot import unit-test modules.
+Files ending in `.test.ts` or `.test.tsx` are unit tests: Vitest collects
+exactly these two suffixes, and `.test.tsx` is for component tests that render
+JSX. They may import Node utilities and Vitest for fixtures; they still obey
+package directions, the package dependency allowlist, the desktop boundary and
+renderer bans on Electron and privileged entry points. Test helpers without
+one of those suffixes follow the production rules, and production code cannot
+import unit-test modules. Component tests of the desktop renderer may use
+Testing Library, a development dependency of the application; packages render
+with `react-dom` so their allowlist stays as it is.
 The regression suite runs with the existing desktop
 script tests and proves the real ESLint CLI rejects an invalid core import
 without disabling type-aware rules.
