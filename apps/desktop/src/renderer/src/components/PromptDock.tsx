@@ -75,6 +75,8 @@ export function PromptDock({ project }: { readonly project: KomaProject }): Reac
       <h2 className="chat-sidebar-title">Chat</h2>
       <div
         id={sheetId}
+        // Not a control: Escape bubbles here from the conversation inside.
+        role="presentation"
         hidden={!chatOpen}
         className="prompt-sheet"
         onKeyDown={(event) => {

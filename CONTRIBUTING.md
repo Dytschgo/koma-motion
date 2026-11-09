@@ -43,6 +43,10 @@ pnpm build
 `pnpm check` runs the four commands in sequence. `pnpm test:e2e` runs the
 application-level workflow test against the built application.
 
+`pnpm lint` includes static accessibility rules for JSX
+(`eslint-plugin-jsx-a11y`). They do not replace testing with the keyboard and a
+screen reader.
+
 ## Project layout
 
 [ARCHITECTURE.md](ARCHITECTURE.md) explains the packages and the direction in

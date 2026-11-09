@@ -70,6 +70,7 @@ function MotionMarker({
   const state = blocked ? 'blocked' : assessment !== null ? 'warning' : 'ready';
   return (
     <li className="filmstrip-gap">
+      {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 and exposed by Chromium; the rule's data stops at ARIA 1.2. */}
       <button
         type="button"
         aria-label={label}

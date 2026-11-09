@@ -72,6 +72,7 @@ export function Recovery(): ReactElement {
               </Button>
               {offer.status === 'available' && (
                 <Button
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- a modal dialog must take focus; it starts on the answer that keeps the work.
                   autoFocus
                   disabled={busy}
                   onClick={() => {
