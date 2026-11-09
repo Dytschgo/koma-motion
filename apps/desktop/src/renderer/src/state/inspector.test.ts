@@ -99,6 +99,27 @@ describe('recalculating motion', () => {
     expect(recalculateTransition(stored.id)(repaired, ids())).toBe(repaired);
   });
 
+  it('does not offer to recalculate motion that differs only in the order of its keys', () => {
+    const transition = base.presentation.transitions[0];
+    if (transition === undefined) throw new Error('Expected a transition');
+    const elementTransitions = transition.elementTransitions.map(
+      ({ persistentId, operation, from, to }) => ({ to, from, operation, persistentId }),
+    );
+    // The text differs, which the comparison this replaces read as changed motion.
+    expect(JSON.stringify(elementTransitions)).not.toBe(
+      JSON.stringify(transition.elementTransitions),
+    );
+    const reordered = {
+      ...base,
+      presentation: {
+        ...base.presentation,
+        transitions: [{ ...transition, elementTransitions }],
+      },
+    };
+    expect(canRecalculateTransition(reordered.presentation, transition.id)).toBe(false);
+    expect(recalculateTransition(transition.id)(reordered, ids())).toBe(reordered);
+  });
+
   it('leaves a missing transition alone', () => {
     expect(recalculateTransition('missing')(base, ids())).toBe(base);
     expect(canRecalculateTransition(base.presentation, 'missing')).toBe(false);
