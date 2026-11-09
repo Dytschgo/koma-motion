@@ -73,11 +73,65 @@ describe('createScrubber', () => {
     expect(windows('C:\\Users\\Ada Lovelace\\My Deck.koma could not be read\nnext line')).toBe(
       '<home>/…\nnext line',
     );
-    expect(mac('/home/grace/plan.koma and /Users/ada')).toBe('<path>/…<home>');
+    expect(mac('/home/grace/plan.koma and /Users/ada')).toBe('<path>/…');
+  });
+
+  it('removes a quoted path up to the last quote, because a name may contain quotes', () => {
+    expect(windows("open 'C:\\Users\\Ada Lovelace\\Documents\\Ada's Acme Merger Pitch.koma'")).toBe(
+      "open '<home>/…/*.koma'",
+    );
+    expect(windows("open 'D:\\Clients\\O'Neil & Sons\\Q3 layoffs.koma'")).toBe(
+      "open '<path>/…/*.koma'",
+    );
+    expect(mac("open '/Users/ada/Documents/Q3: Secret Merger.koma'")).toBe(
+      "open '<home>/…/*.koma'",
+    );
+    expect(windows("rename 'D:\\Acme\\plan.tmp' -> 'D:\\Acme\\plan.koma'")).toBe(
+      "rename '<path>/…/*.koma'",
+    );
+    expect(windows('{"path":"\\\\\\\\fileserver\\\\share\\\\Client X\\\\plan.koma"}')).toBe(
+      '{"path":"<path>/…/*.koma"}',
+    );
+  });
+
+  it('recognises any absolute path, not only the usual folders', () => {
+    for (const text of [
+      '/run/media/alice/USB Stick/Client X/plan.koma',
+      'reading /srv/clients/acme/plan.koma',
+      '/data/Client X/plan.koma',
+      '//fileserver/share/Client X/plan.koma',
+      'open ~/Documents/Client X/plan.koma',
+      'D:\\Clients\\Q3: Secret Merger\\plan.koma',
+    ]) {
+      const scrubbed = mac(text);
+      expect(scrubbed, text).not.toMatch(/alice|client|acme|fileserver|documents|secret|plan/i);
+      expect(scrubbed, text).toContain('<path>/…');
+    }
   });
 
   it('does not treat a longer folder name as the known folder', () => {
     expect(windows('C:\\Users\\Ada Lovelace2\\file.txt')).toBe('<path>/…/*.txt');
+    expect(windows('C:\\Users\\Ada Lovelace Smith\\secret\\file.txt')).toBe('<path>/…/*.txt');
+    expect(
+      windows("open 'C:\\Users\\Ada Lovelace\\AppData\\Roaming\\Koma Motion Backup\\Acme.koma'"),
+    ).toBe("open '<home>/…/*.koma'");
+  });
+
+  it('shows only well-known extensions, because another ending can be part of a name', () => {
+    expect(windows('cwd is C:\\Users\\j.smith')).toBe('cwd is <path>/…');
+    expect(mac('reading /Volumes/Clients/acme.confidential')).toBe('reading <path>/…');
+    expect(windows('C:\\Decks\\Plan.KOMA')).toBe('<path>/…/*.koma');
+  });
+
+  it('gives the same result when it is applied twice', () => {
+    for (const text of [
+      "EPERM: open 'C:\\Users\\Ada Lovelace\\Documents\\Merger plan.koma'",
+      'at save (C:\\Users\\Ada Lovelace\\AppData\\Local\\Programs\\Koma Motion\\resources\\app.asar\\out\\main\\index.cjs:120:15)',
+      'reading /Volumes/Clients/acme/deck.koma',
+    ]) {
+      expect(windows(windows(text)), text).toBe(windows(text));
+      expect(mac(mac(text)), text).toBe(mac(text));
+    }
   });
 
   it('leaves application URLs, module names and ordinary text alone', () => {

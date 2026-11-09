@@ -5,7 +5,7 @@
  */
 import { errorName, stackFrames, type RendererReport } from '../../../shared/diagnostics';
 import { invoke } from './api';
-import { flushRecovery } from './recovery';
+import { settleRecovery } from './recovery';
 
 /** One fault often repeats on every frame. The first reports say all there is to say. */
 const MAX_REPORTS = 5;
@@ -46,14 +46,18 @@ export function followWindowErrors(): void {
 let preserved: Promise<void> = Promise.resolve();
 
 /**
- * After the interface failed: writes the committed document to the recovery
- * snapshot, then tells the main process that this window can no longer save.
+ * After the interface failed: waits for the recovery capture that is already
+ * under way, then tells the main process that this window can no longer save.
  * Closing the window then keeps the snapshot for the next start instead of
  * asking a question whose "Save" nothing could answer.
+ *
+ * The document is deliberately not captured again. Captures follow an edit
+ * after 600 ms, so the snapshot misses the newest edit at most, and that edit
+ * may be what the interface could not show: restoring it would fail the same
+ * way after every reload, and the only way out would be to discard everything.
  */
 export function preserveWork(): Promise<void> {
-  preserved = flushRecovery(true)
-    .catch(() => undefined)
+  preserved = settleRecovery()
     .then(() => invoke('koma:app:set-unsaved-changes', { hasUnsavedChanges: false }))
     .then(
       () => undefined,

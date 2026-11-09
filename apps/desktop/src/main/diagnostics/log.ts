@@ -45,6 +45,8 @@ export const PREVIOUS_LOG_FILE_NAME = 'koma-motion.previous.log';
 export const MAX_LOG_FILE_BYTES = 512 * 1024;
 export const MAX_ENTRY_BYTES = 8 * 1024;
 const MAX_TEXT_LENGTH = 2000;
+/** The lengths a text is cut to, tried in turn until the entry fits. */
+const TEXT_LENGTHS = [MAX_TEXT_LENGTH, 400, 80] as const;
 const MAX_DEPTH = 4;
 const MAX_ITEMS = 24;
 /** After a failed write, nothing is tried for this long. */
@@ -130,18 +132,27 @@ export class DiagnosticsLog implements Diagnostics {
 
   private format(level: DiagnosticLevel, event: string, data: DiagnosticData): string {
     const entry = { time: this.now().toISOString(), level, event };
-    const line = JSON.stringify({ ...entry, ...this.clean(data, 0) });
-    return Buffer.byteLength(line) + 1 > MAX_ENTRY_BYTES
-      ? `${JSON.stringify({ ...entry, truncated: true })}\n`
-      : `${line}\n`;
+    // An entry that is too long is written again with shorter texts, so that
+    // what failed is still named. Only then is it reduced to a marker.
+    for (const maxText of TEXT_LENGTHS) {
+      const line = JSON.stringify({
+        ...entry,
+        ...this.clean(data, 0, maxText),
+        ...(maxText === MAX_TEXT_LENGTH ? {} : { truncated: true }),
+      });
+      if (Buffer.byteLength(line) + 1 <= MAX_ENTRY_BYTES) {
+        return `${line}\n`;
+      }
+    }
+    return `${JSON.stringify({ ...entry, truncated: true })}\n`;
   }
 
-  private clean(data: DiagnosticData, depth: number): Record<string, unknown> {
+  private clean(data: DiagnosticData, depth: number, maxText: number): Record<string, unknown> {
     const result: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(data).slice(0, MAX_ITEMS)) {
       // The entry's own fields cannot be replaced by data.
       const name = ['time', 'level', 'event'].includes(key) ? `data.${key}` : key;
-      const cleaned = this.cleanValue(value, depth);
+      const cleaned = this.cleanValue(value, depth, maxText);
       if (cleaned !== undefined) {
         result[this.scrub(name, 80)] = cleaned;
       }
@@ -149,9 +160,9 @@ export class DiagnosticsLog implements Diagnostics {
     return result;
   }
 
-  private cleanValue(value: DiagnosticValue, depth: number): unknown {
+  private cleanValue(value: DiagnosticValue, depth: number, maxText: number): unknown {
     if (typeof value === 'string') {
-      return this.scrub(value, MAX_TEXT_LENGTH);
+      return this.scrub(value, maxText);
     }
     if (typeof value === 'number') {
       return Number.isFinite(value) ? value : null;
@@ -163,9 +174,11 @@ export class DiagnosticsLog implements Diagnostics {
       return '[nested]';
     }
     if (isList(value)) {
-      return value.slice(0, MAX_ITEMS).map((item) => this.cleanValue(item, depth + 1) ?? null);
+      return value
+        .slice(0, MAX_ITEMS)
+        .map((item) => this.cleanValue(item, depth + 1, maxText) ?? null);
     }
-    return this.clean(value, depth + 1);
+    return this.clean(value, depth + 1, maxText);
   }
 
   private append(line: string): void {

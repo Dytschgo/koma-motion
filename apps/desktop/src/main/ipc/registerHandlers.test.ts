@@ -468,6 +468,17 @@ describe('diagnostics IPC', () => {
     expect(copied).toHaveLength(1);
   });
 
+  it('limits how often the window can write the clipboard', async () => {
+    const { event, invoke } = openHandlers();
+    for (let index = 0; index < 5; index += 1) {
+      await expect(invoke('koma:diagnostics:copy', event, {})).resolves.toEqual({ status: 'done' });
+    }
+    await expect(invoke('koma:diagnostics:copy', event, {})).resolves.toMatchObject({
+      status: 'failed',
+    });
+    expect(copied).toHaveLength(5);
+  });
+
   it('reports that the folder cannot be opened while there is no log', async () => {
     const { event, invoke } = openHandlers();
     await expect(invoke('koma:diagnostics:open-folder', event, {})).resolves.toMatchObject({

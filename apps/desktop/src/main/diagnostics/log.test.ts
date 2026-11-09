@@ -136,10 +136,28 @@ describe('diagnostics log', () => {
     const many: Record<string, string> = {};
     for (let index = 0; index < 24; index += 1) many[`field${String(index)}`] = 'x '.repeat(900);
     log.write('info', 'too-large', many);
-    expect(lines()[1]).toEqual({
+    // Shorter texts keep what failed; the entry says that it was cut.
+    const shortened = lines()[1];
+    expect(shortened).toMatchObject({ event: 'too-large', truncated: true });
+    expect(String(shortened?.['field0']).length).toBeGreaterThan(0);
+    expect(String(shortened?.['field0']).length).toBeLessThan(120);
+    expect(shortened?.['field23']).toBeDefined();
+
+    // Text of three bytes a character: one 2,000-character field already needs 6 KiB.
+    log.write('fatal', 'non-ascii', { message: '語'.repeat(2000), stack: '語'.repeat(2000) });
+    const cut = lines()[2];
+    expect(cut).toMatchObject({ level: 'fatal', event: 'non-ascii', truncated: true });
+    expect(String(cut?.['message'])).toContain('語');
+
+    const deepAndWide: Record<string, Record<string, string>> = {};
+    for (let index = 0; index < 24; index += 1) {
+      deepAndWide[`group${String(index)}`] = many;
+    }
+    log.write('info', 'still-too-large', deepAndWide);
+    expect(lines()[3]).toEqual({
       time: '2026-11-09T10:00:00.000Z',
       level: 'info',
-      event: 'too-large',
+      event: 'still-too-large',
       truncated: true,
     });
     for (const line of readFileSync(file, 'utf8').split('\n')) {

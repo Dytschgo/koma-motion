@@ -7,7 +7,7 @@ happened to a small log on the user's computer. Nothing is sent anywhere.
 
 | Failure                                    | What the user sees                                                           | What the application does                                                                                   |
 | ------------------------------------------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| An error while the interface renders       | A screen in the window: **Something went wrong**, with **Reload window**     | Writes the committed document to the recovery snapshot, logs the error, reloads on request                  |
+| An error while the interface renders       | A screen in the window: **Something went wrong**, with **Reload window**     | Lets a recovery capture under way finish, logs the error, reloads on request                                |
 | The renderer process is gone               | A native question: **Reload window** or **Quit Koma Motion**                 | Forgets the lost page's project, logs the reason, reloads or quits                                          |
 | The window does not respond                | A native question: **Keep waiting**, **Reload window**, **Quit Koma Motion** | Logs it. Reload ends the renderer process first. The question closes by itself when the page responds again |
 | An uncaught exception in the main process  | A native message: **Koma Motion has to close**                               | Logs it and exits with code 1                                                                               |
@@ -19,8 +19,14 @@ When the page of a running application is lost, the main process forgets the
 file path, the unsaved state and the recovery session of that page, lets
 recovery writes that were already admitted finish, and reads the recovery
 record from disk again. The reloaded page then asks for the offer exactly as
-it does after a restart. A project without unsaved changes has no snapshot;
-it is opened again from its file.
+it does after a restart. A project without unsaved changes has no snapshot:
+the reloaded window shows the start screen, and the project is opened again
+from its file with **Open a project**.
+
+After a render error the document is not captured again. Captures follow an
+edit after 600 ms, so the snapshot misses the newest edit at most. That edit
+may be what the interface could not show, and a snapshot that contains it
+would fail the same way after every reload.
 
 ### Reasons for a lost renderer
 
@@ -104,13 +110,17 @@ The log is built so that the content of a project does not reach it.
   `packages/agent-runtime/src/node/redact.ts`.
 - File paths are reduced. Paths inside the application (`<app>`) and its data
   folder (`<app-data>`) keep their inner part, because it names code and
-  files of Koma Motion. Every other path, including everything in the home
-  directory, keeps only its file extension: `<home>/…/*.koma`.
+  files of Koma Motion. Every other absolute path, including everything in
+  the home directory, keeps only a well-known file extension:
+  `<home>/…/*.koma`. A file name can contain spaces and quotes, so the end of
+  a path cannot be found reliably: a path in quotes is removed up to the last
+  such quote on its line, and a path without quotes to the end of its line.
 
 Limits: redaction and path reduction match patterns. The message of an error
 of the main process is kept, and such a message could in principle quote
-something. A path without quotes that contains spaces is cut to the end of
-its line. The log should be read before it is shared.
+something. Text that does not start like an absolute path, such as a
+relative path or a file name alone, is not recognised. The log should be read
+before it is shared.
 
 ### Getting the log
 

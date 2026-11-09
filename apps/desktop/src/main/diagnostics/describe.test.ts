@@ -33,6 +33,18 @@ describe('describeError', () => {
     expect(JSON.stringify(described)).not.toContain('Confidential');
   });
 
+  it('never throws, whatever the error holds', () => {
+    const odd = Object.assign(new Error('x'), { message: 42, stack: null, name: undefined });
+    expect(describeError(odd)).toEqual({ error: 'Error', message: '', stack: '' });
+    const hostile = new Error('x');
+    Object.defineProperty(hostile, 'message', {
+      get: () => {
+        throw new Error('The message cannot be read.');
+      },
+    });
+    expect(describeError(hostile)).toEqual({ error: 'UnreadableError' });
+  });
+
   it('describes a value that is not an error by its type', () => {
     expect(describeError('plain text')).toEqual({ error: 'NonError', message: 'plain text' });
     expect(describeError({ prompt: 'secret' })).toEqual({ error: 'NonError', message: 'object' });

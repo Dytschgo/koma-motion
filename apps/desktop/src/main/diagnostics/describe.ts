@@ -15,6 +15,19 @@ const MAX_STACK_LENGTH = 4000;
  * A schema error is reduced to where it failed. Its message can quote input.
  */
 export function describeError(error: unknown): DiagnosticData {
+  try {
+    return readError(error);
+  } catch {
+    // A getter of the error threw. Describing an error must never be a second one.
+    return { error: 'UnreadableError' };
+  }
+}
+
+function text(value: unknown, maxLength: number): string {
+  return typeof value === 'string' ? value.slice(0, maxLength) : '';
+}
+
+function readError(error: unknown): DiagnosticData {
   if (error instanceof z.ZodError) {
     return {
       error: 'ZodError',
@@ -26,11 +39,15 @@ export function describeError(error: unknown): DiagnosticData {
   }
   if (error instanceof Error) {
     const code = 'code' in error && typeof error.code === 'string' ? error.code : undefined;
+    // An error can be given a name, a message or a stack that is not text.
+    const name: unknown = error.name;
+    const message: unknown = error.message;
+    const stack: unknown = error.stack;
     return {
-      error: error.name,
-      message: error.message.slice(0, MAX_MESSAGE_LENGTH),
+      error: text(name, 80) || 'Error',
+      message: text(message, MAX_MESSAGE_LENGTH),
       ...(code === undefined ? {} : { code: code.slice(0, 40) }),
-      stack: (error.stack ?? '').slice(0, MAX_STACK_LENGTH),
+      stack: text(stack, MAX_STACK_LENGTH),
     };
   }
   return {

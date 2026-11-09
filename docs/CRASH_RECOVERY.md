@@ -35,8 +35,9 @@ to render and the user chose **Reload window**. The main process then ends the
 session of the lost page, lets captures that were already admitted finish, and
 reads the record from disk again. The reloaded page asks for the offer as it
 does at startup, and New and Open wait for the decision in the same way. After
-a render error, the committed document is captured once more before the
-reload, and closing the window instead keeps the snapshot for the next start.
+a render error, a capture that is already under way finishes, but the document
+is not captured again: the newest edit may be what could not be shown. Closing
+the window instead of reloading keeps the snapshot for the next start.
 See [Failure handling and the diagnostics log](DIAGNOSTICS.md).
 
 ## Storage and authority

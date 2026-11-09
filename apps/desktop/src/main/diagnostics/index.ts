@@ -23,6 +23,9 @@ const REPORT_REFILL_MS = 30_000;
 const FAILURE_BURST = 30;
 const FAILURE_REFILL_MS = 10_000;
 const failures = new TokenBucket(FAILURE_BURST, FAILURE_REFILL_MS);
+/** Opening the folder and copying: five at once, then one every two seconds. */
+const ACTION_BURST = 5;
+const ACTION_REFILL_MS = 2000;
 
 let log: DiagnosticsLog | null = null;
 
@@ -121,8 +124,14 @@ export function registerDiagnosticsHandlers(handle: HandleChannel): void {
     return {};
   });
 
+  // Opening a folder and writing the clipboard are for a person who clicks.
+  const actions = new TokenBucket(ACTION_BURST, ACTION_REFILL_MS);
+
   handle('koma:diagnostics:open-folder', async () => {
-    const problem = log === null ? 'unavailable' : await shell.openPath(log.directory);
+    const problem =
+      log === null || !actions.take(performance.now())
+        ? 'unavailable'
+        : await shell.openPath(log.directory);
     if (problem === '') {
       return { status: 'done' };
     }
@@ -134,6 +143,9 @@ export function registerDiagnosticsHandlers(handle: HandleChannel): void {
 
   handle('koma:diagnostics:copy', async () => {
     try {
+      if (!actions.take(performance.now())) {
+        throw new Error('Too many requests.');
+      }
       await clipboard.writeText(copiedText());
       return { status: 'done' };
     } catch {
