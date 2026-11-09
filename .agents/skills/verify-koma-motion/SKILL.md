@@ -85,6 +85,8 @@ For a changed implementation, also run the repository's format, lint, typecheck,
 - [Mock project workflow](project-workflow.md): create, generate, edit, save, and reopen.
 - [External file conflicts](file-conflicts.md): refuse a stale save and keep local edits in a copy.
 - [Project health and recovery](../../../../docs/PROJECT_HEALTH.md): format upgrades, failed opens, targeted asset repairs, dismissal, and keyboard access.
+- [Failure handling and the diagnostics log](../../../docs/DIAGNOSTICS.md): crashed renderer,
+  render error, reload to the recovery offer, and what the log may contain.
 - [Composer, canvas, Inspector and motion](studio.md): integrated editing and recovery paths.
 - [PowerPoint export and references](export-references.md): editable PPTX package and Windows PowerPoint checks, bounded text extraction, session privacy and mock-provider consent.
 
