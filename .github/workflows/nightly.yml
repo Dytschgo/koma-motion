@@ -29,7 +29,7 @@ jobs:
       version: ${{ steps.candidate.outputs.version }}
       tag: ${{ steps.candidate.outputs.tag }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - id: candidate
@@ -63,13 +63,13 @@ jobs:
       covered: ${{ steps.decision.outputs.covered }}
     steps:
       # Use the workflow's policy even when building a historical candidate.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
       - name: Preserve the current quality policy
         shell: bash
         run: cp apps/desktop/scripts/ci-quality.mjs "$RUNNER_TEMP/koma-ci-quality.mjs"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.sha }}
       - id: decision
@@ -106,17 +106,17 @@ jobs:
         os: [windows-latest, macos-latest]
     steps:
       # Use the workflow's policy even when building a historical candidate.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
       - name: Preserve the current quality policy
         shell: bash
         run: cp apps/desktop/scripts/ci-quality.mjs "$RUNNER_TEMP/koma-ci-quality.mjs"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.sha }}
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -140,7 +140,7 @@ jobs:
         run: node "${{ runner.temp }}/koma-ci-quality.mjs" summarize-report apps/desktop/test-results/report.json
       - name: Keep application test reports and traces
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: quality-test-results-${{ matrix.os }}
           path: apps/desktop/test-results
@@ -158,7 +158,7 @@ jobs:
     timeout-minutes: 20
     steps:
       # Preserve today's driver and pinned provisioner when testing an older candidate.
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.workflow_sha }}
       - name: Preserve current LibreOffice verification
@@ -166,11 +166,11 @@ jobs:
         run: |
           Copy-Item -LiteralPath apps/desktop/scripts/verify-libreoffice.mjs -Destination "$env:RUNNER_TEMP/koma-verify-libreoffice.mjs"
           Copy-Item -LiteralPath apps/desktop/scripts/provision-libreoffice.ps1 -Destination "$env:RUNNER_TEMP/koma-provision-libreoffice.ps1"
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.sha }}
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -182,7 +182,7 @@ jobs:
         run: node "${{ runner.temp }}/koma-verify-libreoffice.mjs" apps/desktop
       - name: Keep conversion evidence and traces
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: libreoffice-results-nightly
           path: |
@@ -212,11 +212,11 @@ jobs:
       # The installers are not signed with a certificate.
       CSC_IDENTITY_AUTO_DISCOVERY: false
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.sha }}
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -235,7 +235,7 @@ jobs:
       - name: Test the packaged application
         working-directory: apps/desktop
         run: node scripts/verify-packaged.mjs ${{ matrix.platform }}
-      - uses: actions/upload-artifact@v7
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: nightly-${{ matrix.platform }}
           if-no-files-found: error
@@ -247,7 +247,7 @@ jobs:
             apps/desktop/release/nightly*.yml
       - name: Keep the results of failed tests
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: packaged-test-results-${{ matrix.platform }}
           path: apps/desktop/test-results
@@ -273,10 +273,10 @@ jobs:
       TAG: ${{ needs.guard.outputs.tag }}
       SHA: ${{ needs.guard.outputs.sha }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.guard.outputs.sha }}
-      - uses: actions/download-artifact@v8
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           pattern: nightly-*
           path: release-assets
