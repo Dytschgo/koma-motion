@@ -229,6 +229,7 @@ export function MenuButton({
             id={menuId}
             role="menu"
             aria-label={menuLabel ?? label}
+            tabIndex={-1}
             className="studio-menu"
             style={{
               insetInlineStart: position?.x ?? 0,
@@ -260,6 +261,7 @@ export function MenuButton({
             {items.map((item) => (
               <Fragment key={item.label}>
                 {item.separated === true && <hr className="studio-menu-separator" />}
+                {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 and exposed by Chromium; the rule's data stops at ARIA 1.2. */}
                 <button
                   type="button"
                   role="menuitem"

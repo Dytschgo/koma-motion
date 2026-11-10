@@ -25,6 +25,7 @@ export function ColourControl({
     <Field label={label} error={error}>
       {(ids) => (
         <div className="colour-control">
+          {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 and exposed by Chromium; the rule's data stops at ARIA 1.2. */}
           <input
             type="color"
             aria-label="Colour picker"

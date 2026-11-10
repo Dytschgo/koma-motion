@@ -1,4 +1,5 @@
 import js from '@eslint/js';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
 import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
@@ -54,6 +55,29 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'error',
     },
+  },
+  {
+    // Static accessibility checks for JSX. This is not a screen-reader test.
+    files: ['**/*.tsx'],
+    plugins: { 'jsx-a11y': jsxA11y },
+    settings: {
+      'jsx-a11y': {
+        // The elements that the controls in `components/ui.tsx` and
+        // `components/Menu.tsx` render, so the rules check them like native ones.
+        components: {
+          Button: 'button',
+          IconButton: 'button',
+          MenuButton: 'button',
+          NumberInput: 'input',
+          SearchField: 'input',
+          Select: 'select',
+          Switch: 'input',
+          TextArea: 'textarea',
+          TextInput: 'input',
+        },
+      },
+    },
+    rules: jsxA11y.flatConfigs.recommended.rules,
   },
   {
     files: ['**/*.{js,mjs,cjs}'],

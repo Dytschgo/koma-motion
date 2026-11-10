@@ -1,0 +1,11 @@
+@layer components {
+  .koma-thumbnail {
+    flex: none;
+    overflow: clip;
+    border-radius: 3px;
+    background: var(--color-surface-0);
+    outline: 1px solid var(--color-line);
+    outline-offset: -1px;
+    pointer-events: none;
+  }
+}

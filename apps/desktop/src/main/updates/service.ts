@@ -10,10 +10,12 @@ import { app, clipboard, shell } from 'electron';
 import { join, resolve } from 'node:path';
 import electronUpdater from 'electron-updater';
 import type { UpdateChannel, UpdateStatus } from '../../shared/updates';
+import { diagnostics } from '../diagnostics';
 import { prepareNativeUpdate } from './nativeUpdate';
 import { readPreferences, writePreferences } from './preferences';
 import { discoverRelease, isReleasePage, toUpdatePlatform } from './releases';
 import { UpdateController } from './updateController';
+import { createUpdaterLogger, createUpdateStatusRecorder } from './updateLog';
 import { prepareTerminalUpdate } from './terminalUpdate';
 
 const STARTUP_CHECK_DELAY_MS = 20_000;
@@ -45,7 +47,9 @@ export async function createUpdateService(
 
   autoUpdater.autoDownload = false;
   autoUpdater.autoInstallOnAppQuit = false;
-  autoUpdater.logger = null;
+  // Into the diagnostics log of the application, not a file of its own.
+  autoUpdater.logger = createUpdaterLogger(diagnostics);
+  const record = createUpdateStatusRecorder(diagnostics);
 
   const controller = new UpdateController(preferences.updateChannel, {
     currentVersion: app.getVersion(),
@@ -78,7 +82,10 @@ export async function createUpdateService(
       }
       await shell.openExternal(url);
     },
-    emit,
+    emit: (status) => {
+      record(status);
+      emit(status);
+    },
   });
 
   autoUpdater.on('download-progress', (progress) => {

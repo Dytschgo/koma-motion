@@ -73,7 +73,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run unit tests
-        run: pnpm test
+        run: pnpm test:coverage && node scripts/coverage-summary.mjs
 
   application:
     name: Application tests (${{ matrix.os }}, shard ${{ matrix.shard }} of 2)
