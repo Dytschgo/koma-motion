@@ -4,6 +4,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test, type Locator } from '@playwright/test';
 import { buildNavigationProject } from '../src/renderer/src/lib/deckNavigation.fixture';
+import { recordPointerEvidence } from './inputEvidence';
 import { chooseKomaAction } from './komaControls';
 import {
   answerOpenDialog,
@@ -13,10 +14,22 @@ import {
 } from './application';
 
 let running: RunningApplication;
+let pointerEvidence: () => Promise<readonly unknown[]>;
 test.beforeEach(async () => {
   running = await launchApplication();
+  pointerEvidence = await recordPointerEvidence(running.application, running.window);
 });
 test.afterEach(async () => {
+  // Kept for a failure only: where each pointer event came from. See issue #108.
+  if (test.info().status !== test.info().expectedStatus) {
+    const evidence = await pointerEvidence().catch((error: unknown) => [
+      { what: `The pointer evidence could not be read: ${String(error)}` },
+    ]);
+    await writeFile(
+      test.info().outputPath('pointer-evidence.json'),
+      JSON.stringify(evidence, null, 2),
+    );
+  }
   await running.close();
 });
 
