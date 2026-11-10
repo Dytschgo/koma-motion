@@ -90,6 +90,9 @@ which they may depend on one another. The most important rules:
 - Describe what you changed, why, and how you tested it.
 - Never commit secrets, API keys, `.env` files, signing material, build output
   or personal presentations.
+- In workflows, pin every action to a full commit SHA with its version as a
+  comment. See the
+  [workflow and dependency policy](docs/RELEASES.md#workflow-and-dependency-policy).
 
 ## Licence
 

@@ -43,9 +43,9 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -128,7 +128,7 @@ jobs:
         run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
       - name: Preserve the focused report, captures and failure traces
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ui-preflight-${{ matrix.os }}
           path: |
@@ -154,9 +154,9 @@ jobs:
       matrix:
         pass: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -173,7 +173,7 @@ jobs:
         run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}/report.json"
       - name: Preserve the report, captures and failure traces for this pass
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-ui-pass-${{ matrix.pass }}
           path: ${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}
