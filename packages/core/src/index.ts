@@ -1,4 +1,5 @@
 export * from './colour';
+export * from './equality';
 export * from './factories';
 export * from './geometry';
 export * from './grouping';
