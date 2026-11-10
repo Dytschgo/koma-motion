@@ -52,6 +52,58 @@ export async function waitForStartupReady(window: Page): Promise<void> {
 }
 
 /**
+ * Waits until the window is shown and its page has the size a user sees.
+ *
+ * The window is created hidden and shown after its first paint. On Windows
+ * its menu bar is laid out with the first frame of the window, which can land
+ * a moment after it is shown. That layout makes the page shorter, and the
+ * page closes open menus and popovers when it is resized. A user cannot act
+ * before that frame is on screen; a test can, and would lose the menu.
+ */
+export async function waitForWindowLayout(
+  application: ElectronApplication,
+  window: Page,
+): Promise<void> {
+  // The frame of a window without a menu bar. A window whose menu bar is
+  // still waiting for its layout reports the same frame.
+  const frameHeight = await application.evaluate(({ BaseWindow }) => {
+    if (process.platform === 'darwin') return null;
+    const bare = new BaseWindow({ show: false });
+    bare.removeMenu();
+    const height = bare.getBounds().height - bare.getContentBounds().height;
+    bare.destroy();
+    return height;
+  });
+  await expect
+    .poll(
+      async () => {
+        const content = await application.evaluate(({ BrowserWindow }, frame) => {
+          const target = BrowserWindow.getAllWindows()[0];
+          if (!target?.isVisible()) return 'The window is not shown yet.';
+          if (
+            frame !== null &&
+            target.isMenuBarVisible() &&
+            target.getBounds().height - target.getContentBounds().height <= frame
+          )
+            return 'The menu bar of the window is not laid out yet.';
+          const [width, height] = target.getContentSize();
+          return { width, height };
+        }, frameHeight);
+        if (typeof content === 'string') return content;
+        const page = await window.evaluate(() => ({ width: innerWidth, height: innerHeight }));
+        return page.width === content.width && page.height === content.height
+          ? 'settled'
+          : `The page is ${String(page.width)} x ${String(page.height)}, the window content ${String(content.width)} x ${String(content.height)}.`;
+      },
+      {
+        message: 'The window should be shown with its final startup layout.',
+        intervals: [10, 20, 50, 100],
+      },
+    )
+    .toBe('settled');
+}
+
+/**
  * Starts the built application, exactly as `pnpm start` does. With
  * `executablePath`, a packaged application is started instead.
  */
@@ -112,6 +164,7 @@ export async function launchApplication(
   ) {
     await mockModelDiscovery(application);
   }
+  await waitForWindowLayout(application, window);
   await waitForStartupReady(window);
 
   return {
