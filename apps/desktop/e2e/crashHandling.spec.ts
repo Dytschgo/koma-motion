@@ -15,6 +15,15 @@ test.beforeEach(async () => {
 });
 
 test.afterEach(async () => {
+  const testInfo = test.info();
+  if (testInfo.status !== testInfo.expectedStatus) {
+    // What the application recorded about the failure it was handling.
+    const log = await readFile(
+      join(running.directory, 'user-data', 'logs', 'koma-motion.log'),
+      'utf8',
+    ).catch(() => '');
+    await testInfo.attach('koma-motion.log', { body: log, contentType: 'text/plain' });
+  }
   await running.close();
 });
 
@@ -29,6 +38,14 @@ async function createAndEdit(window: Page): Promise<void> {
   await showInspector(window);
   await window.getByRole('tab', { name: 'Koma', exact: true }).click();
   await window.getByRole('textbox', { name: 'Title', exact: true }).fill(EDITED_TITLE);
+  // The status alone can still describe the capture before this edit, so the file is read.
+  await expect
+    .poll(() =>
+      readFile(join(running.directory, 'user-data', 'recovery', 'snapshot.json'), 'utf8').catch(
+        () => '',
+      ),
+    )
+    .toContain(EDITED_TITLE);
   await expect(window.getByText('Recovery snapshot saved', { exact: true })).toBeVisible();
 }
 

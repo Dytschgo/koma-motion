@@ -76,10 +76,11 @@ export function superviseWindow(supervision: WindowSupervision): void {
       if (quitRequested && cancel.signal.aborted) {
         quitRequested = false;
         if (!closed && !window.isDestroyed()) {
-          // On macOS the question is a sheet of the window, and a window that
-          // still shows a sheet does not close: a quit that arrives during the
-          // question can stop at this window. The question is gone now, so
-          // the quit is asked for again.
+          // The question about a page that does not respond. On macOS it is a
+          // sheet of the window, and a window that still shows a sheet ignores
+          // a request to close: a quit that arrives during the question can
+          // stop at this window. The question is gone now, so the quit is
+          // asked for again and the window closes the ordinary way.
           setImmediate(() => {
             app.quit();
           });
@@ -194,9 +195,19 @@ export function superviseWindow(supervision: WindowSupervision): void {
 
   // A question must not hold the application open while it quits.
   const withdraw = (): void => {
-    if (question !== null) {
-      quitRequested = true;
-      question.cancel.abort();
+    if (question === null) {
+      return;
+    }
+    const { about, cancel } = question;
+    diagnostics.write('info', 'window.quit-during-question', { about });
+    quitRequested = true;
+    cancel.abort();
+    if (about === 'gone' && !closed) {
+      // The page is gone, so there is nothing to ask before closing. The
+      // window is ended directly instead of through its ordinary close: on
+      // macOS the question is a sheet, and a window that shows a sheet
+      // ignores a request to close. The last window closing ends the quit.
+      void quit();
     }
   };
   app.on('before-quit', withdraw);

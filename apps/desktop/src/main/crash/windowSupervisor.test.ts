@@ -158,29 +158,41 @@ describe('superviseWindow', () => {
     expect(window.destroy).toHaveBeenCalledOnce();
   });
 
-  it('asks to quit again once the question is gone, when the window is still open', async () => {
-    const { lose, settle } = setup();
+  it('ends the window of a lost page directly when the application quits during the question', async () => {
+    const { contents, flush, lose, pageLost, settle, window } = setup();
     lose();
+    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    expect(electron.questions[0]?.options.signal?.aborted).toBe(true);
+    await settle();
+    await settle();
+    // Not through the ordinary close, which a window with an open sheet ignores on macOS.
+    expect(flush).toHaveBeenCalledOnce();
+    expect(window.destroy).toHaveBeenCalledOnce();
+    expect(contents.reload).not.toHaveBeenCalled();
+    expect(pageLost).toHaveBeenCalledTimes(2);
+    // The closed window ends the quit; nothing asks for another one.
+    expect(electron.quits).toBe(0);
+    expect(written).toContainEqual(
+      expect.objectContaining({ event: 'window.quit-during-question', data: { about: 'gone' } }),
+    );
+    expect(electron.appListeners.get('before-quit')?.size).toBe(0);
+  });
+
+  it('asks to quit again once the question about a page that does not respond is gone', async () => {
+    const { settle, window } = setup();
+    window.emit('unresponsive');
     for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
     expect(electron.quits).toBe(0);
     await settle();
     await settle();
+    // That page may still answer, so it closes the ordinary way, after the question.
+    expect(window.destroy).not.toHaveBeenCalled();
     expect(electron.quits).toBe(1);
     // The second request finds no question and asks for nothing more.
     for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
     await settle();
     await settle();
     expect(electron.quits).toBe(1);
-  });
-
-  it('does not ask to quit again when the window closed with the first request', async () => {
-    const { lose, settle, window } = setup();
-    lose();
-    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
-    window.emit('closed');
-    await settle();
-    await settle();
-    expect(electron.quits).toBe(0);
   });
 
   it('does not quit when a question is withdrawn for another reason', async () => {
@@ -192,15 +204,13 @@ describe('superviseWindow', () => {
     expect(electron.quits).toBe(0);
   });
 
-  it('does nothing with a question that was withdrawn because the application quits', async () => {
-    const { contents, lose, settle, window } = setup();
+  it('does not reload or ask again after the application quit during the question', async () => {
+    const { contents, lose, settle } = setup();
     lose();
     for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
     await settle();
-    expect(electron.questions[0]?.options.signal?.aborted).toBe(true);
+    await settle();
     expect(contents.reload).not.toHaveBeenCalled();
-    expect(window.destroy).not.toHaveBeenCalled();
-    window.emit('closed');
     expect(electron.appListeners.get('before-quit')?.size).toBe(0);
     // A renderer that ends with its window is not a failure.
     lose('killed');
