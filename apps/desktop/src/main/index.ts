@@ -1,11 +1,14 @@
 import { join } from 'node:path';
 import { app, BrowserWindow, session } from 'electron';
 import { ipcEvents } from '../shared/ipc';
+import { handleProcessErrors } from './crash/processErrors';
+import { diagnostics, startDiagnostics } from './diagnostics';
 import { createBrandKitLibrary } from './services/brandKitLibrary';
 import { hardenSession, hardenWebContents, registerAppScheme, serveApp } from './security';
 import { createUpdateService, type UpdateService } from './updates/service';
 import { createMainWindow } from './window';
 
+handleProcessErrors();
 registerAppScheme();
 
 // One running instance per data folder. Saved Brand Kits and instruction
@@ -15,7 +18,14 @@ registerAppScheme();
 const isFirstInstance = app.requestSingleInstanceLock();
 if (!isFirstInstance) {
   app.quit();
+} else {
+  // Only the instance that owns the data folder writes its log.
+  startDiagnostics();
 }
+
+app.on('quit', (_event, exitCode) => {
+  diagnostics.write('info', 'app.quit', { exitCode });
+});
 
 app.on('second-instance', () => {
   const [window] = BrowserWindow.getAllWindows();

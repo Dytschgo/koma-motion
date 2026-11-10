@@ -318,6 +318,9 @@ schema for the request and the response of every channel.
 | `koma:updates:download`        | download the update that was found          |
 | `koma:updates:copy-command`    | copy the prepared macOS update command      |
 | `koma:updates:install`         | restart and install the downloaded update   |
+| `koma:diagnostics:report`      | log class and call sites of a window error  |
+| `koma:diagnostics:open-folder` | show the folder of the diagnostics log      |
+| `koma:diagnostics:copy`        | copy the newest log entries                 |
 
 Events from the main process: `koma:brand-profile:progress`,
 `koma:providers:status`,
@@ -336,6 +339,12 @@ For every request the main process checks, in this order:
 2. The payload matches the schema of the channel. Unknown properties are
    rejected.
 3. The response matches the schema of the channel before it is sent.
+
+The diagnostics channels carry no path and no log text. A report has a fixed
+shape without a message, is bounded in length, limited to five at once and
+then one every thirty seconds, and filtered again before it is written. The
+window can ask for the log folder to be shown or for the newest entries to be
+copied; it cannot read the log. See `docs/DIAGNOSTICS.md`.
 
 The renderer validates every response and every event again. There is no
 channel that accepts a command, a path or arbitrary data, and a test makes
@@ -361,6 +370,7 @@ sure that the channel list of the preload script equals the contract.
 | motion controls open        | `uiStore`                               | no                     |
 | saved Brand Kit library     | `brandKitLibraryStore`, on disk         | no, app data folder    |
 | unfinished editor input     | component state                         | no                     |
+| diagnostics log             | main process, on disk                   | no, app data folder    |
 
 Changes to the document are commands: pure functions from a project to a
 project (`state/commands.ts`). The store applies a command and records the
@@ -402,6 +412,8 @@ therefore clears the indicator.
 | Images are verified by content and copied into the project                                    | project files cannot make the application read other files                                                   |
 | Agent processes start without a shell                                                         | there is no shell that could interpret input                                                                 |
 | Agent output is validated data                                                                | output of a model cannot execute anything or name files                                                      |
+| Only the main process writes the diagnostics log, and it records failures, not requests       | project content, prompts and credentials stay out of a file the user may share                               |
+| A lost page ends its project session in the main process                                      | a reloaded window cannot save to the file, or write the recovery record, of the page before it               |
 
 `SECURITY.md` describes the policy and how to report a vulnerability.
 
@@ -430,3 +442,15 @@ an unsaved copy; the stored source path only prevents overwriting the original.
 A clean-save acknowledgment must match the validated saved document before the
 snapshot is removed. See [Crash recovery](docs/CRASH_RECOVERY.md) for lifecycle,
 limits and verification.
+
+### Failure handling
+
+A React error boundary at the root replaces a failed interface with a screen
+that offers a reload. The main process supervises the window: a renderer
+process that is gone, or a page that does not respond, leads to a native
+question, and every reload ends at the recovery offer above. An uncaught
+exception in the main process is logged and ends the application; an
+unhandled rejection is logged. The main process writes a bounded diagnostics
+log in private app storage. See
+[Failure handling and the diagnostics log](docs/DIAGNOSTICS.md) for each
+decision, what the log records and what it leaves out.

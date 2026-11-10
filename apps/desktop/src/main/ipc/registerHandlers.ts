@@ -12,7 +12,14 @@ import {
 } from '@koma-motion/agent-runtime';
 import { createRandomIdGenerator } from '@koma-motion/core';
 import { createExporters } from '@koma-motion/exporters';
-import { app, dialog, ipcMain, nativeImage, type BrowserWindow } from 'electron';
+import {
+  app,
+  dialog,
+  ipcMain,
+  nativeImage,
+  type BrowserWindow,
+  type IpcMainInvokeEvent,
+} from 'electron';
 import { setTimeout as delay } from 'node:timers/promises';
 import { BRAND_PROFILE_FILE_EXTENSIONS, BrandProfileService } from '../services/brandProfile';
 import { DeckAnalysisService } from '../services/deckAnalysis';
@@ -24,6 +31,7 @@ import {
   type IpcEventPayload,
   type IpcResponse,
 } from '../../shared/ipc';
+import { observeIpc, registerDiagnosticsHandlers } from '../diagnostics';
 import { unavailableImageAssetIds } from '../services/imageValidation';
 import { isTrustedSender } from '../security';
 import type { BrandKitLibrary } from '../services/brandKitLibrary';
@@ -43,6 +51,7 @@ import {
   type ProjectSession,
 } from '../services/projectFiles';
 import type { UpdateService } from '../updates/service';
+import type { Handler } from './handle';
 import { limitProjectPersistence, rejectedRequestMessage } from './persistence';
 
 export interface WindowContext {
@@ -56,10 +65,6 @@ export interface WindowContext {
   /** Called when the unsaved state or the file of the project changes. */
   projectStateChanged(): void;
 }
-
-type Handler<C extends IpcChannel> = (
-  request: ReturnType<(typeof ipcContract)[C]['request']['parse']>,
-) => Promise<IpcResponse<C>> | IpcResponse<C>;
 
 // App scope, including across project/window replacement. Paths never come from the renderer.
 const instructionTemplates = new InstructionTemplateLibrary(() => app.getPath('userData'));
@@ -94,7 +99,11 @@ export function readMockOptions(environment: NodeJS.ProcessEnv): MockAgentProvid
  * unexpected senders and requests that do not match their schema are rejected
  * before a handler runs.
  */
-export function registerHandlers(context: WindowContext): { dispose(): void } {
+export function registerHandlers(context: WindowContext): {
+  /** Stops generations and analyses, for a window that lost its page. */
+  cancelWork(): void;
+  dispose(): void;
+} {
   const { window, session } = context;
   const registry = new ProviderRegistry([
     new MockAgentProvider(app.isPackaged ? {} : readMockOptions(process.env)),
@@ -117,7 +126,7 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   };
 
   const handle = <C extends IpcChannel>(channel: C, handler: Handler<C>): void => {
-    ipcMain.handle(channel, async (event, payload: unknown) => {
+    const listener = async (event: IpcMainInvokeEvent, payload: unknown): Promise<unknown> => {
       if (!isTrustedSender(event, window.webContents)) {
         throw new Error('Request rejected');
       }
@@ -129,8 +138,10 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
       }
       const response = await handler(request.data as Parameters<Handler<C>>[0]);
       return ipcContract[channel].response.parse(response);
-    });
+    };
+    ipcMain.handle(channel, observeIpc(channel, listener));
   };
+  registerDiagnosticsHandlers(handle);
 
   const decks = new DeckAnalysisService({
     registry,
@@ -513,6 +524,11 @@ export function registerHandlers(context: WindowContext): { dispose(): void } {
   }));
 
   return {
+    cancelWork() {
+      void decks.cancel();
+      void profiles.cancel();
+      cancelAllGenerations();
+    },
     dispose() {
       void decks.cancel();
       void profiles.cancel();
