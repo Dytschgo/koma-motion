@@ -1,10 +1,26 @@
 name: UI confidence
 
+# Repeats native UI tests without retries, so an intermittent failure fails here
+# instead of passing on a retry in CI.
+#
+# - Every Monday against main, and on demand: the focused repetition and the
+#   complete suite twenty times.
+# - Pull requests that touch the window's interface, the native tests or this
+#   file: the focused repetition only. Twenty complete passes on every such
+#   pull request would occupy the Windows runners that CI needs. To run them
+#   for a branch: gh workflow run "UI confidence" --ref <branch>
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
   pull_request:
     branches: [main]
-    paths: [.github/workflows/ui-confidence.yml]
+    paths:
+      - .github/workflows/ui-confidence.yml
+      - apps/desktop/e2e/**
+      - apps/desktop/playwright.config.ts
+      - apps/desktop/src/renderer/**
+      - packages/renderer/**
 
 permissions:
   contents: read
@@ -17,7 +33,11 @@ jobs:
   preflight:
     name: Sidebar checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # macOS is the slower runner. Its last complete run of the steps up to
+    # grouping took 14 min 21 s, and the next run was cancelled at 15 min with
+    # every finished step passing. The two repeated sets added since take
+    # about 5 min more there. Windows needs about half of this.
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -76,6 +96,24 @@ jobs:
       - name: Summarize repeated grouping geometry outcomes
         if: always() && steps.groups.outcome != 'skipped'
         run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat menus right after launch and recovery restarts without retries
+        id: launch
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-launch-menu-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test e2e/recovery.spec.ts --repeat-each=6 --retries=0 --output "${{ runner.temp }}/koma-launch-menu-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated launch menu outcomes
+        if: always() && steps.launch.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-launch-menu-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat Koma strip and canvas drags without retries
+        id: drags
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-drags-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test komaDrag.spec.ts canvas-editing.spec.ts --grep "reorders Komas by dragging|moves, resizes, cancels and edits text|maps dragging at a different zoom" --repeat-each=10 --retries=0 --output "${{ runner.temp }}/koma-drags-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated drag outcomes
+        if: always() && steps.drags.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-drags-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
       - name: Capture the design at wide and minimum window sizes
         if: matrix.os == 'windows-latest'
         id: visuals
@@ -99,12 +137,16 @@ jobs:
             ${{ runner.temp }}/koma-startup-keyboard-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-chat-retry-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-launch-menu-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-drags-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 7
   windows:
     name: Windows UI pass ${{ matrix.pass }} of 20
     needs: preflight
+    # Weekly and on demand. See the note at the top of this file.
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:

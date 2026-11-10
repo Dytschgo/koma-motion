@@ -1,0 +1,62 @@
+/*
+ * A quiet, warm paper desk. The Koma is the brightest thing on screen; the
+ * interface stays neutral and uses one coral for actions and selection.
+ * Document and Brand Kit colours are content and never follow these tokens.
+ */
+@theme {
+  --font-sans: 'Instrument Sans Variable', 'Segoe UI', system-ui, sans-serif;
+
+  --color-paper-0: #ffffff;
+  --color-paper-50: #fbf9f6;
+  --color-paper-100: #f6f2ed;
+  --color-paper-200: #efe9e2;
+  --color-paper-300: #e6dfd6;
+  --color-paper-400: #d4cabe;
+
+  --color-ink-100: #1f1b18;
+  --color-ink-300: #4f4943;
+  --color-ink-400: #6c655d;
+
+  --color-coral-500: #ee6a4d;
+  --color-coral-600: #c4462a;
+  --color-coral-700: #a93a21;
+  --color-coral-50: #fdede8;
+
+  --color-signal-ok: #2f7d4f;
+  --color-signal-warn: #94600a;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.75rem;
+  --text-base: 0.875rem;
+  --text-lg: 0.9375rem;
+  --text-xl: 1.125rem;
+  --text-2xl: 1.5rem;
+
+  /*
+   * Semantic layer. Components name the role of a surface, not its shade:
+   * fields and floating surfaces are white, the shell is warm paper, and
+   * pressed or hovered controls take a slightly deeper paper.
+   */
+  --color-surface-0: var(--color-paper-0);
+  --color-surface-1: var(--color-paper-50);
+  --color-surface-2: var(--color-paper-0);
+  --color-surface-3: var(--color-paper-200);
+  --color-line: var(--color-paper-300);
+  --color-line-strong: var(--color-paper-400);
+  --color-accent: var(--color-coral-600);
+  --color-accent-deep: var(--color-coral-50);
+  --color-accent-hover: var(--color-coral-700);
+  --color-motion: var(--color-coral-600);
+  --color-motion-deep: var(--color-coral-50);
+
+  --radius-control: 0.5rem;
+  --radius-card: 0.75rem;
+  --radius-dialog: 1rem;
+
+  --shadow-raised: 0 1px 2px oklch(30% 0.02 60 / 0.08);
+  --shadow-popover: 0 12px 32px oklch(30% 0.03 60 / 0.14), 0 0 0 1px oklch(30% 0.03 60 / 0.05);
+  --shadow-dialog: 0 24px 64px oklch(30% 0.03 60 / 0.2), 0 0 0 1px oklch(30% 0.03 60 / 0.05);
+  --shadow-float: 0 6px 20px oklch(30% 0.03 60 / 0.1), 0 0 0 1px oklch(30% 0.03 60 / 0.06);
+
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}

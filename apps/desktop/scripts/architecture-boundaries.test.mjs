@@ -154,6 +154,8 @@ test('unit-test utilities are narrow exceptions, without waiving package directi
     'packages/core/src/fixture.test.ts',
     'packages/renderer/src/fixture.test.ts',
     'apps/desktop/src/renderer/src/fixture.test.ts',
+    'packages/renderer/src/fixture.test.tsx',
+    'apps/desktop/src/renderer/src/components/fixture.test.tsx',
   ]) {
     for (const module of ['vitest', 'node:fs', 'fs/promises']) {
       assert.equal(importViolation(file(path), module), null, `${path}: ${module}`);
@@ -166,9 +168,39 @@ test('unit-test utilities are narrow exceptions, without waiving package directi
   assert.ok(importViolation(file(core), './fixture.test'));
   assert.ok(importViolation(file(renderer), './fixture.test.ts'));
   assert.equal(importViolation(file('packages/core/src/fixture.test.ts'), './another.test'), null);
+  // Component tests get the same narrow exception and nothing more.
+  const componentTest = 'packages/renderer/src/fixture.test.tsx';
+  assert.equal(importViolation(file(componentTest), 'react-dom/client'), null);
+  assert.equal(importViolation(file(componentTest), './another.test.tsx'), null);
+  assert.ok(importViolation(file(componentTest), '@koma-motion/exporters'));
+  assert.ok(importViolation(file(componentTest), '@koma-motion/agent-runtime/node'));
+  assert.ok(importViolation(file(componentTest), '@testing-library/react'));
+  assert.ok(importViolation(file('packages/core/src/fixture.test.tsx'), 'react'));
+  assert.ok(importViolation(file('packages/renderer/src/Stage.tsx'), './fixture.test.tsx'));
+  assert.ok(importViolation(file(renderer), './components/fixture.test.tsx'));
+  // Only the suffixes Vitest collects are tests; look-alike helpers stay production code.
+  for (const helper of ['fixture.testing.tsx', 'fixture.test.tsx.ts', 'fixture.spec.tsx']) {
+    assert.ok(importViolation(file(`packages/renderer/src/${helper}`), 'vitest'), helper);
+  }
   if (process.platform === 'win32') {
     assert.ok(importViolation(file(core), '../../../Apps/Desktop/src/shared/ipc'));
     assert.ok(importViolation(file(renderer), '../../Main/index'));
+  }
+});
+
+test('Vitest collects exactly the suffixes the boundary rule treats as tests', async () => {
+  const config = await readFile(file('vitest.config.ts'), 'utf8');
+  assert.match(
+    config,
+    /include: \['packages\/\*\/src\/\*\*\/\*\.test\.\{ts,tsx\}', 'apps\/\*\/src\/\*\*\/\*\.test\.\{ts,tsx\}'\]/,
+  );
+  for (const suffix of ['ts', 'tsx']) {
+    const path = `apps/desktop/src/renderer/src/fixture.test.${suffix}`;
+    assert.equal(importViolation(file(path), 'node:fs'), null, path);
+  }
+  for (const suffix of ['js', 'jsx', 'mts']) {
+    const path = `apps/desktop/src/renderer/src/fixture.test.${suffix}`;
+    assert.ok(importViolation(file(path), 'node:fs'), path);
   }
 });
 

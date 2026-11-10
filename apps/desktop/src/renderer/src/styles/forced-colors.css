@@ -1,0 +1,17 @@
+@media (forced-colors: active) {
+  .chat-user-bubble {
+    border-color: CanvasText;
+  }
+  .prompt-pill,
+  .prompt-sheet,
+  .prompt-options,
+  .element-toolbar,
+  .studio-menu,
+  .studio-transport {
+    border: 1px solid CanvasText;
+  }
+  .chat-send,
+  .studio-share {
+    border: 1px solid ButtonText;
+  }
+}
