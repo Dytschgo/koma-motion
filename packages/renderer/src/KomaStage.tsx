@@ -1,4 +1,4 @@
-import type { KomaElement, Position, Size } from '@koma-motion/core';
+import { isStructurallyEqual, type KomaElement, type Position, type Size } from '@koma-motion/core';
 import type { Frame } from '@koma-motion/motion-engine';
 import { useRef, useState, type CSSProperties, type PointerEvent, type ReactElement } from 'react';
 import type { AssetResolver } from './assets';
@@ -213,7 +213,7 @@ export function KomaStage({
           element &&
           rect &&
           containsPointer({ x: event.clientX, y: event.clientY }, rect) &&
-          JSON.stringify(element) !== JSON.stringify(active.original)
+          !isStructurallyEqual(element, active.original)
         )
           onCommitElement?.(element);
       }}
