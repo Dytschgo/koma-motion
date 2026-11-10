@@ -56,6 +56,9 @@ const REQUEST_CHANNELS: ReadonlySet<string> = new Set([
   'koma:updates:download',
   'koma:updates:copy-command',
   'koma:updates:install',
+  'koma:diagnostics:report',
+  'koma:diagnostics:open-folder',
+  'koma:diagnostics:copy',
   'koma:app:get-info',
 ]);
 

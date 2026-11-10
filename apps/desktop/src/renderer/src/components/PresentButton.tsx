@@ -47,6 +47,8 @@ export function PresentButton(): ReactElement {
   return (
     <div
       ref={container}
+      // Not a control: Escape bubbles here from the buttons inside.
+      role="presentation"
       className="relative"
       onKeyDown={(event) => {
         if (event.key === 'Escape' && open) {
@@ -91,6 +93,7 @@ export function PresentButton(): ReactElement {
           className={`absolute top-full right-0 z-40 mt-1 flex w-64 flex-col p-1 ${POPOVER_SURFACE}`}
         >
           <Button
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- the choices open from the Present button, so focus moves to the first one.
             autoFocus
             className="justify-between"
             onClick={() => {

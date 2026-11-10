@@ -97,6 +97,7 @@ export function CanvasTextEditor({
   }, [finish]);
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- keys bubble here from the textarea inside, so the canvas shortcuts stay out of text editing.
     <div
       ref={surface}
       role="group"

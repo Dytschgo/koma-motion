@@ -111,4 +111,4 @@ The 128 MiB conversion storage budget is monitored every 200 ms, not enforced
 as an OS quota. Cleanup was verified for normal completion, cancellation,
 errors and normal shutdown; a forced OS termination cannot guarantee it.
 Opus is the only production model offered by this workflow. See the
-[user and privacy guide](../../BRAND_KIT_FROM_DECK.md) for the complete limits.
+[user and privacy guide](../../../BRAND_KIT_FROM_DECK.md) for the complete limits.

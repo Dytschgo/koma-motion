@@ -94,6 +94,7 @@ export function ChatBrandKitPicker({
           onOpenChange(false);
       }}
     >
+      {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 and exposed by Chromium; the rule's data stops at ARIA 1.2. */}
       <button
         ref={trigger}
         type="button"
@@ -112,6 +113,7 @@ export function ChatBrandKitPicker({
         <ChevronIcon direction="down" size={12} />
       </button>
       {open && (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape and the arrow keys bubble here from the kit buttons inside the popover.
         <div
           ref={panel}
           id={id}

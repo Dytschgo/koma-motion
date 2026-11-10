@@ -1,10 +1,26 @@
 name: UI confidence
 
+# Repeats native UI tests without retries, so an intermittent failure fails here
+# instead of passing on a retry in CI.
+#
+# - Every Monday against main, and on demand: the focused repetition and the
+#   complete suite twenty times.
+# - Pull requests that touch the window's interface, the native tests or this
+#   file: the focused repetition only. Twenty complete passes on every such
+#   pull request would occupy the Windows runners that CI needs. To run them
+#   for a branch: gh workflow run "UI confidence" --ref <branch>
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '17 3 * * 1'
   pull_request:
     branches: [main]
-    paths: [.github/workflows/ui-confidence.yml]
+    paths:
+      - .github/workflows/ui-confidence.yml
+      - apps/desktop/e2e/**
+      - apps/desktop/playwright.config.ts
+      - apps/desktop/src/renderer/**
+      - packages/renderer/**
 
 permissions:
   contents: read
@@ -17,15 +33,19 @@ jobs:
   preflight:
     name: Sidebar checks (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 15
+    # macOS is the slower runner. Its last complete run of the steps up to
+    # grouping took 14 min 21 s, and the next run was cancelled at 15 min with
+    # every finished step passing. The two repeated sets added since take
+    # about 5 min more there. Windows needs about half of this.
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
         os: [windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -76,6 +96,24 @@ jobs:
       - name: Summarize repeated grouping geometry outcomes
         if: always() && steps.groups.outcome != 'skipped'
         run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat menus right after launch and recovery restarts without retries
+        id: launch
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-launch-menu-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test e2e/recovery.spec.ts --repeat-each=6 --retries=0 --output "${{ runner.temp }}/koma-launch-menu-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated launch menu outcomes
+        if: always() && steps.launch.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-launch-menu-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
+      - name: Repeat Koma strip and canvas drags without retries
+        id: drags
+        working-directory: apps/desktop
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: ${{ runner.temp }}/koma-drags-${{ github.run_id }}-${{ github.run_attempt }}/report.json
+        run: pnpm exec playwright test komaDrag.spec.ts canvas-editing.spec.ts --grep "reorders Komas by dragging|moves, resizes, cancels and edits text|maps dragging at a different zoom" --repeat-each=10 --retries=0 --output "${{ runner.temp }}/koma-drags-${{ github.run_id }}-${{ github.run_attempt }}" "--reporter=list,github,json"
+      - name: Summarize repeated drag outcomes
+        if: always() && steps.drags.outcome != 'skipped'
+        run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-drags-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
       - name: Capture the design at wide and minimum window sizes
         if: matrix.os == 'windows-latest'
         id: visuals
@@ -90,7 +128,7 @@ jobs:
         run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}/report.json"
       - name: Preserve the focused report, captures and failure traces
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ui-preflight-${{ matrix.os }}
           path: |
@@ -99,12 +137,16 @@ jobs:
             ${{ runner.temp }}/koma-startup-keyboard-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-chat-retry-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-group-geometry-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-launch-menu-${{ github.run_id }}-${{ github.run_attempt }}
+            ${{ runner.temp }}/koma-drags-${{ github.run_id }}-${{ github.run_attempt }}
             ${{ runner.temp }}/koma-design-captures-${{ github.run_id }}-${{ github.run_attempt }}
           if-no-files-found: error
           retention-days: 7
   windows:
     name: Windows UI pass ${{ matrix.pass }} of 20
     needs: preflight
+    # Weekly and on demand. See the note at the top of this file.
+    if: github.event_name != 'pull_request'
     runs-on: windows-latest
     timeout-minutes: 30
     strategy:
@@ -112,9 +154,9 @@ jobs:
       matrix:
         pass: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
     steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: pnpm
@@ -131,7 +173,7 @@ jobs:
         run: node apps/desktop/scripts/ci-quality.mjs summarize-report "${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}/report.json"
       - name: Preserve the report, captures and failure traces for this pass
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: windows-ui-pass-${{ matrix.pass }}
           path: ${{ runner.temp }}/koma-ui-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.pass }}

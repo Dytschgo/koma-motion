@@ -187,6 +187,10 @@ test('opens the Brand Kit over the canvas and pins properties beside it', async 
   // The pinned choice outlives a reload; the panel itself opens on request.
   await showInspector(window);
   await window.reload();
+  // The reload lost a project with unsaved changes, so it is offered back. This check starts over.
+  const offer = window.getByRole('dialog', { name: 'Recover interrupted work' });
+  await offer.getByRole('button', { name: 'Discard recovery', exact: true }).click();
+  await expect(offer).toBeHidden();
   await window.getByRole('button', { name: 'Create a project' }).click();
   await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeHidden();
   await window.getByRole('button', { name: 'Use the example request' }).click();
