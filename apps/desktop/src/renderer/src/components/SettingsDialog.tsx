@@ -28,6 +28,7 @@ import {
   TemplatesIcon,
   WarningIcon,
 } from './icons';
+import { DiagnosticsCard } from './Diagnostics';
 import { NoProject, useInstructionSettings } from './InstructionSettings';
 import {
   Badge,
@@ -220,6 +221,7 @@ function AboutPage({ info }: { readonly info: ApplicationInfo | null }): ReactEl
           </ul>
         )}
       </SettingsCard>
+      <DiagnosticsCard />
     </div>
   );
 }

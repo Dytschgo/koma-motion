@@ -322,19 +322,20 @@ Electron downloads its binary the first time it is started.
 
 ## Available scripts
 
-| Script              | Purpose                                                 |
-| ------------------- | ------------------------------------------------------- |
-| `pnpm dev`          | run the application and restart it on changes           |
-| `pnpm build`        | build the application into `apps/desktop/out`           |
-| `pnpm start`        | start the built application                             |
-| `pnpm lint`         | check the code with ESLint                              |
-| `pnpm typecheck`    | check the types of all packages                         |
-| `pnpm test`         | run the unit tests                                      |
-| `pnpm test:watch`   | run the unit tests on every change                      |
-| `pnpm test:e2e`     | run the application tests against the built application |
-| `pnpm format`       | format all files with Prettier                          |
-| `pnpm format:check` | check the formatting                                    |
-| `pnpm check`        | lint, check types, test and build                       |
+| Script               | Purpose                                                 |
+| -------------------- | ------------------------------------------------------- |
+| `pnpm dev`           | run the application and restart it on changes           |
+| `pnpm build`         | build the application into `apps/desktop/out`           |
+| `pnpm start`         | start the built application                             |
+| `pnpm lint`          | check the code with ESLint                              |
+| `pnpm typecheck`     | check the types of all packages                         |
+| `pnpm test`          | run the unit tests                                      |
+| `pnpm test:coverage` | run the unit tests and measure coverage                 |
+| `pnpm test:watch`    | run the unit tests on every change                      |
+| `pnpm test:e2e`      | run the application tests against the built application |
+| `pnpm format`        | format all files with Prettier                          |
+| `pnpm format:check`  | check the formatting                                    |
+| `pnpm check`         | check formatting, lint, check types, test and build     |
 
 ## Testing
 

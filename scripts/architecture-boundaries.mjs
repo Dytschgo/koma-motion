@@ -41,7 +41,8 @@ function location(filename) {
     renderer: packageName === 'renderer' || path.startsWith('apps/desktop/src/renderer/'),
     node: /^packages\/[^/]+\/src\/node(?:\/|\.|$)/.test(path),
     privileged: /^apps\/desktop\/src\/(main|preload)(?:\/|\.|$)/.test(path),
-    test: path.endsWith('.test.ts'),
+    // The suffixes Vitest collects (vitest.config.ts). `.test.tsx` holds component tests.
+    test: /\.test\.tsx?$/.test(path),
     testModule: /\.test(?:\.[cm]?[jt]sx?)?$/.test(path),
   };
 }

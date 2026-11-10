@@ -30,6 +30,7 @@ export function NumberInput({
   precision = 2,
   onValue,
   className,
+  'aria-invalid': invalid,
   ...rest
 }: NumberInputProps): ReactElement {
   const [draft, setDraft] = useState<string | null>(null);
@@ -44,7 +45,6 @@ export function NumberInput({
       inputMode="decimal"
       className={join(CONTROL, 'min-h-9 tabular-nums', withDefaultWidth(className))}
       value={text}
-      aria-invalid={valid ? undefined : true}
       onChange={(event) => {
         const next = event.target.value;
         setDraft(next);
@@ -62,6 +62,9 @@ export function NumberInput({
         setDraft(null);
       }}
       {...rest}
+      // A surrounding `Field` passes `aria-invalid` too. Its value counts only
+      // while the text is a usable number.
+      aria-invalid={valid ? invalid : true}
     />
   );
 }
