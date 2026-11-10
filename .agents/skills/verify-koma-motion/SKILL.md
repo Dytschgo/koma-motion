@@ -66,6 +66,36 @@ Native Open and Save dialogs are stubbed in application tests. They verify IPC a
 
 For a changed implementation, also run the repository's format, lint, typecheck, unit-test, and build checks. Existing green CI does not verify a later local patch or an integration of independent branches.
 
+## Intermittent failures
+
+One pass does not show that a test is stable. Repeat a new or changed native
+test, and any test you suspect, without retries and with a fresh output
+directory. Repeat the whole file too: some failures need tests that follow one
+another.
+
+```powershell
+pnpm --filter @koma-motion/desktop exec playwright test recovery.spec.ts --repeat-each 12 --retries=0 --output "$komaVerifyOutput/repeat" --reporter 'line,json'
+```
+
+Report failures as a count of the runs, with the command and revision. A failure
+that needs timing can depend on what else uses the machine, so say whether
+anything else ran, and where the real pointer was if input is involved.
+
+CI retries a failed native test once. A test that passes only on that retry
+keeps its job green, so each Application tests job reports it twice: under
+"Warning: passed only on retry" in the job summary, and as a warning annotation
+named "Test passed only on retry" on the run and in the pull request's checks.
+The failed attempt's trace is in the job's `application-test-results-*`
+artifact. Treat it as a failure to diagnose. The `UI confidence` workflow
+repeats native tests without retries: its focused repetition runs on pull
+requests that touch the renderer or the native tests, and the complete suite
+runs twenty times every Monday against `main` or on demand with
+`gh workflow run "UI confidence" --ref <branch>`.
+
+`launchApplication` returns once the window is shown and its page has the
+window's final size. Do not act on a window obtained another way before then:
+the first layout of the window resizes the page, which closes open menus.
+
 ## Feature paths
 
 - [Settings and instructions](settings.md): category navigation, project model choices,

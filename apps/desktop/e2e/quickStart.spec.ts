@@ -7,6 +7,7 @@ import {
   getApplicationEnvironment,
   launchApplication,
   waitForStartupReady,
+  waitForWindowLayout,
   type RunningApplication,
   chooseProjectCommand,
 } from './application';
@@ -257,6 +258,8 @@ test('links to real workflows without changing the project and preserves complet
   });
   try {
     const fresh = await restarted.firstWindow();
+    // This launch bypasses launchApplication, and the project menu is opened below.
+    await waitForWindowLayout(restarted, fresh);
     await expect(fresh.getByRole('heading', { name: /Presentations are frames/ })).toBeVisible();
     await expect(guide(fresh)).toBeHidden();
     await reopen(fresh);
