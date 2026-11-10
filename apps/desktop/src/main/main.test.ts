@@ -204,6 +204,35 @@ describe('IPC contract', () => {
     expect(listed('EVENT_CHANNELS')).toEqual(Object.keys(ipcEvents).sort());
   });
 
+  it('is documented channel by channel in ARCHITECTURE.md', async () => {
+    const document = await readFile(
+      resolve(import.meta.dirname, '../../../../ARCHITECTURE.md'),
+      'utf8',
+    );
+    const section = /^## IPC boundaries\r?\n([\s\S]*?)(?=^## )/m.exec(document)?.[1] ?? '';
+    // Request channels are the first cell of a table row; events are named in one paragraph.
+    const rows = [...section.matchAll(/^\|\s*`(koma:[^`]+)`\s*\|/gm)].map((match) => match[1]);
+    const paragraph = /^Events from the main process:[\s\S]*?(?=\r?\n\r?\n)/m.exec(section)?.[0];
+    const events = [...(paragraph ?? '').matchAll(/`(koma:[^`]+)`/g)].map((match) => match[1]);
+
+    const compare = (kind: string, documented: (string | undefined)[], contract: string[]) => [
+      ...contract
+        .filter((name) => !documented.includes(name))
+        .map((name) => `${kind} ${name} is in the contract but missing from ARCHITECTURE.md`),
+      ...documented
+        .filter((name) => name === undefined || !contract.includes(name))
+        .map((name) => `${kind} ${String(name)} is in ARCHITECTURE.md but not in the contract`),
+      ...documented
+        .filter((name, index) => documented.indexOf(name) !== index)
+        .map((name) => `${kind} ${String(name)} is listed twice in ARCHITECTURE.md`),
+    ];
+    // An empty list passes. A failure names every channel that needs a line added or removed.
+    expect([
+      ...compare('request channel', rows, Object.keys(ipcContract)),
+      ...compare('event', events, Object.keys(ipcEvents)),
+    ]).toEqual([]);
+  });
+
   it('has no channel that accepts a path, a command or arbitrary data', () => {
     for (const [channel, contract] of Object.entries(ipcContract)) {
       const request = contract.request.safeParse({

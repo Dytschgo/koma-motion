@@ -1,0 +1,151 @@
+import { expect, test, type Page } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
+import {
+  launchApplication,
+  openSettingsPage,
+  type RunningApplication,
+  openBrandKit,
+} from './application';
+import { openKomaActions } from './komaControls';
+
+let running: RunningApplication;
+test.beforeEach(async () => {
+  running = await launchApplication({ env: { KOMA_MOCK_DELAY_MS: '100' } });
+  await running.window.getByRole('button', { name: 'Create a project' }).click();
+});
+test.afterEach(async () => {
+  await running.close();
+});
+
+async function capture(page: Page, name: string): Promise<void> {
+  await page.screenshot({ path: test.info().outputPath(`${name}.png`), scale: 'css' });
+  await writeFile(
+    test.info().outputPath(`${name}-buttons.json`),
+    JSON.stringify(
+      await page.locator('button, summary').evaluateAll((buttons) =>
+        buttons.map((button) => ({
+          text: button.textContent?.trim(),
+          label: button.getAttribute('aria-label'),
+          title: button.getAttribute('title'),
+          role: button.getAttribute('role'),
+          disabled: button.hasAttribute('disabled'),
+          visible: button.getClientRects().length > 0,
+        })),
+      ),
+      null,
+      2,
+    ),
+  );
+}
+
+async function demo(): Promise<void> {
+  const { window } = running;
+  await window.getByRole('button', { name: 'Use the example request' }).click();
+  await window.getByRole('button', { name: 'Generate Komas', exact: true }).click();
+  await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
+}
+
+test('the filmstrip keeps the full Koma menu, keyboard dismissal and destructive confirmation', async () => {
+  const { window, application } = running;
+  await application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 700),
+  );
+  await capture(window, '01-empty-editor');
+  await demo();
+  const trigger = window.getByRole('button', { name: 'Koma actions', exact: true });
+  await trigger.focus();
+  await trigger.press('Enter');
+  const menu = window.getByRole('menu', { name: 'Koma actions', exact: true });
+  for (const action of [
+    'New Koma after',
+    'Duplicate Koma',
+    'Move Koma left',
+    'Move Koma right',
+    'Delete Koma',
+  ]) {
+    await expect(menu.getByRole('menuitem', { name: action, exact: true })).toBeVisible();
+  }
+  await expect(menu.getByRole('menuitem', { name: 'Move Koma left', exact: true })).toBeDisabled();
+  await expect(menu.getByRole('menuitem', { name: 'Move Koma right', exact: true })).toBeEnabled();
+  await capture(window, '02-koma-menu');
+  await menu.getByRole('menuitem').first().press('End');
+  await expect(menu.getByRole('menuitem', { name: 'Delete Koma', exact: true })).toBeFocused();
+  await window.keyboard.press('Escape');
+  await expect(trigger).toBeFocused();
+  const reopened = await openKomaActions(window);
+  await reopened.getByRole('menuitem', { name: 'Delete Koma', exact: true }).click();
+  const confirmation = window.getByRole('dialog', { name: 'Delete Koma 1?', exact: true });
+  await expect(confirmation).toContainText('You can undo this.');
+  await confirmation.getByRole('button', { name: 'Keep Koma', exact: true }).click();
+  await expect(
+    window.getByRole('button', { name: 'Koma 1: One connected system', exact: true }),
+  ).toBeVisible();
+  await expect(trigger).toBeFocused();
+  expect(running.problems).toEqual([]);
+});
+
+test('returning from Brand Kit restores Inspector focus and concise template actions still fill and save drafts', async () => {
+  const { window, application } = running;
+  await application.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 800),
+  );
+  await openBrandKit(window);
+  const back = window.getByRole('button', { name: 'Back to Inspector', exact: true });
+  await expect(back).toHaveAttribute('title', 'Back to Inspector');
+  await expect(back).toBeInViewport({ ratio: 1 });
+  await capture(window, '02-brand-kit-navigation');
+  await back.focus();
+  await back.press('Enter');
+  const inspector = window.getByRole('complementary', { name: 'Inspector', exact: true });
+  await expect(inspector).toBeVisible();
+  // An empty project has no Inspector tabs; focus returns to the properties surface.
+  await expect(window.getByRole('region', { name: 'Properties', exact: true })).toBeFocused();
+  await window.getByRole('button', { name: 'Add first Koma', exact: true }).click();
+  await openBrandKit(window);
+  await back.press('Enter');
+  await expect(inspector.getByRole('tab', { selected: true })).toBeFocused();
+  // Provider refresh stays one menu away instead of in a permanent header.
+  await window.getByRole('button', { name: 'Project menu', exact: true }).click();
+  await expect(
+    window.getByRole('menuitem', { name: 'Refresh providers', exact: true }),
+  ).toBeVisible();
+  await window.keyboard.press('Escape');
+  await expect(window.getByRole('button', { name: 'Project menu', exact: true })).toBeFocused();
+  await openSettingsPage(window, 'Instructions');
+  await window.getByLabel('Project system instructions').fill('Use plain language.');
+  await openSettingsPage(window, 'Templates');
+  const settings = window.getByRole('dialog', { name: 'Settings', exact: true });
+  await expect(
+    settings.getByRole('button', { name: 'Refresh templates', exact: true }),
+  ).toHaveAttribute('title', 'Refresh templates');
+  await settings.getByRole('button', { name: 'Use project instructions', exact: true }).click();
+  await expect(settings.getByLabel('New template instructions')).toHaveValue('Use plain language.');
+  await settings.getByLabel('New template name').fill('Plain');
+  await settings.getByRole('button', { name: 'Save new template', exact: true }).click();
+  await expect(
+    settings.getByRole('status').filter({ hasText: 'Template library saved' }),
+  ).toBeVisible();
+  await settings.getByLabel('Saved instruction template').selectOption({ label: 'Plain' });
+  const refreshTemplates = settings.getByRole('button', { name: 'Refresh templates', exact: true });
+  await refreshTemplates.scrollIntoViewIfNeeded();
+  await expect(refreshTemplates).toBeInViewport({ ratio: 1 });
+  await capture(window, '03-template-refresh');
+  await settings
+    .getByRole('button', { name: 'Rename template', exact: true })
+    .scrollIntoViewIfNeeded();
+  for (const action of ['Rename', 'Duplicate', 'Delete']) {
+    await expect(
+      settings.getByRole('button', { name: `${action} template`, exact: true }),
+    ).toHaveText(action);
+    await expect(
+      settings.getByRole('button', { name: `${action} template`, exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+  }
+  await capture(window, '03-template-actions');
+  await openSettingsPage(window, 'Providers');
+  const refreshProviders = settings.getByRole('button', { name: 'Refresh providers', exact: true });
+  await refreshProviders.scrollIntoViewIfNeeded();
+  await expect(refreshProviders).toBeInViewport({ ratio: 1 });
+  await capture(window, '04-provider-actions');
+  expect(running.problems).toEqual([]);
+});

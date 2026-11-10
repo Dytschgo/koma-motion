@@ -17,6 +17,8 @@ import {
   launchApplication,
   showInspector,
   type RunningApplication,
+  chooseProjectCommand,
+  showTransitionControls,
 } from './application';
 
 let running: RunningApplication;
@@ -36,21 +38,29 @@ interface Box {
 
 /** Where objects are drawn, in logical canvas units, so that a change of zoom does not matter. */
 async function drawnBoxes(locators: readonly Locator[]): Promise<Box[]> {
-  const canvas = await stage().boundingBox();
-  if (canvas === null) throw new Error('The canvas is not drawn');
-  const unit = 1920 / canvas.width;
-  const boxes: Box[] = [];
-  for (const locator of locators) {
-    const box = await locator.boundingBox();
-    if (box === null) throw new Error('An object is not drawn');
-    boxes.push({
-      x: (box.x - canvas.x) * unit,
-      y: (box.y - canvas.y) * unit,
-      width: box.width * unit,
-      height: box.height * unit,
-    });
+  const elements = await Promise.all(locators.map((locator) => locator.elementHandle()));
+  try {
+    // Opening transition controls can refit the canvas. Read its rectangle
+    // and every object in one browser task, so they share the same fit scale.
+    return await stage().evaluate((node, targets) => {
+      const canvas = node.getBoundingClientRect();
+      if (canvas.width <= 0) throw new Error('The canvas is not drawn');
+      const unit = 1920 / canvas.width;
+      return targets.map((element) => {
+        if (element === null || !element.isConnected || element.getClientRects().length === 0)
+          throw new Error('An object is not drawn');
+        const box = element.getBoundingClientRect();
+        return {
+          x: (box.x - canvas.x) * unit,
+          y: (box.y - canvas.y) * unit,
+          width: box.width * unit,
+          height: box.height * unit,
+        };
+      });
+    }, elements);
+  } finally {
+    await Promise.all(elements.map((element) => element?.dispose()));
   }
-  return boxes;
 }
 
 function expectSameBoxes(actual: readonly Box[], expected: readonly Box[]): void {
@@ -160,6 +170,7 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
   ).toHaveText(['Badge', 'Caption']);
   await expect(layers.getByRole('button', { name: /^Group, Group of 2/ })).toBeVisible();
   // Motion to the next Koma is recomputed and still plays.
+  await showTransitionControls(window);
   await expect(window.getByRole('region', { name: /^Transition 1 to 2\./ })).toHaveCount(0);
   await expect(
     window.getByRole('group', { name: 'Transition preview' }).getByRole('button', { name: 'Play' }),
@@ -176,7 +187,7 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
   await expect(stage().locator('[data-element-id]')).toHaveCount(2);
 
   await answerSaveDialog(application, source);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(source, 'utf8')));
   const group = saved.presentation.komas[0]?.elements.find((element) => element.type === 'group');
@@ -207,7 +218,11 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
   );
 
   await answerOpenDialog(application, source);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
+  // The canvas looks the same before and after the reopen, so it cannot tell
+  // when the reopen is done. Opening a project closes the properties panel:
+  // wait for that, or the panel shown below is closed again under the test.
+  await expect(inspector).toBeHidden();
   await expect(stage().locator('[data-element-id]')).toHaveCount(2);
   await expect(stage().locator(`[data-element-id="${group.id}"]`)).toBeVisible();
   await showInspector(window);
@@ -238,7 +253,7 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
   await window.keyboard.press('ControlOrMeta+Shift+z');
   await expect(stage().locator('[data-element-id]')).toHaveCount(3);
 
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const ungrouped = komaProjectSchema.parse(JSON.parse(await readFile(source, 'utf8')));
   expect(ungrouped.presentation.komas[0]?.elements).toEqual(first.elements);

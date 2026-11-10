@@ -120,6 +120,7 @@ function PresentationReview({
         <>
           <Button
             variant="outline"
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- a modal dialog must take focus; it starts on the safe answer.
             autoFocus
             onClick={() => {
               returnToEdit(problems[0]?.from.id ?? null);
@@ -472,7 +473,7 @@ function PresentationPlayer({
       <div
         role="group"
         aria-label="Presentation controls"
-        className="flex h-14 flex-none items-center gap-1 border-t border-white/10 bg-surface-0/95 px-3"
+        className="flex h-14 flex-none items-center gap-1 border-t border-line bg-surface-1 px-3"
       >
         <Button
           compact
@@ -503,6 +504,7 @@ function PresentationPlayer({
         <IconButton
           label="Next"
           aria-keyshortcuts="ArrowRight"
+          // eslint-disable-next-line jsx-a11y/no-autofocus -- the player covers the editor when the user starts presenting, so focus moves to its main control.
           autoFocus
           disabled={!canAdvance && session.motion === null}
           onClick={next}

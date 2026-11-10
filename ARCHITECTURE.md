@@ -9,12 +9,14 @@ organised and why.
 ```text
 apps/
   desktop/              the Electron application
-    src/main/           main process: windows, files, agent processes
-    src/preload/        the bridge between the window and the main process
+    src/main/           main process: windows, files, agent processes, updates
+    src/preload/        the bridge of the window, and of the two helper windows
     src/shared/         the IPC contract, used by both sides
-    src/renderer/       the user interface
-    scripts/            build, development and start scripts
+    src/renderer/       the user interface, and the pages of the helper windows
+    scripts/            build, development, packaging and release scripts
+    build/              icon and macOS entitlements for packaging
     e2e/                tests that run the built application
+    e2e-packaged/       a test that runs the packaged application
 packages/
   core/                 the document model
   brand-kit/            Brand Kit defaults, editing and agent context
@@ -23,8 +25,11 @@ packages/
   agent-runtime/        agent providers and the generation contract
   renderer/             drawing Komas with React
   exporters/            exporter interface and editable PowerPoint writer
-docs/                   documentation
-examples/               example projects
+scripts/                install scripts and the import boundary rule
+docs/                   documentation, indexed in docs/README.md
+examples/               an example project and the starter projects
+.agents/skills/         verification guides for agents
+.github/workflows/      CI, nightly and release workflows
 ```
 
 The repository is a pnpm workspace. Packages export their TypeScript source
@@ -34,15 +39,18 @@ makes every change visible immediately.
 
 ## Package responsibilities
 
-| Package          | Responsibility                                                                                                               | Runs in                        |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| `core`           | schemas and types of projects, Komas, elements and transitions; colours; identifiers; document operations                    | everywhere                     |
-| `brand-kit`      | default Brand Kit, validation of editor input, contrast checks, the Brand Kit as agents see it, the saved-kit library format | everywhere                     |
-| `project-format` | deterministic serialisation, parsing, migrations, warnings; whole-file replacement under `/node`                             | everywhere, `/node` in Node.js |
-| `motion-engine`  | comparing Komas, building and validating transitions, computing frames                                                       | everywhere                     |
-| `agent-runtime`  | request and response contract, prompts, validation, conversion, registry, runner, mock provider; CLI providers under `/node` | everywhere, `/node` in Node.js |
-| `renderer`       | React components that draw frames, asset loading, playback                                                                   | browser                        |
-| `exporters`      | exporter interface and editable PowerPoint writer with slide transitions                                                     | Node.js                        |
+| Package          | Responsibility                                                                                                                                                                                                                        | Runs in                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `core`           | schemas and types of projects, Komas, elements and transitions; colours; geometry; identifiers; document operations; grouping; project warnings                                                                                       | everywhere                     |
+| `brand-kit`      | default Brand Kit, validation of editor input, contrast checks, the Brand Kit as agents see it, the saved-kit library format, applying a kit to a project, starter presets                                                            | everywhere                     |
+| `project-format` | deterministic serialisation, parsing, migrations, warnings; whole-file replacement under `/node`                                                                                                                                      | everywhere, `/node` in Node.js |
+| `motion-engine`  | comparing Komas, building and validating transitions, computing frames                                                                                                                                                                | everywhere                     |
+| `agent-runtime`  | request and response contracts for generation, transition regeneration and brand analysis; prompts, validation, conversion, registry, runner, mock provider; CLI providers, their image generation and process handling under `/node` | everywhere, `/node` in Node.js |
+| `renderer`       | React components that draw frames, asset loading, playback, in-place text editing and the geometry of canvas editing                                                                                                                  | browser                        |
+| `exporters`      | exporter interface and editable PowerPoint writer with slide transitions                                                                                                                                                              | Node.js                        |
+
+`core` and `agent-runtime` also have a `/testing` entry point with fixtures
+for unit tests.
 
 ### Deviations from the proposed layout
 
@@ -109,10 +117,15 @@ code also cannot import or re-export a `/node` entry point, even within its own
 package. This keeps the renderer's allowed package entries portable. Shared IPC
 types remain available to the renderer.
 
-Files ending in `.test.ts` may import Node utilities and Vitest for fixtures;
-they still obey package directions, the desktop boundary and renderer bans on
-Electron and privileged entry points. Test helpers without that suffix follow
-the production rules, and production code cannot import unit-test modules.
+Files ending in `.test.ts` or `.test.tsx` are unit tests: Vitest collects
+exactly these two suffixes, and `.test.tsx` is for component tests that render
+JSX. They may import Node utilities and Vitest for fixtures; they still obey
+package directions, the package dependency allowlist, the desktop boundary and
+renderer bans on Electron and privileged entry points. Test helpers without
+one of those suffixes follow the production rules, and production code cannot
+import unit-test modules. Component tests of the desktop renderer may use
+Testing Library, a development dependency of the application; packages render
+with `react-dom` so their allowlist stays as it is.
 The regression suite runs with the existing desktop
 script tests and proves the real ESLint CLI rejects an invalid core import
 without disabling type-aware rules.
@@ -133,6 +146,7 @@ KomaProject
       elementTransitions[]
   assets[]
   agentConfiguration
+  systemInstructions
   generationHistory[]
 ```
 
@@ -155,11 +169,11 @@ the same `persistentId` in different Komas are one object in two states.
 
 Persistent identity is what turns a sequence of pages into motion. It is part
 of the model from the first version and is used by the motion engine, the
-agent contract, the Koma strip and the inspector. See `docs/MOTION_MODEL.md`.
+agent contract, the filmstrip and the Inspector. See `docs/MOTION_MODEL.md`.
 
 ## Motion engine
 
-The motion engine has four tasks:
+The motion engine has five tasks:
 
 | Function             | Task                                                          |
 | -------------------- | ------------------------------------------------------------- |
@@ -224,25 +238,57 @@ choreography are not represented. It writes a temporary file before replacing
 the destination. See `docs/POWERPOINT_EXPORT_RESEARCH.md` for verified
 PowerPoint behavior and remaining gaps.
 
-Reference files are another main-process file boundary. A native dialog selects
-TXT, Markdown or PDF files. Text is extracted locally within bounds; PDF text
-parsing runs in a disposable sandboxed helper. The renderer receives extracted
-text without source paths and holds it for the current project session,
-outside the `.koma` model. Generation sends numbered source labels and text as
-marked untrusted prompt data, with separate consent before
-an external provider receives it. File names and reference IDs stay out of
-that prompt section. See
+## File boundaries
+
+Project files and PowerPoint export are two places where the main process
+touches files a person chose. There are four more. In each, a native dialog is
+the only source of a path, the main process checks size and type before it
+reads, and the renderer receives prepared content without paths.
+
+**Images.** A native dialog selects one image for the Brand Kit logo or for a
+Koma. The main process recognises the type by content, not by file name, and
+copies the bytes into the project as an asset.
+
+**Reference files.** A native dialog selects TXT, Markdown or PDF files. Text
+is extracted locally within bounds. The renderer holds the extracted text for
+the current project session, outside the `.koma` model. Generation sends
+numbered source labels and text as marked untrusted prompt data, with separate
+consent before an external provider receives it. File names and reference IDs
+stay out of that prompt section. See
 `.agents/skills/verify-koma-motion/export-references.md`.
 
-Brand material is a third file boundary. A native dialog selects up to eight
-images, PDFs or PPTX decks. The main process checks count, size and type,
-prepares bounded previews and text, and decodes images in the disposable
-sandboxed renderer. The renderer receives display names and prepared content
-without paths and shows exactly what an analysis would send. One analysis by
-Claude Code with Opus proposes a Brand Kit and project instructions; the
-validated proposal is reviewed and edited before it is saved as one library
-entry or applied as one project command. See
+**Brand material.** A native dialog selects up to eight images, PDFs or PPTX
+decks. The main process checks count, size and type and prepares bounded
+previews and text. The renderer shows exactly what an analysis would send. One
+analysis by Claude Code with Opus proposes a Brand Kit and project
+instructions; the validated proposal is reviewed and edited before it is saved
+as one library entry or applied as one project command. See
 `docs/BRAND_PROFILE_FROM_REFERENCES.md`.
+
+**Deck import.** A native dialog selects one PPTX or PDF deck of at most
+32 MiB for **Create Brand Kit from deck**. The main process inspects a PPTX
+(`services/deckPptx.ts`), collects logo candidates from its media and converts
+it to PDF with a local LibreOffice, started without a shell in a temporary
+folder that is removed afterwards. The PDF pages are rendered to previews
+(`services/deckPdf.ts`); at most 20 slides are prepared. The renderer shows
+the previews and warnings before anything is sent. One analysis by Claude Code
+with Opus, limited to three minutes, proposes a Brand Kit; the validated
+proposal is reviewed and edited before it is saved as one library entry. The
+open project does not change until the kit is applied. Progress arrives as
+`koma:deck:progress` events. See `docs/BRAND_KIT_FROM_DECK.md`.
+
+### Helper windows
+
+PDF parsing and image decoding do not run in the main process or in the
+application window. The main process opens a hidden, sandboxed window for one
+job and destroys it afterwards: one kind extracts reference text from a PDF
+(`services/referencePdf.ts`), the other renders deck pages and decodes brand
+images (`services/deckPdf.ts`). Each kind has its own session without a cache,
+hardened like the session of the application window, its own page of the
+renderer bundle and its own small preload script. These windows talk to the
+main process over private channels that are not part of the IPC contract
+below. The main process accepts them only from the helper window it started
+and validates every result with a schema.
 
 ## Electron process boundaries
 
@@ -270,60 +316,86 @@ entry or applied as one project command. See
   edited and sends complete projects to the main process to save them.
 - The **preload script** exposes two functions, `invoke` and `subscribe`.
   Both accept only channel names from a fixed list.
+- The **helper windows** described under [File boundaries](#helper-windows)
+  are separate sandboxed renderers with their own preload scripts.
+
+One instance runs per data folder. A second start quits and brings the window
+of the running instance to the front, so two processes never write the saved
+Brand Kits or instruction templates at the same time.
 
 ### What the main process remembers
 
 The main process keeps the path of the open project and whether there are
 unsaved changes. The path is set by native dialogs only. "Save" writes to
-that path; the renderer cannot name a path.
+that path; the renderer cannot name a path. It also owns the crash recovery
+record described below.
 
 ## IPC boundaries
 
 The contract is defined once, in `apps/desktop/src/shared/ipc.ts`, with a
 schema for the request and the response of every channel.
 
-| Channel                        | Purpose                                     |
-| ------------------------------ | ------------------------------------------- |
-| `koma:project:create`          | create a project                            |
-| `koma:project:open`            | choose and open a project                   |
-| `koma:project:save`            | save to the current file                    |
-| `koma:project:save-as`         | choose a file and save                      |
-| `koma:brand-kit:select-logo`   | choose an image as logo                     |
-| `koma:brand-kits:list`         | read the saved Brand Kit library            |
-| `koma:brand-kits:create`       | save a Brand Kit and its logo               |
-| `koma:brand-kits:update`       | replace a saved kit with project values     |
-| `koma:brand-kits:rename`       | rename a saved kit                          |
-| `koma:brand-kits:duplicate`    | copy a saved kit                            |
-| `koma:brand-kits:delete`       | delete a saved kit                          |
-| `koma:brand-kits:load`         | read a saved kit and its logo to apply it   |
-| `koma:brand-kits:start-new`    | keep an unreadable library as a backup      |
-| `koma:providers:detect`        | detect all providers                        |
-| `koma:providers:list-models`   | list the models of a signed-in CLI          |
-| `koma:references:select`       | choose files and extract bounded text       |
-| `koma:brand-profile:attach`    | choose brand material and prepare it        |
-| `koma:brand-profile:analyze`   | propose a Brand Kit and instructions        |
-| `koma:brand-profile:cancel`    | stop the analysis or discard the draft      |
-| `koma:brand-profile:save`      | save kit and instructions as one entry      |
-| `koma:providers:execute`       | run a generation                            |
-| `koma:export:validate`         | check PPTX export and fidelity warnings     |
-| `koma:export:powerpoint`       | choose destination and write PPTX           |
-| `koma:providers:cancel`        | stop a generation                           |
-| `koma:app:set-unsaved-changes` | tell the main process about unsaved changes |
-| `koma:app:confirm-close`       | close after saving                          |
-| `koma:app:set-full-screen`     | full screen for a presentation, and restore |
-| `koma:app:get-info`            | version, platform, exporters                |
-| `koma:updates:get-status`      | the state of updating                       |
-| `koma:updates:check`           | check for an update                         |
-| `koma:updates:set-channel`     | choose the stable or the nightly channel    |
-| `koma:updates:download`        | download the update that was found          |
-| `koma:updates:copy-command`    | copy the prepared macOS update command      |
-| `koma:updates:install`         | restart and install the downloaded update   |
+| Channel                                | Purpose                                                          |
+| -------------------------------------- | ---------------------------------------------------------------- |
+| `koma:project:create`                  | create a project                                                 |
+| `koma:project:open`                    | choose and open a project                                        |
+| `koma:project:save`                    | save to the current file                                         |
+| `koma:project:save-as`                 | choose a file and save                                           |
+| `koma:project:select-image`            | choose an image for a Koma                                       |
+| `koma:recovery:offer`                  | report whether a recovery snapshot waits from an earlier session |
+| `koma:recovery:restore`                | open the waiting snapshot as an unsaved copy                     |
+| `koma:recovery:discard`                | remove the waiting snapshot                                      |
+| `koma:recovery:capture`                | store the edited project as the snapshot, or clear it once saved |
+| `koma:brand-kit:select-logo`           | choose an image as logo                                          |
+| `koma:brand-kits:list`                 | read the saved Brand Kit library                                 |
+| `koma:brand-kits:create`               | save a Brand Kit and its logo                                    |
+| `koma:brand-kits:update`               | replace a saved kit with project values                          |
+| `koma:brand-kits:rename`               | rename a saved kit                                               |
+| `koma:brand-kits:duplicate`            | copy a saved kit                                                 |
+| `koma:brand-kits:delete`               | delete a saved kit                                               |
+| `koma:brand-kits:load`                 | read a saved kit and its logo to apply it                        |
+| `koma:brand-kits:start-new`            | keep an unreadable library as a backup                           |
+| `koma:instruction-templates:list`      | read the saved instruction templates                             |
+| `koma:instruction-templates:change`    | create, rename, duplicate or delete a template                   |
+| `koma:providers:detect`                | detect all providers                                             |
+| `koma:providers:list-models`           | list the models of a signed-in CLI                               |
+| `koma:references:select`               | choose files and extract bounded text                            |
+| `koma:brand-profile:attach`            | choose brand material and prepare it                             |
+| `koma:brand-profile:analyze`           | propose a Brand Kit and instructions                             |
+| `koma:brand-profile:cancel`            | stop the analysis or discard the draft                           |
+| `koma:brand-profile:save`              | save kit and instructions as one entry                           |
+| `koma:deck:capabilities`               | whether Claude Code is ready for deck analysis                   |
+| `koma:deck:prepare`                    | choose a PPTX or PDF deck and prepare slide previews             |
+| `koma:deck:analyze`                    | propose a Brand Kit from the prepared slides                     |
+| `koma:deck:cancel`                     | stop the work and discard the deck draft                         |
+| `koma:deck:save`                       | save the reviewed kit as one library entry                       |
+| `koma:providers:execute`               | run a generation                                                 |
+| `koma:providers:regenerate-transition` | ask a provider for new settings of one transition                |
+| `koma:export:validate`                 | check PPTX export and fidelity warnings                          |
+| `koma:export:powerpoint`               | choose destination and write PPTX                                |
+| `koma:providers:cancel`                | stop a generation                                                |
+| `koma:app:set-unsaved-changes`         | tell the main process about unsaved changes                      |
+| `koma:app:confirm-close`               | close after saving                                               |
+| `koma:app:set-full-screen`             | full screen for a presentation, and restore                      |
+| `koma:app:get-info`                    | version, platform, exporters                                     |
+| `koma:updates:get-status`              | the state of updating                                            |
+| `koma:updates:check`                   | check for an update                                              |
+| `koma:updates:set-channel`             | choose the stable or the nightly channel                         |
+| `koma:updates:download`                | download the update that was found                               |
+| `koma:updates:copy-command`            | copy the prepared macOS update command                           |
+| `koma:updates:install`                 | restart and install the downloaded update                        |
+| `koma:diagnostics:report`              | log class and call sites of a window error                       |
+| `koma:diagnostics:open-folder`         | show the folder of the diagnostics log                           |
+| `koma:diagnostics:copy`                | copy the newest log entries                                      |
 
-Events from the main process: `koma:brand-profile:progress`,
-`koma:providers:status`,
+Events from the main process: `koma:deck:progress`,
+`koma:brand-profile:progress`, `koma:providers:status`,
 `koma:providers:output` (text a provider writes during a chat generation, at
 most 4000 characters per event and one event per 50 ms),
 `koma:app:save-and-close`, `koma:app:full-screen` and `koma:updates:status`.
+
+A test compares this table and this list of events with the contract, so a
+channel cannot be added or removed without its line here.
 
 The update channels carry no addresses. The window chooses a channel; which
 release, manifest and installer that means is decided in the main process
@@ -337,32 +409,52 @@ For every request the main process checks, in this order:
    rejected.
 3. The response matches the schema of the channel before it is sent.
 
+The diagnostics channels carry no path and no log text. A report has a fixed
+shape without a message, is bounded in length, limited to five at once and
+then one every thirty seconds, and filtered again before it is written. The
+window can ask for the log folder to be shown or for the newest entries to be
+copied; it cannot read the log. See `docs/DIAGNOSTICS.md`.
+
 The renderer validates every response and every event again. There is no
 channel that accepts a command, a path or arbitrary data, and a test makes
 sure that the channel list of the preload script equals the contract.
 
 ## Application state
 
-| State                    | Where                                   | Saved with the project |
-| ------------------------ | --------------------------------------- | ---------------------- |
-| project and undo history | `projectStore`                          | the project, yes       |
-| unsaved changes          | derived in `projectStore`               | no                     |
-| selection, view, zoom    | `uiStore`                               | no                     |
-| open Settings page       | `uiStore`                               | no                     |
-| presentation, autoplay   | `presenterStore`                        | no                     |
-| preview                  | `uiStore` and the playback hook         | no                     |
-| agent executions, chat   | `agentStore`                            | no                     |
-| attached brand material  | `brandProfileStore`                     | no                     |
-| extracted references     | `referenceStore`                        | no                     |
-| quick-start completion   | `quickStartStore`, window local storage | no                     |
-| chat sidebar width, open | `uiStore`, window local storage         | no                     |
-| saved Brand Kit library  | `brandKitLibraryStore`, on disk         | no, app data folder    |
-| unfinished editor input  | component state                         | no                     |
+| State                             | Where                                       | Saved with the project |
+| --------------------------------- | ------------------------------------------- | ---------------------- |
+| project and undo history          | `projectStore`                              | the project, yes       |
+| unsaved changes                   | derived in `projectStore`                   | no                     |
+| selection, view, zoom             | `uiStore`                                   | no                     |
+| open Settings page                | `uiStore`                                   | no                     |
+| presentation, autoplay            | `presenterStore`                            | no                     |
+| preview                           | `uiStore` and the playback hook             | no                     |
+| agent executions, chat            | `agentStore`                                | no                     |
+| regeneration of one transition    | `transitionRegenerationStore`               | no                     |
+| favourite models                  | `modelFavoritesStore`, window local storage | no                     |
+| attached brand material           | `brandProfileStore`                         | no                     |
+| deck analysis draft               | component state, main process               | no                     |
+| extracted references              | `referenceStore`                            | no                     |
+| quick-start completion            | `quickStartStore`, window local storage     | no                     |
+| conversation sheet open           | `uiStore`                                   | no                     |
+| properties panel open, view       | `uiStore`                                   | no                     |
+| properties panel pinned           | `uiStore`, window local storage             | no                     |
+| motion controls open              | `uiStore`                                   | no                     |
+| unfinished Brand Kit text         | `uiStore`                                   | no                     |
+| Project health panel, failed open | `healthStore`                               | no                     |
+| state of updating                 | `updateStore`                               | no                     |
+| saved Brand Kit library           | `brandKitLibraryStore`, on disk             | no, app data folder    |
+| saved instruction templates       | component state, on disk                    | no, app data folder    |
+| recovery snapshot                 | main process, on disk                       | no, app data folder    |
+| unfinished editor input           | component state                             | no                     |
+| diagnostics log                   | main process, on disk                       | no, app data folder    |
 
 Changes to the document are commands: pure functions from a project to a
 project (`state/commands.ts`). The store applies a command and records the
-previous project for undo. Commands that change Komas recompute the
-transitions.
+previous project for undo. Commands that change which Komas or objects exist,
+such as adding, deleting, reordering or grouping, recompute the transitions.
+Visual edits of an element leave stored motion alone; a transition that no
+longer matches its Komas is reported and repaired on request.
 
 **Undo and redo are implemented** for all document changes, including
 generation. The history holds up to 100 steps. A series of edits of the same
@@ -384,38 +476,42 @@ therefore clears the indicator.
 
 ## Security decisions
 
-| Decision                                                                                      | Reason                                                                                                       |
-| --------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| Context isolation on, Node.js integration off, sandbox on                                     | code in the window cannot reach Node.js or Electron                                                          |
-| Own protocol `koma://app` instead of `file://`                                                | the window has a real origin, and only files of the renderer bundle can be loaded                            |
-| Content Security Policy without `unsafe-inline` for scripts and without `eval`                | injected markup cannot run code                                                                              |
-| `connect-src 'none'`, a session request filter, and a connection allowlist that blocks WebRTC | the window cannot open its own network connections, including WebRTC over UDP or TCP                         |
-| Repository links open in the system browser                                                   | the renderer can ask the operating system to open only this repository; the browser then reaches the network |
-| Navigation and other new windows blocked                                                      | the window always shows the application                                                                      |
-| Protocol files are resolved through canonical paths                                           | a junction, symlink or alternate stream inside the bundle cannot expose another file                         |
-| All permission requests denied                                                                | the application needs no camera, microphone or location                                                      |
-| No development server                                                                         | development builds use the same protocol and policy as production builds                                     |
-| Paths come from native dialogs only                                                           | the renderer cannot read or write files of its choice                                                        |
-| Images are verified by content and copied into the project                                    | project files cannot make the application read other files                                                   |
-| Agent processes start without a shell                                                         | there is no shell that could interpret input                                                                 |
-| Agent output is validated data                                                                | output of a model cannot execute anything or name files                                                      |
+| Decision                                                                                                 | Reason                                                                                                       |
+| -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Context isolation on, Node.js integration off, sandbox on                                                | code in the window cannot reach Node.js or Electron                                                          |
+| Own protocol `koma://app` instead of `file://`                                                           | the window has a real origin, and only files of the renderer bundle can be loaded                            |
+| Content Security Policy without `unsafe-inline` for scripts and without `eval`                           | injected markup cannot run code                                                                              |
+| `connect-src 'none'`, a session request filter, and a connection allowlist that blocks WebRTC            | the window cannot open its own network connections, including WebRTC over UDP or TCP                         |
+| Repository links open in the system browser                                                              | the renderer can ask the operating system to open only this repository; the browser then reaches the network |
+| Navigation and other new windows blocked                                                                 | the window always shows the application                                                                      |
+| Protocol files are resolved through canonical paths                                                      | a junction, symlink or alternate stream inside the bundle cannot expose another file                         |
+| All permission requests denied                                                                           | the application needs no camera, microphone or location                                                      |
+| No development server                                                                                    | development builds use the same protocol and policy as production builds                                     |
+| Paths come from native dialogs only                                                                      | the renderer cannot read or write files of its choice                                                        |
+| Images are verified by content and copied into the project                                               | project files cannot make the application read other files                                                   |
+| PDFs and uploaded images are parsed in hidden, sandboxed helper windows that are destroyed after one job | a parser that crashes or is exploited is not in the main process and not in the application window           |
+| One running instance per data folder                                                                     | two processes cannot overwrite each other's saved Brand Kits or instruction templates                        |
+| Agent processes and LibreOffice start without a shell                                                    | there is no shell that could interpret input                                                                 |
+| Agent output is validated data                                                                           | output of a model cannot execute anything or name files                                                      |
+| Only the main process writes the diagnostics log, and it records failures, not requests                  | project content, prompts and credentials stay out of a file the user may share                               |
+| A lost page ends its project session in the main process                                                 | a reloaded window cannot save to the file, or write the recovery record, of the page before it               |
 
 `SECURITY.md` describes the policy and how to report a vulnerability.
 
 ## Important trade-offs
 
-| Decision                                                | Benefit                                       | Cost                                                                              |
-| ------------------------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------------------- |
-| Rebuild and restart instead of a dev server             | one security configuration                    | no hot reloading; a change takes a few seconds and resets the state of the window |
-| Assets inside the project file                          | one file, no missing files, no paths          | large files with many images; 2 MB per asset                                      |
-| Snapshots for undo                                      | simple and reliable                           | memory grows with the size of the project, which embedded assets increase         |
-| Whole project sent to the main process                  | the main process validates everything it uses | large IPC messages for projects with images                                       |
-| Agents do not define element operations                 | motion is deterministic and always valid      | an agent cannot ask for an effect the engine does not derive                      |
-| Changes that cannot be interpolated cross-fade          | every change can be played                    | a change of font size is a cross-fade, not a smooth change of size                |
-| Vite used directly, without an Electron build framework | current Vite, few dependencies                | three small build configurations and a development script are maintained here     |
-| TypeScript 6 instead of 7                               | type-aware linting works                      | the newest compiler is not used until the linter supports it                      |
-| Packages export source                                  | no build step, fast feedback                  | packages cannot be published as they are                                          |
-| Element editing through the inspector                   | precise values, accessible with the keyboard  | elements cannot be dragged on the canvas yet                                      |
+| Decision                                                | Benefit                                                                                                  | Cost                                                                                              |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Rebuild and restart instead of a dev server             | one security configuration                                                                               | no hot reloading; a change takes a few seconds and resets the state of the window                 |
+| Assets inside the project file                          | one file, no missing files, no paths                                                                     | large files with many images; 2 MB per asset                                                      |
+| Snapshots for undo                                      | simple and reliable                                                                                      | memory grows with the size of the project, which embedded assets increase                         |
+| Whole project sent to the main process                  | the main process validates everything it uses                                                            | large IPC messages for projects with images                                                       |
+| Agents do not define element operations                 | motion is deterministic and always valid                                                                 | an agent cannot ask for an effect the engine does not derive                                      |
+| Changes that cannot be interpolated cross-fade          | every change can be played                                                                               | a change of font size is a cross-fade, not a smooth change of size                                |
+| Vite used directly, without an Electron build framework | current Vite, few dependencies                                                                           | five small build configurations and a development script are maintained here                      |
+| TypeScript 6 instead of 7                               | type-aware linting works                                                                                 | the newest compiler is not used until the linter supports it                                      |
+| Packages export source                                  | no build step, fast feedback                                                                             | packages cannot be published as they are                                                          |
+| Visual edits leave stored motion alone                  | moving, resizing or restyling an element on the canvas or in the Inspector never changes motion silently | a stored transition can go stale; it is reported and stays unplayable until the person repairs it |
 
 ### Crash recovery state
 
@@ -427,3 +523,15 @@ an unsaved copy; the stored source path only prevents overwriting the original.
 A clean-save acknowledgment must match the validated saved document before the
 snapshot is removed. See [Crash recovery](docs/CRASH_RECOVERY.md) for lifecycle,
 limits and verification.
+
+### Failure handling
+
+A React error boundary at the root replaces a failed interface with a screen
+that offers a reload. The main process supervises the window: a renderer
+process that is gone, or a page that does not respond, leads to a native
+question, and every reload ends at the recovery offer above. An uncaught
+exception in the main process is logged and ends the application; an
+unhandled rejection is logged. The main process writes a bounded diagnostics
+log in private app storage. See
+[Failure handling and the diagnostics log](docs/DIAGNOSTICS.md) for each
+decision, what the log records and what it leaves out.

@@ -4,7 +4,13 @@ import { readFile, readdir, unlink, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { expect, test } from '@playwright/test';
-import { answerOpenDialog, answerSaveDialog, launchApplication } from './application';
+import {
+  answerOpenDialog,
+  answerSaveDialog,
+  launchApplication,
+  chooseProjectCommand,
+  openBrandKit,
+} from './application';
 
 for (const extension of ['pdf', 'pptx']) {
   test(`prepare ${extension}, review/edit, save without changing project, and explicitly apply`, async ({
@@ -39,10 +45,10 @@ for (const extension of ['pdf', 'pptx']) {
       await window.getByRole('button', { name: 'Create a project' }).click();
       const projectPath = join(directory, 'unchanged.koma');
       await answerSaveDialog(application, projectPath);
-      await window.getByRole('button', { name: 'Save', exact: true }).click();
+      await chooseProjectCommand(window, 'Save');
       await expect.poll(() => readFile(projectPath, 'utf8').catch(() => '')).not.toBe('');
       const before = await readFile(projectPath, 'utf8');
-      await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+      await openBrandKit(window);
       await window.getByRole('tab', { name: /Library/ }).click();
       await window.getByRole('button', { name: 'Create Brand Kit from deck' }).click();
       const dialog = window.getByRole('dialog', { name: 'Create Brand Kit from deck' });
@@ -99,9 +105,9 @@ for (const extension of ['pdf', 'pptx']) {
       expect(stored.kits[0]?.logo !== null).toBe(extension === 'pptx');
       expect(JSON.stringify(stored)).not.toContain(directory);
       await window.getByRole('button', { name: 'Apply to this project' }).click();
-      await expect(window.getByRole('button', { name: 'Save', exact: true })).toBeEnabled();
+      await expect(window.getByText('Unsaved changes', { exact: true })).toBeVisible();
       await window.screenshot({ path: testInfo.outputPath(`${extension}-06-applied.png`) });
-      await window.getByRole('button', { name: 'Save', exact: true }).click();
+      await chooseProjectCommand(window, 'Save');
       await expect
         .poll(
           async () =>
@@ -125,7 +131,7 @@ test('encrypted PDF fails recoverably and leaves no deck temporary directory', a
   try {
     const { window, application } = running;
     await window.getByRole('button', { name: 'Create a project' }).click();
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await window.getByRole('tab', { name: /Library/ }).click();
     await window.getByRole('button', { name: 'Create Brand Kit from deck' }).click();
     await answerOpenDialog(application, resolve('e2e/fixtures/decks/encrypted.pdf'));
@@ -147,7 +153,7 @@ test('cancel discards analysis; library failure retains reviewed edits for retry
   const { window, application, directory } = running;
   try {
     await window.getByRole('button', { name: 'Create a project' }).click();
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await window.getByRole('tab', { name: /Library/ }).click();
     const prepare = async () => {
       await window.getByRole('button', { name: 'Create Brand Kit from deck' }).click();
@@ -194,7 +200,7 @@ test('discloses the selected sample and rejects too many pages and invalid PDFs'
   try {
     const { window, application, directory } = running;
     await window.getByRole('button', { name: 'Create a project' }).click();
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await window.getByRole('tab', { name: /Library/ }).click();
     await window.getByRole('button', { name: 'Create Brand Kit from deck' }).click();
     await answerOpenDialog(application, resolve('e2e/fixtures/decks/sample-25.pdf'));
@@ -234,7 +240,7 @@ test('normal shutdown cancels LibreOffice and removes isolated deck files', asyn
   try {
     const { window, application } = running;
     await window.getByRole('button', { name: 'Create a project' }).click();
-    await window.getByRole('button', { name: 'Brand Kit', exact: true }).click();
+    await openBrandKit(window);
     await window.getByRole('tab', { name: /Library/ }).click();
     await window.getByRole('button', { name: 'Create Brand Kit from deck' }).click();
     await answerOpenDialog(application, resolve('e2e/fixtures/decks/northstar.pptx'));

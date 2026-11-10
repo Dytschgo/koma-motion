@@ -251,11 +251,12 @@ longer match and cannot play. The same holds for damaged motion in a file.
 
 The application then:
 
-- disables Play, Restart, the position control and Preview for that
-  transition, and says "Cannot play" next to them,
-- shows a compact status on that transition in the Koma strip, between its
-  source and destination Komas ("Out of date" or "Cannot play"), with
-  **Regenerate transition** when regeneration can rebuild it. The status
+- disables Play, Restart and the position control for that transition, and
+  says "Cannot play" next to them,
+- marks the dot between its source and destination Komas in the filmstrip;
+  selecting the dot opens a compact status below the canvas ("Out of date" or
+  "Cannot play"), with **Regenerate transition** when regeneration can rebuild
+  it. The status
   reports regeneration while it runs, and when it fails or is cancelled.
   Success is announced when the transition can play again,
 - keeps the explanation, and links to both Komas, in a disclosure on that

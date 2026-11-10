@@ -22,7 +22,7 @@ export const SETTINGS_PAGES = [
     id: 'generation',
     label: 'Generation',
     scope: 'project',
-    description: 'Time limit and the model each provider uses for this project.',
+    description: 'Optional time limit for generation. Choose models in chat.',
   },
   {
     id: 'templates',
@@ -46,7 +46,7 @@ export const SETTINGS_PAGES = [
     id: 'about',
     label: 'About',
     scope: 'app',
-    description: 'Version, licence and export formats.',
+    description: 'Version, licence, export formats and the diagnostics log.',
   },
 ] as const satisfies readonly {
   readonly id: string;

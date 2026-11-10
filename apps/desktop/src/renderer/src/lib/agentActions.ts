@@ -111,6 +111,7 @@ function describeModel(
 
 export async function detectProviders(): Promise<void> {
   const agent = useAgentStore.getState();
+  if (agent.detection === 'running') return;
   agent.setDetection('running');
   try {
     const { providers } = await invoke('koma:providers:detect', {});
@@ -128,6 +129,8 @@ export async function detectProviders(): Promise<void> {
  * to replace those edits. A failed result leaves the presentation untouched.
  */
 export async function generate(input: GenerationInput): Promise<void> {
+  // Failed requests retain scope/count, never a second copy of attached reference text.
+  const { references: _references, ...recheckInput } = input;
   const project = selectProject(useProjectStore.getState());
   const sessionId = useProjectStore.getState().sessionId;
   const agent = useAgentStore.getState();
@@ -236,9 +239,9 @@ export async function generate(input: GenerationInput): Promise<void> {
         useAgentStore.getState().setScopedProposal({ ...proposal, invalidReason: issue });
         useAgentStore.getState().addEntry({
           ...streamed(),
-          kind: 'notApplied',
+          kind: 'proposalReady',
           providerName,
-          text: `Proposal ready for ${target.title || 'selected Koma'}. Review it before applying.`,
+          text: `Review the proposal for ${target.title || 'selected Koma'} before applying.`,
         });
         return;
       }
@@ -314,7 +317,7 @@ export async function generate(input: GenerationInput): Promise<void> {
           status: 'failed',
           error,
           diagnostics: outcome.diagnostics,
-          request: input.userRequest,
+          input: recheckInput,
         });
         return;
       }
@@ -339,7 +342,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         status: outcome.status,
         error: outcome.error,
         diagnostics: outcome.diagnostics,
-        request: input.userRequest,
+        input: recheckInput,
       });
     }
   } catch {
@@ -368,7 +371,7 @@ export async function generate(input: GenerationInput): Promise<void> {
         promptTemplate: '',
         attempts: [],
       },
-      request: input.userRequest,
+      input: recheckInput,
     });
   } finally {
     unsubscribeSnapshot();

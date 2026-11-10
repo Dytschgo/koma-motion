@@ -1,0 +1,43 @@
+{
+  "workload": "100 Komas with 20 shapes and 20 text elements each",
+  "before": {
+    "runId": "20261029T210204Z-afe7c55944c5",
+    "sourceHead": "f4cca6fe52e65e047922f859f71d11bf9f545da8",
+    "testOnlyDirty": true,
+    "komas": 100,
+    "elementsPerKoma": 40,
+    "openMs": 778.7742999999991,
+    "initialStages": 100,
+    "initialNodes": 17604,
+    "projectRenameTaskMs": [
+      153.478, 95.393, 96.23200000000001, 96.671, 102.88799999999998, 86.92300000000009
+    ],
+    "contentSize": {
+      "width": 1480,
+      "height": 920
+    },
+    "reducedMotion": true
+  },
+  "after": {
+    "runId": "20261029T212104Z-a51828d67c00",
+    "sourceHead": "f9edc728b98576f6d4c934b450a27157c32f2d63",
+    "clean": true,
+    "komas": 100,
+    "elementsPerKoma": 40,
+    "openMs": 616.4189000000006,
+    "initialStages": 5,
+    "initialNodes": 2314,
+    "projectRenameTaskMs": [
+      72.95299999999999, 64.47999999999998, 46.06099999999999, 50.739000000000004,
+      50.054999999999986, 51.09400000000003
+    ],
+    "contentSize": {
+      "width": 1480,
+      "height": 920
+    },
+    "reducedMotion": true
+  },
+  "stripNodeReductionPercent": 86.8552601681436,
+  "renderedStageReductionPercent": 95,
+  "limits": "Local Windows lab diagnostic, not an image-heavy or macOS benchmark; timing is not a portable latency threshold."
+}

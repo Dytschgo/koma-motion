@@ -2,7 +2,13 @@ import { readFile, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { buildProject } from '@koma-motion/core/testing';
 import { expect, test } from '@playwright/test';
-import { answerOpenDialog, answerSaveDialog, launchApplication } from './application';
+import {
+  answerOpenDialog,
+  answerSaveDialog,
+  launchApplication,
+  chooseProjectCommand,
+  chooseShareCommand,
+} from './application';
 
 for (const externalChange of ['changed', 'removed'] as const) {
   test(`keeps a file ${externalChange} externally and saves local edits to a separate copy`, async () => {
@@ -13,7 +19,7 @@ for (const externalChange of ['changed', 'removed'] as const) {
       const copyPath = join(directory, 'my-copy.koma');
       await writeFile(filePath, JSON.stringify(buildProject({ name: 'Original' })));
       await answerOpenDialog(application, filePath);
-      await window.getByRole('button', { name: 'Open', exact: true }).click();
+      await chooseProjectCommand(window, 'Open');
       await expect(window.getByLabel('Project name')).toHaveValue('Original');
       await window.getByLabel('Project name').fill('My local edit');
 
@@ -24,7 +30,7 @@ for (const externalChange of ['changed', 'removed'] as const) {
         if (externalChange === 'changed') expect(await readFile(filePath, 'utf8')).toBe(external);
         else await expect(readFile(filePath, 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
       };
-      await window.getByRole('button', { name: 'Save', exact: true }).click();
+      await chooseProjectCommand(window, 'Save');
       await expect(window.getByRole('alert')).toContainText(
         'changed or removed outside this window',
       );
@@ -34,14 +40,14 @@ for (const externalChange of ['changed', 'removed'] as const) {
       await window.screenshot({ path: test.info().outputPath('file-conflict.png') });
 
       await answerSaveDialog(application, copyPath);
-      await window.getByRole('button', { name: 'Save as', exact: true }).click();
+      await chooseShareCommand(window, 'Save as');
       await expect(window.getByText('All changes saved', { exact: true })).toBeVisible();
       expect(JSON.parse(await readFile(copyPath, 'utf8'))).toMatchObject({ name: 'My local edit' });
       await expectExternalUntouched();
 
       // Advancing the baseline must allow the next normal save to this new path.
       await window.getByLabel('Project name').fill('My second edit');
-      await window.getByRole('button', { name: 'Save', exact: true }).click();
+      await chooseProjectCommand(window, 'Save');
       await expect(window.getByText('All changes saved', { exact: true })).toBeVisible();
       expect(JSON.parse(await readFile(copyPath, 'utf8'))).toMatchObject({
         name: 'My second edit',

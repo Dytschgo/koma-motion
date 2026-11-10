@@ -23,6 +23,7 @@ import {
   findKoma,
   groupElements,
   insertKoma,
+  isStructurallyEqual,
   moveKoma,
   removeElement,
   removeKoma,
@@ -167,7 +168,7 @@ export const changeElement = (komaId: string, element: KomaElement): ProjectComm
       id: original.id,
       persistentId: original.persistentId,
     });
-    if (JSON.stringify(komaElementSchema.parse(original)) === JSON.stringify(next)) return project;
+    if (isStructurallyEqual(komaElementSchema.parse(original), next)) return project;
     return { ...project, presentation: replaceElement(project.presentation, komaId, next) };
   });
 
@@ -351,6 +352,17 @@ export const addKoma =
 export const deleteKoma = (komaId: string): ProjectCommand =>
   changeKomas((presentation) => removeKoma(presentation, komaId));
 
+/** An exact next-frame copy with new document IDs and the same visual identities. */
+export const duplicateKomaInProject =
+  (komaId: string): ProjectCommand =>
+  (project, idGenerator) =>
+    changeKomas((presentation) => {
+      const source = findKoma(presentation, komaId);
+      return source === undefined
+        ? presentation
+        : insertKoma(presentation, duplicateKoma(source, idGenerator, source.title), source.id);
+    })(project, idGenerator);
+
 export const reorderKoma = (komaId: string, offset: number): ProjectCommand =>
   changeKomas((presentation) => moveKoma(presentation, komaId, offset));
 
@@ -419,8 +431,7 @@ function rebuildTransition(presentation: Presentation, transitionId: string): Pr
   const built = buildTransition({ id: existing.id, from, to, suggestion: existing });
   if (
     !built.ok ||
-    JSON.stringify(built.value.transition.elementTransitions) ===
-      JSON.stringify(existing.elementTransitions)
+    isStructurallyEqual(built.value.transition.elementTransitions, existing.elementTransitions)
   ) {
     return null;
   }

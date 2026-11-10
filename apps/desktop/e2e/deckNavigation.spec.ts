@@ -4,19 +4,31 @@ import { serialiseProject } from '@koma-motion/project-format';
 import { readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
+import { recordInputEvidence } from './inputEvidence';
+import { openKomaActions } from './komaControls';
 import { buildNavigationProject } from '../src/renderer/src/lib/deckNavigation.fixture';
-import { answerOpenDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerOpenDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+} from './application';
 
 let running: RunningApplication;
+let inputEvidence: () => readonly unknown[];
 test.beforeEach(async () => {
   running = await launchApplication();
+  inputEvidence = await recordInputEvidence(running.window);
 });
 test.afterEach(async () => {
+  await writeFile(
+    test.info().outputPath('input-events.json'),
+    JSON.stringify(inputEvidence(), null, 2),
+  );
   await running.close();
 });
 
-async function openLongDeck() {
-  const project = buildNavigationProject();
+async function openLongDeck(project: KomaProject = buildNavigationProject()) {
   const encoded = serialiseProject(project);
   if (!encoded.ok) throw new Error(encoded.error.message);
   const source = join(running.directory, 'navigation.koma');
@@ -48,7 +60,7 @@ async function overview() {
 }
 
 async function saveAndRead(source: string) {
-  await running.window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(running.window, 'Save');
   await expect(running.window.getByText('All changes saved')).toBeVisible();
   return komaProjectSchema.parse(JSON.parse(await readFile(source, 'utf8')));
 }
@@ -128,19 +140,47 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   await dialog.getByLabel('Find a Koma').press('Escape');
   await expectSelected(19, 'Chapter 19');
   await window
-    .getByRole('button', { name: 'Preview the transition from Koma 19 to Koma 20', exact: true })
+    .getByRole('button', { name: 'Edit motion from Koma 19 to Koma 20', exact: true })
     .click();
-  await expect(window.getByRole('button', { name: 'Move Koma up', exact: true })).toBeEnabled();
-  await expect(window.getByRole('button', { name: 'Move Koma down', exact: true })).toBeEnabled();
+  await expectSelected(19, 'Chapter 19');
+  await window
+    .getByRole('group', { name: 'Transition preview' })
+    .getByRole('button', { name: 'Play', exact: true })
+    .click();
+  // First verify explicit playback completes the reduced-motion cut. The
+  // following menu checks need a stable preview, not a race against its 400ms.
+  await expectSelected(20, 'Chapter 20');
+  await window.getByRole('button', { name: 'Koma 19: Chapter 19', exact: true }).click();
+  const position = window.getByLabel('Position in the transition');
+  await position.fill('500');
+  await expect(position).toHaveAttribute('aria-valuetext', '50 percent');
+  await expect(
+    window.getByRole('region', { name: 'Canvas' }).locator('[data-koma-stage]'),
+  ).toHaveAttribute('aria-label', 'Preview of the transition from Chapter 19 to Chapter 20');
+  const duringPreview = await openKomaActions(window);
+  await expect(
+    duringPreview.getByRole('menuitem', { name: 'Move Koma left', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    duringPreview.getByRole('menuitem', { name: 'Move Koma right', exact: true }),
+  ).toBeEnabled();
+  await window.keyboard.press('Escape');
   dialog = await overview();
   await expect(dialog.getByLabel('Move to position')).toBeDisabled();
   await expect(dialog.getByRole('button', { name: 'Move Koma', exact: true })).toBeDisabled();
   await expect(dialog.getByText('Stop the preview before moving a Koma.')).toBeVisible();
   await dialog.getByLabel('Find a Koma').press('Escape');
+  await expect(position).toHaveAttribute('aria-valuetext', '50 percent');
   await window.getByRole('button', { name: 'Stop preview', exact: true }).click();
-  await expect(window.getByRole('button', { name: 'Move Koma up', exact: true })).toBeEnabled();
-  await expect(window.getByRole('button', { name: 'Move Koma down', exact: true })).toBeEnabled();
-  await expect(window.getByRole('button', { name: 'Delete Koma', exact: true })).toBeEnabled();
+  const actions = await openKomaActions(window);
+  await expect(
+    actions.getByRole('menuitem', { name: 'Move Koma left', exact: true }),
+  ).toBeEnabled();
+  await expect(
+    actions.getByRole('menuitem', { name: 'Move Koma right', exact: true }),
+  ).toBeEnabled();
+  await expect(actions.getByRole('menuitem', { name: 'Delete Koma', exact: true })).toBeEnabled();
+  await window.keyboard.press('Escape');
   await expect(window.getByRole('button', { name: 'Add Koma', exact: true })).toBeEnabled();
   await window.screenshot({
     path: test.info().outputPath('narrow-deck-selection.png'),
@@ -148,6 +188,93 @@ test('searches a 100-Koma deck by metadata with narrow keyboard navigation, focu
   });
   expect(running.problems).toEqual([]);
 });
+
+for (const aspectRatio of ['16:9', '4:3'] as const) {
+  test(`visual overview keeps search and move controls reachable in a short window (${aspectRatio})`, async () => {
+    const { window, application } = running;
+    await application.evaluate(({ BrowserWindow }) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(1120, 668);
+    });
+    await expect
+      .poll(() => window.evaluate(() => ({ width: innerWidth, height: innerHeight })))
+      .toEqual({ width: 1120, height: 668 });
+    await window.emulateMedia({ reducedMotion: 'reduce' });
+    const fixture = buildNavigationProject();
+    const title = 'UnbrokenLongTitle'.repeat(15);
+    await openLongDeck({
+      ...fixture,
+      presentation: {
+        ...fixture.presentation,
+        aspectRatio,
+        komas: fixture.presentation.komas.map((koma, index) =>
+          index === 99 ? { ...koma, title } : koma,
+        ),
+      },
+    });
+    const dialog = await overview();
+    const results = dialog.getByRole('list', { name: 'Deck overview', exact: true });
+    const current = results.getByRole('button', { name: 'Koma 1: Chapter 1', exact: true });
+    await expect(current).toHaveAttribute('aria-current', 'true');
+    await expect(current.getByText('Selected', { exact: true })).toBeVisible();
+    await expect(current.locator('[data-koma-stage]')).toBeVisible();
+    await dialog.getByLabel('Find a Koma').press('Enter');
+    await expect(dialog).toBeVisible();
+    await dialog.getByLabel('Find a Koma').press('Tab');
+    await expect(current).toBeFocused();
+    await current.press('Tab');
+    await expect(dialog.getByLabel('Move to position')).toBeFocused();
+    await dialog.getByLabel('Move to position').press('Shift+Tab');
+    await current.press('ArrowUp');
+    await expect(dialog.getByLabel('Find a Koma')).toBeFocused();
+    await expect(
+      results.getByRole('button', { name: 'Koma 2: Chapter 2', exact: true }),
+    ).toContainText('Hold 1.2 s');
+    await dialog.getByLabel('Find a Koma').press('ArrowDown');
+    await window.keyboard.press('End');
+    const last = results.getByRole('button', { name: `Koma 100: ${title}`, exact: true });
+    await expect(last).toBeFocused();
+    await expect(last).toBeInViewport({ ratio: 1 });
+    await expect(last.locator('[data-koma-stage]')).toBeVisible();
+    await expect(dialog.getByLabel('Find a Koma')).toBeInViewport({ ratio: 1 });
+    await expect(dialog.getByLabel('Move to position')).toBeInViewport({ ratio: 1 });
+    await expect(dialog.getByRole('button', { name: 'Close overview' })).toBeInViewport({
+      ratio: 1,
+    });
+    expect(
+      await dialog.evaluate(
+        (node) => node.scrollWidth <= node.clientWidth && node.scrollHeight <= node.clientHeight,
+      ),
+    ).toBe(true);
+    await window.screenshot({
+      path: test.info().outputPath(`overview-short-${aspectRatio.replace(':', '-')}.png`),
+      scale: 'css',
+    });
+    await last.press('Enter');
+    await expectSelected(100, title);
+    const reopened = await overview();
+    await expect(
+      reopened.getByRole('button', { name: `Koma 100: ${title}`, exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await reopened.getByLabel('Find a Koma').press('Enter');
+    await expect(reopened).toBeVisible();
+    await reopened.getByLabel('Find a Koma').press('ArrowDown');
+    await expect(
+      reopened.getByRole('button', { name: `Koma 100: ${title}`, exact: true }),
+    ).toBeFocused();
+    await expect(
+      reopened.getByText(`Selected: Koma 100 — ${title}`, { exact: true }),
+    ).toBeInViewport({ ratio: 1 });
+    await reopened.getByLabel('Find a Koma').fill('no matching metadata');
+    await expect(reopened.getByText('No Komas match this search.')).toBeVisible();
+    await expect(reopened.getByRole('button', { name: 'Close overview' })).toBeInViewport({
+      ratio: 1,
+    });
+    await reopened.getByRole('button', { name: 'Close overview' }).click();
+    await expect(window.getByRole('button', { name: /^Deck overview/ })).toBeFocused();
+    await expect(window.getByRole('button', { name: 'Undo', exact: true })).toBeDisabled();
+    expect(running.problems).toEqual([]);
+  });
+}
 
 test('moves first to last and back, moves a middle Koma, and retains holds and adjacent motion through undo, redo and save/reopen', async () => {
   test.setTimeout(120_000);
@@ -214,7 +341,7 @@ test('moves first to last and back, moves a middle Koma, and retains holds and a
   expectPreserved(first, middle);
   expect(middle.presentation.komas[74]?.holdDurationMs).toBe(6000);
   await answerOpenDialog(application, source);
-  await window.getByRole('button', { name: 'Open', exact: true }).click();
+  await chooseProjectCommand(window, 'Open');
   await expect(window.getByLabel('Project name')).toHaveValue(project.name);
   dialog = await overview();
   await dialog.getByLabel('Find a Koma').fill('quarterly revenue');

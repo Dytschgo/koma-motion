@@ -71,7 +71,31 @@ export class RecoveryService {
   }
 
   private load(): Promise<void> {
-    this.loaded ??= withProjectFileOperation(async () => {
+    this.loaded ??= this.read();
+    return this.loaded;
+  }
+
+  /**
+   * For a window whose page was lost while the application kept running: a
+   * crashed or reloaded renderer. Captures that were already admitted finish
+   * first. Then the session ends and the record on disk is read again, so the
+   * new page receives the same explicit offer as after a restart.
+   */
+  reopen(): Promise<void> {
+    this.loaded = this.queue(() => {
+      this.epoch = null;
+      this.revision = -1;
+      this.baseline = null;
+      this.projectId = null;
+      this.sourcePath = null;
+      this.pending = null;
+      return this.read();
+    });
+    return this.loaded;
+  }
+
+  private read(): Promise<void> {
+    return withProjectFileOperation(async () => {
       try {
         await this.ownedDirectory();
         const entry = await lstat(this.file).catch((error: unknown) => {
@@ -106,7 +130,6 @@ export class RecoveryService {
         this.pending = 'damaged';
       }
     });
-    return this.loaded;
   }
 
   async offer(): Promise<RecoveryOffer> {

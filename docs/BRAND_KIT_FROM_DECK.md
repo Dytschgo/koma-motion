@@ -113,7 +113,7 @@ automatic partial-save or text-only fallback.
 
 ## Verification coverage
 
-See the [Windows verification report](verification/brand-kit-from-deck/README.md)
+See the [Windows verification report](archive/verification/brand-kit-from-deck/README.md)
 for exact commands, live model results, captures, and remaining platform coverage.
 
 Windows is the locally exercised platform. The implementation has no Windows-only

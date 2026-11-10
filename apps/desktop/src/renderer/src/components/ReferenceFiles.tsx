@@ -2,8 +2,8 @@ import type { ReactElement } from 'react';
 import { attachReferences } from '../lib/referenceActions';
 import { useProjectStore } from '../state/projectStore';
 import { useReferenceStore } from '../state/referenceStore';
-import { Button } from './ui';
-import { PlusIcon } from './icons';
+import { Button, IconButton } from './ui';
+import { CloseIcon, PlusIcon } from './icons';
 
 export function ReferenceAttachmentButton({
   disabled,
@@ -73,11 +73,9 @@ export function ReferenceFiles({
                       {reference.text}
                     </p>
                   </details>
-                  <Button
-                    compact
-                    variant="outline"
+                  <IconButton
                     disabled={disabled}
-                    aria-label={`Remove ${reference.name}`}
+                    label={`Remove ${reference.name}`}
                     onClick={() =>
                       state.setReferences(
                         sessionId,
@@ -85,8 +83,8 @@ export function ReferenceFiles({
                       )
                     }
                   >
-                    Remove
-                  </Button>
+                    <CloseIcon size={14} />
+                  </IconButton>
                 </div>
                 {reference.truncated && (
                   <p className="text-signal-warn">

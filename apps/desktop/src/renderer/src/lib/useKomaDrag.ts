@@ -18,6 +18,9 @@ import {
 /** Marks each Koma item in the strip, in deck order, as a drop reference. */
 const ITEM_SELECTOR = '[data-koma-drag-item]';
 
+/** The direction in which the strip lists its Komas. */
+export type KomaDragAxis = 'x' | 'y';
+
 export interface KomaDragState {
   readonly komaId: string;
   readonly from: number;
@@ -29,6 +32,8 @@ interface Press {
   readonly komaId: string;
   readonly from: number;
   readonly pointerId: number;
+  /** Pointer position along the strip's axis when the press started. */
+  readonly origin: number;
   readonly x: number;
   readonly y: number;
   readonly element: HTMLElement;
@@ -52,6 +57,7 @@ export interface KomaDragHandlers {
 export function useKomaDrag(
   container: RefObject<HTMLElement | null>,
   count: number,
+  axis: KomaDragAxis = 'y',
 ): {
   readonly drag: KomaDragState | null;
   readonly announcement: string;
@@ -60,24 +66,24 @@ export function useKomaDrag(
   const [drag, setDrag] = useState<KomaDragState | null>(null);
   const [announcement, setAnnouncement] = useState('');
   const press = useRef<Press | null>(null);
-  const pointerY = useRef(0);
+  const pointer = useRef(0);
   const suppressClick = useRef(false);
 
   const insertionAt = useCallback(
-    (y: number): number => {
+    (position: number): number => {
       const items = container.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? [];
       const midlines = Array.from(items, (item) => {
         const rect = item.getBoundingClientRect();
-        return rect.top + rect.height / 2;
+        return axis === 'x' ? rect.left + rect.width / 2 : rect.top + rect.height / 2;
       });
-      return getDropInsertion(midlines, y);
+      return getDropInsertion(midlines, position);
     },
-    [container],
+    [container, axis],
   );
 
   const track = useCallback(
-    (current: Press, y: number): void => {
-      const insertion = insertionAt(y);
+    (current: Press, position: number): void => {
+      const insertion = insertionAt(position);
       setDrag((previous) =>
         previous?.komaId === current.komaId && previous.insertion === insertion
           ? previous
@@ -114,10 +120,17 @@ export function useKomaDrag(
       const current = press.current;
       if (element !== null && current !== null) {
         const rect = element.getBoundingClientRect();
-        const step = getAutoScrollStep(pointerY.current, current.y, rect.top, rect.bottom);
-        const before = element.scrollTop;
-        if (step !== 0) element.scrollTop += step;
-        if (element.scrollTop !== before) track(current, pointerY.current);
+        const step =
+          axis === 'x'
+            ? getAutoScrollStep(pointer.current, current.origin, rect.left, rect.right)
+            : getAutoScrollStep(pointer.current, current.origin, rect.top, rect.bottom);
+        const before = axis === 'x' ? element.scrollLeft : element.scrollTop;
+        if (step !== 0) {
+          if (axis === 'x') element.scrollLeft += step;
+          else element.scrollTop += step;
+        }
+        const after = axis === 'x' ? element.scrollLeft : element.scrollTop;
+        if (after !== before) track(current, pointer.current);
       }
       frame = requestAnimationFrame(scroll);
     };
@@ -133,7 +146,7 @@ export function useKomaDrag(
       cancelAnimationFrame(frame);
       window.removeEventListener('keydown', cancelOnEscape, true);
     };
-  }, [dragging, container, end, track]);
+  }, [dragging, container, end, track, axis]);
 
   const handlers = (komaId: string, index: number): KomaDragHandlers => ({
     onPointerDown(event) {
@@ -143,6 +156,7 @@ export function useKomaDrag(
         komaId,
         from: index,
         pointerId: event.pointerId,
+        origin: axis === 'x' ? event.clientX : event.clientY,
         x: event.clientX,
         y: event.clientY,
         element: event.currentTarget,
@@ -152,18 +166,18 @@ export function useKomaDrag(
     onPointerMove(event) {
       const current = press.current;
       if (current?.pointerId !== event.pointerId) return;
-      pointerY.current = event.clientY;
+      pointer.current = axis === 'x' ? event.clientX : event.clientY;
       if (!current.dragging) {
         if (!exceedsDragStartDistance(event.clientX - current.x, event.clientY - current.y)) return;
         current.dragging = true;
         current.element.setPointerCapture(event.pointerId);
         window.getSelection()?.removeAllRanges();
       }
-      track(current, event.clientY);
+      track(current, pointer.current);
     },
     onPointerUp(event) {
       if (press.current?.pointerId !== event.pointerId) return;
-      end(insertionAt(event.clientY));
+      end(insertionAt(axis === 'x' ? event.clientX : event.clientY));
     },
     onPointerCancel(event) {
       if (press.current?.pointerId === event.pointerId) end(null);

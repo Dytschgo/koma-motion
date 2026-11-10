@@ -246,6 +246,66 @@ installed applications are not offered the new version.
 Do not remove a check to get a release through. Keep earlier releases: they
 are the way back.
 
+### Recovering public-download verification
+
+If assets were published but public-download verification did not complete,
+run the stable workflow from `main` with the existing tag:
+
+```sh
+gh workflow run release.yml --repo Dytschgo/koma-motion --ref main -f tag=v0.3.0
+```
+
+This mode checks that the tag is stable, belongs to `main`, matches its
+application version, has a published stable release, and has exact-commit CI
+coverage. It does not rebuild or replace assets. It downloads and verifies the
+Windows installer and both macOS packages, exercises them, and promotes the
+release only after both platform jobs succeed. A failed or skipped download
+check cannot promote the release. Normal tag releases run these checks even
+when earlier quality jobs were deliberately skipped because CI covered them.
+
+## Workflow and dependency policy
+
+The workflows build and publish what users install, so what they run is fixed
+and reviewed.
+
+- **Actions are pinned to a commit.** Every `uses:` names the full
+  40-character commit SHA, followed by the exact version as a comment:
+
+  ```yaml
+  uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  ```
+
+  A tag such as `@v7` can be moved to other code; a commit cannot. To add or
+  update an action by hand, resolve the tag of the release to its commit (an
+  annotated tag must be dereferenced) and use the same commit in every
+  workflow.
+
+- **Permissions start read-only.** Each workflow sets `contents: read`. A job
+  that needs more names it: reading CI results (`actions: read`), publishing a
+  release (`contents: write`) or uploading code scanning results
+  (`security-events: write`). Each workflow has a concurrency group and each
+  job a timeout.
+- **Dependabot proposes updates weekly** (`.github/dependabot.yml`) for the
+  npm packages of the workspace and for the actions, including the pinned SHA
+  and its version comment. Minor and patch updates arrive grouped. A version
+  must be seven days old before it is proposed, because pnpm refuses packages
+  younger than one day. Security updates are not delayed, so their
+  installation can fail until the package is a day old.
+- **Deliberate pins.** TypeScript stays at 6.0 until the type-aware linter
+  supports a newer compiler; Dependabot ignores its minor and major versions.
+  `electron-updater` and `pdfjs-dist` are pinned exactly because they are the
+  update path and the PDF parser. Their updates are not ignored. Each arrives
+  as its own pull request and is reviewed with the packaged application and
+  the deck analysis tests; the documents that name the PDF.js version change
+  with it.
+- **CodeQL** (`.github/workflows/codeql.yml`) analyses the TypeScript and
+  JavaScript code and the workflows on every pull request, on `main` and once
+  a week. Findings appear under Security, Code scanning.
+
+`apps/desktop/scripts/workflow-policy.test.mjs` fails when a workflow uses an
+action that is not pinned this way, lacks a timeout or holds a permission that
+is not listed there. It runs with `pnpm test`.
+
 ## Files of a release
 
 | File                                       | Purpose                                   |

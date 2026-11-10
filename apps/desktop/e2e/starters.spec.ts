@@ -6,6 +6,9 @@ import {
   openSettingsPage,
   showChat,
   type RunningApplication,
+  openBrandKit,
+  showGenerationOptions,
+  expectInstructionsState,
 } from './application';
 
 let running: RunningApplication;
@@ -28,13 +31,11 @@ test('starts a project from a starter with its Brand Kit, instructions and reque
   await expect(window.getByLabel('Project name')).toHaveValue('Solar system');
   await showChat(window);
   await expect(window.getByLabel('Your request')).toHaveValue(starter.request);
+  await showGenerationOptions(window);
   await expect(countTrigger(window)).toHaveAttribute('aria-description', '7 Komas');
-  await expect(window.getByRole('button', { name: 'Instructions & templates' })).toHaveAttribute(
-    'aria-description',
-    'Instructions active',
-  );
+  await expectInstructionsState(window, 'Instructions active');
 
-  await window.getByRole('button', { name: 'Brand Kit', exact: true }).first().click();
+  await openBrandKit(window);
   await expect(window.getByLabel('Brand name')).toHaveValue('Deep Orbit');
 
   // In a narrow window the Brand Kit and the chat take turns.

@@ -7,3 +7,10 @@ packages:
 # Koma Motion does not use.
 allowBuilds:
   electron-winstaller: false
+
+# eslint-plugin-jsx-a11y 6.10.2 declares ESLint up to 9 and has no newer
+# release. Its rules run on ESLint 10: `pnpm lint` exercises them. Remove
+# this when the plugin declares ESLint 10.
+peerDependencyRules:
+  allowedVersions:
+    eslint-plugin-jsx-a11y>eslint: '10'

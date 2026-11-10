@@ -14,7 +14,7 @@ function Swatches({ kit }: { readonly kit: BrandKit }): ReactElement {
       {(['primary', 'accent', 'background'] as const).map((role) => (
         <span
           key={role}
-          className="h-3.5 w-1.5 rounded-xs border border-white/10"
+          className="h-3.5 w-1.5 rounded-xs border border-ink-100/15"
           style={{ background: kit.colours[role] }}
         />
       ))}
@@ -94,6 +94,7 @@ export function ChatBrandKitPicker({
           onOpenChange(false);
       }}
     >
+      {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 and exposed by Chromium; the rule's data stops at ARIA 1.2. */}
       <button
         ref={trigger}
         type="button"
@@ -104,7 +105,7 @@ export function ChatBrandKitPicker({
         aria-expanded={open}
         aria-controls={open ? id : undefined}
         disabled={disabled || busy}
-        className="chat-brand-trigger flex h-9 w-full min-w-0 items-center gap-1.5 rounded-control border border-line-strong bg-surface-3 px-2 text-sm hover:border-ink-400 disabled:opacity-50"
+        className="chat-brand-trigger"
         onClick={() => onOpenChange(!open)}
       >
         <Swatches kit={project.brandKit} />
@@ -112,6 +113,7 @@ export function ChatBrandKitPicker({
         <ChevronIcon direction="down" size={12} />
       </button>
       {open && (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape and the arrow keys bubble here from the kit buttons inside the popover.
         <div
           ref={panel}
           id={id}

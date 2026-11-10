@@ -98,6 +98,7 @@ describe('starting a presentation', () => {
     presenter().returnToEdit('koma-2');
     expect(presenter().session).toBeNull();
     expect(useUiStore.getState().selectedKomaId).toBe('koma-2');
+    expect(useUiStore.getState().motionEditing).toBe(true);
   });
 });
 

@@ -1,0 +1,76 @@
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: var(--color-paper-100);
+    color: var(--color-ink-100);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    user-select: none;
+    --koma-selection: var(--color-coral-500);
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+    color: inherit;
+  }
+
+  input,
+  textarea {
+    user-select: text;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-coral-600);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--color-coral-500) 30%, white);
+    color: var(--color-ink-100);
+  }
+
+  dialog::backdrop {
+    background: oklch(25% 0.02 60 / 0.32);
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-paper-400);
+    border: 2px solid transparent;
+    border-radius: 6px;
+    background-clip: content-box;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--color-ink-400);
+      border: 2px solid transparent;
+      background-clip: content-box;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

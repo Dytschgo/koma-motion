@@ -7,7 +7,14 @@ import { komaProjectSchema } from '@koma-motion/core';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from '@playwright/test';
-import { answerSaveDialog, launchApplication, type RunningApplication } from './application';
+import {
+  answerSaveDialog,
+  launchApplication,
+  type RunningApplication,
+  chooseProjectCommand,
+  showGenerationOptions,
+  showChat,
+} from './application';
 import { modelTrigger, openModelChoices, openProviderChoices } from './composerControls';
 
 let running: RunningApplication;
@@ -46,6 +53,7 @@ test('switches saved kits beside the model, follows undo and persists the select
   const { window, application, directory, problems } = running;
   await writeLibrary();
   await window.getByRole('button', { name: 'Create a project' }).click();
+  await showGenerationOptions(window);
   const trigger = window.getByRole('button', { name: 'Choose Brand Kit', exact: true });
   const chooser = window.getByRole('dialog', { name: 'Choose Brand Kit', exact: true });
   await trigger.click();
@@ -84,11 +92,12 @@ test('switches saved kits beside the model, follows undo and persists the select
   await window.getByLabel('Your request').fill('Give the opening a stronger visual hierarchy.');
   await window.getByRole('button', { name: 'Generate Komas' }).click();
   await expect(trigger).toBeDisabled();
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toBeDisabled();
   await expect(window.getByText(/Created 3 Komas/)).toBeVisible();
   const savedPath = join(directory, 'chat-brand.koma');
   await answerSaveDialog(application, savedPath);
-  await window.getByRole('button', { name: 'Save', exact: true }).click();
+  await chooseProjectCommand(window, 'Save');
   await expect(window.getByText('All changes saved')).toBeVisible();
   const saved = komaProjectSchema.parse(JSON.parse(await readFile(savedPath, 'utf8')));
   expect(saved.brandKit.name).toBe('Northern');
@@ -98,11 +107,10 @@ test('switches saved kits beside the model, follows undo and persists the select
     .getByRole('list', { name: 'Messages' })
     .getByRole('button', { name: 'Dismiss' });
   while (await notices.count()) await notices.first().click();
-  for (const width of [480, 300]) {
-    const divider = window.getByRole('separator', { name: 'Resize the chat' });
-    await divider.focus();
-    await divider.press('Home');
-    for (let current = 300; current < width; current += 16) await divider.press('ArrowLeft');
+  for (const width of [1480, 1120]) {
+    await running.application.evaluate(({ BrowserWindow }, size) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(size, 800);
+    }, width);
     await trigger.click();
     const chat = window.getByRole('region', { name: 'Agent chat' });
     const chatBox = await chat.boundingBox();
@@ -134,14 +142,18 @@ test('switches saved kits beside the model, follows undo and persists the select
     await window.keyboard.press('Escape');
   }
   await trigger.click();
+  await showGenerationOptions(window);
   await modelTrigger(window).click();
   await expect(chooser).toBeHidden();
   await expect(window.getByRole('dialog', { name: 'Model', exact: true })).toBeVisible();
   await window.keyboard.press('Escape');
   await trigger.click();
-  await window.getByRole('heading', { name: 'Chat', exact: true }).click();
+  // A press outside the chooser closes it.
+  await window.getByLabel('Your request').click();
   await expect(chooser).toBeHidden();
+  await showChat(window);
   await trigger.click();
+  await expect(chooser).toBeVisible();
   await window.getByRole('button', { name: 'Hide the chat' }).click();
   await window.getByRole('button', { name: 'Show the chat' }).click();
   await expect(chooser).toBeHidden();
@@ -151,6 +163,7 @@ test('switches saved kits beside the model, follows undo and persists the select
 test('explains an empty or unreadable library and recovers without settings', async () => {
   const { window, directory, problems } = running;
   await window.getByRole('button', { name: 'Create a project' }).click();
+  await showGenerationOptions(window);
   const trigger = window.getByRole('button', { name: 'Choose Brand Kit', exact: true });
   const chooser = window.getByRole('dialog', { name: 'Choose Brand Kit', exact: true });
   await trigger.click();
@@ -188,7 +201,9 @@ test('searches models across providers, selects atomically and retains custom ID
   await search.press('ArrowDown');
   await window.keyboard.press('Enter');
   await expect(picker).toBeHidden();
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Claude Opus 5.5');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
     'Next run uses claude-opus-5-5',
@@ -196,14 +211,18 @@ test('searches models across providers, selects atomically and retains custom ID
   picker = await openModelChoices(window);
   await search.fill('6.1');
   await picker.locator('[data-provider-id="codex"][data-model-value="gpt-6.1-sol"]').click();
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('GPT-6.1 Sol');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
     'Next run uses gpt-6.1-sol',
   );
   await window.getByRole('button', { name: 'Undo', exact: true }).click();
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('Claude Opus 5.5');
   await window.getByRole('button', { name: 'Redo', exact: true }).click();
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveText('GPT-6.1 Sol');
   picker = await openModelChoices(window);
   await search.fill('model-that-is-not-listed');
@@ -212,6 +231,7 @@ test('searches models across providers, selects atomically and retains custom ID
   await picker.getByLabel('Model', { exact: true }).selectOption('__custom__');
   await picker.getByLabel('Model id', { exact: true }).fill('custom-model-v2');
   await picker.getByLabel('Model id', { exact: true }).press('Enter');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toHaveAttribute(
     'aria-description',
     'Next run uses custom-model-v2, not in the latest CLI list',
@@ -223,6 +243,7 @@ test('searches models across providers, selects atomically and retains custom ID
     picker.locator('[data-provider-id="codex"][data-model-value="custom-model-v2"]'),
   ).toHaveAttribute('aria-pressed', 'true');
   await window.keyboard.press('Escape');
+  await showGenerationOptions(window);
   await expect(modelTrigger(window)).toBeFocused();
   expect(problems).toEqual([]);
 });
@@ -289,7 +310,9 @@ test('keeps provider logos beside Brand Kit at wide and narrow widths', async ()
   await writeLibrary();
   await window.getByRole('button', { name: 'Create a project' }).click();
   const chat = window.getByRole('region', { name: 'Agent chat' });
+  await showGenerationOptions(window);
   const model = modelTrigger(window);
+  await showGenerationOptions(window);
   const brand = chat.getByRole('button', { name: 'Choose Brand Kit', exact: true });
   await brand.click();
   await window
@@ -318,23 +341,24 @@ test('keeps provider logos beside Brand Kit at wide and narrow widths', async ()
     .getByRole('button', { name: 'Dismiss' });
   while (await notices.count()) await notices.first().click();
 
-  for (const width of [480, 300]) {
-    const divider = window.getByRole('separator', { name: 'Resize the chat' });
-    await divider.focus();
-    await divider.press('Home');
-    for (let current = 300; current < width; current += 16) await divider.press('ArrowLeft');
+  for (const width of [1480, 1120]) {
+    await running.application.evaluate(({ BrowserWindow }, size) => {
+      BrowserWindow.getAllWindows()[0]?.setContentSize(size, 800);
+    }, width);
     const choices = chat.getByRole('group', { name: 'Generation choices', exact: true });
+    await showGenerationOptions(window);
     await expect(choices.getByRole('button', { name: 'Model', exact: true })).toHaveCount(1);
     await expect(chat.getByRole('button', { name: 'Provider', exact: true })).toHaveCount(0);
     await expect(
-      chat.getByTestId('chat-header').getByRole('button', { name: /Model|Provider/ }),
+      window.getByRole('banner').getByRole('button', { name: /Model|Provider/ }),
     ).toHaveCount(0);
     const modelBox = await model.boundingBox();
     const brandBox = await brand.boundingBox();
     const requestBox = await window.getByLabel('Your request').boundingBox();
     if (!modelBox || !brandBox || !requestBox)
       throw new Error('Composer controls are not visible.');
-    expect(modelBox.y).toBeGreaterThanOrEqual(requestBox.y + requestBox.height);
+    // The generation choices open above the request, inside the prompt.
+    expect(modelBox.y + modelBox.height).toBeLessThanOrEqual(requestBox.y);
     expect(Math.abs(modelBox.y - brandBox.y)).toBeLessThan(2);
     expect(brandBox.x - (modelBox.x + modelBox.width)).toBeGreaterThanOrEqual(0);
     expect(brandBox.x - (modelBox.x + modelBox.width)).toBeLessThan(12);

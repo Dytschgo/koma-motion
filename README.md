@@ -37,7 +37,7 @@ open them.
 [docs/RELEASES.md](docs/RELEASES.md#installing) explains how to install and
 how to switch to nightly previews.
 
-![Koma Motion showing the middle of a transition between two Komas](docs/screenshots/transition-preview.png)
+![Quiet Stage editor with a large canvas, one prompt and a compact filmstrip](docs/screenshots/quiet-stage.png)
 
 ## What is Koma Motion?
 
@@ -96,19 +96,24 @@ Everything in this list is implemented and covered by automated tests.
 
 - Create a project, open a project, save and save as (`.koma` files).
 - Edit a Brand Kit with colours, fonts, a logo and descriptions, with a live
-  preview and readability checks, in a panel beside the canvas.
+  preview and readability checks, in a panel over or pinned beside the canvas.
 - Save Brand Kits, logo included, to a library on this computer and apply
   them to any project. Applying a kit can be undone.
-- Describe a presentation in the chat and choose a provider. The chat is a
-  sidebar beside the canvas that can be resized and collapsed. Beside the
-  request, choose the model of the provider and the number of Komas (5 at
-  first, or Auto to let the agent decide).
+- Describe a presentation in the prompt below the canvas and choose a
+  provider. The conversation opens above the prompt on demand. Generation
+  options hold the model of the provider and the number of Komas (5 at first,
+  or Auto to let the agent decide).
 - Generate three Komas with the built-in mock provider, without network and
   without an API key.
-- Generate Komas with Claude Code or Grok. Tested on Windows.
-- See the Komas and the in-betweens that connect them.
+- Generate Komas with Claude Code, Codex or Grok. Tested on Windows.
+- Generate a proposal for the selected Koma only, then apply or discard it.
+- See the Komas in a filmstrip, with the motion that connects them between
+  the thumbnails.
 - Select elements on the canvas, drag and resize them, edit text in place,
-  and import or replace images. The Inspector remains available.
+  and import or replace images. A toolbar beside the selection changes colour,
+  size, stacking and motion; the Inspector opens on request and can be pinned.
+- Add text, rectangles, circles and lines by hand, without a provider, and
+  group or ungroup elements. See [direct authoring](docs/DIRECT_AUTHORING.md).
 - Add, copy, reorder and delete Komas.
 - Preview the transition between two Komas: play, pause, restart, move to
   any position, change the duration.
@@ -123,6 +128,8 @@ Everything in this list is implemented and covered by automated tests.
 - Export editable PowerPoint slides as static slides or with fade or Morph
   transitions. Windows PowerPoint has been tested; see
   [export and reference limits](docs/POWERPOINT_EXPORT_RESEARCH.md).
+- Recover the edits of an interrupted session as an unsaved copy. See
+  [crash recovery](docs/CRASH_RECOVERY.md).
 
 On the canvas, click to select and drag to move. Drag a corner to resize.
 Arrow keys move a selected element by one logical unit, or ten with Shift.
@@ -135,43 +142,40 @@ stored transitions; explicit motion regeneration is separate work.
 
 ## Screenshots
 
-| Generated Komas                                    | Inspecting an element                        |
-| -------------------------------------------------- | -------------------------------------------- |
-| ![Generated Komas](docs/screenshots/generated.png) | ![Inspector](docs/screenshots/inspector.png) |
+| Contextual object tools                                                             | Pinned properties                                                                   |
+| ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| ![Object toolbar beside a selected shape](docs/screenshots/quiet-stage-toolbar.png) | ![Properties pinned beside the canvas](docs/screenshots/quiet-stage-properties.png) |
 
-| Brand Kit                                           | Saved Brand Kits                                             |
-| --------------------------------------------------- | ------------------------------------------------------------ |
-| ![Brand Kit editor](docs/screenshots/brand-kit.png) | ![Brand Kit library](docs/screenshots/brand-kit-library.png) |
+| Rechecking a failed result                                                                                |
+| --------------------------------------------------------------------------------------------------------- |
+| ![A failed generation offers Recheck directly above the prompt](docs/screenshots/quiet-stage-recheck.png) |
 
-| Start                                         |
-| --------------------------------------------- |
-| ![Start screen](docs/screenshots/welcome.png) |
-
-The screenshots are created from the running application with
-`KOMA_SCREENSHOTS=1 pnpm test:e2e screenshots`.
+These are native application captures from hosted Electron tests with the mock
+provider. [Capture provenance](docs/screenshots/quiet-stage-captures.json) records
+the source revision, scenarios and image hashes.
 
 ## Key features
 
-| Feature                      | State                                                  |
-| ---------------------------- | ------------------------------------------------------ |
-| Persistent object identity   | available                                              |
-| Deterministic motion engine  | available                                              |
-| Transition preview           | available                                              |
-| Presentation player          | available                                              |
-| Brand Kit                    | available                                              |
-| Mock provider                | available                                              |
-| Claude Code provider         | available, tested on Windows                           |
-| Codex CLI provider           | available, tested on Windows with Codex CLI 0.162.1    |
-| Grok provider                | available, tested on Windows with Grok 1.0.44          |
-| Undo and redo                | available                                              |
-| Editing on the canvas        | move, resize, edit text, import and replace images     |
-| Playing a whole presentation | not available, one transition at a time                |
-| PowerPoint export            | editable PPTX; static, fade and Morph options          |
-| Reference files              | TXT, Markdown and PDF; session only                    |
-| Stop Motion Mode             | not available, concept only                            |
-| Installers                   | available for Windows and macOS, not signed            |
-| Stable and nightly updates   | available; app installer on Windows, Terminal on macOS |
-| `koma` command line tool     | not available, the name is reserved                    |
+| Feature                     | State                                                  |
+| --------------------------- | ------------------------------------------------------ |
+| Persistent object identity  | available                                              |
+| Deterministic motion engine | available                                              |
+| Transition preview          | available                                              |
+| Presentation player         | available                                              |
+| Brand Kit                   | available                                              |
+| Mock provider               | available                                              |
+| Claude Code provider        | available, tested on Windows                           |
+| Codex CLI provider          | available, tested on Windows with Codex CLI 0.162.1    |
+| Grok provider               | available, tested on Windows with Grok 1.0.44          |
+| Undo and redo               | available                                              |
+| Editing on the canvas       | move, resize, edit text, import and replace images     |
+| Adding elements by hand     | text, rectangles, circles and lines; groups            |
+| PowerPoint export           | editable PPTX; static, fade and Morph options          |
+| Reference files             | TXT, Markdown and PDF; session only                    |
+| Stop Motion Mode            | not available, concept only                            |
+| Installers                  | available for Windows and macOS, not signed            |
+| Stable and nightly updates  | available; app installer on Windows, Terminal on macOS |
+| `koma` command line tool    | not available, the name is reserved                    |
 
 ## Architecture overview
 
@@ -191,7 +195,8 @@ the agent providers and the exporters read the model and cannot change its
 shape. The user interface runs in a sandboxed window without access to
 files or processes.
 
-Read more in [ARCHITECTURE.md](ARCHITECTURE.md).
+Read more in [ARCHITECTURE.md](ARCHITECTURE.md). The
+[documentation index](docs/README.md) lists every other document.
 
 ## Brand Kits
 
@@ -238,7 +243,7 @@ Read more in [docs/MOTION_MODEL.md](docs/MOTION_MODEL.md).
 
 New projects start with Mock, which always makes the same three-Koma demo,
 regardless of your request. To generate Komas from your description, choose
-Claude Code or Grok in the Agent panel's Provider menu. The agent must be
+Claude Code, Codex or Grok in the Agent panel's Provider menu. The agent must be
 installed and signed in on this computer; the panel shows whether Koma Motion
 can find it.
 Save the resulting editable project as a `.koma` file.
@@ -263,6 +268,12 @@ Koma Motion stores no API keys.
 All agent output is treated as untrusted data: it is limited in size,
 validated against a schema and checked for invalid references before it
 becomes part of a project. It is never executed.
+
+Generation has no built-in Koma-count limit or default time limit. Enter a Koma
+count or leave it empty for the agent to choose; cancel a running generation
+whenever needed. Projects can contain more than 200 Komas. Requests, output,
+files, and per-frame rendering still have documented [technical safety
+boundaries](docs/GENERATION_LIMITS.md), separate from provider service limits.
 
 Read more in [docs/AGENT_PROVIDERS.md](docs/AGENT_PROVIDERS.md).
 
@@ -323,19 +334,20 @@ Electron downloads its binary the first time it is started.
 
 ## Available scripts
 
-| Script              | Purpose                                                 |
-| ------------------- | ------------------------------------------------------- |
-| `pnpm dev`          | run the application and restart it on changes           |
-| `pnpm build`        | build the application into `apps/desktop/out`           |
-| `pnpm start`        | start the built application                             |
-| `pnpm lint`         | check the code with ESLint                              |
-| `pnpm typecheck`    | check the types of all packages                         |
-| `pnpm test`         | run the unit tests                                      |
-| `pnpm test:watch`   | run the unit tests on every change                      |
-| `pnpm test:e2e`     | run the application tests against the built application |
-| `pnpm format`       | format all files with Prettier                          |
-| `pnpm format:check` | check the formatting                                    |
-| `pnpm check`        | lint, check types, test and build                       |
+| Script               | Purpose                                                 |
+| -------------------- | ------------------------------------------------------- |
+| `pnpm dev`           | run the application and restart it on changes           |
+| `pnpm build`         | build the application into `apps/desktop/out`           |
+| `pnpm start`         | start the built application                             |
+| `pnpm lint`          | check the code with ESLint                              |
+| `pnpm typecheck`     | check the types of all packages                         |
+| `pnpm test`          | run the unit tests                                      |
+| `pnpm test:coverage` | run the unit tests and measure coverage                 |
+| `pnpm test:watch`    | run the unit tests on every change                      |
+| `pnpm test:e2e`      | run the application tests against the built application |
+| `pnpm format`        | format all files with Prettier                          |
+| `pnpm format:check`  | check the formatting                                    |
+| `pnpm check`         | check formatting, lint, check types, test and build     |
 
 ## Testing
 
@@ -364,8 +376,10 @@ pnpm build
 pnpm start
 ```
 
-`pnpm build` creates three bundles in `apps/desktop/out`: the main process,
-the preload script and the window. `pnpm start` runs them with Electron.
+`pnpm build` creates five bundles in `apps/desktop/out`: the main process,
+the preload script of the window, the preload scripts of the two helper
+windows that parse PDFs and images, and the pages of the window and its
+helpers. `pnpm start` runs them with Electron.
 
 To create an installer from the source code:
 
@@ -409,13 +423,13 @@ privately, as described there.
 - WebP images cannot be embedded in PPTX and appear as placeholders. Image
   corner rounding, some font weights and unequal group scaling can lose detail
   in text, strokes or rotation.
-- The Codex CLI provider has never generated a presentation.
-- Claude Code and Grok have been tested on Windows only.
+- Claude Code, Codex and Grok have been tested on Windows only.
 - Grok stores a session transcript in its own data directory. Its sandbox
   profile is requested, and enforcement on Windows is not established.
-- Generation replaces the whole presentation. Single Komas cannot be changed
-  through the chat.
-- Text and shape elements cannot yet be added by hand.
+- Generation for the entire presentation replaces the whole presentation.
+  Generation for the selected Koma proposes one Koma at a time; the motion to
+  its neighbours is left unchanged and may need repair.
+- Groups cannot be nested and are not offered to agents.
 - Changes that cannot be interpolated, such as a change of text or font
   size, are cross-fades.
 - Fonts must be installed on the computer.
@@ -432,9 +446,10 @@ The complete list is in
 
 ## Roadmap
 
-1. **Editing:** add text and shapes directly, play a whole presentation.
-2. **Agents:** verify Codex, verify Claude Code and Grok on macOS, change
-   single Komas.
+1. **Editing:** expand image editing beyond import and replacement, animate
+   the children of groups.
+2. **Agents:** verify Claude Code, Codex and Grok on macOS, offer groups to
+   agents.
 3. **Export:** improve PPTX fidelity, verify macOS PowerPoint and other readers.
 4. **Distribution:** sign and notarise installers.
 5. **Research:** Stop Motion Mode and more kinds of motion.
@@ -450,9 +465,3 @@ the [Code of Conduct](CODE_OF_CONDUCT.md) first.
 ## Licence
 
 [MIT](LICENSE)
-
-Generation has no built-in Koma-count limit or default time limit. Enter a Koma
-count or leave it empty for the agent to choose; cancel a running generation
-whenever needed. Projects can contain more than 200 Komas. Requests, output,
-files, and per-frame rendering still have documented [technical safety
-boundaries](docs/GENERATION_LIMITS.md), separate from provider service limits.

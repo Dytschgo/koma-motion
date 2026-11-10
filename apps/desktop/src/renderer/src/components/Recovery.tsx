@@ -35,10 +35,11 @@ export function Recovery(): ReactElement {
   };
   return (
     <>
+      {/* Routine snapshot progress is announced without taking space; a failure stays visible. */}
       {status.message && (
         <div
           role={status.failed ? 'alert' : 'status'}
-          className="flex items-center gap-3 border-t border-line bg-surface-2 px-4 py-1 text-xs text-ink-300"
+          className={status.failed ? 'studio-recovery-failure' : 'sr-only'}
         >
           <span>{status.message}</span>
           {status.failed && (
@@ -71,6 +72,7 @@ export function Recovery(): ReactElement {
               </Button>
               {offer.status === 'available' && (
                 <Button
+                  // eslint-disable-next-line jsx-a11y/no-autofocus -- a modal dialog must take focus; it starts on the answer that keeps the work.
                   autoFocus
                   disabled={busy}
                   onClick={() => {

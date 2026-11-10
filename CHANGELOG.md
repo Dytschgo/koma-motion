@@ -8,6 +8,46 @@ changes to the project format.
 
 ## [Unreleased]
 
+### Added
+
+- A window that stops working no longer stays blank. After an error in the
+  interface, a screen offers to reload the window. When the process of the
+  window crashes or stops responding, Koma Motion asks whether to reload it
+  or quit. Each reload ends at the existing recovery offer for unsaved changes.
+- A diagnostics log in the data folder of the application records the
+  version, crashes, errors, update events and failed provider runs. Settings >
+  About can copy it or open its folder. It does not record projects, requests
+  or reference text, is limited to about 1 MiB, and is never sent anywhere.
+  See `docs/DIAGNOSTICS.md`.
+
+### Changed
+
+- An unexpected error in the main process now closes Koma Motion with an
+  explanation instead of letting it continue in an unknown state. Unsaved
+  changes are offered for recovery at the next start.
+
+## [0.3.0] - 2026-11-05
+
+### Changed
+
+- Quiet Stage gives the editor a warm light theme, a canvas and horizontal
+  filmstrip on the left, and chat with its composer on the right. The compact
+  top bar groups project commands, history, Properties, playback and sharing.
+- Selecting an object opens contextual controls for colour, size, stacking
+  and motion. Properties and Layers can float over the canvas or be pinned
+  beside it.
+- Markers between Koma thumbnails open transition previews, timing and repair.
+  Failed generation offers Recheck beside the request while preserving drafts,
+  scope and consent. Model selection stays in the shared chat chooser.
+
+### Fixed
+
+- Provider checks distinguish fresh results, previous results, failed checks
+  and unavailable programs. A centered SVG guide explains local detection and
+  online generation, with matching settings spacing and reduced-motion support.
+- Closing Properties after pinning and unpinning returns keyboard focus to
+  the control that opened it.
+
 ## [0.2.0] - 2026-10-10
 
 Projects now use format 5. Projects of formats 1 to 4 are upgraded in memory

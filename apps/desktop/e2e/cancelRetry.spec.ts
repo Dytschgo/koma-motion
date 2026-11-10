@@ -58,7 +58,7 @@ test('a failed stop can be retried from the run monitor without losing the draft
     const request = window.getByLabel('Your request');
     await request.fill(requestText);
     await window.getByRole('button', { name: 'Generate Komas' }).click();
-    await window.getByRole('button', { name: 'Open run monitor' }).click();
+    await window.getByRole('button', { name: 'Run details', exact: true }).click();
     const monitor = window.getByRole('dialog', { name: 'Run monitor' });
     await monitor.getByRole('button', { name: 'Cancel run' }).click();
     await expect(window.getByText('The generation could not be stopped. Try again.')).toBeVisible();
@@ -66,7 +66,7 @@ test('a failed stop can be retried from the run monitor without losing the draft
     expect(await fixture.evaluate((state) => state.attempts())).toBe(1);
     await monitor.getByRole('button', { name: 'Close' }).click();
     await request.fill('Keep this next idea.');
-    await window.getByRole('button', { name: 'Open run monitor' }).click();
+    await window.getByRole('button', { name: 'Run details', exact: true }).click();
     await monitor.getByRole('button', { name: 'Cancel run' }).click();
     await expect(monitor).toContainText('Stopped');
     expect(await fixture.evaluate((state) => state.attempts())).toBe(2);
