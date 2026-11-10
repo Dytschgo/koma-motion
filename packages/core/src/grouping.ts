@@ -17,6 +17,7 @@
  * objects on another Koma gives the same group identity and the group moves
  * as one object between those Komas. See docs/MOTION_MODEL.md.
  */
+import { isStructurallyEqual } from './equality';
 import { hashString, type IdGenerator } from './ids';
 import { err, ok, type Result } from './result';
 import {
@@ -323,10 +324,9 @@ export function ungroupElement(koma: Koma, groupId: string): Result<UngroupResul
     element.id === groupId ? converted.map((child) => child.id) : [element.id],
   );
   const ownLayers = place(converted);
-  const elements =
-    JSON.stringify(paintOrder(ownLayers)) === JSON.stringify(expected)
-      ? ownLayers
-      : place(converted.map((child) => ({ ...child, zIndex: group.zIndex })));
+  const elements = isStructurallyEqual(paintOrder(ownLayers), expected)
+    ? ownLayers
+    : place(converted.map((child) => ({ ...child, zIndex: group.zIndex })));
   const children = elements.filter(
     (element): element is LeafElement =>
       element.type !== 'group' && converted.some((child) => child.id === element.id),
