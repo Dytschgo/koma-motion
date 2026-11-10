@@ -219,6 +219,10 @@ test('groups selected elements, ungroups them, and keeps groups through undo, re
 
   await answerOpenDialog(application, source);
   await chooseProjectCommand(window, 'Open');
+  // The canvas looks the same before and after the reopen, so it cannot tell
+  // when the reopen is done. Opening a project closes the properties panel:
+  // wait for that, or the panel shown below is closed again under the test.
+  await expect(inspector).toBeHidden();
   await expect(stage().locator('[data-element-id]')).toHaveCount(2);
   await expect(stage().locator(`[data-element-id="${group.id}"]`)).toBeVisible();
   await showInspector(window);

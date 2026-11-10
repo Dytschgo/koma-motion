@@ -54,6 +54,45 @@ describe('private crash recovery snapshots', () => {
     expect(await lstat(file)).toBeDefined();
   });
 
+  it('offers the snapshot again when the page of a running session was lost', async () => {
+    const { directory, service } = await setup();
+    const source = join(directory, 'original.koma');
+    const sessionId = await service.activate(project, source);
+    // A capture that was admitted before the page was lost still reaches the disk.
+    const capture = service.capture({ sessionId, revision: 1, project: edited, dirty: true });
+    const reopened = service.reopen();
+    expect(await capture).toEqual({ status: 'stored' });
+    await reopened;
+    expect(await service.offer()).toMatchObject({ status: 'available', name: edited.name });
+    await expect(service.assertResolved()).rejects.toThrow('Recover or discard');
+    // The lost page's session cannot write any more.
+    expect(await service.capture({ sessionId, revision: 2, project, dirty: true })).toEqual({
+      status: 'stale',
+    });
+    const restored = await service.restore();
+    expect(restored.project).toEqual(edited);
+    expect(restored.sourcePath).toBe(source);
+    expect(restored.sessionId).not.toBe(sessionId);
+    // A second loss before the next capture offers the same record again.
+    await service.reopen();
+    expect(await service.offer()).toMatchObject({ status: 'available', name: edited.name });
+    await service.discardPending();
+    expect(await service.offer()).toEqual({ status: 'none' });
+  });
+
+  it('has nothing to offer after a lost page without unsaved changes', async () => {
+    const { service, file } = await setup();
+    const sessionId = await service.activate(project, null);
+    await service.reopen();
+    expect(await service.offer()).toEqual({ status: 'none' });
+    await expect(lstat(file)).rejects.toThrow();
+    const next = await service.activate(project, null);
+    expect(next).not.toBe(sessionId);
+    expect(
+      await service.capture({ sessionId: next, revision: 1, project: edited, dirty: true }),
+    ).toEqual({ status: 'stored' });
+  });
+
   it('does not clear a snapshot for an unverified clean claim or a failed save', async () => {
     const { service, directory } = await setup();
     const sessionId = await service.activate(project, null);

@@ -120,6 +120,7 @@ export async function openProject(
   window: BrowserWindow,
   session: ProjectSession,
 ): Promise<IpcResponse<'koma:project:open'>> {
+  const sessionId = session.sessionId;
   const selection = await dialog.showOpenDialog(window, {
     title: 'Open project',
     filters: FILE_FILTERS,
@@ -142,6 +143,12 @@ export async function openProject(
       message: `This project could not be opened. ${reason} The original file was not changed. Try opening it again, restore a backup, or inspect the diagnostics.`,
       diagnostics: `${loaded.error.code}: ${loaded.error.message}`,
     };
+  }
+  // The page that asked is gone when its window lost it while the dialog was
+  // open. The page that replaced it does not hold this project, so the
+  // session must not name its file.
+  if (session.sessionId !== sessionId) {
+    return { status: 'cancelled' };
   }
   replaceOpenProject(session);
   session.filePath = filePath;

@@ -8,6 +8,24 @@ changes to the project format.
 
 ## [Unreleased]
 
+### Added
+
+- A window that stops working no longer stays blank. After an error in the
+  interface, a screen offers to reload the window. When the process of the
+  window crashes or stops responding, Koma Motion asks whether to reload it
+  or quit. Each reload ends at the existing recovery offer for unsaved changes.
+- A diagnostics log in the data folder of the application records the
+  version, crashes, errors, update events and failed provider runs. Settings >
+  About can copy it or open its folder. It does not record projects, requests
+  or reference text, is limited to about 1 MiB, and is never sent anywhere.
+  See `docs/DIAGNOSTICS.md`.
+
+### Changed
+
+- An unexpected error in the main process now closes Koma Motion with an
+  explanation instead of letting it continue in an unknown state. Unsaved
+  changes are offered for recovery at the next start.
+
 ## [0.3.0] - 2026-11-05
 
 ### Changed

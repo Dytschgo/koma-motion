@@ -11,6 +11,14 @@ let revision = 0;
 let lastWrite: Promise<void> = Promise.resolve();
 let following = false;
 
+/**
+ * Resolves when the capture that was already sent has been answered. Sends
+ * nothing new and never rejects.
+ */
+export function settleRecovery(): Promise<void> {
+  return lastWrite;
+}
+
 /** Awaitable latest-document flush; reports failures without pretending the snapshot was stored. */
 export function flushRecovery(): Promise<void> {
   clearTimeout(timer);

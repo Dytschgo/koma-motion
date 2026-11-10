@@ -20,6 +20,7 @@ const ipcHandlers = vi.hoisted(
   () => new Map<string, (event: IpcMainInvokeEvent, payload: unknown) => Promise<unknown>>(),
 );
 const templateLocation = vi.hoisted(() => ({ directory: '' }));
+const copied = vi.hoisted(() => [] as string[]);
 const dialogs = vi.hoisted(() => ({
   showOpenDialog: vi.fn(() => Promise.resolve({ canceled: true, filePaths: [] as string[] })),
   showSaveDialog: vi.fn(() => Promise.resolve({ canceled: true, filePath: '' })),
@@ -50,6 +51,11 @@ vi.mock('electron', () => ({
   },
   shell: {
     openExternal: () => Promise.resolve(),
+  },
+  clipboard: {
+    writeText: (text: string) => {
+      copied.push(text);
+    },
   },
 }));
 
@@ -405,6 +411,79 @@ describe('presentation full screen', () => {
         'Invalid request',
       );
     }
+  });
+});
+
+describe('diagnostics IPC', () => {
+  afterEach(() => {
+    copied.length = 0;
+    for (const registration of registrations.splice(0)) {
+      registration.dispose();
+    }
+  });
+
+  const report = {
+    kind: 'render',
+    name: 'TypeError',
+    stack: 'at App (x.js:1:1)',
+    componentStack: '',
+  };
+
+  it('accepts a bounded error report and nothing else on that channel', async () => {
+    const { event, invoke } = openHandlers();
+    await expect(invoke('koma:diagnostics:report', event, report)).resolves.toEqual({});
+    for (const payload of [
+      {},
+      { ...report, message: 'The text of the error' },
+      { ...report, filePath: 'C:/anywhere' },
+      { ...report, kind: 'main' },
+      { ...report, stack: 'x'.repeat(4001) },
+      { ...report, name: 7 },
+    ]) {
+      await expect(invoke('koma:diagnostics:report', event, payload)).rejects.toThrow(
+        'Invalid request for koma:diagnostics:report',
+      );
+    }
+    await expect(
+      invoke('koma:diagnostics:report', { ...event, senderFrame: null }, report),
+    ).rejects.toThrow('Request rejected');
+  });
+
+  it('copies version and platform without accepting or returning any text', async () => {
+    const { event, invoke } = openHandlers();
+    await expect(invoke('koma:diagnostics:copy', event, {})).resolves.toEqual({ status: 'done' });
+    expect(copied).toHaveLength(1);
+    expect(copied[0]).toContain('Koma Motion diagnostics\nversion: 0.0.0-test\n');
+    for (const payload of [{ text: 'anything' }, { path: 'C:/anywhere' }]) {
+      await expect(invoke('koma:diagnostics:copy', event, payload)).rejects.toThrow(
+        'Invalid request',
+      );
+      await expect(invoke('koma:diagnostics:open-folder', event, payload)).rejects.toThrow(
+        'Invalid request',
+      );
+    }
+    await expect(
+      invoke('koma:diagnostics:copy', { ...event, senderFrame: null }, {}),
+    ).rejects.toThrow('Request rejected');
+    expect(copied).toHaveLength(1);
+  });
+
+  it('limits how often the window can write the clipboard', async () => {
+    const { event, invoke } = openHandlers();
+    for (let index = 0; index < 5; index += 1) {
+      await expect(invoke('koma:diagnostics:copy', event, {})).resolves.toEqual({ status: 'done' });
+    }
+    await expect(invoke('koma:diagnostics:copy', event, {})).resolves.toMatchObject({
+      status: 'failed',
+    });
+    expect(copied).toHaveLength(5);
+  });
+
+  it('reports that the folder cannot be opened while there is no log', async () => {
+    const { event, invoke } = openHandlers();
+    await expect(invoke('koma:diagnostics:open-folder', event, {})).resolves.toMatchObject({
+      status: 'failed',
+    });
   });
 });
 
