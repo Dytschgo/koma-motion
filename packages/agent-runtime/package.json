@@ -17,6 +17,6 @@
     "@koma-motion/brand-kit": "workspace:*",
     "@koma-motion/core": "workspace:*",
     "@koma-motion/motion-engine": "workspace:*",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   }
 }

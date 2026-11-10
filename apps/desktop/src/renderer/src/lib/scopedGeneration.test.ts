@@ -14,6 +14,7 @@ import { useAgentStore } from '../state/agentStore';
 import { changeKomaDetails, deleteKoma } from '../state/commands';
 import { selectProject, useProjectStore } from '../state/projectStore';
 import { acceptScopedProposal, discardScopedProposal, generate } from './agentActions';
+import { scopedSnapshotIssue } from '../state/scopedGeneration';
 import { invoke } from './api';
 
 vi.mock('./api', () => ({ invoke: vi.fn() }));
@@ -106,6 +107,52 @@ beforeEach(() => {
   });
   useProjectStore.getState().load(initial, null);
   vi.mocked(invoke).mockResolvedValue(outcome());
+});
+
+describe('selected proposal snapshot', () => {
+  const image: ImageElement = {
+    ...buildShape({ id: 'target-image', persistentId: 'picture' }),
+    type: 'image',
+    content: { assetId: asset.id, altText: 'Shared' },
+    style: { fit: 'contain', cornerRadius: 0 },
+  };
+  const pictured = buildKoma({ id: 'pictured', elements: [image] });
+  const proposal = { sessionId: 1, target: pictured, originalAssets: [asset] };
+  const projectWith = (koma: typeof pictured, assets: readonly AssetReference[]) =>
+    buildProject({
+      assets: [...assets],
+      presentation: buildPresentation({ komas: [koma], transitions: [] }),
+    });
+
+  it('accepts an equal target and image whose keys are in another order', () => {
+    const { id, ...komaRest } = pictured;
+    const sameKoma = { ...komaRest, id };
+    const { embeddedData, ...assetRest } = asset;
+    const sameAsset = { embeddedData, ...assetRest };
+    // The text differs, which the comparison this replaces read as a changed Koma and image.
+    expect(JSON.stringify(sameKoma)).not.toBe(JSON.stringify(pictured));
+    expect(JSON.stringify(sameAsset)).not.toBe(JSON.stringify(asset));
+    expect(scopedSnapshotIssue(proposal, projectWith(sameKoma, [sameAsset]), 1)).toBeNull();
+  });
+
+  it('still reports a changed target, a changed image and a removed image', () => {
+    expect(scopedSnapshotIssue(proposal, projectWith(pictured, [asset]), 1)).toBeNull();
+    expect(
+      scopedSnapshotIssue(proposal, projectWith({ ...pictured, title: 'Edited' }, [asset]), 1),
+    ).toMatch(/target Koma changed/);
+    expect(
+      scopedSnapshotIssue(
+        proposal,
+        projectWith(pictured, [
+          { ...asset, embeddedData: { encoding: 'base64', data: 'aGVsbG8h' } },
+        ]),
+        1,
+      ),
+    ).toMatch(/image used by this proposal changed/);
+    expect(scopedSnapshotIssue(proposal, projectWith(pictured, []), 1)).toMatch(
+      /image used by this proposal changed/,
+    );
+  });
 });
 
 describe('selected proposal ownership', () => {
