@@ -121,7 +121,7 @@ describe('project file session', () => {
         fileRevision: 'revision',
         warnings: [],
         migratedFrom: null,
-      }) as Awaited<ReturnType<typeof readProjectFile>>,
+      }),
     );
     const opening = openProject(window, session);
     // What the window does when its page is lost.
