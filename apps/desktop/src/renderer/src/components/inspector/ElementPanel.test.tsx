@@ -177,14 +177,12 @@ it('shows opacity in percent and stores it as a fraction', async () => {
   expect(stored('element-text').opacity).toBe(0.1);
 });
 
-// Known defect, pinned so its fix is noticed: `Field` hands its control
-// `aria-invalid: undefined`, and `NumberInput` spreads that over its own
-// value, so a number field inside a `Field` is never marked invalid. Change
-// this to `it` when the field reports its state.
-it.fails('marks a number field as invalid while its text is not a usable number', async () => {
+it('marks a number field as invalid while its text is not a usable number, and clears the mark', async () => {
   const { user } = open('element-text', [buildText()]);
   await user.clear(field('Width'));
   expect(field('Width').getAttribute('aria-invalid')).toBe('true');
+  await user.type(field('Width'), '300');
+  expect(field('Width').getAttribute('aria-invalid')).toBeNull();
 });
 
 it('rejects a colour that is not a hex value and stores a valid one', async () => {
