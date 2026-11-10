@@ -4,81 +4,23 @@ import {
   GrokCliProvider,
 } from '@koma-motion/agent-runtime/node';
 import {
-  GenerationRunner,
   MockAgentProvider,
   ProviderRegistry,
   type MockAgentProviderOptions,
-  type ProviderModelListing,
 } from '@koma-motion/agent-runtime';
-import { createRandomIdGenerator } from '@koma-motion/core';
-import { createExporters } from '@koma-motion/exporters';
-import {
-  app,
-  dialog,
-  ipcMain,
-  nativeImage,
-  type BrowserWindow,
-  type IpcMainInvokeEvent,
-} from 'electron';
-import { setTimeout as delay } from 'node:timers/promises';
-import { BRAND_PROFILE_FILE_EXTENSIONS, BrandProfileService } from '../services/brandProfile';
-import { DeckAnalysisService } from '../services/deckAnalysis';
-import {
-  ipcContract,
-  ipcEvents,
-  type IpcChannel,
-  type IpcEventChannel,
-  type IpcEventPayload,
-  type IpcResponse,
-} from '../../shared/ipc';
+import { app, ipcMain, type IpcMainInvokeEvent } from 'electron';
+import { ipcContract, ipcEvents } from '../../shared/ipc';
 import { observeIpc, registerDiagnosticsHandlers } from '../diagnostics';
-import { unavailableImageAssetIds } from '../services/imageValidation';
 import { isTrustedSender } from '../security';
-import type { BrandKitLibrary } from '../services/brandKitLibrary';
-import { createOutputBatcher } from '../services/outputBatcher';
-import { generatePresentation, regenerateTransition } from '../services/generation';
-import { selectLogo } from '../services/logo';
-import { exportPowerPoint, validatePowerPoint } from '../services/powerPointExport';
-import { selectReferenceFiles } from '../services/referenceFiles';
-import { InstructionTemplateLibrary } from '../services/instructionTemplates';
-import {
-  canCompleteSaveAndClose,
-  createNewProject,
-  replaceOpenProject,
-  openProject,
-  saveProject,
-  saveProjectAs,
-  type ProjectSession,
-} from '../services/projectFiles';
-import type { UpdateService } from '../updates/service';
-import type { Handler } from './handle';
+import type { HandleChannel, Handler } from './handle';
+import { registerApplicationHandlers } from './handlers/application';
+import { registerBrandHandlers } from './handlers/brand';
+import { registerProjectHandlers } from './handlers/project';
+import { registerProviderHandlers } from './handlers/providers';
+import type { SendEvent, WindowContext } from './handlers/scope';
 import { limitProjectPersistence, rejectedRequestMessage } from './persistence';
 
-export interface WindowContext {
-  readonly window: BrowserWindow;
-  readonly session: ProjectSession;
-  readonly updates: UpdateService;
-  /** Saved Brand Kits of this computer, shared by every project. */
-  readonly brandKits: BrandKitLibrary;
-  /** Closes the window without asking about unsaved changes again. */
-  closeConfirmed(): void;
-  /** Called when the unsaved state or the file of the project changes. */
-  projectStateChanged(): void;
-}
-
-// App scope, including across project/window replacement. Paths never come from the renderer.
-const instructionTemplates = new InstructionTemplateLibrary(() => app.getPath('userData'));
-
-function getPlatform(): IpcResponse<'koma:app:get-info'>['platform'] {
-  switch (process.platform) {
-    case 'win32':
-      return 'windows';
-    case 'darwin':
-      return 'macos';
-    default:
-      return 'other';
-  }
-}
+export type { WindowContext } from './handlers/scope';
 
 /**
  * Test settings of the mock provider for builds that are not packaged:
@@ -97,35 +39,29 @@ export function readMockOptions(environment: NodeJS.ProcessEnv): MockAgentProvid
 /**
  * Registers the handlers of every channel in the contract. Requests from
  * unexpected senders and requests that do not match their schema are rejected
- * before a handler runs.
+ * before a handler runs. The handlers themselves are in `handlers/`, one
+ * module per feature.
  */
 export function registerHandlers(context: WindowContext): {
   /** Stops generations and analyses, for a window that lost its page. */
   cancelWork(): void;
   dispose(): void;
 } {
-  const { window, session } = context;
+  const { window } = context;
   const registry = new ProviderRegistry([
     new MockAgentProvider(app.isPackaged ? {} : readMockOptions(process.env)),
     new ClaudeCodeProvider(),
     new CodexCliProvider(),
     new GrokCliProvider(),
   ]);
-  const runner = new GenerationRunner({ registry });
-  const imageExecutions = new Map<string, AbortController>();
-  const cancelAllGenerations = (): void => {
-    runner.cancelAll();
-    for (const controller of imageExecutions.values()) controller.abort();
-  };
-  const idGenerator = createRandomIdGenerator();
 
-  const send = <C extends IpcEventChannel>(channel: C, payload: IpcEventPayload<C>): void => {
+  const send: SendEvent = (channel, payload) => {
     if (!window.isDestroyed()) {
       window.webContents.send(channel, ipcEvents[channel].parse(payload));
     }
   };
 
-  const handle = <C extends IpcChannel>(channel: C, handler: Handler<C>): void => {
+  const handle: HandleChannel = (channel, handler) => {
     const listener = async (event: IpcMainInvokeEvent, payload: unknown): Promise<unknown> => {
       if (!isTrustedSender(event, window.webContents)) {
         throw new Error('Request rejected');
@@ -136,44 +72,23 @@ export function registerHandlers(context: WindowContext): {
       if (!request.success) {
         throw new Error(rejectedRequestMessage(channel, request.error.issues));
       }
-      const response = await handler(request.data as Parameters<Handler<C>>[0]);
+      const response = await handler(request.data as Parameters<Handler<typeof channel>>[0]);
       return ipcContract[channel].response.parse(response);
     };
     ipcMain.handle(channel, observeIpc(channel, listener));
   };
-  registerDiagnosticsHandlers(handle);
 
-  const decks = new DeckAnalysisService({
-    registry,
-    library: context.brandKits,
-    allowMock: !app.isPackaged,
-    progress: (event) => send('koma:deck:progress', event),
-    select: async () => {
-      const result = await dialog.showOpenDialog(window, {
-        title: 'Create Brand Kit from deck',
-        filters: [{ name: 'Presentation decks', extensions: ['pptx', 'pdf'] }],
-        properties: ['openFile'],
-      });
-      return result.canceled ? null : (result.filePaths[0] ?? null);
-    },
-  });
-  const profiles = new BrandProfileService({
-    registry,
-    library: context.brandKits,
-    allowMock: !app.isPackaged,
-    progress: (event) => send('koma:brand-profile:progress', event),
-    // The only source of paths. They stay in the main process.
-    select: async () => {
-      const result = await dialog.showOpenDialog(window, {
-        title: 'Attach brand material',
-        filters: [
-          { name: 'Images, PDF and PowerPoint', extensions: [...BRAND_PROFILE_FILE_EXTENSIONS] },
-        ],
-        properties: ['openFile', 'multiSelections'],
-      });
-      return result.canceled || result.filePaths.length === 0 ? null : result.filePaths;
-    },
-  });
+  registerDiagnosticsHandlers(handle);
+  const brand = registerBrandHandlers({ context, handle, send, registry });
+  const providers = registerProviderHandlers({ handle, send, registry });
+  const cancelWork = (): void => {
+    void brand.cancel();
+    providers.cancelAll();
+  };
+  registerProjectHandlers({ context, handle, cancelWork });
+  registerApplicationHandlers({ context, handle });
+
+  // Analyses end their helper processes before the application quits.
   let shuttingDown = false;
   let shutdownComplete = false;
   const beforeQuit = (event: Electron.Event): void => {
@@ -181,359 +96,18 @@ export function registerHandlers(context: WindowContext): {
     event.preventDefault();
     if (shuttingDown) return;
     shuttingDown = true;
-    void Promise.all([decks.cancel(), profiles.cancel()]).finally(() => {
+    void brand.cancel().finally(() => {
       shutdownComplete = true;
       app.quit();
     });
   };
   app.on('before-quit', beforeQuit);
-  handle('koma:deck:capabilities', async () => ({
-    allowMock: !app.isPackaged,
-    claude: await registry.get('claude-code')!.detect(),
-  }));
-  handle('koma:deck:prepare', ({ sessionId }) => decks.prepare(sessionId));
-  handle('koma:deck:analyze', ({ sessionId, provider }) => decks.analyze(sessionId, provider));
-  handle('koma:deck:cancel', async ({ sessionId }) => {
-    await decks.cancel(sessionId);
-    return {};
-  });
-  handle('koma:deck:save', ({ sessionId, name, brandKit, logoCandidateId }) =>
-    decks.save(sessionId, name, brandKit, logoCandidateId),
-  );
-
-  handle('koma:brand-profile:attach', ({ sessionId }) => profiles.attach(sessionId));
-  handle('koma:brand-profile:analyze', ({ sessionId, provider }) =>
-    profiles.analyze(sessionId, provider),
-  );
-  handle('koma:brand-profile:cancel', async ({ sessionId, scope }) => {
-    await (scope === 'analysis' ? profiles.stopAnalysis(sessionId) : profiles.cancel(sessionId));
-    return {};
-  });
-  handle('koma:brand-profile:save', ({ sessionId, ...reviewed }) =>
-    profiles.save(sessionId, reviewed),
-  );
-
-  handle('koma:recovery:offer', () => session.recovery?.offer() ?? { status: 'none' });
-  handle(
-    'koma:recovery:capture',
-    (request) => session.recovery?.capture(request) ?? { status: 'stale' },
-  );
-  handle('koma:recovery:discard', async () => {
-    try {
-      await session.recovery?.discardPending();
-      return { status: 'done' };
-    } catch {
-      return {
-        status: 'failed',
-        message: 'The recovery snapshot could not be discarded. Try again.',
-      };
-    }
-  });
-  handle('koma:recovery:restore', async () => {
-    try {
-      const record = await session.recovery?.restore();
-      if (!record) return { status: 'failed', message: 'No recovery snapshot is available.' };
-      replaceOpenProject(session);
-      session.recoveredSourcePath = record.sourcePath;
-      session.hasUnsavedChanges = true;
-      void decks.cancel();
-      void profiles.cancel();
-      cancelAllGenerations();
-      context.projectStateChanged();
-      return {
-        status: 'recovered',
-        project: record.project,
-        recoverySessionId: record.sessionId,
-        unavailableAssetIds: unavailableImageAssetIds(record.project.assets),
-      };
-    } catch {
-      return {
-        status: 'failed',
-        message:
-          'The recovery snapshot could not be restored. The original project was not changed.',
-      };
-    }
-  });
-
-  handle('koma:project:create', async ({ name }) => {
-    await session.recovery?.assertResolved();
-    void decks.cancel();
-    void profiles.cancel();
-    cancelAllGenerations();
-    const response = createNewProject(session, name, new Date());
-    const recoverySessionId = await session.recovery?.activate(response.project, null);
-    if (recoverySessionId) response.recoverySessionId = recoverySessionId;
-    context.projectStateChanged();
-    return response;
-  });
-
-  handle('koma:project:open', async () => {
-    await session.recovery?.assertResolved();
-    const response = await openProject(window, session);
-    if (response.status === 'opened') {
-      const recoverySessionId = await session.recovery?.activate(
-        response.project,
-        session.filePath,
-      );
-      if (recoverySessionId) response.recoverySessionId = recoverySessionId;
-      void decks.cancel();
-      void profiles.cancel();
-      cancelAllGenerations();
-    }
-    context.projectStateChanged();
-    return response;
-  });
-
-  handle('koma:project:save', async ({ project }) => {
-    const response = await saveProject(window, session, project, new Date());
-    context.projectStateChanged();
-    return response;
-  });
-
-  handle('koma:project:save-as', async ({ project, preserveOriginal }) => {
-    const response = await saveProjectAs(
-      window,
-      session,
-      project,
-      new Date(),
-      session.sessionId,
-      preserveOriginal,
-    );
-    context.projectStateChanged();
-    return response;
-  });
-
-  handle('koma:brand-kit:select-logo', () => selectLogo(window));
-  handle('koma:references:select', () => selectReferenceFiles(window));
-  handle('koma:export:validate', ({ project }) => validatePowerPoint(project));
-  handle('koma:export:powerpoint', ({ project, options }) =>
-    exportPowerPoint(window, project, options, () => session.sessionId),
-  );
-  handle('koma:project:select-image', () => selectLogo(window, 'Choose an image'));
-
-  handle('koma:instruction-templates:list', async () => {
-    try {
-      return { status: 'loaded', templates: await instructionTemplates.list() };
-    } catch {
-      return {
-        status: 'failed',
-        message:
-          'The template library could not be loaded. Your saved templates have not been changed. Retry after checking the app data folder.',
-      };
-    }
-  });
-
-  handle('koma:instruction-templates:change', async (action) => {
-    try {
-      return { status: 'saved', templates: await instructionTemplates.change(action) };
-    } catch {
-      return {
-        status: 'failed',
-        message:
-          'The template could not be saved. Your input has been kept. Reload the library and try again; check its limit of 100 templates and access to the app data folder.',
-      };
-    }
-  });
-
-  const { brandKits } = context;
-  handle('koma:brand-kits:list', () => brandKits.list());
-  handle('koma:brand-kits:create', (request) => brandKits.create(request));
-  handle('koma:brand-kits:update', ({ id, brandKit, logo }) =>
-    brandKits.update(id, { brandKit, logo }),
-  );
-  handle('koma:brand-kits:rename', ({ id, name }) => brandKits.rename(id, name));
-  handle('koma:brand-kits:duplicate', ({ id }) => brandKits.duplicate(id));
-  handle('koma:brand-kits:delete', ({ id }) => brandKits.remove(id));
-  handle('koma:brand-kits:load', ({ id }) => brandKits.load(id));
-  handle('koma:brand-kits:start-new', () => brandKits.startNew());
-
-  handle('koma:providers:detect', async () => ({ providers: await registry.detectAll() }));
-
-  // Listing starts a short CLI run. It is stopped when the window goes away.
-  const listing = new AbortController();
-  const pendingListings = new Map<string, Promise<ProviderModelListing>>();
-  handle('koma:providers:list-models', async ({ providerId }) => {
-    const provider = registry.get(providerId);
-    if (provider?.listModels === undefined) {
-      return { status: 'unsupported' as const };
-    }
-    const pending = pendingListings.get(providerId);
-    if (pending) return pending;
-    const request = provider
-      .listModels(listing.signal)
-      .finally(() => pendingListings.delete(providerId));
-    pendingListings.set(providerId, request);
-    return request;
-  });
-
-  handle('koma:providers:execute', async ({ executionId, providerId, project, input }) => {
-    if (imageExecutions.has(executionId)) throw new Error('This execution is already running.');
-    const controller = new AbortController();
-    imageExecutions.set(executionId, controller);
-    const signal =
-      project.agentConfiguration.timeoutSeconds === null
-        ? controller.signal
-        : AbortSignal.any([
-            controller.signal,
-            AbortSignal.timeout(project.agentConfiguration.timeoutSeconds * 1000),
-          ]);
-    const output = createOutputBatcher((event) => {
-      send('koma:providers:output', event);
-    });
-    try {
-      return await generatePresentation({
-        runner,
-        executionId,
-        providerId,
-        project,
-        input,
-        signal,
-        ...(!app.isPackaged && providerId === 'mock' && process.env['KOMA_MOCK_IMAGES']
-          ? {
-              generateImage: async (_prompt: string, imageSignal: AbortSignal) => {
-                await delay(1000, undefined, { signal: imageSignal });
-                if (process.env['KOMA_MOCK_IMAGES'] === 'failure')
-                  throw new Error('Mock image generation failed.');
-                return nativeImage
-                  .createFromBitmap(Buffer.alloc(32 * 32 * 4, 180), { width: 32, height: 32 })
-                  .toPNG();
-              },
-            }
-          : {}),
-        idGenerator,
-        now: () => new Date(),
-        onStatus: (status) => {
-          // Output written before a phase change is shown before that phase.
-          output.flush();
-          send('koma:providers:status', status);
-        },
-        onOutput: output.push,
-      });
-    } finally {
-      imageExecutions.delete(executionId);
-      // Nothing is sent after the outcome: the window ignores late output anyway.
-      output.close();
-    }
-  });
-
-  handle(
-    'koma:providers:regenerate-transition',
-    ({ executionId, providerId, project, transitionId }) =>
-      regenerateTransition({
-        runner,
-        executionId,
-        providerId,
-        project,
-        transitionId,
-        now: () => new Date(),
-        onStatus: (status) => {
-          send('koma:providers:status', status);
-        },
-      }),
-  );
-
-  handle('koma:providers:cancel', ({ executionId }) => {
-    const images = imageExecutions.get(executionId);
-    images?.abort();
-    return { cancelled: runner.cancel(executionId) || images !== undefined };
-  });
-
-  handle('koma:app:set-unsaved-changes', ({ hasUnsavedChanges }) => {
-    session.hasUnsavedChanges = hasUnsavedChanges;
-    context.projectStateChanged();
-    return {};
-  });
-
-  handle('koma:app:confirm-close', () => {
-    // Refuse when the project was replaced or still has edits the save did not include.
-    if (!canCompleteSaveAndClose(session)) {
-      return {};
-    }
-    session.saveAndCloseSessionId = null;
-    context.closeConfirmed();
-    return {};
-  });
-
-  // Set while a presentation made the window full screen: true when it was
-  // not full screen before, so ending the presentation gives it back.
-  let windowedBeforePresentation: boolean | null = null;
-  handle('koma:app:set-full-screen', ({ mode }) => {
-    if (mode === 'enter') {
-      windowedBeforePresentation ??= !window.isFullScreen();
-      window.setFullScreen(true);
-      return { fullScreen: true };
-    }
-    if (mode === 'leave') {
-      window.setFullScreen(false);
-      return { fullScreen: false };
-    }
-    const restore = windowedBeforePresentation === true;
-    windowedBeforePresentation = null;
-    if (restore) {
-      window.setFullScreen(false);
-    }
-    return { fullScreen: restore ? false : window.isFullScreen() };
-  });
-
-  /** Runs an update action and turns a failure into a message for the user. */
-  const act = async (
-    action: () => Promise<unknown>,
-  ): Promise<IpcResponse<'koma:updates:check'>> => {
-    try {
-      await action();
-      return { status: 'done' };
-    } catch (error) {
-      return {
-        status: 'failed',
-        message: error instanceof Error ? error.message : 'The update action failed.',
-      };
-    }
-  };
-
-  handle('koma:updates:get-status', () => context.updates.getStatus());
-
-  handle('koma:updates:check', () => act(() => context.updates.check()));
-
-  handle('koma:updates:set-channel', ({ channel }) =>
-    act(() => context.updates.setChannel(channel)),
-  );
-
-  handle('koma:updates:download', () => act(() => context.updates.download()));
-
-  handle('koma:updates:copy-command', () => act(() => context.updates.copyCommand()));
-
-  handle('koma:updates:install', () =>
-    act(() => {
-      // Installing restarts the application. Unsaved work must not be lost to it.
-      if (session.hasUnsavedChanges) {
-        return Promise.reject(new Error('Save your project before you restart to install.'));
-      }
-      return context.updates.install();
-    }),
-  );
-
-  handle('koma:app:get-info', () => ({
-    version: app.getVersion(),
-    platform: getPlatform(),
-    exporters: createExporters().map((exporter) => ({
-      id: exporter.id,
-      displayName: exporter.displayName,
-      available: exporter.availability.status === 'available',
-      note: exporter.availability.status === 'available' ? '' : exporter.availability.reason,
-    })),
-  }));
 
   return {
-    cancelWork() {
-      void decks.cancel();
-      void profiles.cancel();
-      cancelAllGenerations();
-    },
+    cancelWork,
     dispose() {
-      void decks.cancel();
-      void profiles.cancel();
-      cancelAllGenerations();
-      listing.abort();
+      void brand.cancel();
+      providers.dispose();
       for (const channel of Object.keys(ipcContract)) {
         ipcMain.removeHandler(channel);
       }
