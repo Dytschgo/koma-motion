@@ -1,10 +1,11 @@
 import { basename, join } from 'node:path';
 import { app, BrowserWindow, dialog, Menu, type MenuItemConstructorOptions } from 'electron';
 import { ipcEvents } from '../shared/ipc';
+import { superviseWindow } from './crash/windowSupervisor';
 import { registerHandlers } from './ipc/registerHandlers';
 import { APP_URL, hardenWebContents } from './security';
 import type { BrandKitLibrary } from './services/brandKitLibrary';
-import { createProjectSession } from './services/projectFiles';
+import { createProjectSession, replaceOpenProject } from './services/projectFiles';
 import { finishCleanClose, finishDiscardClose } from './services/projectClose';
 import { RecoveryService } from './services/recovery';
 import type { UpdateService } from './updates/service';
@@ -100,6 +101,17 @@ export function createMainWindow(
       window.close();
     },
     projectStateChanged: updateTitle,
+  });
+
+  superviseWindow({
+    window,
+    pageLost: () => {
+      handlers.cancelWork();
+      replaceOpenProject(session);
+      void recovery.reopen();
+      updateTitle();
+    },
+    flush: () => recovery.flush(),
   });
 
   // The title is managed here, not by the page.

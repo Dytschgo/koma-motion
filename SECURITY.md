@@ -127,6 +127,29 @@ by itself, and it does so for updates only.
 - The window cannot name a release, a manifest or an installer. Its update
   requests carry a channel name and nothing else.
 
+### Diagnostics log
+
+The main process keeps a log of failures in the private data folder of the
+application (`logs/koma-motion.log`, at most about 1 MiB in two files). It is
+never sent anywhere; the user can copy it or open its folder from Settings.
+
+- It records the version and platform, starts, window crashes, errors of the
+  main process, update events, IPC requests that failed and provider runs
+  that failed.
+- It does not record IPC requests or responses, so projects, prompts,
+  reference text, brand material and images do not reach it. For a failed
+  provider run it keeps the provider, the error code and exit codes, not the
+  output of the provider.
+- The window is untrusted and holds the project. It can report the class and
+  call sites of its own errors through a validated, length-capped and
+  rate-limited channel that has no field for a message. It cannot read the
+  log, and no channel accepts a path.
+- Text is redacted for common credential formats. File paths outside the
+  application and its data folder are reduced to their extension, because a
+  path names the user and often the subject of a project.
+
+See [Failure handling and the diagnostics log](docs/DIAGNOSTICS.md).
+
 ## Known limitations
 
 ### Deck analysis
@@ -181,3 +204,8 @@ See [the complete limits and privacy behavior](docs/BRAND_KIT_FROM_DECK.md).
   their behaviour.
 - The redaction of diagnostics is pattern-based and cannot guarantee removal
   of every secret, prompt or environment value from arbitrary stderr.
+- The diagnostics log keeps the message of an error of the main process after
+  the same pattern-based redaction and path reduction. Such a message could
+  quote a value. A path without quotes that contains spaces is cut to the end
+  of its line, and text that does not look like a path is not recognised as
+  one. Read the log before sharing it.

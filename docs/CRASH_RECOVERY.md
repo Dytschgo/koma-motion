@@ -27,6 +27,19 @@ and Discard recovery remove the applicable record. Merely closing an unresolved
 startup offer preserves it. A damaged or oversized record blocks new work until
 explicit discard and never changes the original project.
 
+## A lost page while the application runs
+
+The same offer follows when only the page is lost: the renderer process
+crashed, the page stopped responding and was reloaded, or the interface failed
+to render and the user chose **Reload window**. The main process then ends the
+session of the lost page, lets captures that were already admitted finish, and
+reads the record from disk again. The reloaded page asks for the offer as it
+does at startup, and New and Open wait for the decision in the same way. After
+a render error, a capture that is already under way finishes, but the document
+is not captured again: the newest edit may be what could not be shown. Closing
+the window instead of reloading keeps the snapshot for the next start.
+See [Failure handling and the diagnostics log](DIAGNOSTICS.md).
+
 ## Storage and authority
 
 The main process owns `recovery/snapshot.json` in Electron's private user-data
@@ -44,7 +57,8 @@ main-issued epoch, even if the project id is unchanged. Captures must match that
 epoch and have a newer revision. Epochs, undo history and temporary UI state are
 not restored. No project-format change is needed.
 
-`recovery.spec.ts` exercises deliberate termination of its own Electron process,
+`crashHandling.spec.ts` exercises a crashed renderer and a render error in a
+running application. `recovery.spec.ts` exercises deliberate termination of its own Electron process,
 relaunch with the same isolated profile, explicit recovery, preview, assets,
 hold durations, source protection, saving/reopening a copy, normal discard,
 damaged records and retry after a write failure. Service and IPC tests cover

@@ -7,6 +7,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import {
   jobsCoverQuality,
+  retryAnnotations,
   selectCoveringRun,
   summarizePlaywrightReport,
   qualityJobNames,
@@ -336,4 +337,103 @@ test('report summaries identify retries and intentional skips, including nested 
     () => summarizePlaywrightReport({ suites: [{ specs: [{ tests: [{ status: 'unknown' }] }] }] }),
     /Unknown Playwright/,
   );
+});
+
+test('a pass that needed a retry is a marked warning in the summary and an annotation on the run', async () => {
+  const workspace = join(tmpdir(), 'koma-workspace');
+  const retriedTest = {
+    status: 'flaky',
+    results: [
+      { retry: 0, status: 'timedOut' },
+      { retry: 1, status: 'passed' },
+    ],
+  };
+  const report = {
+    config: { rootDir: join(workspace, 'apps', 'desktop', 'e2e') },
+    suites: [
+      {
+        title: 'recovery.spec.ts',
+        specs: [
+          {
+            title: 'offers 100%, edits: images\nand holds',
+            file: 'recovery.spec.ts',
+            line: 94,
+            tests: [retriedTest],
+          },
+          {
+            title: 'first pass',
+            file: 'recovery.spec.ts',
+            line: 152,
+            tests: [{ status: 'expected', results: [{ retry: 0, status: 'passed' }] }],
+          },
+          {
+            title: 'failed twice',
+            file: 'recovery.spec.ts',
+            line: 163,
+            tests: [
+              {
+                status: 'unexpected',
+                results: [
+                  { retry: 0, status: 'failed' },
+                  { retry: 1, status: 'failed' },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  const summary = summarizePlaywrightReport(report, workspace);
+  assert.match(summary, /#### Warning: passed only on retry \(1\)/);
+  assert.match(
+    summary,
+    /- `apps\/desktop\/e2e\/recovery\.spec\.ts:94` recovery\.spec\.ts › offers 100%, edits: images and holds \(attempt 1: timedOut, attempt 2: passed\)/,
+  );
+  // The warning comes before the full list, and a failure is not reported as a retried pass.
+  assert.ok(summary.indexOf('#### Warning') < summary.indexOf('- flaky:'));
+  assert.equal(summary.match(/failed twice/g)?.length, 1);
+
+  // A message keeps its commas and colons; a property must escape them.
+  assert.deepEqual(retryAnnotations(report, workspace), [
+    '::warning file=apps/desktop/e2e/recovery.spec.ts,line=94,title=Test passed only on retry::' +
+      'recovery.spec.ts › offers 100%25, edits: images and holds (attempt 1: timedOut, attempt 2: passed). ' +
+      'The retry hid an intermittent failure. See the job summary and the trace in the test results artifact.',
+  ]);
+
+  // Without a known location the warning is still raised, on the run alone.
+  const unplaced = retryAnnotations({ suites: report.suites }, workspace);
+  assert.equal(unplaced.length, 1);
+  assert.match(unplaced[0], /^::warning title=Test passed only on retry::recovery\.spec\.ts › /);
+  assert.deepEqual(retryAnnotations(report, join(workspace, 'elsewhere')).length, 1);
+  assert.doesNotMatch(retryAnnotations(report, join(workspace, 'elsewhere'))[0], /file=/);
+
+  // A run without a retried pass says nothing extra.
+  const quiet = { suites: [{ specs: [report.suites[0].specs[1]] }] };
+  assert.doesNotMatch(summarizePlaywrightReport(quiet, workspace), /Warning/);
+  assert.deepEqual(retryAnnotations(quiet, workspace), []);
+
+  // The command prints the annotation for the runner and keeps it out of the summary file.
+  const directory = await mkdtemp(join(tmpdir(), 'koma-ci-retry-'));
+  try {
+    const file = join(directory, 'report.json');
+    const summaryFile = join(directory, 'summary.md');
+    await writeFile(file, JSON.stringify(report));
+    const result = spawnSync(
+      process.execPath,
+      [join(scripts, 'ci-quality.mjs'), 'summarize-report', file],
+      {
+        encoding: 'utf8',
+        env: { ...process.env, GITHUB_STEP_SUMMARY: summaryFile, GITHUB_WORKSPACE: workspace },
+      },
+    );
+    assert.equal(result.status, 0);
+    const written = await readFile(summaryFile, 'utf8');
+    assert.equal(written, summary);
+    assert.doesNotMatch(written, /::warning/);
+    assert.equal(result.stdout, `${summary}${retryAnnotations(report, workspace)[0]}\n`);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
 });

@@ -34,14 +34,28 @@ pnpm dev
 Run all checks before you open a pull request:
 
 ```sh
+pnpm format:check
 pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build
 ```
 
-`pnpm check` runs the four commands in sequence. `pnpm test:e2e` runs the
-application-level workflow test against the built application.
+`pnpm check` runs the five commands in sequence. `pnpm format` fixes what
+`pnpm format:check` reports. `pnpm test:e2e` runs the application-level
+workflow test against the built application.
+
+`pnpm test:coverage` runs the unit tests with coverage, prints a table and
+writes a browsable report to `coverage/`. It fails when coverage falls below
+the thresholds in `vitest.config.ts`, which sit a few points under the
+measured baseline. CI runs it on Windows and macOS.
+
+Unit tests end in `.test.ts`. Tests that render a component end in `.test.tsx`
+and start with `// @vitest-environment jsdom`.
+
+`pnpm lint` includes static accessibility rules for JSX
+(`eslint-plugin-jsx-a11y`). They do not replace testing with the keyboard and a
+screen reader.
 
 ## Project layout
 

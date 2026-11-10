@@ -165,6 +165,7 @@ export function CompactModelPicker({
                 Esc
               </kbd>
             </div>
+            {/* eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- the arrow keys bubble here from the model buttons inside the group. */}
             <div
               ref={list}
               role="group"
