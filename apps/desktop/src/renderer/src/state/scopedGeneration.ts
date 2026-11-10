@@ -1,6 +1,7 @@
 import { mergeSelectedKoma } from '@koma-motion/agent-runtime';
 import {
   flattenElements,
+  isStructurallyEqual,
   type Koma,
   type KomaProject,
   type AssetReference,
@@ -30,7 +31,7 @@ export function scopedSnapshotIssue(
   if (project === null || sessionId !== proposal.sessionId)
     return 'This proposal belongs to a previous project session. Generate again.';
   const current = project.presentation.komas.find((koma) => koma.id === proposal.target.id);
-  if (!current || JSON.stringify(current) !== JSON.stringify(proposal.target))
+  if (!current || !isStructurallyEqual(current, proposal.target))
     return 'The target Koma changed or was removed. Discard this proposal and generate again.';
   const relevant = new Set(
     [...flattenElements(proposal.target.elements), ...flattenElements(proposed.elements)].flatMap(
@@ -39,8 +40,10 @@ export function scopedSnapshotIssue(
   );
   for (const asset of proposal.originalAssets.filter((asset) => relevant.has(asset.id))) {
     if (
-      JSON.stringify(project.assets.find((candidate) => candidate.id === asset.id)) !==
-      JSON.stringify(asset)
+      !isStructurallyEqual(
+        project.assets.find((candidate) => candidate.id === asset.id),
+        asset,
+      )
     )
       return 'An image used by this proposal changed or was removed. Generate again with the current assets.';
   }
