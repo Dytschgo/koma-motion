@@ -13,6 +13,7 @@ import {
   createNewProject,
   createProjectSession,
   openProject,
+  replaceOpenProject,
   saveProject,
   saveProjectAs,
   type ProjectSession,
@@ -105,6 +106,31 @@ describe('project file session', () => {
     }
     expect(session).toEqual(before);
     expect(writeFile).not.toHaveBeenCalled();
+  });
+
+  it('does not open a project chosen after the page that asked was lost', async () => {
+    let choose: (selection: { canceled: boolean; filePaths: string[] }) => void = () => undefined;
+    showOpenDialog.mockReturnValue(
+      new Promise((resolve) => {
+        choose = resolve;
+      }),
+    );
+    vi.mocked(readProjectFile).mockResolvedValue(
+      ok({
+        project: buildProject(),
+        fileRevision: 'revision',
+        warnings: [],
+        migratedFrom: null,
+      }) as Awaited<ReturnType<typeof readProjectFile>>,
+    );
+    const opening = openProject(window, session);
+    // What the window does when its page is lost.
+    replaceOpenProject(session);
+    const afterLoss = { ...session };
+    choose({ canceled: false, filePaths: ['chosen.koma'] });
+    expect(await opening).toEqual({ status: 'cancelled' });
+    expect(session).toEqual(afterLoss);
+    expect(session.filePath).toBeNull();
   });
 
   it('refuses Save a Copy to the source file before any write', async () => {
