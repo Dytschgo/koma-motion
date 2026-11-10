@@ -161,6 +161,7 @@ function ToolbarPopover({
     };
   }, [anchor, onClose]);
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape bubbles here from the focused controls inside the popover.
     <div
       ref={surface}
       id={id}
@@ -515,6 +516,7 @@ export function ElementToolbar({
         onKeyDown={moveWithin}
       >
         {colour !== null && (
+          // eslint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 and exposed by Chromium; the rule's data stops at ARIA 1.2.
           <button
             ref={colourButton}
             type="button"

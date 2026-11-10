@@ -52,6 +52,7 @@ export function KomaContextMenu({
       ref={menu}
       role="menu"
       aria-label="Koma actions"
+      tabIndex={-1}
       className="koma-context-menu"
       style={{ insetInlineStart: position.x, insetBlockStart: position.y }}
       onContextMenu={(event) => event.preventDefault()}

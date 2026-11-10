@@ -336,6 +336,7 @@ export function Workspace({ project }: { readonly project: KomaProject }): React
       </div>
 
       {transportOpen && transportContext !== null && (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape bubbles here from the focused transport controls inside the group.
         <div
           ref={transportRef}
           role="group"

@@ -91,6 +91,7 @@ export function PropertiesPanel({
   );
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape bubbles here from the focused controls inside the panel.
     <div
       ref={panel}
       role="region"

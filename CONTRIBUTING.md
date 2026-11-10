@@ -53,6 +53,10 @@ measured baseline. CI runs it on Windows and macOS.
 Unit tests end in `.test.ts`. Tests that render a component end in `.test.tsx`
 and start with `// @vitest-environment jsdom`.
 
+`pnpm lint` includes static accessibility rules for JSX
+(`eslint-plugin-jsx-a11y`). They do not replace testing with the keyboard and a
+screen reader.
+
 ## Project layout
 
 [ARCHITECTURE.md](ARCHITECTURE.md) explains the packages and the direction in

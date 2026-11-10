@@ -134,6 +134,7 @@ export function ModelPicker({
           <div className="flex gap-2">
             <TextInput
               id={customId}
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- the field appears when the user chooses a custom model, so focus follows into it.
               autoFocus
               spellCheck={false}
               value={custom}

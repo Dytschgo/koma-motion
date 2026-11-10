@@ -127,6 +127,7 @@ function RenameForm({
         aria-describedby={empty ? messageId : undefined}
         value={name}
         maxLength={120}
+        // eslint-disable-next-line jsx-a11y/no-autofocus -- the form replaces the Rename button the user just pressed, so focus follows into it.
         autoFocus
         onChange={(event) => {
           setName(event.target.value);

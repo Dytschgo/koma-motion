@@ -34,6 +34,7 @@ function FailureScreen(): ReactElement {
         <div>
           <Button
             variant="primary"
+            // eslint-disable-next-line jsx-a11y/no-autofocus -- the screen replaces the whole interface, so focus moves to its one way forward.
             autoFocus
             disabled={reloading}
             onClick={() => {

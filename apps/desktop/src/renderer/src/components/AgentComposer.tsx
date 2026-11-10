@@ -171,6 +171,7 @@ export function AgentComposer({
     (detection === 'done' && !available);
 
   return (
+    // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape bubbles here from the focused controls inside; the form is not a control itself.
     <form
       ref={composer}
       className="prompt-composer"
@@ -196,6 +197,7 @@ export function AgentComposer({
         className="prompt-options"
       >
         <ReferenceAttachmentButton disabled={running} />
+        {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 and exposed by Chromium; the rule's data stops at ARIA 1.2. */}
         <button
           ref={modelButton}
           type="button"
@@ -235,6 +237,7 @@ export function AgentComposer({
           open={choice === 'brand'}
           onOpenChange={(next) => setChoice(next ? 'brand' : null)}
         />
+        {/* eslint-disable-next-line jsx-a11y/role-supports-aria-props -- aria-description is global in ARIA 1.3 and exposed by Chromium; the rule's data stops at ARIA 1.2. */}
         <button
           ref={countButton}
           disabled={running || scope === 'selected'}
@@ -430,6 +433,7 @@ export function AgentComposer({
       )}
 
       {choice === 'model' && (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape bubbles here from the focused controls inside the popover.
         <div
           ref={choicesPanel}
           id={modelChoicesId}
@@ -518,6 +522,7 @@ export function AgentComposer({
         </div>
       )}
       {choice === 'count' && (
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-element-interactions -- Escape bubbles here from the focused controls inside the popover.
         <div
           ref={choicesPanel}
           id={countChoicesId}
