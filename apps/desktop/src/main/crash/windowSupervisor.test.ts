@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import type { BrowserWindow, MessageBoxOptions } from 'electron';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { superviseWindow } from './windowSupervisor';
 
 const electron = vi.hoisted(() => ({
@@ -8,8 +8,11 @@ const electron = vi.hoisted(() => ({
     options: MessageBoxOptions;
     answer: (response: number) => void;
   }[],
-  appListeners: new Map<string, Set<() => void>>(),
+  appListeners: new Map<string, Set<(event?: unknown) => void>>(),
   quits: 0,
+  exits: 0,
+  /** A question that stays on the screen although it was withdrawn. */
+  stuck: false,
 }));
 const written = vi.hoisted(() => [] as { level: string; event: string; data: unknown }[]);
 
@@ -18,10 +21,13 @@ vi.mock('electron', () => ({
     quit: () => {
       electron.quits += 1;
     },
-    on: (name: string, listener: () => void) => {
+    exit: () => {
+      electron.exits += 1;
+    },
+    on: (name: string, listener: (event?: unknown) => void) => {
       electron.appListeners.set(name, (electron.appListeners.get(name) ?? new Set()).add(listener));
     },
-    off: (name: string, listener: () => void) => {
+    off: (name: string, listener: (event?: unknown) => void) => {
       electron.appListeners.get(name)?.delete(listener);
     },
   },
@@ -30,7 +36,9 @@ vi.mock('electron', () => ({
       new Promise<{ response: number }>((resolve) => {
         const answer = (response: number): void => resolve({ response });
         // Like Electron: an aborted question answers with its cancel button.
-        options.signal?.addEventListener('abort', () => answer(options.cancelId ?? 0));
+        options.signal?.addEventListener('abort', () => {
+          if (!electron.stuck) answer(options.cancelId ?? 0);
+        });
         electron.questions.push({ options, answer });
       }),
   },
@@ -80,7 +88,15 @@ beforeEach(() => {
   electron.questions.length = 0;
   electron.appListeners.clear();
   electron.quits = 0;
+  electron.exits = 0;
+  electron.stuck = false;
+  // The waits of a quit are stepped through; `settle` keeps using the real setImmediate.
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
   written.length = 0;
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('superviseWindow', () => {
@@ -158,11 +174,17 @@ describe('superviseWindow', () => {
     expect(window.destroy).toHaveBeenCalledOnce();
   });
 
-  it('ends the window of a lost page directly when the application quits during the question', async () => {
+  it('completes a quit during the question about a lost page: question, window, quit', async () => {
     const { contents, flush, lose, pageLost, settle, window } = setup();
     lose();
-    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    const event = { preventDefault: vi.fn() };
+    for (const listener of electron.appListeners.get('before-quit') ?? []) {
+      listener(event);
+    }
+    // This request stops, and nothing is ended while the question may still show.
+    expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(electron.questions[0]?.options.signal?.aborted).toBe(true);
+    expect(window.destroy).not.toHaveBeenCalled();
     await settle();
     await settle();
     // Not through the ordinary close, which a window with an open sheet ignores on macOS.
@@ -170,12 +192,57 @@ describe('superviseWindow', () => {
     expect(window.destroy).toHaveBeenCalledOnce();
     expect(contents.reload).not.toHaveBeenCalled();
     expect(pageLost).toHaveBeenCalledTimes(2);
-    // The closed window ends the quit; nothing asks for another one.
-    expect(electron.quits).toBe(0);
+    expect(electron.quits).toBe(1);
+    expect(electron.exits).toBe(0);
     expect(written).toContainEqual(
       expect.objectContaining({ event: 'window.quit-during-question', data: { about: 'gone' } }),
     );
+    expect(written).not.toContainEqual(expect.objectContaining({ event: 'window.question-stuck' }));
     expect(electron.appListeners.get('before-quit')?.size).toBe(0);
+  });
+
+  it('ends an application that is still running after its window was ended for a quit', async () => {
+    const { lose, settle } = setup();
+    lose();
+    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    await settle();
+    await settle();
+    expect(electron.exits).toBe(0);
+    vi.advanceTimersByTime(2999);
+    expect(electron.exits).toBe(0);
+    vi.advanceTimersByTime(1);
+    expect(electron.exits).toBe(1);
+    expect(written.at(-1)).toMatchObject({ level: 'warn', event: 'app.quit-forced' });
+  });
+
+  it('does not wait for ever for a withdrawn question that stays on the screen', async () => {
+    const { flush, lose, settle, window } = setup();
+    electron.stuck = true;
+    lose();
+    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    await settle();
+    await settle();
+    expect(window.destroy).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(2000);
+    await settle();
+    await settle();
+    expect(written).toContainEqual(
+      expect.objectContaining({ level: 'warn', event: 'window.question-stuck' }),
+    );
+    expect(flush).toHaveBeenCalledOnce();
+    expect(window.destroy).toHaveBeenCalledOnce();
+    expect(electron.quits).toBe(1);
+  });
+
+  it('completes only one quit when it is asked for twice during the question', async () => {
+    const { lose, settle, window } = setup();
+    lose();
+    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    for (const listener of electron.appListeners.get('before-quit') ?? []) listener();
+    await settle();
+    await settle();
+    expect(window.destroy).toHaveBeenCalledOnce();
+    expect(electron.quits).toBe(1);
   });
 
   it('asks to quit again once the question about a page that does not respond is gone', async () => {

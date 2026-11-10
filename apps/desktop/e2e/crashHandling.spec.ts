@@ -176,6 +176,11 @@ test('a crash question that nobody answers does not keep the application from cl
     app.quit();
   });
   await closed;
+  // The quit went the ordinary way: the question left the screen and nothing had to be forced.
+  const events = (await readLog()).map((entry) => entry['event']);
+  expect(events).toContain('window.quit-during-question');
+  expect(events).not.toContain('window.question-stuck');
+  expect(events).not.toContain('app.quit-forced');
   // The snapshot of the lost page is still there for the next start.
   const snapshot = await readFile(
     join(running.directory, 'user-data', 'recovery', 'snapshot.json'),

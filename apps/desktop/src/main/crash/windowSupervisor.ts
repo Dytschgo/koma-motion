@@ -20,6 +20,10 @@ import {
 const APPLICATION_NAME = 'Koma Motion';
 const RELOAD = 'Reload window';
 const QUIT = 'Quit Koma Motion';
+/** How long a quit waits for a withdrawn question to leave the screen. */
+const QUESTION_LEAVES_MS = 2000;
+/** How long the application may keep running after its window was ended for a quit. */
+const QUIT_GRACE_MS = 3000;
 
 export interface WindowSupervision {
   readonly window: BrowserWindow;
@@ -46,9 +50,13 @@ export function superviseWindow(supervision: WindowSupervision): void {
   let closed = false;
   /** The application was asked to quit while a question was showing. */
   let quitRequested = false;
+  /** Set once a quit during the question about a lost page is being completed. */
+  let endingForQuit = false;
   let question: {
     readonly about: 'gone' | 'unresponsive';
     readonly cancel: AbortController;
+    /** Resolves when the question has left the screen, however it ended. */
+    readonly left: Promise<void>;
   } | null = null;
 
   /** Shows one native question at a time. `null` when it was withdrawn. */
@@ -58,14 +66,27 @@ export function superviseWindow(supervision: WindowSupervision): void {
   ): Promise<number | null> => {
     question?.cancel.abort();
     const cancel = new AbortController();
-    question = { about, cancel };
+    let shown: Promise<{ response: number }>;
     try {
-      const { response } = await dialog.showMessageBox(window, {
+      shown = dialog.showMessageBox(window, {
         title: APPLICATION_NAME,
         noLink: true,
         ...options,
         signal: cancel.signal,
       });
+    } catch {
+      return null;
+    }
+    question = {
+      about,
+      cancel,
+      left: shown.then(
+        () => undefined,
+        () => undefined,
+      ),
+    };
+    try {
+      const { response } = await shown;
       return cancel.signal.aborted || closed || window.isDestroyed() ? null : response;
     } catch {
       return null;
@@ -193,27 +214,60 @@ export function superviseWindow(supervision: WindowSupervision): void {
     }
   });
 
+  /**
+   * Completes a quit that arrived during the question about a lost page. The
+   * page is gone, so there is nothing to ask before closing.
+   *
+   * The order matters on macOS, where the question is a sheet of the window:
+   * a window that shows a sheet ignores a request to close, and ending the
+   * window under an open sheet left the application running. So the quit
+   * waits until the question has left the screen, then the window is ended,
+   * then the quit is asked for again. If the application is still running
+   * after that, it is ended without further events: recovery writes are on
+   * disk by then, and a question nobody answers must not keep it open.
+   */
+  const endForQuit = async (left: Promise<void>): Promise<void> => {
+    let waiting: ReturnType<typeof setTimeout> | undefined;
+    const gone = await Promise.race([
+      left.then(() => true),
+      new Promise<boolean>((resolve) => {
+        waiting = setTimeout(() => resolve(false), QUESTION_LEAVES_MS);
+      }),
+    ]);
+    clearTimeout(waiting);
+    if (!gone) {
+      diagnostics.write('warn', 'window.question-stuck');
+    }
+    await quit();
+    setTimeout(() => {
+      diagnostics.write('warn', 'app.quit-forced');
+      app.exit(0);
+    }, QUIT_GRACE_MS).unref();
+    app.quit();
+  };
+
   // A question must not hold the application open while it quits.
-  const withdraw = (): void => {
-    if (question === null) {
+  const beforeQuit = (event?: { preventDefault(): void }): void => {
+    if (question === null || closed || endingForQuit) {
       return;
     }
-    const { about, cancel } = question;
+    const { about, cancel, left } = question;
     diagnostics.write('info', 'window.quit-during-question', { about });
-    quitRequested = true;
-    cancel.abort();
-    if (about === 'gone' && !closed) {
-      // The page is gone, so there is nothing to ask before closing. The
-      // window is ended directly instead of through its ordinary close: on
-      // macOS the question is a sheet, and a window that shows a sheet
-      // ignores a request to close. The last window closing ends the quit.
-      void quit();
+    if (about === 'gone') {
+      // This request to quit stops here and is repeated by `endForQuit`.
+      event?.preventDefault();
+      endingForQuit = true;
+      cancel.abort();
+      void endForQuit(left);
+    } else {
+      quitRequested = true;
+      cancel.abort();
     }
   };
-  app.on('before-quit', withdraw);
+  app.on('before-quit', beforeQuit);
   window.on('closed', () => {
     closed = true;
-    withdraw();
-    app.off('before-quit', withdraw);
+    question?.cancel.abort();
+    app.off('before-quit', beforeQuit);
   });
 }

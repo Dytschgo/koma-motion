@@ -44,6 +44,12 @@ Dismissing the question reloads, so an empty window is never left behind.
 Quitting from these questions does not ask to save: the page that could save
 is gone. Unsaved changes stay in the recovery snapshot for the next start.
 
+Quitting the application while the question about a lost renderer shows does
+not wait for an answer. The question is withdrawn, the window is ended once
+the question has left the screen (after two seconds at the latest), and the
+quit continues. If the application is still running three seconds later it is
+ended directly; the log then holds `app.quit-forced`.
+
 ### Why an uncaught exception ends the application
 
 The main process owns every file Koma Motion writes: projects, the Brand Kit
