@@ -45,7 +45,7 @@
     "@vitejs/plugin-react": "^6.1.1",
     "electron": "^44.4.5",
     "electron-builder": "^26.15.3",
-    "electron-updater": "6.8.9",
+    "electron-updater": "6.8.11",
     "fast-xml-parser": "^5.11.2",
     "image-size": "^2.0.4",
     "pdfjs-dist": "6.3.289",
