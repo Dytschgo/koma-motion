@@ -14,7 +14,7 @@
   "dependencies": {
     "@koma-motion/core": "workspace:*",
     "@koma-motion/motion-engine": "workspace:*",
-    "image-size": "^2.0.4",
+    "image-size": "^2.1.0",
     "jszip": "^3.10.2",
     "pptxgenjs": "^4.0.1"
   }
